@@ -1,0 +1,104 @@
+---
+layout: page
+status: publish
+published: true
+title: OVS Quantum Plugin Documentation
+author:
+  display_name: admin
+  login: admin
+  email: casado@nicira.com
+  url: ''
+author_login: admin
+author_email: casado@nicira.com
+wordpress_id: 580
+wordpress_url: http://openvswitch.org/?page_id=580
+date: !binary |-
+  MjAxMS0wOS0yNiAxMzo0OToyNCAtMDcwMA==
+date_gmt: !binary |-
+  MjAxMS0wOS0yNiAxNzo0OToyNCAtMDcwMA==
+categories: []
+tags: []
+comments: []
+---
+<p>This page documents the mechanisms to leverage Open vSwitch and Open vSwitch Plugin for OpenStack Quantum, in deploying OpenStack based Cloud enviroments using <strong><span style="color: #ff0000;">Essex</span></strong>. For documentation on deploying Quantum using Folsom see <a href="http://docs.openstack.org/trunk/openstack-network/admin/content/index.html">Quantum Administrator Guide.</a></p>
+<h1><strong>Background</strong></h1><br />
+The Quantum openvswitch plugin works as part of the OpenStack Quantum Virtual Network Service. &nbsp;This page is intended to supplement the main <a href="http://docs.openstack.org/incubation/openstack-network/admin/content/">Quantum Administrator Guide</a>. &nbsp;Please read that document first, and reference this page when it refers to "plugin-specific documentation".</p>
+<p>The Quantum Openvswitch plugin consists of two components:</p>
+<p>1) A <strong>plugin</strong> loaded at runtime by the Quantum service. &nbsp;The plugin processes all API calls and stores the resulting logical network data model and associated network mappings in a database backend .</p>
+<p>2) An <strong>agent</strong> which runs on each compute node (i.e., each node running nova-compute). This agent gathers the configuration and mappings from the central mysql database and communicates directly with the local Open vSwitch instance to configure flows to implement the logical data model.</p>
+<h1>Quantum Service Node Configuration</h1><br />
+The Quantum service should be run on a single server, often the same "controller" server that you run other centralized OpenStack components, like nova-scheduler, nova-api, and nova-network.</p>
+<h3><strong>Database Setup</strong></h3><br />
+A database instance must be accessible from the host running the Quantum Service and from all of the compute node hosts. &nbsp;These instructions assume a MySQL database, but any sqlalchemy database should work. &nbsp;For example:</p>
+<pre>sudo apt-get install&nbsp;mysql-server python-mysqldb&nbsp;python-sqlalchemy</pre><br />
+To prep the database and make sure any compute node running the OVS Quantum agent will be able to remotely access the MySQL database, run:</p>
+<p>$ mysql -u root -p</p>
+<pre>mysql> CREATE DATABASE ovs_quantum;<br />
+mysql> GRANT USAGE ON *.* to root@'yourremotehost' IDENTIFIED BY 'newpassword';<br />
+mysql> FLUSH PRIVILEGES;</pre></p>
+<h3>Editing the OVS Plugin Configuration File</h3><br />
+Edit the file etc/quantum/plugins/openvswitch/ovs_quantum_plugin.ini to match your mysql configuration. This file MUST be updated with an SQLAlchemy database URI that can be used to access the ovs_quantum database both locally and by &nbsp;agents on remote hosts (i.e., it cannot use the default "in-memory" sqlite database). &nbsp;For example, the string must be something like:&nbsp;<em>mysql</em>://root:nova@127.0.0.1:3306/<em>ovs_quantum . &nbsp;</em></p>
+<p><strong>NOTE:</strong> The database settings in this file will be used not only by the Quantum server, but also by the agents running on each compute note. &nbsp;Thus, the &nbsp;database IP address in the file should be reachable by all compute nodes.</p>
+<h3><strong>Selecting OVS as the Quantum Plugin</strong></h3><br />
+To select the Open vSwitch plugin, the Quantum service's etc/quantum/plugins.ini file should be modified to read:</p>
+<pre>provider = quantum.plugins.openvswitch.ovs_quantum_plugin.OVSQuantumPlugin</pre></p>
+<h1><strong>Nova Network Node Configuration&nbsp;</strong></h1><br />
+Make sure the nova.conf used when running nova-network and nova-manage contains:</p>
+<pre>network_manager=nova.network.quantum.manager.QuantumManager<br />
+linuxnet_interface_driver=nova.network.linux_net.LinuxOVSInterfaceDriver<br />
+linuxnet_ovs_integration_bridge=br-int</pre><br />
+<strong>Note:</strong>&nbsp;If nova-network is being used to provide L3 + NAT forwarding and or DHCP to Quantum networks, the host running nova-network must be configured in a way that resembles a hypervisor, since Quantum must "plug" linux devices from this host into Quantum networks in a way similar to how it plugs linux devices representing VM NICs into a Quantum network. &nbsp;Namely, you must install a database client, create and configure an integration bridge (e.g., br-int), and run the ovs_quantum_agent.py process. &nbsp;For details, you can follow the setup instructions below for "Libvirt Setup" (you may omit steps specific to libvirt, such as setting libvirt_* flags for Nova).</p>
+<p>See the <a href="http://docs.openstack.org/incubation/openstack-network/admin/content/">Quantum Administrator Guide</a> for information about other QuantumManager flags.</p>
+<h1><strong>Nova Compute Node Configuration&nbsp;</strong></h1><br />
+Locate the main OVS plugin directory, located at quantum/plugins/openvswitch . &nbsp;This directory is used in the instructions below.</p>
+<p>Open vSwitch must be installed &amp; enabled on each compute node host.</p>
+<p><strong>Libvirt Setup (KVM / QEMU):</strong></p>
+<p>Install the python DB client libraries:</p>
+<ul>
+<li>On Ubuntu: apt-get install python-mysqldb&nbsp;python-sqlalchemy</li>
+<li>On CentOS / RHEL : yum install MySQL-python&nbsp;sqlalchemy-python</li><br />
+</ul><br />
+Create an OVS "integration" bridge, to which all VMs will connect:</p>
+<pre>ovs-vsctl add-br br-int</pre><br />
+If your setup uses multiple physical hosts and the OVS plugin is using VLANs, each server running nova-compute or nova-network should have a NIC with no IP address connected to a network where all VLANs are trunked (details are specific to your switch manufacturer). &nbsp;This will be your "private" network. &nbsp; You must then add the NIC that connects the server to the private network (e.g., eth1) as a port on the integration bridge (br-int). &nbsp;For example:</p>
+<pre>ovs-vsctl add-port br-int eth1</pre><br />
+The nova.conf used by the nova-compute service should contain the following flags to ensure correct vif-plugging. &nbsp;If your integration bridge name is something other than "br-int", change the first flag listed below:</p>
+<pre>libvirt_ovs_bridge=br-int<br />
+libvirt_vif_type=ethernet<br />
+libvirt_vif_driver=nova.virt.libvirt.vif.LibvirtOpenVswitchDriver</pre><br />
+From within this main OVS plugin directory, copy agent/ovs_quantum_agent.py and ovs_quantum_plugin.ini from the Quantum source directory to each compute node (make sure ovs_quantum_plugin.ini has the correct name of the OVS integration bridge before copying).</p>
+<p>To start the agent, run:</p>
+<pre>$ python ovs_quantum_agent.py ovs_quantum_plugin.ini</pre><br />
+If you are using Red Hat / Fedora, or more recent versions of Ubuntu (Precise or newer), you will need to modify the cgroup_device_acl field in /etc/libvirt/qemu.conf to include "/dev/net/tun" as shown below and restart libvirt. Otherwise VMs will fail to boot with the message "'tap' could not be initialized" in the nova-compute log.</p>
+<pre>cgroup_device_acl = [<br />
+    "/dev/null", "/dev/full", "/dev/zero",<br />
+    "/dev/random", "/dev/urandom",<br />
+    "/dev/ptmx", "/dev/kvm", "/dev/kqemu",<br />
+    "/dev/rtc", "/dev/hpet","/dev/net/tun",<br />
+]</pre><br />
+<strong>XenServer Setup:</strong></p>
+<p>Create the agent distribution tarball by invoking the following command from the OVS plugin directory (quantum/plugins/openvswitch):</p>
+<pre>$ make agent-dist</pre><br />
+Copy the resulting tarball to each XenServer(s) Dom0 (not the service VM running the nova-compute process).</p>
+<p>On XenServer dom0, install the python MySQL client libraries, run:</p>
+<pre>yum --enablerepo=base -y install MySQL-python sqlalchemy-python</pre><br />
+Unpack the tarball, cd into the untarred directory, and run:</p>
+<pre>$ ./xenserver_install.sh</pre><br />
+This will install all of the necessary pieces into /etc/xapi.d/plugins and create a new "integration bridge" on your host.</p>
+<p><em>NOTE: On XenServer the integration bridge will have a name like "xapi1" or "xapi2". &nbsp;Make sure to update</em>&nbsp;/etc/xapi.d/plugins/ovs_quantum_plugin.ini <em>to match the integration bridge name printed by the xenserver_install.sh script</em>.</p>
+<p>To start Quantum on the XenServer host, run the agent on your hypervisor dom0:</p>
+<pre>$ python /etc/xapi.d/plugins/ovs_quantum_agent.py /etc/xapi.d/plugins/ovs_quantum_plugin.ini</pre><br />
+If your setup uses multiple physical hosts and relies on VLANs, make sure your physical switch trunks all VLANs (details are specific to your switch manufacturer), then create a "patch" port to connect the integration bridge with the external bridge you want to use to send traffic to the physical network (e.g., xenbr0 to send traffic via eth0). &nbsp;Note: the physical network used for VLANs should be different from the one you use for management connectivity. &nbsp;To create a patch port between bridge xapi1 and xenbr0, run:</p>
+<pre>ovs-vsctl add-port xenbr0 patch-outside -- set Interface&nbsp;patch-outside type=patch&nbsp;options:peer=patch-inside<br />
+ovs-vsctl add-port xapi1&nbsp;patch-inside -- set Interface&nbsp;patch-outside type=patch&nbsp;options:peer=patch-outside</pre><br />
+Also use the integration bridge name to set the following flag in the nova.conf file for nova-compute running in the service VM on the XenServer (note: this bridge name may be different on different compute nodes):</p>
+<pre>xenapi_ovs_integration_bridge=xapi1<br />
+xenapi_vif_driver=nova.virt.xenapi.vif.XenAPIOpenVswitchDriver</pre></p>
+<h1><strong>Limitations&nbsp;</strong></h1></p>
+<ul>
+<li>To use the Quantum OVS plugin in tunneling mode, you must be using OVS version 1.4+.</li>
+<li>To use the Quantum OVS plugin, the OVS kernel datapath must be installed from a kernel module (i.e., not use the in-built kernel support). &nbsp;In particular, this means that Fedora 17, which uses OVS 1.4 but with the in-built kernel support, will not work for tunneling.</li>
+<li>OVS is not compatible with iptables + ebtables rules that are applied directly on VIF ports. &nbsp;Thus, the existing implementations of Nova security groups and spoof-prevention aren't compatible. &nbsp;We are targeting work for this in Folsom.</li>
+<li>"Provider Networks": currently there is no way to create a Quantum network that maps directly to a particular hypervisor NIC and optional VLAN. &nbsp;This work is targeted for Folsom.</li>
+<li>XenServer is not supported with the current Folsom code, due to the fact that XenServer dom0 supports only python 2.4, and the OVS Quantum plugin requires a python agent running in dom0. &nbsp; Before the final Folsom release we expect to have a mechanism for running the OVS plugin with XenServer with the latest Folsom features.</li><br />
+</ul></p>

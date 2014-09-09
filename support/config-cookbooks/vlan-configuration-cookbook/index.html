@@ -1,0 +1,72 @@
+---
+layout: page
+status: publish
+published: true
+title: VLANs
+author:
+  display_name: admin
+  login: admin
+  email: casado@nicira.com
+  url: ''
+author_login: admin
+author_email: casado@nicira.com
+wordpress_id: 146
+wordpress_url: http://openvswitch.org/?page_id=146
+date: !binary |-
+  MjAxMC0wNy0yOCAxNDo0NjoyNSAtMDcwMA==
+date_gmt: !binary |-
+  MjAxMC0wNy0yOCAxODo0NjoyNSAtMDcwMA==
+categories:
+- Uncategorized
+tags: []
+comments: []
+---
+<p><strong>Topic: </strong></p>
+<p>Isolating VM traffic using VLANs</p>
+<p><strong>Setup: </strong></p>
+<p><span style="text-decoration: underline;">Two Physical Networks:</span></p>
+<ul>
+<li>Data Network:&nbsp; Ethernet network for VM data traffic, which will carry VLAN tagged traffic between VMs.&nbsp; Your physical switch(es) must be capable of forwarding VLAN tagged traffic and the physical switch ports should be VLAN trunks (Usually this is default behavior.&nbsp; Configuring your physical switching hardware is beyond the scope of this document).</li>
+<li>Management Network: This network is not strictly required, but it is a simple way to give the physical host an IP address for remote access, since an IP address cannot be assigned directly to eth0.&nbsp; <strong><br />
+</strong></li>
+</ul><br />
+<span style="text-decoration: underline;">Two Physical Hosts:</span>
+<p>Host1, Host2.&nbsp; Both hosts are running Open vSwitch.&nbsp; Each host has two NICs:</p>
+<ul>
+<li>eth0 is connected to the Data Network.&nbsp; No IP address can be assigned on eth0.</li>
+<li>eth1 is connected to the Management Network (if necessary).&nbsp;&nbsp; eth1 has an IP address that is used to reach the physical host for management.</li>
+</ul><br />
+<span style="text-decoration: underline;">Four VMs: </span>
+<p>VM1,VM2 run on Host1.&nbsp; VM3,VM4 run on Host2.</p>
+<p>Each VM has a single interface that appears as a Linux device (e.g., "tap0") on the physical host.&nbsp; (Note: for Xen/XenServer, VM interfaces appears as Linux devices with names like "vif1.0")</p>
+<p style="text-align: center;"><img class="size-full" title="2host-4vm" src="2host-4vm.png" alt="" /></p>
+<p style="text-align: left;"><a href="2host-4vm.png"><br />
+</a><a id="more"></a><a id="more-146"></a><br />
+<strong> </strong></p>
+<p style="text-align: left;"><strong>Goal: </strong><br />
+Isolate VMs using VLANs on the Data Network.<br />
+VLAN 1: VM1,VM3<br />
+VLAN 2: VM2,VM4</p>
+<p><strong>Configuration:</strong></p>
+<p>Perform the following configuration on Host 1:</p>
+<p>Create an OVS bridge:</p>
+<blockquote>ovs-vsctl add-br br0</blockquote><br />
+<p>Add eth0 to the bridge (by default, all OVS ports are VLAN trunks, so eth0 will pass all VLANs):</p>
+<blockquote>ovs-vsctl add-port br0 eth0</blockquote><br />
+<p>Add VM1 as an "access port" on VLAN 1:</p>
+<blockquote>ovs-vsctl add-port br0 tap0 tag=1</blockquote><br />
+<p>Add VM2 on VLAN 2:</p>
+<blockquote>ovs-vsctl add-port br0 tap1 tag=2</blockquote><br />
+<p>On Host 2, repeat the same configuration to setup a bridge with eth0 as a trunk:</p>
+<blockquote><p>ovs-vsctl add-br br0</p>
+ovs-vsctl add-port br0 eth0</blockquote><br />
+<p>Add VM3 to VLAN 1:</p>
+<blockquote>ovs-vsctl add-port br0 tap0 tag=1</blockquote><br />
+<p>Add VM4 to VLAN 2:</p>
+<blockquote>ovs-vsctl add-port br0 tap1 tag=2</blockquote><br />
+<p><!--more--><strong> </strong></p>
+<p><strong>Trouble-Shooting: </strong></p>
+<p>Ping from VM1 to VM3, this should succeed.</p>
+<p>Ping from VM2 to VM4, this should succeed.</p>
+<p>Ping from VM1/VM3 to VM2/VM4, this should not succeed (unless you have a router configured to forward between the VLANs, in which case, packets arriving at VM3 should have the source MAC address of the router, not of VM1).</p>
+<p>If you have problems with this cookbook entry, please send them to the OVS <a href="http://mail.openvswitch.org/mailman/listinfo/discuss_openvswitch.org">discuss email list</a>.</p>

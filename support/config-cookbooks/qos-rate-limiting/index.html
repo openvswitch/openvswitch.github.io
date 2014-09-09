@@ -1,0 +1,69 @@
+---
+layout: page
+status: publish
+published: true
+title: QoS Rate-Limiting
+author:
+  display_name: admin
+  login: admin
+  email: casado@nicira.com
+  url: ''
+author_login: admin
+author_email: casado@nicira.com
+wordpress_id: 267
+wordpress_url: http://openvswitch.org/?page_id=267
+date: !binary |-
+  MjAxMC0wOC0wNiAyMzo1MDozMCAtMDcwMA==
+date_gmt: !binary |-
+  MjAxMC0wOC0wNyAwMzo1MDozMCAtMDcwMA==
+categories:
+- Uncategorized
+tags: []
+comments: []
+---
+<p style="text-align: left;"><strong>Topic: </strong></p><br />
+Rate-limiting VMs using QoS policing.
+<p><strong>Setup:</strong></p>
+<p><span style="text-decoration: underline;">One Physical Network:</span></p>
+<ul>
+<li>Data Network:&nbsp; Ethernet network for VM data traffic.&nbsp; This network is used to send traffic to and from an external host used for measuring the rate at which a VM is sending.&nbsp; For  experimentation, this physical network is optional.&nbsp; You can instead  connect all VMs to a bridge that is not connected to a physical  interface and use a VM as the measurement host.</li>
+</ul><br />
+<p><span style="text-decoration: underline;">Two Physical Hosts:</span></p>
+<p>"Host1" runs Open vSwitch and has one NIC:</p>
+<ul>
+<li>eth0 is connected to the Data Network.  No IP address can be assigned on eth0.</li>
+</ul><br />
+<p>&quot;Measurement Host&quot; can be any host capable of measuring throughput from a VM.&nbsp; For this cookbook entry,  we use <a href="http://www.netperf.org">netperf</a>, a free tool for testing the rate at which one host can send to another.</p>
+<ul>
+<li>eth0 is connected to the Data Network.&nbsp; eth0 has an IP address that can reach any VM on Host1.</li>
+</ul><br />
+<span style="text-decoration: underline;">Two VMs:</span>
+<p>VM1,VM2 run on Host1.</p>
+<p>Each VM has a single interface that appears as a Linux device (e.g.,   "tap0") on the physical host.  (Note: for Xen/XenServer, VM interfaces   appears as Linux devices with names like "vif1.0")</p>
+<p style="text-align: center;"><a href="qos-policing.png"><img class="aligncenter size-full wp-image-270" title="qos-policing" src="qos-policing.png" alt="" /></a></p><br />
+<strong>Goal:</strong>
+<p>Rate-limit the traffic sent by each VM to 1 Mbps.</p>
+<strong>Configuration:</strong>
+<p>For both VMs, we modify the Interface table to configure an ingress policing rule.&nbsp; There are two values to set:</p>
+<ul>
+<li>"ingress_policing_rate": the max-rate in kbps that this VM should be allowed to send.</li>
+<li>"ingress_policing_burst": a parameter to the policing algorithm to indicate the maximum amount of data (in kb) that this interface can send beyond the policing rate.</li>
+</ul><br />
+<p>To rate limit VM1 to 1 Mbps, run:</p>
+<blockquote><p>ovs-vsctl set Interface tap0 ingress_policing_rate=1000</p>
+<p>ovs-vsctl set Interface tap0 ingress_policing_burst=100</p></blockquote><br />
+<p>Similarly, to limit VM2 to 10 Mbps, run:</p>
+<blockquote><p>ovs-vsctl set Interface tap1 ingress_policing_rate=10000</p>
+<p>ovs-vsctl set Interface tap1 ingress_policing_burst=1000</p></blockquote><br />
+<strong>Trouble-Shooting:</strong>
+<p>To test, make sure netperf is installed and running on both VMs and on the measurement host.&nbsp; Netperf consists of a client "netperf" and a server "netserver".&nbsp; In this example, we run netserver on the "Measurement Host" (installing netperf usually starts netserver as a daemon, meaning this is running by default).</p>
+<p>For this example, let's assume that the Measurement Host has an IP of 10.0.0.100 and is reachable from both VMs.</p>
+<p>From VM1, run:</p>
+<blockquote><p>netperf -H 10.0.0.100</p></blockquote><br />
+<p>This will cause VM1 to send TCP traffic as quickly as it can to the Measurement Host.&nbsp; After 10 seconds, this will output a series of values.&nbsp; We are interested in the "Throughput" value, which is measured in Mbps (10^6 bits/sec).&nbsp; For VM1 this value should be near 1.&nbsp;&nbsp; Running the same command onVM2 should give a result near 10.</p>
+<p>Open vSwitch's rate-limiting uses policing, which does not queue packets.&nbsp; It drops any packets beyond the  specified rate.&nbsp; Specifying a larger burst size lets the algorithm be more forgiving, which is important for protocols like TCP that react  severely to dropped packets.&nbsp;&nbsp; Setting a burst size of less than than the MTU (e.g., 10 kb) should be  avoided.</p>
+<p>For TCP traffic, setting a burst size to be a sizeable fraction (e.g., &gt; 10 %) of the overall policy rate helps a flow come closer to achieving the full rate.&nbsp; If a burst size is set to be a  large fraction of the overall rate, the client will actually experience  an average rate slightly higher than the specific policing rate.</p>
+<p>For UDP traffic, set the burst size to be slightly greater than the MTU and make sure that your performance tool does not send packets that are larger than your MTU (otherwise these packets will be fragmented, causing poor performance).  For example, you can force netperf to send UDP traffic as 1000 byte packets by running:</p>
+<blockquote><p>netperf -H 10.0.0.100 -t UDP_STREAM <code>--</code> -m 1000</p></blockquote><br />
+<p>Open vSwitch uses the Linux "<a href="http://lartc.org/howto/lartc.qdisc.html">traffic-control</a>" capability for rate-limiting. If you are not seeing the configured rate-limit have any affect, make sure that your kernel is built with "ingress qdisc" enabled, and that the user-space utilities (e.g., /sbin/tc )</p>
+<p>If you have problems with this cookbook entry, please send them to the OVS discuss email list.</p>

@@ -1,0 +1,76 @@
+---
+layout: page
+status: publish
+published: true
+title: sFlow
+author:
+  display_name: admin
+  login: admin
+  email: casado@nicira.com
+  url: ''
+author_login: admin
+author_email: casado@nicira.com
+wordpress_id: 215
+wordpress_url: http://openvswitch.org/?page_id=215
+date: !binary |-
+  MjAxMC0wOC0wNiAyMDoxNjozNyAtMDcwMA==
+date_gmt: !binary |-
+  MjAxMC0wOC0wNyAwMDoxNjozNyAtMDcwMA==
+categories:
+- Uncategorized
+tags: []
+comments: []
+---
+<!-- TODO mailing list link-->
+<p><strong>Topic: </strong></p>
+<p>Monitoring VM traffic using sFlow</p>
+<p><strong>Setup:</strong></p>
+<p><span style="text-decoration: underline;">Two Physical Networks:</span></p>
+<ul>
+<li>Data Network:&nbsp; Ethernet network for VM data traffic.&nbsp; For experimentation, this physical network is optional.&nbsp; You can instead connect all VMs to a bridge that is not connected to a physical interface.</li>
+<li>Management Network: This network must exist, as it is used to send sFlow data from the agent to the remote collector. &nbsp;&nbsp; <strong><br />
+</strong></li>
+</ul><br />
+<span style="text-decoration: underline;">Two Physical Hosts:</span>
+<p>"Host1" runs Open vSwitch and has two NICs:</p>
+<ul>
+<li>eth0 is connected to the Data Network. No IP address can be assigned on eth0.</li>
+<li>eth1 is connected to the Management Network. eth1 has an IP address for management traffic (including sFlow).</li>
+</ul><br />
+<p>&quot;Monitoring Host&quot; can be any computer that can run the sFlow collector.&nbsp; For this cookbook entry, we use <a href="http://www.inmon.com/products/sFlowTrend.php">sFlowTrend</a>, a free sFlow collector that is a simple cross-platform Java download.&nbsp; Other sFlow collectors should work equally well.</p>
+<ul>
+<li>eth0 is connected to the Management Network.&nbsp; eth0 has an IP address that can reach Host1.</li>
+</ul><br />
+<span style="text-decoration: underline;">Two VMs:</span>
+<p>VM1,VM2 run on Host1.</p>
+<p>Each VM has a single interface that appears as a Linux device (e.g., &quot;tap0&quot;) on the physical host. (Note: for Xen/XenServer, VM interfaces appears as Linux devices with names like &quot;vif1.0&quot;)</p>
+<p style="text-align: center;"><a href="sflow-setup.png"><img class="aligncenter size-full wp-image-245" title="sflow-setup" src="sflow-setup.png" alt="" /></a></p><br />
+<strong>Goal:</strong>
+<p>Monitor traffic sent to/from VM1 and VM2 on the Data network (including traffic between two VMs on the same physical host) using an sFlow collector.</p>
+<p><strong>Configuration:</strong></p>
+<p>Define the following configuration values in your shell environment.&nbsp; 6343 is the default port number for sFlowTrend.&nbsp; You will want to set your own IP address for the collector in the place of 10.0.0.1.&nbsp; Setting the AGENT_IP value to eth1 indicates that the sFlow agent should send traffic from eth1's IP address.&nbsp;&nbsp; The other values indicate settings regarding the frequency and type of packet sampling that sFlow should perform.</p>
+<blockquote><p>COLLECTOR_IP=10.0.0.1</p>
+<p>COLLECTOR_PORT=6343</p>
+<p>AGENT_IP=eth1</p>
+<p>HEADER_BYTES=128</p>
+<p>SAMPLING_N=64</p>
+<p>POLLING_SECS=10</p></blockquote><br />
+<p>Run the following command to create an sFlow configuration and attach it to bridge br0:</p>
+<blockquote>ovs-vsctl -- --id=@sflow create sflow agent=${AGENT_IP}&nbsp; target=\"${COLLECTOR_IP}:${COLLECTOR_PORT}\" header=${HEADER_BYTES} sampling=${SAMPLING_N} polling=${POLLING_SECS} -- set bridge br0 sflow=@sflow</blockquote><br />
+<p>That is all.&nbsp; To configure sFlow on additional bridges, just replace 'br0' in the above command with a different bridge name.</p>
+<p>To remove sFlow configuration from a bridge (in this case, 'br0'), run:</p>
+<blockquote>ovs-vsctl remove bridge br0 sflow $SFLOWUUID</blockquote><br />
+<p>To see all current sets of sFlow configuration parameters, run:</p>
+<blockquote><p>ovs-vsctl list sflow</p></blockquote><br />
+<strong>Trouble-Shooting:</strong>
+<p>Make sure the VMs are sending/receiving network traffic over bridge br0, preferably to multiple other hosts and using a variety of protocols.</p>
+<p>Go to the<a href="http://www.inmon.com/products/sFlowTrend.php"> sFlowTrend homepage</a> and click 'install' in the upper right hand corner.&nbsp; If you have java installed, this will download and start the sFlowTrend application.</p>
+<p>The light in the lower right-hand corner of the sFlowTrend application should blink green to indicate that the collector is receiving traffic.</p>
+<p>To confirm that the agent is sending traffic, check that running the following command shows that the agent on the physical server is sending traffic to the collector IP address:</p>
+<blockquote><p>tcpdump -ni eth1 udp port 6343</p></blockquote><br />
+<p>If no traffic is being sent, there is a problem with the configuration of OVS.&nbsp; If traffic is being sent but nothing is visible in the sFlowTrend user interface, this may be a configuration problem with the collector. Also check to make sure the host running the collector does not have a firewall that would prevent UDP port 6343 from reaching the collector.</p>
+<p>If you have problems with this cookbook entry, please send them to the OVS discuss email list.</p>
+<p><strong>Credit:</strong></p>
+<p>This cookbook entry is heavily based on content from Neil McKee at InMon:</p>
+<p><a href="http://openvswitch.org/pipermail/dev_openvswitch.org/2010-July/002583.html">http://openvswitch.org/pipermail/dev_openvswitch.org/2010-July/002583.html</a></p>
+<p><a href="http://blog.sflow.com/2010/01/open-vswitch.html">http://blog.sflow.com/2010/01/open-vswitch.html</a> (note: configuration syntax is out of date, but the high-level descriptions are correct).</p>
