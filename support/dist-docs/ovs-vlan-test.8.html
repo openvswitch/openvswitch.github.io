@@ -1,0 +1,118 @@
+<html><head><meta charset="UTF-8"></head><body><pre>
+ovs-vlan-test(1)              Open vSwitch Manual             ovs-vlan-test(1)
+
+
+
+<b>N</b><b>A</b><b>M</b><b>E</b>
+       <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b> - check Linux drivers for problems with vlan traffic
+
+<b>S</b><b>Y</b><b>N</b><b>O</b><b>P</b><b>S</b><b>I</b><b>S</b>
+       <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b> [<b>-</b><b>s</b> | <b>-</b><b>-</b><b>s</b><b>e</b><b>r</b><b>v</b><b>e</b><b>r</b>] <u>c</u><u>o</u><u>n</u><u>t</u><u>r</u><u>o</u><u>l</u><b>_</b><u>i</u><u>p</u> <u>v</u><u>l</u><u>a</u><u>n</u><b>_</b><u>i</u><u>p</u>
+
+       Common options:
+              [<b>-</b><b>h</b> | <b>-</b><b>-</b><b>h</b><b>e</b><b>l</b><b>p</b>] [<b>-</b><b>V</b> | <b>-</b><b>-</b><b>v</b><b>e</b><b>r</b><b>s</b><b>i</b><b>o</b><b>n</b>]
+
+
+<b>D</b><b>E</b><b>S</b><b>C</b><b>R</b><b>I</b><b>P</b><b>T</b><b>I</b><b>O</b><b>N</b>
+       The  <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b>  utility  has some limitations, for example, it does
+       not use TCP in its tests. Also it does not take  into  account  MTU  to
+       detect  potential  edge cases. To overcome those limitations a new tool
+       was developed - <b>o</b><b>v</b><b>s</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b>.  <b>o</b><b>v</b><b>s</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b>  is  currently  supported  only  on
+       Debian so, if possible try to use that on instead of <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b>.
+
+       The  <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b>  program  may  be used to check for problems sending
+       802.1Q traffic which may occur when running Open vSwitch.  These  prob‐
+       lems can occur when Open vSwitch is used to send 802.1Q traffic through
+       physical interfaces running certain drivers  of  certain  Linux  kernel
+       versions.  To  run a test, configure Open vSwitch to tag traffic origi‐
+       nating from <u>v</u><u>l</u><u>a</u><u>n</u><b>_</b><u>i</u><u>p</u> and forward it out the target interface.  Then  run
+       the <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b> in client mode connecting to an <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b> server.
+       <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b> will display "OK" if it did not detect problems.
+
+       Some examples of the types of problems that may be encountered are:
+
+       ·      When NICs use VLAN stripping on receive they must pass a pointer
+              to  a <b>v</b><b>l</b><b>a</b><b>n</b><b>_</b><b>g</b><b>r</b><b>o</b><b>u</b><b>p</b> when reporting the stripped tag to the network‐
+              ing core.  If no <b>v</b><b>l</b><b>a</b><b>n</b><b>_</b><b>g</b><b>r</b><b>o</b><b>u</b><b>p</b> is in use  then  some  drivers  just
+              drop  the  extracted  tag.   Drivers are supposed to only enable
+              stripping if a <b>v</b><b>l</b><b>a</b><b>n</b><b>_</b><b>g</b><b>r</b><b>o</b><b>u</b><b>p</b> is registered but not all of  them  do
+              that.
+
+       ·      On  receive,  some  drivers  handle priority tagged packets spe‐
+              cially and don't pass the tag onto the network stack at all,  so
+              Open vSwitch never has a chance to see it.
+
+       ·      Some  drivers  size  their  receive  buffers  based on whether a
+              <b>v</b><b>l</b><b>a</b><b>n</b><b>_</b><b>g</b><b>r</b><b>o</b><b>u</b><b>p</b> is enabled, meaning that a maximum size packet with a
+              VLAN tag will not fit if no <b>v</b><b>l</b><b>a</b><b>n</b><b>_</b><b>g</b><b>r</b><b>o</b><b>u</b><b>p</b> is configured.
+
+       ·      On  transmit, some drivers expect that VLAN acceleration will be
+              used if it is available, which can only be done if a  <b>v</b><b>l</b><b>a</b><b>n</b><b>_</b><b>g</b><b>r</b><b>o</b><b>u</b><b>p</b>
+              is configured.  In these cases, the driver may fail to parse the
+              packet and correctly setup checksum offloading or TSO.
+
+   <b>C</b><b>l</b><b>i</b><b>e</b><b>n</b><b>t</b> <b>M</b><b>o</b><b>d</b><b>e</b>
+       An <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b> client may be run on a host to check for VLAN  connec‐
+       tivity problems.  The client must be able to establish HTTP connections
+       with an  <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b>  server  located  at  the  specified  <u>c</u><u>o</u><u>n</u><u>t</u><u>r</u><u>o</u><u>l</u><b>_</b><u>i</u><u>p</u>
+       address.   UDP traffic sourced at <u>v</u><u>l</u><u>a</u><u>n</u><b>_</b><u>i</u><u>p</u> should be tagged and directed
+       out the interface whose connectivity is being tested.
+
+   <b>S</b><b>e</b><b>r</b><b>v</b><b>e</b><b>r</b> <b>M</b><b>o</b><b>d</b><b>e</b>
+       To conduct tests, an <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b> server must be  running  on  a  host
+       known  not  to have VLAN connectivity problems.  The server must have a
+       <u>c</u><u>o</u><u>n</u><u>t</u><u>r</u><u>o</u><u>l</u><b>_</b><u>i</u><u>p</u> on a non-VLAN network which clients can establish connectiv‐
+       ity  with.  It must also have a <u>v</u><u>l</u><u>a</u><u>n</u><b>_</b><u>i</u><u>p</u> address on a VLAN network which
+       clients will use to test their VLAN connectivity.  Multiple clients may
+       test against a single <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b> server concurrently.
+
+<b>O</b><b>P</b><b>T</b><b>I</b><b>O</b><b>N</b><b>S</b>
+       <b>-</b><b>s</b>
+       <b>-</b><b>-</b><b>s</b><b>e</b><b>r</b><b>v</b><b>e</b><b>r</b>
+              Run in server mode.
+
+       <b>-</b><b>h</b>
+       <b>-</b><b>-</b><b>h</b><b>e</b><b>l</b><b>p</b> Prints a brief help message to the console.
+
+       <b>-</b><b>V</b>
+       <b>-</b><b>-</b><b>v</b><b>e</b><b>r</b><b>s</b><b>i</b><b>o</b><b>n</b>
+              Prints version information to the console.
+
+<b>E</b><b>X</b><b>A</b><b>M</b><b>P</b><b>L</b><b>E</b><b>S</b>
+       Display the Linux kernel version and driver of <b>e</b><b>t</b><b>h</b><b>1</b>.
+
+              <b>u</b><b>n</b><b>a</b><b>m</b><b>e</b> <b>-</b><b>r</b>
+
+              <b>e</b><b>t</b><b>h</b><b>t</b><b>o</b><b>o</b><b>l</b> <b>-</b><b>i</b> <b>e</b><b>t</b><b>h</b><b>1</b>
+
+       Set  up  a  bridge  which forwards traffic originating from <b>1</b><b>.</b><b>2</b><b>.</b><b>3</b><b>.</b><b>4</b> out
+       <b>e</b><b>t</b><b>h</b><b>1</b> with VLAN tag 10.
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>-</b><b>-</b> <b>a</b><b>d</b><b>d</b><b>-</b><b>b</b><b>r</b> <b>v</b><b>l</b><b>a</b><b>n</b><b>-</b><b>b</b><b>r</b> <b>\</b>
+
+              <b>-</b><b>-</b> <b>a</b><b>d</b><b>d</b><b>-</b><b>p</b><b>o</b><b>r</b><b>t</b> <b>v</b><b>l</b><b>a</b><b>n</b><b>-</b><b>b</b><b>r</b> <b>e</b><b>t</b><b>h</b><b>1</b> <b>\</b>
+
+              <b>-</b><b>-</b> <b>a</b><b>d</b><b>d</b><b>-</b><b>p</b><b>o</b><b>r</b><b>t</b> <b>v</b><b>l</b><b>a</b><b>n</b><b>-</b><b>b</b><b>r</b> <b>v</b><b>l</b><b>a</b><b>n</b><b>-</b><b>b</b><b>r</b><b>-</b><b>t</b><b>a</b><b>g</b> <b>t</b><b>a</b><b>g</b><b>=</b><b>1</b><b>0</b> <b>\</b>
+
+              <b>-</b><b>-</b> <b>s</b><b>e</b><b>t</b> <b>I</b><b>n</b><b>t</b><b>e</b><b>r</b><b>f</b><b>a</b><b>c</b><b>e</b> <b>v</b><b>l</b><b>a</b><b>n</b><b>-</b><b>b</b><b>r</b><b>-</b><b>t</b><b>a</b><b>g</b> <b>t</b><b>y</b><b>p</b><b>e</b><b>=</b><b>i</b><b>n</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b>
+
+              <b>i</b><b>f</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b> <b>v</b><b>l</b><b>a</b><b>n</b><b>-</b><b>b</b><b>r</b><b>-</b><b>t</b><b>a</b><b>g</b> <b>u</b><b>p</b> <b>1</b><b>.</b><b>2</b><b>.</b><b>3</b><b>.</b><b>4</b>
+
+       Run an <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b> server listening for  client  control  traffic  on
+       172.16.0.142 port 8080 and VLAN traffic on the default port of 1.2.3.3.
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b> <b>-</b><b>s</b> <b>1</b><b>7</b><b>2</b><b>.</b><b>1</b><b>6</b><b>.</b><b>0</b><b>.</b><b>1</b><b>4</b><b>2</b><b>:</b><b>8</b><b>0</b><b>8</b><b>0</b> <b>1</b><b>.</b><b>2</b><b>.</b><b>3</b><b>.</b><b>3</b>
+
+       Run   an   <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b>  client  with  a  control  server  located  at
+       172.16.0.142 port 8080 and a local VLAN ip of 1.2.3.4.
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b> <b>1</b><b>7</b><b>2</b><b>.</b><b>1</b><b>6</b><b>.</b><b>0</b><b>.</b><b>1</b><b>4</b><b>2</b><b>:</b><b>8</b><b>0</b><b>8</b><b>0</b> <b>1</b><b>.</b><b>2</b><b>.</b><b>3</b><b>.</b><b>4</b>
+
+<b>S</b><b>E</b><b>E</b> <b>A</b><b>L</b><b>S</b><b>O</b>
+       <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>d</b>(8), <b>o</b><b>v</b><b>s</b><b>-</b><b>o</b><b>f</b><b>c</b><b>t</b><b>l</b>(8), <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b>(8),  <b>o</b><b>v</b><b>s</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b>(8),  <b>e</b><b>t</b><b>h</b><b>t</b><b>o</b><b>o</b><b>l</b>(8),
+       <b>u</b><b>n</b><b>a</b><b>m</b><b>e</b>(1)
+
+
+
+Open vSwitch                        2.3.90                    ovs-vlan-test(1)
+</pre></body></html>

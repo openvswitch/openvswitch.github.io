@@ -1,0 +1,1418 @@
+<html><head><meta charset="UTF-8"></head><body><pre>
+ovs-vsctl(8)                  Open vSwitch Manual                 ovs-vsctl(8)
+
+
+
+<b>N</b><b>A</b><b>M</b><b>E</b>
+       ovs-vsctl - utility for querying and configuring <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>d</b>
+
+<b>S</b><b>Y</b><b>N</b><b>O</b><b>P</b><b>S</b><b>I</b><b>S</b>
+       <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b>  [<u>o</u><u>p</u><u>t</u><u>i</u><u>o</u><u>n</u><u>s</u>]  <b>-</b><b>-</b> [<u>o</u><u>p</u><u>t</u><u>i</u><u>o</u><u>n</u><u>s</u>] <u>c</u><u>o</u><u>m</u><u>m</u><u>a</u><u>n</u><u>d</u> [<u>a</u><u>r</u><u>g</u><u>s</u>] [<b>-</b><b>-</b> [<u>o</u><u>p</u><u>t</u><u>i</u><u>o</u><u>n</u><u>s</u>] <u>c</u><u>o</u><u>m</u><u>m</u><u>a</u><u>n</u><u>d</u>
+       [<u>a</u><u>r</u><u>g</u><u>s</u>]]...
+
+<b>D</b><b>E</b><b>S</b><b>C</b><b>R</b><b>I</b><b>P</b><b>T</b><b>I</b><b>O</b><b>N</b>
+       The  <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b>  program  configures  <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>d</b>(8)  by  providing   a
+       high-level    interface    to    its   configuration   database.    See
+       <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>d</b><b>.</b><b>c</b><b>o</b><b>n</b><b>f</b><b>.</b><b>d</b><b>b</b>(5) for comprehensive documentation of the database
+       schema.
+
+       <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b>  connects  to  an <b>o</b><b>v</b><b>s</b><b>d</b><b>b</b><b>-</b><b>s</b><b>e</b><b>r</b><b>v</b><b>e</b><b>r</b> process that maintains an Open
+       vSwitch configuration database.  Using this connection, it queries  and
+       possibly  applies  changes  to  the database, depending on the supplied
+       commands.  Then, if it applied any changes, by default it  waits  until
+       <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>d</b>  has  finished  reconfiguring itself before it exits.  (If
+       you use <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> when <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>d</b> is not running, use <b>-</b><b>-</b><b>n</b><b>o</b><b>-</b><b>w</b><b>a</b><b>i</b><b>t</b>.)
+
+       <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> can perform any number of commands in a  single  run,  imple‐
+       mented as a single atomic transaction against the database.
+
+       The  <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b>  command  line  begins  with global options (see <b>O</b><b>P</b><b>T</b><b>I</b><b>O</b><b>N</b><b>S</b>
+       below for details).  The global options are followed  by  one  or  more
+       commands.   Each  command  should begin with <b>-</b><b>-</b> by itself as a command-
+       line argument, to separate it from the  following  commands.   (The  <b>-</b><b>-</b>
+       before  the first command is optional.)  The command itself starts with
+       command-specific options, if any, followed by the command name and  any
+       arguments.  See <b>E</b><b>X</b><b>A</b><b>M</b><b>P</b><b>L</b><b>E</b><b>S</b> below for syntax examples.
+
+   <b>L</b><b>i</b><b>n</b><b>u</b><b>x</b> <b>V</b><b>L</b><b>A</b><b>N</b> <b>B</b><b>r</b><b>i</b><b>d</b><b>g</b><b>i</b><b>n</b><b>g</b> <b>C</b><b>o</b><b>m</b><b>p</b><b>a</b><b>t</b><b>i</b><b>b</b><b>i</b><b>l</b><b>i</b><b>t</b><b>y</b>
+       The  <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b>  program  supports  the model of a bridge implemented by
+       Open vSwitch, in which a  single  bridge  supports  ports  on  multiple
+       VLANs.   In  this  model,  each port on a bridge is either a trunk port
+       that potentially passes packets tagged with 802.1Q headers that  desig‐
+       nate  VLANs  or  it  is  assigned  a single implicit VLAN that is never
+       tagged with an 802.1Q header.
+
+       For  compatibility  with  software  designed  for  the  Linux   bridge,
+       <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b>  also  supports  a  model  in which traffic associated with a
+       given 802.1Q VLAN is segregated into a separate bridge.  A special form
+       of  the  <b>a</b><b>d</b><b>d</b><b>-</b><b>b</b><b>r</b> command (see below) creates a ``fake bridge'' within an
+       Open vSwitch bridge to simulate this  behavior.   When  such  a  ``fake
+       bridge'' is active, <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> will treat it much like a bridge separate
+       from its ``parent bridge,''  but  the  actual  implementation  in  Open
+       vSwitch  uses  only  a  single  bridge,  with  ports on the fake bridge
+       assigned the implicit VLAN of the fake bridge of which  they  are  mem‐
+       bers.   (A  fake bridge for VLAN 0 receives packets that have no 802.1Q
+       tag or a tag with VLAN 0.)
+
+<b>O</b><b>P</b><b>T</b><b>I</b><b>O</b><b>N</b><b>S</b>
+       The following options affect the behavior <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> as a  whole.   Some
+       individual commands also accept their own options, which are given just
+       before the command name.  If the first command on the command line  has
+       options,  then  those options must be separated from the global options
+       by <b>-</b><b>-</b>.
+
+       <b>-</b><b>-</b><b>d</b><b>b</b><b>=</b><u>s</u><u>e</u><u>r</u><u>v</u><u>e</u><u>r</u>
+              Sets <u>s</u><u>e</u><u>r</u><u>v</u><u>e</u><u>r</u> as the database server that  <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b>  contacts  to
+              query    or    modify    configuration.     The    default    is
+              <b>u</b><b>n</b><b>i</b><b>x</b><b>:</b><b>/</b><b>v</b><b>a</b><b>r</b><b>/</b><b>r</b><b>u</b><b>n</b><b>/</b><b>o</b><b>p</b><b>e</b><b>n</b><b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>/</b><b>d</b><b>b</b><b>.</b><b>s</b><b>o</b><b>c</b><b>k</b>.  <u>s</u><u>e</u><u>r</u><u>v</u><u>e</u><u>r</u> must take one of  the
+              following forms:
+
+              <b>s</b><b>s</b><b>l</b><b>:</b><u>i</u><u>p</u><b>:</b><u>p</u><u>o</u><u>r</u><u>t</u>
+                     The specified SSL <u>p</u><u>o</u><u>r</u><u>t</u> on the host at the given <u>i</u><u>p</u>, which
+                     must be expressed as an IP address (not a  DNS  name)  in
+                     IPv4  or  IPv6 address format.  If <u>i</u><u>p</u> is an IPv6 address,
+                     then wrap <u>i</u><u>p</u> with square brackets, e.g.:  <b>s</b><b>s</b><b>l</b><b>:</b><b>[</b><b>:</b><b>:</b><b>1</b><b>]</b><b>:</b><b>6</b><b>6</b><b>3</b><b>2</b>.
+                     The  <b>-</b><b>-</b><b>p</b><b>r</b><b>i</b><b>v</b><b>a</b><b>t</b><b>e</b><b>-</b><b>k</b><b>e</b><b>y</b>,  <b>-</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b><b>i</b><b>f</b><b>i</b><b>c</b><b>a</b><b>t</b><b>e</b>, and <b>-</b><b>-</b><b>c</b><b>a</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b> options
+                     are mandatory when this form is used.
+
+              <b>t</b><b>c</b><b>p</b><b>:</b><u>i</u><u>p</u><b>:</b><u>p</u><u>o</u><u>r</u><u>t</u>
+                     Connect to the given TCP <u>p</u><u>o</u><u>r</u><u>t</u> on <u>i</u><u>p</u>, where <u>i</u><u>p</u> can be IPv4
+                     or  IPv6  address. If <u>i</u><u>p</u> is an IPv6 address, then wrap <u>i</u><u>p</u>
+                     with square brackets, e.g.: <b>t</b><b>c</b><b>p</b><b>:</b><b>[</b><b>:</b><b>:</b><b>1</b><b>]</b><b>:</b><b>6</b><b>6</b><b>3</b><b>2</b>.
+
+              <b>u</b><b>n</b><b>i</b><b>x</b><b>:</b><u>f</u><u>i</u><u>l</u><u>e</u>
+                     On POSIX, connect to the Unix domain server socket  named
+                     <u>f</u><u>i</u><u>l</u><u>e</u>.
+
+                     On  Windows,  connect to a localhost TCP port whose value
+                     is written in <u>f</u><u>i</u><u>l</u><u>e</u>.
+
+              <b>p</b><b>s</b><b>s</b><b>l</b><b>:</b><u>p</u><u>o</u><u>r</u><u>t</u>[<b>:</b><u>i</u><u>p</u>]
+                     Listen on the  given  SSL  <u>p</u><u>o</u><u>r</u><u>t</u>  for  a  connection.   By
+                     default,  connections are not bound to a particular local
+                     IP address and it listens only on  IPv4  (but  not  IPv6)
+                     addresses,  but specifying <u>i</u><u>p</u> limits connections to those
+                     from the given <u>i</u><u>p</u>, either IPv4 or IPv6 address.  If <u>i</u><u>p</u> is
+                     an IPv6 address, then wrap <u>i</u><u>p</u> with square brackets, e.g.:
+                     <b>p</b><b>s</b><b>s</b><b>l</b><b>:</b><b>6</b><b>6</b><b>3</b><b>2</b><b>:</b><b>[</b><b>:</b><b>:</b><b>1</b><b>]</b>.  The <b>-</b><b>-</b><b>p</b><b>r</b><b>i</b><b>v</b><b>a</b><b>t</b><b>e</b><b>-</b><b>k</b><b>e</b><b>y</b>,  <b>-</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b><b>i</b><b>f</b><b>i</b><b>c</b><b>a</b><b>t</b><b>e</b>,  and
+                     <b>-</b><b>-</b><b>c</b><b>a</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b> options are mandatory when this form is used.
+
+              <b>p</b><b>t</b><b>c</b><b>p</b><b>:</b><u>p</u><u>o</u><u>r</u><u>t</u>[<b>:</b><u>i</u><u>p</u>]
+                     Listen  on  the  given  TCP  <u>p</u><u>o</u><u>r</u><u>t</u>  for  a connection.  By
+                     default, connections are not bound to a particular  local
+                     IP  address  and  it  listens only on IPv4 (but not IPv6)
+                     addresses, but <u>i</u><u>p</u> may be specified  to  listen  only  for
+                     connections to the given <u>i</u><u>p</u>, either IPv4 or IPv6 address.
+                     If <u>i</u><u>p</u> is an IPv6 address, then wrap <u>i</u><u>p</u> with square brack‐
+                     ets, e.g.: <b>p</b><b>t</b><b>c</b><b>p</b><b>:</b><b>6</b><b>6</b><b>3</b><b>2</b><b>:</b><b>[</b><b>:</b><b>:</b><b>1</b><b>]</b>.
+
+              <b>p</b><b>u</b><b>n</b><b>i</b><b>x</b><b>:</b><u>f</u><u>i</u><u>l</u><u>e</u>
+                     On  POSIX,  listen on the Unix domain server socket named
+                     <u>f</u><u>i</u><u>l</u><u>e</u> for a connection.
+
+                     On Windows, listen on a kernel chosen  TCP  port  on  the
+                     localhost. The kernel chosen TCP port value is written in
+                     <u>f</u><u>i</u><u>l</u><u>e</u>.
+
+       <b>-</b><b>-</b><b>n</b><b>o</b><b>-</b><b>w</b><b>a</b><b>i</b><b>t</b>
+              Prevents <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> from waiting for <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>d</b> to  reconfigure
+              itself  according  to  the  the  modified database.  This option
+              should be  used  if  <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>d</b>  is  not  running;  otherwise,
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> will not exit until <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>d</b> starts.
+
+              This  option  has  no  effect  if  the commands specified do not
+              change the database.
+
+       <b>-</b><b>-</b><b>n</b><b>o</b><b>-</b><b>s</b><b>y</b><b>s</b><b>l</b><b>o</b><b>g</b>
+              By default, <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> logs its arguments and the details of  any
+              changes  that  it makes to the system log.  This option disables
+              this logging.
+
+              This option is equivalent to <b>-</b><b>-</b><b>v</b><b>e</b><b>r</b><b>b</b><b>o</b><b>s</b><b>e</b><b>=</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b><b>:</b><b>s</b><b>y</b><b>s</b><b>l</b><b>o</b><b>g</b><b>:</b><b>w</b><b>a</b><b>r</b><b>n</b>.
+
+       <b>-</b><b>-</b><b>o</b><b>n</b><b>e</b><b>l</b><b>i</b><b>n</b><b>e</b>
+              Modifies the output format so that the output for  each  command
+              is  printed  on  a  single line.  New-line characters that would
+              otherwise separate lines are printed as <b>\</b><b>n</b>, and any instances of
+              <b>\</b> that would otherwise appear in the output are doubled.  Prints
+              a blank line for each command that has no output.   This  option
+              does  not  affect the formatting of output from the <b>l</b><b>i</b><b>s</b><b>t</b> or <b>f</b><b>i</b><b>n</b><b>d</b>
+              commands; see <b>T</b><b>a</b><b>b</b><b>l</b><b>e</b> <b>F</b><b>o</b><b>r</b><b>m</b><b>a</b><b>t</b><b>t</b><b>i</b><b>n</b><b>g</b> <b>O</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b> below.
+
+       <b>-</b><b>-</b><b>d</b><b>r</b><b>y</b><b>-</b><b>r</b><b>u</b><b>n</b>
+              Prevents <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> from actually modifying the database.
+
+       <b>-</b><b>t</b> <u>s</u><u>e</u><u>c</u><u>s</u>
+       <b>-</b><b>-</b><b>t</b><b>i</b><b>m</b><b>e</b><b>o</b><b>u</b><b>t</b><b>=</b><u>s</u><u>e</u><u>c</u><u>s</u>
+              By default, or with a <u>s</u><u>e</u><u>c</u><u>s</u> of <b>0</b>, <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> waits forever  for  a
+              response  from  the  database.   This  option  limits runtime to
+              approximately <u>s</u><u>e</u><u>c</u><u>s</u> seconds.  If the timeout  expires,  <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b>
+              will exit with a <b>S</b><b>I</b><b>G</b><b>A</b><b>L</b><b>R</b><b>M</b> signal.  (A timeout would normally hap‐
+              pen only if the database cannot be contacted, or if  the  system
+              is overloaded.)
+
+       <b>-</b><b>-</b><b>r</b><b>e</b><b>t</b><b>r</b><b>y</b>
+              Without  this option, if <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> connects outward to the data‐
+              base server (the default) then <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b>  will  try  to  connect
+              once  and exit with an error if the connection fails (which usu‐
+              ally means that <b>o</b><b>v</b><b>s</b><b>d</b><b>b</b><b>-</b><b>s</b><b>e</b><b>r</b><b>v</b><b>e</b><b>r</b> is not running).
+
+              With this option, or if <b>-</b><b>-</b><b>d</b><b>b</b>  specifies  that  <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b>  should
+              listen for an incoming connection from the database server, then
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> will wait for a connection to the database forever.
+
+              Regardless of this setting, <b>-</b><b>-</b><b>t</b><b>i</b><b>m</b><b>e</b><b>o</b><b>u</b><b>t</b>  always  limits  how  long
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> will wait.
+
+   <b>T</b><b>a</b><b>b</b><b>l</b><b>e</b> <b>F</b><b>o</b><b>r</b><b>m</b><b>a</b><b>t</b><b>t</b><b>i</b><b>n</b><b>g</b> <b>O</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>
+       These  options control the format of output from the <b>l</b><b>i</b><b>s</b><b>t</b> and <b>f</b><b>i</b><b>n</b><b>d</b> com‐
+       mands.
+
+       <b>-</b><b>f</b> <u>f</u><u>o</u><u>r</u><u>m</u><u>a</u><u>t</u>
+       <b>-</b><b>-</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>t</b><b>=</b><u>f</u><u>o</u><u>r</u><u>m</u><u>a</u><u>t</u>
+              Sets the type of table formatting.  The following types of  <u>f</u><u>o</u><u>r</u><u>‐</u>
+              <u>m</u><u>a</u><u>t</u> are available:
+
+              <b>t</b><b>a</b><b>b</b><b>l</b><b>e</b>  2-D text tables with aligned columns.
+
+              <b>l</b><b>i</b><b>s</b><b>t</b> (default)
+                     A  list  with one column per line and rows separated by a
+                     blank line.
+
+              <b>h</b><b>t</b><b>m</b><b>l</b>   HTML tables.
+
+              <b>c</b><b>s</b><b>v</b>    Comma-separated values as defined in RFC 4180.
+
+              <b>j</b><b>s</b><b>o</b><b>n</b>   JSON format as defined in RFC  4627.   The  output  is  a
+                     sequence  of  JSON  objects, each of which corresponds to
+                     one table.  Each JSON object has  the  following  members
+                     with the noted values:
+
+                     <b>c</b><b>a</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b>
+                            The  table's  caption.   This member is omitted if
+                            the table has no caption.
+
+                     <b>h</b><b>e</b><b>a</b><b>d</b><b>i</b><b>n</b><b>g</b><b>s</b>
+                            An array with one element per table column.   Each
+                            array element is a string giving the corresponding
+                            column's heading.
+
+                     <b>d</b><b>a</b><b>t</b><b>a</b>   An array with one element  per  table  row.   Each
+                            element  is also an array with one element per ta‐
+                            ble column.  The  elements  of  this  second-level
+                            array  are  the  cells  that constitute the table.
+                            Cells that represent OVSDB data or data types  are
+                            expressed  in  the  format  described in the OVSDB
+                            specification; other cells are simply expressed as
+                            text strings.
+
+       <b>-</b><b>d</b> <u>f</u><u>o</u><u>r</u><u>m</u><u>a</u><u>t</u>
+       <b>-</b><b>-</b><b>d</b><b>a</b><b>t</b><b>a</b><b>=</b><u>f</u><u>o</u><u>r</u><u>m</u><u>a</u><u>t</u>
+              Sets the formatting for cells within output tables.  The follow‐
+              ing types of <u>f</u><u>o</u><u>r</u><u>m</u><u>a</u><u>t</u> are available:
+
+              <b>s</b><b>t</b><b>r</b><b>i</b><b>n</b><b>g</b> (default)
+                     The simple format described in the <b>D</b><b>a</b><b>t</b><b>a</b><b>b</b><b>a</b><b>s</b><b>e</b>  <b>V</b><b>a</b><b>l</b><b>u</b><b>e</b><b>s</b>  sec‐
+                     tion below.
+
+              <b>b</b><b>a</b><b>r</b><b>e</b>   The  simple  format with punctuation stripped off: <b>[</b><b>]</b> and
+                     <b>{</b><b>}</b> are omitted around  sets,  maps,  and  empty  columns,
+                     items  within  sets  and  maps  are  space-separated, and
+                     strings are never quoted.  This format may be easier  for
+                     scripts to parse.
+
+              <b>j</b><b>s</b><b>o</b><b>n</b>   JSON.
+
+              The  <b>j</b><b>s</b><b>o</b><b>n</b>  output  format  always  outputs cells in JSON format,
+              ignoring this option.
+
+       <b>-</b><b>-</b><b>n</b><b>o</b><b>-</b><b>h</b><b>e</b><b>a</b><b>d</b><b>i</b><b>n</b><b>g</b>
+              This option suppresses the heading row that otherwise appears in
+              the first row of table output.
+
+       <b>-</b><b>-</b><b>p</b><b>r</b><b>e</b><b>t</b><b>t</b><b>y</b>
+              By  default, JSON in output is printed as compactly as possible.
+              This option causes JSON in output to be printed in a more  read‐
+              able  fashion.   Members  of  objects and elements of arrays are
+              printed one per line, with indentation.
+
+              This option does not affect JSON  in  tables,  which  is  always
+              printed compactly.
+
+       <b>-</b><b>-</b><b>b</b><b>a</b><b>r</b><b>e</b> Equivalent to <b>-</b><b>-</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>t</b><b>=</b><b>l</b><b>i</b><b>s</b><b>t</b> <b>-</b><b>-</b><b>d</b><b>a</b><b>t</b><b>a</b><b>=</b><b>b</b><b>a</b><b>r</b><b>e</b> <b>-</b><b>-</b><b>n</b><b>o</b><b>-</b><b>h</b><b>e</b><b>a</b><b>d</b><b>i</b><b>n</b><b>g</b><b>s</b>.
+
+   <b>P</b><b>u</b><b>b</b><b>l</b><b>i</b><b>c</b> <b>K</b><b>e</b><b>y</b> <b>I</b><b>n</b><b>f</b><b>r</b><b>a</b><b>s</b><b>t</b><b>r</b><b>u</b><b>c</b><b>t</b><b>u</b><b>r</b><b>e</b> <b>O</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>
+       <b>-</b><b>p</b> <u>p</u><u>r</u><u>i</u><u>v</u><u>k</u><u>e</u><u>y</u><u>.</u><u>p</u><u>e</u><u>m</u>
+       <b>-</b><b>-</b><b>p</b><b>r</b><b>i</b><b>v</b><b>a</b><b>t</b><b>e</b><b>-</b><b>k</b><b>e</b><b>y</b><b>=</b><u>p</u><u>r</u><u>i</u><u>v</u><u>k</u><u>e</u><u>y</u><u>.</u><u>p</u><u>e</u><u>m</u>
+              Specifies  a  PEM  file  containing  the  private  key  used  as
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b>'s identity for outgoing SSL connections.
+
+       <b>-</b><b>c</b> <u>c</u><u>e</u><u>r</u><u>t</u><u>.</u><u>p</u><u>e</u><u>m</u>
+       <b>-</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b><b>i</b><b>f</b><b>i</b><b>c</b><b>a</b><b>t</b><b>e</b><b>=</b><u>c</u><u>e</u><u>r</u><u>t</u><u>.</u><u>p</u><u>e</u><u>m</u>
+              Specifies a PEM file containing a certificate that certifies the
+              private  key specified on <b>-</b><b>p</b> or <b>-</b><b>-</b><b>p</b><b>r</b><b>i</b><b>v</b><b>a</b><b>t</b><b>e</b><b>-</b><b>k</b><b>e</b><b>y</b> to be trustworthy.
+              The certificate must be signed by the certificate authority (CA)
+              that the peer in SSL connections will use to verify it.
+
+       <b>-</b><b>C</b> <u>c</u><u>a</u><u>c</u><u>e</u><u>r</u><u>t</u><u>.</u><u>p</u><u>e</u><u>m</u>
+       <b>-</b><b>-</b><b>c</b><b>a</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b><b>=</b><u>c</u><u>a</u><u>c</u><u>e</u><u>r</u><u>t</u><u>.</u><u>p</u><u>e</u><u>m</u>
+              Specifies   a  PEM  file  containing  the  CA  certificate  that
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> should use to verify certificates presented to  it  by
+              SSL peers.  (This may be the same certificate that SSL peers use
+              to verify the certificate specified on <b>-</b><b>c</b> or  <b>-</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b><b>i</b><b>f</b><b>i</b><b>c</b><b>a</b><b>t</b><b>e</b>,  or
+              it may be a different one, depending on the PKI design in use.)
+
+       <b>-</b><b>C</b> <b>n</b><b>o</b><b>n</b><b>e</b>
+       <b>-</b><b>-</b><b>c</b><b>a</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b><b>=</b><b>n</b><b>o</b><b>n</b><b>e</b>
+              Disables  verification  of  certificates presented by SSL peers.
+              This introduces a security risk, because it means that  certifi‐
+              cates cannot be verified to be those of known trusted hosts.
+
+       <b>-</b><b>-</b><b>b</b><b>o</b><b>o</b><b>t</b><b>s</b><b>t</b><b>r</b><b>a</b><b>p</b><b>-</b><b>c</b><b>a</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b><b>=</b><u>c</u><u>a</u><u>c</u><u>e</u><u>r</u><u>t</u><u>.</u><u>p</u><u>e</u><u>m</u>
+              When <u>c</u><u>a</u><u>c</u><u>e</u><u>r</u><u>t</u><u>.</u><u>p</u><u>e</u><u>m</u> exists, this option has the same effect as <b>-</b><b>C</b> or
+              <b>-</b><b>-</b><b>c</b><b>a</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b>.  If it does not exist, then <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> will attempt to
+              obtain  the  CA  certificate  from the SSL peer on its first SSL
+              connection and save it to the named PEM file.  If it is success‐
+              ful,  it will immediately drop the connection and reconnect, and
+              from then on all SSL connections must be authenticated by a cer‐
+              tificate signed by the CA certificate thus obtained.
+
+              <b>T</b><b>h</b><b>i</b><b>s</b>  <b>o</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b>  <b>e</b><b>x</b><b>p</b><b>o</b><b>s</b><b>e</b><b>s</b>  <b>t</b><b>h</b><b>e</b> <b>S</b><b>S</b><b>L</b> <b>c</b><b>o</b><b>n</b><b>n</b><b>e</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b> <b>t</b><b>o</b> <b>a</b> <b>m</b><b>a</b><b>n</b><b>-</b><b>i</b><b>n</b><b>-</b><b>t</b><b>h</b><b>e</b><b>-</b><b>m</b><b>i</b><b>d</b><b>d</b><b>l</b><b>e</b>
+              <b>a</b><b>t</b><b>t</b><b>a</b><b>c</b><b>k</b> <b>o</b><b>b</b><b>t</b><b>a</b><b>i</b><b>n</b><b>i</b><b>n</b><b>g</b> <b>t</b><b>h</b><b>e</b> <b>i</b><b>n</b><b>i</b><b>t</b><b>i</b><b>a</b><b>l</b> <b>C</b><b>A</b> <b>c</b><b>e</b><b>r</b><b>t</b><b>i</b><b>f</b><b>i</b><b>c</b><b>a</b><b>t</b><b>e</b>, but it may be  use‐
+              ful for bootstrapping.
+
+              This option is only useful if the SSL peer sends its CA certifi‐
+              cate as part of the SSL certificate  chain.   The  SSL  protocol
+              does not require the server to send the CA certificate.
+
+              This option is mutually exclusive with <b>-</b><b>C</b> and <b>-</b><b>-</b><b>c</b><b>a</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b>.
+
+       <b>-</b><b>-</b><b>p</b><b>e</b><b>e</b><b>r</b><b>-</b><b>c</b><b>a</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b><b>=</b><u>p</u><u>e</u><u>e</u><u>r</u><u>-</u><u>c</u><u>a</u><u>c</u><u>e</u><u>r</u><u>t</u><u>.</u><u>p</u><u>e</u><u>m</u>
+              Specifies  a  PEM file that contains one or more additional cer‐
+              tificates to send to SSL peers.  <u>p</u><u>e</u><u>e</u><u>r</u><u>-</u><u>c</u><u>a</u><u>c</u><u>e</u><u>r</u><u>t</u><u>.</u><u>p</u><u>e</u><u>m</u> should  be  the
+              CA  certificate  used  to sign <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b>'s own certificate, that
+              is, the  certificate  specified  on  <b>-</b><b>c</b>  or  <b>-</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b><b>i</b><b>f</b><b>i</b><b>c</b><b>a</b><b>t</b><b>e</b>.   If
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b>'s  certificate  is self-signed, then <b>-</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b><b>i</b><b>f</b><b>i</b><b>c</b><b>a</b><b>t</b><b>e</b> and
+              <b>-</b><b>-</b><b>p</b><b>e</b><b>e</b><b>r</b><b>-</b><b>c</b><b>a</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b> should specify the same file.
+
+              This option is not useful in normal operation, because  the  SSL
+              peer  must  already have the CA certificate for the peer to have
+              any confidence in <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b>'s identity.  However, this offers  a
+              way  for  a  new installation to bootstrap the CA certificate on
+              its first SSL connection.
+
+       <b>-</b><b>v</b>[<u>s</u><u>p</u><u>e</u><u>c</u>]
+       <b>-</b><b>-</b><b>v</b><b>e</b><b>r</b><b>b</b><b>o</b><b>s</b><b>e</b><b>=</b>[<u>s</u><u>p</u><u>e</u><u>c</u>]
+              Sets logging levels.  Without any <u>s</u><u>p</u><u>e</u><u>c</u>, sets the log  level  for
+              every  module and facility to <b>d</b><b>b</b><b>g</b>.  Otherwise, <u>s</u><u>p</u><u>e</u><u>c</u> is a list of
+              words separated by spaces or commas or colons, up  to  one  from
+              each category below:
+
+              ·      A  valid  module name, as displayed by the <b>v</b><b>l</b><b>o</b><b>g</b><b>/</b><b>l</b><b>i</b><b>s</b><b>t</b> com‐
+                     mand on <b>o</b><b>v</b><b>s</b><b>-</b><b>a</b><b>p</b><b>p</b><b>c</b><b>t</b><b>l</b>(8), limits the log level change to the
+                     specified module.
+
+              ·      <b>s</b><b>y</b><b>s</b><b>l</b><b>o</b><b>g</b>,  <b>c</b><b>o</b><b>n</b><b>s</b><b>o</b><b>l</b><b>e</b>,  or <b>f</b><b>i</b><b>l</b><b>e</b>, to limit the log level change
+                     to only to the system log, to the console, or to a  file,
+                     respectively.
+
+                     On  Windows platform, <b>s</b><b>y</b><b>s</b><b>l</b><b>o</b><b>g</b> is accepted as a word and is
+                     only useful along with the  <b>-</b><b>-</b><b>s</b><b>y</b><b>s</b><b>l</b><b>o</b><b>g</b><b>-</b><b>t</b><b>a</b><b>r</b><b>g</b><b>e</b><b>t</b>  option  (the
+                     word has no effect otherwise).
+
+              ·      <b>o</b><b>f</b><b>f</b>,  <b>e</b><b>m</b><b>e</b><b>r</b>,  <b>e</b><b>r</b><b>r</b>,  <b>w</b><b>a</b><b>r</b><b>n</b>, <b>i</b><b>n</b><b>f</b><b>o</b>, or <b>d</b><b>b</b><b>g</b>, to control the log
+                     level.  Messages of the given severity or higher will  be
+                     logged,  and  messages of lower severity will be filtered
+                     out.  <b>o</b><b>f</b><b>f</b> filters out all  messages.   See  <b>o</b><b>v</b><b>s</b><b>-</b><b>a</b><b>p</b><b>p</b><b>c</b><b>t</b><b>l</b>(8)
+                     for a definition of each log level.
+
+              Case is not significant within <u>s</u><u>p</u><u>e</u><u>c</u>.
+
+              Regardless  of  the  log  levels set for <b>f</b><b>i</b><b>l</b><b>e</b>, logging to a file
+              will not take place unless <b>-</b><b>-</b><b>l</b><b>o</b><b>g</b><b>-</b><b>f</b><b>i</b><b>l</b><b>e</b>  is  also  specified  (see
+              below).
+
+              For compatibility with older versions of OVS, <b>a</b><b>n</b><b>y</b> is accepted as
+              a word but has no effect.
+
+       <b>-</b><b>v</b>
+       <b>-</b><b>-</b><b>v</b><b>e</b><b>r</b><b>b</b><b>o</b><b>s</b><b>e</b>
+              Sets the maximum logging verbosity level, equivalent  to  <b>-</b><b>-</b><b>v</b><b>e</b><b>r</b><b>‐</b>
+              <b>b</b><b>o</b><b>s</b><b>e</b><b>=</b><b>d</b><b>b</b><b>g</b>.
+
+       <b>-</b><b>v</b><b>P</b><b>A</b><b>T</b><b>T</b><b>E</b><b>R</b><b>N</b><b>:</b><u>f</u><u>a</u><u>c</u><u>i</u><u>l</u><u>i</u><u>t</u><u>y</u><b>:</b><u>p</u><u>a</u><u>t</u><u>t</u><u>e</u><u>r</u><u>n</u>
+       <b>-</b><b>-</b><b>v</b><b>e</b><b>r</b><b>b</b><b>o</b><b>s</b><b>e</b><b>=</b><b>P</b><b>A</b><b>T</b><b>T</b><b>E</b><b>R</b><b>N</b><b>:</b><u>f</u><u>a</u><u>c</u><u>i</u><u>l</u><u>i</u><u>t</u><u>y</u><b>:</b><u>p</u><u>a</u><u>t</u><u>t</u><u>e</u><u>r</u><u>n</u>
+              Sets  the  log  pattern  for  <u>f</u><u>a</u><u>c</u><u>i</u><u>l</u><u>i</u><u>t</u><u>y</u>  to  <u>p</u><u>a</u><u>t</u><u>t</u><u>e</u><u>r</u><u>n</u>.   Refer  to
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>a</b><b>p</b><b>p</b><b>c</b><b>t</b><b>l</b>(8) for a description of the valid syntax for <u>p</u><u>a</u><u>t</u><u>t</u><u>e</u><u>r</u><u>n</u>.
+
+       <b>-</b><b>-</b><b>l</b><b>o</b><b>g</b><b>-</b><b>f</b><b>i</b><b>l</b><b>e</b>[<b>=</b><u>f</u><u>i</u><u>l</u><u>e</u>]
+              Enables logging to a file.  If <u>f</u><u>i</u><u>l</u><u>e</u> is  specified,  then  it  is
+              used  as  the exact name for the log file.  The default log file
+              name   used   if   <u>f</u><u>i</u><u>l</u><u>e</u>    is    omitted    is    <b>/</b><b>v</b><b>a</b><b>r</b><b>/</b><b>l</b><b>o</b><b>g</b><b>/</b><b>o</b><b>p</b><b>e</b><b>n</b><b>‐</b>
+              <b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>/</b><b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b><b>.</b><b>l</b><b>o</b><b>g</b>.
+
+       <b>-</b><b>-</b><b>s</b><b>y</b><b>s</b><b>l</b><b>o</b><b>g</b><b>-</b><b>t</b><b>a</b><b>r</b><b>g</b><b>e</b><b>t</b><b>=</b><u>h</u><u>o</u><u>s</u><u>t</u><b>:</b><u>p</u><u>o</u><u>r</u><u>t</u>
+              Send  syslog  messages  to  UDP <u>p</u><u>o</u><u>r</u><u>t</u> on <u>h</u><u>o</u><u>s</u><u>t</u>, in addition to the
+              system syslog.  The <u>h</u><u>o</u><u>s</u><u>t</u> must be a numerical IP address,  not  a
+              hostname.
+
+       <b>-</b><b>h</b>
+       <b>-</b><b>-</b><b>h</b><b>e</b><b>l</b><b>p</b> Prints a brief help message to the console.
+
+       <b>-</b><b>V</b>
+       <b>-</b><b>-</b><b>v</b><b>e</b><b>r</b><b>s</b><b>i</b><b>o</b><b>n</b>
+              Prints version information to the console.
+
+<b>C</b><b>O</b><b>M</b><b>M</b><b>A</b><b>N</b><b>D</b><b>S</b>
+       The  commands  implemented  by  <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> are described in the sections
+       below.
+
+   <b>O</b><b>p</b><b>e</b><b>n</b> <b>v</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b> <b>C</b><b>o</b><b>m</b><b>m</b><b>a</b><b>n</b><b>d</b><b>s</b>
+       These commands work with an Open vSwitch as a whole.
+
+       <b>i</b><b>n</b><b>i</b><b>t</b>   Initializes the Open vSwitch database, if it is empty.   If  the
+              database  has  already  been  initialized,  this  command has no
+              effect.
+
+              Any successful <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> command automatically  initializes  the
+              Open  vSwitch database if it is empty.  This command is provided
+              to initialize the database without executing any other command.
+
+       <b>s</b><b>h</b><b>o</b><b>w</b>   Prints a brief overview of the database contents.
+
+       <b>e</b><b>m</b><b>e</b><b>r</b><b>-</b><b>r</b><b>e</b><b>s</b><b>e</b><b>t</b>
+              Reset the configuration into a  clean  state.   It  deconfigures
+              OpenFlow  controllers,  OVSDB servers, and SSL, and deletes port
+              mirroring, <b>f</b><b>a</b><b>i</b><b>l</b><b>_</b><b>m</b><b>o</b><b>d</b><b>e</b>, NetFlow, sFlow, and  IPFIX  configuration.
+              This  command  also removes all <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>-</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b> keys from all data‐
+              base records, except that <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>-</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>:</b><b>h</b><b>w</b><b>a</b><b>d</b><b>d</b><b>r</b> is preserved if it
+              is  present  in a Bridge record.  Other networking configuration
+              is left as-is.
+
+   <b>B</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b> <b>C</b><b>o</b><b>m</b><b>m</b><b>a</b><b>n</b><b>d</b><b>s</b>
+       These commands examine and manipulate Open vSwitch bridges.
+
+       [<b>-</b><b>-</b><b>m</b><b>a</b><b>y</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b>] <b>a</b><b>d</b><b>d</b><b>-</b><b>b</b><b>r</b> <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u>
+              Creates a new bridge named <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u>.  Initially  the  bridge  will
+              have no ports (other than <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u> itself).
+
+              Without  <b>-</b><b>-</b><b>m</b><b>a</b><b>y</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b>,  attempting to create a bridge that exists
+              is an error.  With <b>-</b><b>-</b><b>m</b><b>a</b><b>y</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b>, this  command  does  nothing  if
+              <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u> already exists as a real bridge.
+
+       [<b>-</b><b>-</b><b>m</b><b>a</b><b>y</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b>] <b>a</b><b>d</b><b>d</b><b>-</b><b>b</b><b>r</b> <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u> <u>p</u><u>a</u><u>r</u><u>e</u><u>n</u><u>t</u> <u>v</u><u>l</u><u>a</u><u>n</u>
+              Creates  a ``fake bridge'' named <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u> within the existing Open
+              vSwitch bridge <u>p</u><u>a</u><u>r</u><u>e</u><u>n</u><u>t</u>, which must already  exist  and  must  not
+              itself  be a fake bridge.  The new fake bridge will be on 802.1Q
+              VLAN <u>v</u><u>l</u><u>a</u><u>n</u>, which must be an integer between  0  and  4095.   The
+              parent  bridge  must  not  already  have a fake bridge for <u>v</u><u>l</u><u>a</u><u>n</u>.
+              Initially <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u> will have no ports (other than <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u> itself).
+
+              Without <b>-</b><b>-</b><b>m</b><b>a</b><b>y</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b>, attempting to create a bridge  that  exists
+              is  an  error.   With  <b>-</b><b>-</b><b>m</b><b>a</b><b>y</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b>, this command does nothing if
+              <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u> already exists as a VLAN bridge under <u>p</u><u>a</u><u>r</u><u>e</u><u>n</u><u>t</u> for <u>v</u><u>l</u><u>a</u><u>n</u>.
+
+       [<b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>] <b>d</b><b>e</b><b>l</b><b>-</b><b>b</b><b>r</b> <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u>
+              Deletes <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u> and all of  its  ports.   If  <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u>  is  a  real
+              bridge,  this  command  also  deletes any fake bridges that were
+              created with <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u> as parent, including all of their ports.
+
+              Without <b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>, attempting to delete a bridge that does not
+              exist  is  an  error.   With <b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>, attempting to delete a
+              bridge that does not exist has no effect.
+
+       [<b>-</b><b>-</b><b>r</b><b>e</b><b>a</b><b>l</b>|<b>-</b><b>-</b><b>f</b><b>a</b><b>k</b><b>e</b>] <b>l</b><b>i</b><b>s</b><b>t</b><b>-</b><b>b</b><b>r</b>
+              Lists all existing real and fake bridges on standard output, one
+              per  line.  With <b>-</b><b>-</b><b>r</b><b>e</b><b>a</b><b>l</b> or <b>-</b><b>-</b><b>f</b><b>a</b><b>k</b><b>e</b>, only bridges of that type are
+              returned.
+
+       <b>b</b><b>r</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b> <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u>
+              Tests whether <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u> exists as a real or fake  bridge.   If  so,
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b>   exits  successfully  with  exit  code  0.   If  not,
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> exits unsuccessfully with exit code 2.
+
+       <b>b</b><b>r</b><b>-</b><b>t</b><b>o</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b> <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u>
+              If <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u> is a fake bridge, prints the bridge's 802.1Q VLAN as a
+              decimal integer.  If <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u> is a real bridge, prints 0.
+
+       <b>b</b><b>r</b><b>-</b><b>t</b><b>o</b><b>-</b><b>p</b><b>a</b><b>r</b><b>e</b><b>n</b><b>t</b> <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u>
+              If  <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u>  is  a  fake  bridge,  prints  the name of its parent
+              bridge.  If <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u> is a real bridge, print <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u>.
+
+       <b>b</b><b>r</b><b>-</b><b>s</b><b>e</b><b>t</b><b>-</b><b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>-</b><b>i</b><b>d</b> <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u> <u>k</u><u>e</u><u>y</u> [<u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>]
+              Sets or clears an ``external ID'' value on <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u>.  These values
+              are  intended to identify entities external to Open vSwitch with
+              which <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u> is associated, e.g. the bridge's  identifier  in  a
+              virtualization  management  platform.  The Open vSwitch database
+              schema specifies well-known <u>k</u><u>e</u><u>y</u> values, but <u>k</u><u>e</u><u>y</u>  and  <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>  are
+              otherwise arbitrary strings.
+
+              If  <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>  is  specified,  then  <u>k</u><u>e</u><u>y</u> is set to <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u> for <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u>,
+              overwriting any previous value.  If <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u> is omitted,  then  <u>k</u><u>e</u><u>y</u>
+              is  removed  from  <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u>'s  set  of  external  IDs  (if  it was
+              present).
+
+              For real bridges, the effect of this command is similar to  that
+              of  a  <b>s</b><b>e</b><b>t</b>  or  <b>r</b><b>e</b><b>m</b><b>o</b><b>v</b><b>e</b> command in the <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>-</b><b>i</b><b>d</b><b>s</b> column of the
+              <b>B</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b> table.  For fake bridges, it actually modifies keys  with
+              names prefixed by <b>f</b><b>a</b><b>k</b><b>e</b><b>-</b><b>b</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b><b>-</b> in the <b>P</b><b>o</b><b>r</b><b>t</b> table.
+
+       <b>b</b><b>r</b><b>-</b><b>g</b><b>e</b><b>t</b><b>-</b><b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>-</b><b>i</b><b>d</b> <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u> [<u>k</u><u>e</u><u>y</u>]
+              Queries  the  external  IDs on <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u>.  If <u>k</u><u>e</u><u>y</u> is specified, the
+              output is the value for that <u>k</u><u>e</u><u>y</u> or the empty string if  <u>k</u><u>e</u><u>y</u>  is
+              unset.   If  <u>k</u><u>e</u><u>y</u>  is  omitted,  the output is <u>k</u><u>e</u><u>y</u><b>=</b><u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>, one per
+              line, for each key-value pair.
+
+              For real bridges, the effect of this command is similar to  that
+              of a <b>g</b><b>e</b><b>t</b> command in the <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>-</b><b>i</b><b>d</b><b>s</b> column of the <b>B</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b> table.
+              For fake  bridges,  it  queries  keys  with  names  prefixed  by
+              <b>f</b><b>a</b><b>k</b><b>e</b><b>-</b><b>b</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b><b>-</b> in the <b>P</b><b>o</b><b>r</b><b>t</b> table.
+
+   <b>P</b><b>o</b><b>r</b><b>t</b> <b>C</b><b>o</b><b>m</b><b>m</b><b>a</b><b>n</b><b>d</b><b>s</b>
+       These  commands  examine and manipulate Open vSwitch ports.  These com‐
+       mands treat a bonded port as a single entity.
+
+       <b>l</b><b>i</b><b>s</b><b>t</b><b>-</b><b>p</b><b>o</b><b>r</b><b>t</b><b>s</b> <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u>
+              Lists all of the ports within <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u> on standard output, one per
+              line.  The local port <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u> is not included in the list.
+
+       [<b>-</b><b>-</b><b>m</b><b>a</b><b>y</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b>] <b>a</b><b>d</b><b>d</b><b>-</b><b>p</b><b>o</b><b>r</b><b>t</b> <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u> <u>p</u><u>o</u><u>r</u><u>t</u> [<u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>[<b>:</b><u>k</u><u>e</u><u>y</u>]=<u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>]...
+              Creates  on <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u> a new port named <u>p</u><u>o</u><u>r</u><u>t</u> from the network device
+              of the same name.
+
+              Optional arguments set values of column in the Port record  cre‐
+              ated  by the command.  For example, <b>t</b><b>a</b><b>g</b><b>=</b><b>9</b> would make the port an
+              access port for VLAN 9.  The syntax is the same as that for  the
+              <b>s</b><b>e</b><b>t</b> command (see <b>D</b><b>a</b><b>t</b><b>a</b><b>b</b><b>a</b><b>s</b><b>e</b> <b>C</b><b>o</b><b>m</b><b>m</b><b>a</b><b>n</b><b>d</b><b>s</b> below).
+
+              Without  <b>-</b><b>-</b><b>m</b><b>a</b><b>y</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b>, attempting to create a port that exists is
+              an error.  With <b>-</b><b>-</b><b>m</b><b>a</b><b>y</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b>, this command does nothing  if  <u>p</u><u>o</u><u>r</u><u>t</u>
+              already exists on <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u> and is not a bonded port.
+
+       [<b>-</b><b>-</b><b>f</b><b>a</b><b>k</b><b>e</b><b>-</b><b>i</b><b>f</b><b>a</b><b>c</b><b>e</b>] <b>a</b><b>d</b><b>d</b><b>-</b><b>b</b><b>o</b><b>n</b><b>d</b> <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u> <u>p</u><u>o</u><u>r</u><u>t</u> <u>i</u><u>f</u><u>a</u><u>c</u><u>e</u>... [<u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>[<b>:</b><u>k</u><u>e</u><u>y</u>]=<u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>]...
+              Creates  on <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u> a new port named <u>p</u><u>o</u><u>r</u><u>t</u> that bonds together the
+              network devices given as each <u>i</u><u>f</u><u>a</u><u>c</u><u>e</u>.  At  least  two  interfaces
+              must be named.
+
+              Optional  arguments set values of column in the Port record cre‐
+              ated by the command.  The syntax is the same as that for the <b>s</b><b>e</b><b>t</b>
+              command (see <b>D</b><b>a</b><b>t</b><b>a</b><b>b</b><b>a</b><b>s</b><b>e</b> <b>C</b><b>o</b><b>m</b><b>m</b><b>a</b><b>n</b><b>d</b><b>s</b> below).
+
+              With  <b>-</b><b>-</b><b>f</b><b>a</b><b>k</b><b>e</b><b>-</b><b>i</b><b>f</b><b>a</b><b>c</b><b>e</b>,  a fake interface with the name <u>p</u><u>o</u><u>r</u><u>t</u> is cre‐
+              ated.  This should only be used for  compatibility  with  legacy
+              software that requires it.
+
+              Without  <b>-</b><b>-</b><b>m</b><b>a</b><b>y</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b>, attempting to create a port that exists is
+              an error.  With <b>-</b><b>-</b><b>m</b><b>a</b><b>y</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b>, this command does nothing  if  <u>p</u><u>o</u><u>r</u><u>t</u>
+              already  exists  on <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u> and bonds together exactly the speci‐
+              fied interfaces.
+
+       [<b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>] <b>d</b><b>e</b><b>l</b><b>-</b><b>p</b><b>o</b><b>r</b><b>t</b> [<u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u>] <u>p</u><u>o</u><u>r</u><u>t</u>
+              Deletes <u>p</u><u>o</u><u>r</u><u>t</u>.  If <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u> is omitted, <u>p</u><u>o</u><u>r</u><u>t</u> is removed from  what‐
+              ever  bridge contains it; if <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u> is specified, it must be the
+              real or fake bridge that contains <u>p</u><u>o</u><u>r</u><u>t</u>.
+
+              Without <b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>, attempting to delete a port that  does  not
+              exist  is  an  error.   With <b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>, attempting to delete a
+              port that does not exist has no effect.
+
+       [<b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>] <b>-</b><b>-</b><b>w</b><b>i</b><b>t</b><b>h</b><b>-</b><b>i</b><b>f</b><b>a</b><b>c</b><b>e</b> <b>d</b><b>e</b><b>l</b><b>-</b><b>p</b><b>o</b><b>r</b><b>t</b> [<u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u>] <u>i</u><u>f</u><u>a</u><u>c</u><u>e</u>
+              Deletes the port named <u>i</u><u>f</u><u>a</u><u>c</u><u>e</u> or  that  has  an  interface  named
+              <u>i</u><u>f</u><u>a</u><u>c</u><u>e</u>.   If <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u> is omitted, the port is removed from whatever
+              bridge contains it; if <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u> is specified, it must be the  real
+              or fake bridge that contains the port.
+
+              Without <b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>, attempting to delete the port for an inter‐
+              face that  does  not  exist  is  an  error.   With  <b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>,
+              attempting  to  delete  the  port for an interface that does not
+              exist has no effect.
+
+       <b>p</b><b>o</b><b>r</b><b>t</b><b>-</b><b>t</b><b>o</b><b>-</b><b>b</b><b>r</b> <u>p</u><u>o</u><u>r</u><u>t</u>
+              Prints the name of the bridge that  contains  <u>p</u><u>o</u><u>r</u><u>t</u>  on  standard
+              output.
+
+   <b>I</b><b>n</b><b>t</b><b>e</b><b>r</b><b>f</b><b>a</b><b>c</b><b>e</b> <b>C</b><b>o</b><b>m</b><b>m</b><b>a</b><b>n</b><b>d</b><b>s</b>
+       These  commands  examine  the  interfaces  attached  to an Open vSwitch
+       bridge.  These commands treat a bonded port as a collection of  two  or
+       more interfaces, rather than as a single port.
+
+       <b>l</b><b>i</b><b>s</b><b>t</b><b>-</b><b>i</b><b>f</b><b>a</b><b>c</b><b>e</b><b>s</b> <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u>
+              Lists  all  of  the interfaces within <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u> on standard output,
+              one per line.  The local port <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u>  is  not  included  in  the
+              list.
+
+       <b>i</b><b>f</b><b>a</b><b>c</b><b>e</b><b>-</b><b>t</b><b>o</b><b>-</b><b>b</b><b>r</b> <u>i</u><u>f</u><u>a</u><u>c</u><u>e</u>
+              Prints  the  name  of the bridge that contains <u>i</u><u>f</u><u>a</u><u>c</u><u>e</u> on standard
+              output.
+
+   <b>O</b><b>p</b><b>e</b><b>n</b><b>F</b><b>l</b><b>o</b><b>w</b> <b>C</b><b>o</b><b>n</b><b>t</b><b>r</b><b>o</b><b>l</b><b>l</b><b>e</b><b>r</b> <b>C</b><b>o</b><b>n</b><b>n</b><b>e</b><b>c</b><b>t</b><b>i</b><b>v</b><b>i</b><b>t</b><b>y</b>
+       <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>d</b> can perform all configured bridging and switching locally,
+       or  it can be configured to communicate with one or more external Open‐
+       Flow controllers.  The switch is typically configured to connect  to  a
+       primary  controller  that  takes  charge  of the bridge's flow table to
+       implement a network policy.  In addition, the switch can be  configured
+       to listen to connections from service controllers.  Service controllers
+       are typically used for occasional support and  maintenance,  e.g.  with
+       <b>o</b><b>v</b><b>s</b><b>-</b><b>o</b><b>f</b><b>c</b><b>t</b><b>l</b>.
+
+       <b>g</b><b>e</b><b>t</b><b>-</b><b>c</b><b>o</b><b>n</b><b>t</b><b>r</b><b>o</b><b>l</b><b>l</b><b>e</b><b>r</b> <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u>
+              Prints the configured controller target.
+
+       <b>d</b><b>e</b><b>l</b><b>-</b><b>c</b><b>o</b><b>n</b><b>t</b><b>r</b><b>o</b><b>l</b><b>l</b><b>e</b><b>r</b> <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u>
+              Deletes the configured controller target.
+
+       <b>s</b><b>e</b><b>t</b><b>-</b><b>c</b><b>o</b><b>n</b><b>t</b><b>r</b><b>o</b><b>l</b><b>l</b><b>e</b><b>r</b> <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u> <u>t</u><u>a</u><u>r</u><u>g</u><u>e</u><u>t</u>...
+              Sets  the  configured controller target or targets.  Each <u>t</u><u>a</u><u>r</u><u>g</u><u>e</u><u>t</u>
+              may use any of the following forms:
+
+              <b>s</b><b>s</b><b>l</b><b>:</b><u>i</u><u>p</u>[<b>:</b><u>p</u><u>o</u><u>r</u><u>t</u>]
+              <b>t</b><b>c</b><b>p</b><b>:</b><u>i</u><u>p</u>[<b>:</b><u>p</u><u>o</u><u>r</u><u>t</u>]
+                     The specified <u>p</u><u>o</u><u>r</u><u>t</u> on the host at  the  given  <u>i</u><u>p</u>,  which
+                     must  be  expressed  as an IP address (not a DNS name) in
+                     IPv4 or IPv6 address  format.   Wrap  IPv6  addresses  in
+                     square  brackets,  e.g.  <b>t</b><b>c</b><b>p</b><b>:</b><b>[</b><b>:</b><b>:</b><b>1</b><b>]</b><b>:</b><b>6</b><b>6</b><b>3</b><b>3</b>.   For  <b>s</b><b>s</b><b>l</b>,  the
+                     <b>-</b><b>-</b><b>p</b><b>r</b><b>i</b><b>v</b><b>a</b><b>t</b><b>e</b><b>-</b><b>k</b><b>e</b><b>y</b>, <b>-</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b><b>i</b><b>f</b><b>i</b><b>c</b><b>a</b><b>t</b><b>e</b>, and <b>-</b><b>-</b><b>c</b><b>a</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b>  options  are
+                     mandatory.
+
+                     If  <u>p</u><u>o</u><u>r</u><u>t</u> is not specified, it currently defaults to 6633.
+                     In the future, the default will change to 6653, which  is
+                     the IANA-defined value.
+
+              <b>u</b><b>n</b><b>i</b><b>x</b><b>:</b><u>f</u><u>i</u><u>l</u><u>e</u>
+                     On POSIX, a Unix domain server socket named <u>f</u><u>i</u><u>l</u><u>e</u>.
+
+                     On Windows, a localhost TCP port written in <u>f</u><u>i</u><u>l</u><u>e</u>.
+
+              <b>p</b><b>s</b><b>s</b><b>l</b><b>:</b>[<u>p</u><u>o</u><u>r</u><u>t</u>][<b>:</b><u>i</u><u>p</u>]
+              <b>p</b><b>t</b><b>c</b><b>p</b><b>:</b>[<u>p</u><u>o</u><u>r</u><u>t</u>][<b>:</b><u>i</u><u>p</u>]
+                     Listens  for  OpenFlow  connections on <u>p</u><u>o</u><u>r</u><u>t</u>.  The default
+                     <u>p</u><u>o</u><u>r</u><u>t</u> is 6633, but a future version of Open  vSwitch  will
+                     change  the  default  to  the IANA-defined port 6653.  By
+                     default, connections are allowed from any  IPv4  address.
+                     Specify <u>i</u><u>p</u> as an IPv4 address or a bracketed IPv6 address
+                     (e.g. <b>p</b><b>t</b><b>c</b><b>p</b><b>:</b><b>6</b><b>6</b><b>3</b><b>3</b><b>:</b><b>[</b><b>:</b><b>:</b><b>1</b><b>]</b>).  DNS names may not be used.   For
+                     <b>p</b><b>s</b><b>s</b><b>l</b>,   the  <b>-</b><b>-</b><b>p</b><b>r</b><b>i</b><b>v</b><b>a</b><b>t</b><b>e</b><b>-</b><b>k</b><b>e</b><b>y</b>,<b>-</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b><b>i</b><b>f</b><b>i</b><b>c</b><b>a</b><b>t</b><b>e</b>,  and  <b>-</b><b>-</b><b>c</b><b>a</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b>
+                     options are mandatory.
+
+              <b>p</b><b>u</b><b>n</b><b>i</b><b>x</b><b>:</b><u>f</u><u>i</u><u>l</u><u>e</u>
+                     Listens for  OpenFlow  connections  on  the  Unix  domain
+                     server socket named <u>f</u><u>i</u><u>l</u><u>e</u>.
+
+     <u>C</u><u>o</u><u>n</u><u>t</u><u>r</u><u>o</u><u>l</u><u>l</u><u>e</u><u>r</u> <u>F</u><u>a</u><u>i</u><u>l</u><u>u</u><u>r</u><u>e</u> <u>S</u><u>e</u><u>t</u><u>t</u><u>i</u><u>n</u><u>g</u><u>s</u>
+
+       When  a  controller  is  configured, it is, ordinarily, responsible for
+       setting up all flows on the switch.  Thus, if  the  connection  to  the
+       controller  fails,  no  new  network connections can be set up.  If the
+       connection to the controller stays down long  enough,  no  packets  can
+       pass through the switch at all.
+
+       If  the  value  is  <b>s</b><b>t</b><b>a</b><b>n</b><b>d</b><b>a</b><b>l</b><b>o</b><b>n</b><b>e</b>, or if neither of these settings is set,
+       <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>d</b> will take over responsibility for setting up flows when no
+       message has been received from the controller for three times the inac‐
+       tivity probe interval.  In this mode, <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>d</b> causes the  datapath
+       to  act  like  an ordinary MAC-learning switch.  <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>d</b> will con‐
+       tinue to retry connecting to the controller in the background and, when
+       the connection succeeds, it discontinues its standalone behavior.
+
+       If  this option is set to <b>s</b><b>e</b><b>c</b><b>u</b><b>r</b><b>e</b>, <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>d</b> will not set up flows on
+       its own when the controller connection fails.
+
+       <b>g</b><b>e</b><b>t</b><b>-</b><b>f</b><b>a</b><b>i</b><b>l</b><b>-</b><b>m</b><b>o</b><b>d</b><b>e</b> <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u>
+              Prints the configured failure mode.
+
+       <b>d</b><b>e</b><b>l</b><b>-</b><b>f</b><b>a</b><b>i</b><b>l</b><b>-</b><b>m</b><b>o</b><b>d</b><b>e</b> <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u>
+              Deletes the configured failure mode.
+
+       <b>s</b><b>e</b><b>t</b><b>-</b><b>f</b><b>a</b><b>i</b><b>l</b><b>-</b><b>m</b><b>o</b><b>d</b><b>e</b> <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u> <b>s</b><b>t</b><b>a</b><b>n</b><b>d</b><b>a</b><b>l</b><b>o</b><b>n</b><b>e</b>|<b>s</b><b>e</b><b>c</b><b>u</b><b>r</b><b>e</b>
+              Sets the configured failure mode.
+
+   <b>M</b><b>a</b><b>n</b><b>a</b><b>g</b><b>e</b><b>r</b> <b>C</b><b>o</b><b>n</b><b>n</b><b>e</b><b>c</b><b>t</b><b>i</b><b>v</b><b>i</b><b>t</b><b>y</b>
+       These  commands  manipulate   the   <b>m</b><b>a</b><b>n</b><b>a</b><b>g</b><b>e</b><b>r</b><b>_</b><b>o</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>   column   in   the
+       <b>O</b><b>p</b><b>e</b><b>n</b><b>_</b><b>v</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>  table  and rows in the <b>M</b><b>a</b><b>n</b><b>a</b><b>g</b><b>e</b><b>r</b><b>s</b> table.  When <b>o</b><b>v</b><b>s</b><b>d</b><b>b</b><b>-</b><b>s</b><b>e</b><b>r</b><b>v</b><b>e</b><b>r</b>
+       is configured to use the <b>m</b><b>a</b><b>n</b><b>a</b><b>g</b><b>e</b><b>r</b><b>_</b><b>o</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b> column for  OVSDB  connections
+       (as described in <b>I</b><b>N</b><b>S</b><b>T</b><b>A</b><b>L</b><b>L</b><b>.</b><b>L</b><b>i</b><b>n</b><b>u</b><b>x</b> and in the startup scripts provided with
+       Open vSwitch), this allows the administrator to use <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b>  to  con‐
+       figure database connections.
+
+       <b>g</b><b>e</b><b>t</b><b>-</b><b>m</b><b>a</b><b>n</b><b>a</b><b>g</b><b>e</b><b>r</b>
+              Prints the configured manager(s).
+
+       <b>d</b><b>e</b><b>l</b><b>-</b><b>m</b><b>a</b><b>n</b><b>a</b><b>g</b><b>e</b><b>r</b>
+              Deletes the configured manager(s).
+
+       <b>s</b><b>e</b><b>t</b><b>-</b><b>m</b><b>a</b><b>n</b><b>a</b><b>g</b><b>e</b><b>r</b> <u>t</u><u>a</u><u>r</u><u>g</u><u>e</u><u>t</u>...
+              Sets  the configured manager target or targets.  Each <u>t</u><u>a</u><u>r</u><u>g</u><u>e</u><u>t</u> may
+              use any of the following forms:
+
+              <b>s</b><b>s</b><b>l</b><b>:</b><u>i</u><u>p</u><b>:</b><u>p</u><u>o</u><u>r</u><u>t</u>
+                     The specified SSL <u>p</u><u>o</u><u>r</u><u>t</u> on the host at the given <u>i</u><u>p</u>, which
+                     must  be  expressed  as an IP address (not a DNS name) in
+                     IPv4 or IPv6 address format.  If <u>i</u><u>p</u> is an  IPv6  address,
+                     then  wrap <u>i</u><u>p</u> with square brackets, e.g.: <b>s</b><b>s</b><b>l</b><b>:</b><b>[</b><b>:</b><b>:</b><b>1</b><b>]</b><b>:</b><b>6</b><b>6</b><b>3</b><b>2</b>.
+                     The <b>-</b><b>-</b><b>p</b><b>r</b><b>i</b><b>v</b><b>a</b><b>t</b><b>e</b><b>-</b><b>k</b><b>e</b><b>y</b>, <b>-</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b><b>i</b><b>f</b><b>i</b><b>c</b><b>a</b><b>t</b><b>e</b>, and  <b>-</b><b>-</b><b>c</b><b>a</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b>  options
+                     are mandatory when this form is used.
+
+              <b>t</b><b>c</b><b>p</b><b>:</b><u>i</u><u>p</u><b>:</b><u>p</u><u>o</u><u>r</u><u>t</u>
+                     Connect to the given TCP <u>p</u><u>o</u><u>r</u><u>t</u> on <u>i</u><u>p</u>, where <u>i</u><u>p</u> can be IPv4
+                     or IPv6 address. If <u>i</u><u>p</u> is an IPv6 address, then  wrap  <u>i</u><u>p</u>
+                     with square brackets, e.g.: <b>t</b><b>c</b><b>p</b><b>:</b><b>[</b><b>:</b><b>:</b><b>1</b><b>]</b><b>:</b><b>6</b><b>6</b><b>3</b><b>2</b>.
+
+              <b>u</b><b>n</b><b>i</b><b>x</b><b>:</b><u>f</u><u>i</u><u>l</u><u>e</u>
+                     On  POSIX, connect to the Unix domain server socket named
+                     <u>f</u><u>i</u><u>l</u><u>e</u>.
+
+                     On Windows, connect to a localhost TCP port  whose  value
+                     is written in <u>f</u><u>i</u><u>l</u><u>e</u>.
+
+              <b>p</b><b>s</b><b>s</b><b>l</b><b>:</b><u>p</u><u>o</u><u>r</u><u>t</u>[<b>:</b><u>i</u><u>p</u>]
+                     Listen  on  the  given  SSL  <u>p</u><u>o</u><u>r</u><u>t</u>  for  a connection.  By
+                     default, connections are not bound to a particular  local
+                     IP  address  and  it  listens only on IPv4 (but not IPv6)
+                     addresses, but specifying <u>i</u><u>p</u> limits connections to  those
+                     from the given <u>i</u><u>p</u>, either IPv4 or IPv6 address.  If <u>i</u><u>p</u> is
+                     an IPv6 address, then wrap <u>i</u><u>p</u> with square brackets, e.g.:
+                     <b>p</b><b>s</b><b>s</b><b>l</b><b>:</b><b>6</b><b>6</b><b>3</b><b>2</b><b>:</b><b>[</b><b>:</b><b>:</b><b>1</b><b>]</b>.   The  <b>-</b><b>-</b><b>p</b><b>r</b><b>i</b><b>v</b><b>a</b><b>t</b><b>e</b><b>-</b><b>k</b><b>e</b><b>y</b>, <b>-</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b><b>i</b><b>f</b><b>i</b><b>c</b><b>a</b><b>t</b><b>e</b>, and
+                     <b>-</b><b>-</b><b>c</b><b>a</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b> options are mandatory when this form is used.
+
+              <b>p</b><b>t</b><b>c</b><b>p</b><b>:</b><u>p</u><u>o</u><u>r</u><u>t</u>[<b>:</b><u>i</u><u>p</u>]
+                     Listen on the  given  TCP  <u>p</u><u>o</u><u>r</u><u>t</u>  for  a  connection.   By
+                     default,  connections are not bound to a particular local
+                     IP address and it listens only on  IPv4  (but  not  IPv6)
+                     addresses,  but  <u>i</u><u>p</u>  may  be specified to listen only for
+                     connections to the given <u>i</u><u>p</u>, either IPv4 or IPv6 address.
+                     If <u>i</u><u>p</u> is an IPv6 address, then wrap <u>i</u><u>p</u> with square brack‐
+                     ets, e.g.: <b>p</b><b>t</b><b>c</b><b>p</b><b>:</b><b>6</b><b>6</b><b>3</b><b>2</b><b>:</b><b>[</b><b>:</b><b>:</b><b>1</b><b>]</b>.
+
+              <b>p</b><b>u</b><b>n</b><b>i</b><b>x</b><b>:</b><u>f</u><u>i</u><u>l</u><u>e</u>
+                     On POSIX, listen on the Unix domain server  socket  named
+                     <u>f</u><u>i</u><u>l</u><u>e</u> for a connection.
+
+                     On  Windows,  listen  on  a kernel chosen TCP port on the
+                     localhost. The kernel chosen TCP port value is written in
+                     <u>f</u><u>i</u><u>l</u><u>e</u>.
+
+   <b>S</b><b>S</b><b>L</b> <b>C</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>u</b><b>r</b><b>a</b><b>t</b><b>i</b><b>o</b><b>n</b>
+       When  <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>d</b>  is configured to connect over SSL for management or
+       controller connectivity, the following parameters are required:
+
+       <u>p</u><u>r</u><u>i</u><u>v</u><u>a</u><u>t</u><u>e</u><u>-</u><u>k</u><u>e</u><u>y</u>
+              Specifies a PEM file containing the private key used as the vir‐
+              tual switch's identity for SSL connections to the controller.
+
+       <u>c</u><u>e</u><u>r</u><u>t</u><u>i</u><u>f</u><u>i</u><u>c</u><u>a</u><u>t</u><u>e</u>
+              Specifies  a  PEM  file  containing a certificate, signed by the
+              certificate authority (CA) used by the controller  and  manager,
+              that  certifies  the virtual switch's private key, identifying a
+              trustworthy switch.
+
+       <u>c</u><u>a</u><u>-</u><u>c</u><u>e</u><u>r</u><u>t</u>
+              Specifies a PEM file containing the CA certificate used to  ver‐
+              ify  that  the virtual switch is connected to a trustworthy con‐
+              troller.
+
+       These files are read only once, at <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>d</b> startup time.  If their
+       contents change, <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>d</b> must be killed and restarted.
+
+       These  SSL  settings  apply  to all SSL connections made by the virtual
+       switch.
+
+       <b>g</b><b>e</b><b>t</b><b>-</b><b>s</b><b>s</b><b>l</b>
+              Prints the SSL configuration.
+
+       <b>d</b><b>e</b><b>l</b><b>-</b><b>s</b><b>s</b><b>l</b>
+              Deletes the current SSL configuration.
+
+       [<b>-</b><b>-</b><b>b</b><b>o</b><b>o</b><b>t</b><b>s</b><b>t</b><b>r</b><b>a</b><b>p</b>] <b>s</b><b>e</b><b>t</b><b>-</b><b>s</b><b>s</b><b>l</b> <u>p</u><u>r</u><u>i</u><u>v</u><u>a</u><u>t</u><u>e</u><u>-</u><u>k</u><u>e</u><u>y</u> <u>c</u><u>e</u><u>r</u><u>t</u><u>i</u><u>f</u><u>i</u><u>c</u><u>a</u><u>t</u><u>e</u> <u>c</u><u>a</u><u>-</u><u>c</u><u>e</u><u>r</u><u>t</u>
+              Sets the SSL configuration.  The <b>-</b><b>-</b><b>b</b><b>o</b><b>o</b><b>t</b><b>s</b><b>t</b><b>r</b><b>a</b><b>p</b> option is described
+              below.
+
+     <u>C</u><u>A</u> <u>C</u><u>e</u><u>r</u><u>t</u><u>i</u><u>f</u><u>i</u><u>c</u><u>a</u><u>t</u><u>e</u> <u>B</u><u>o</u><u>o</u><u>t</u><u>s</u><u>t</u><u>r</u><u>a</u><u>p</u>
+
+       Ordinarily,  all of the files named in the SSL configuration must exist
+       when <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>d</b> starts.  However, if the <u>c</u><u>a</u><u>-</u><u>c</u><u>e</u><u>r</u><u>t</u> file does not  exist
+       and  the <b>-</b><b>-</b><b>b</b><b>o</b><b>o</b><b>t</b><b>s</b><b>t</b><b>r</b><b>a</b><b>p</b> option is given, then <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>d</b> will attempt to
+       obtain the CA certificate from the controller on its first SSL  connec‐
+       tion  and  save it to the named PEM file.  If it is successful, it will
+       immediately drop the connection and reconnect, and from then on all SSL
+       connections  must  be  authenticated  by a certificate signed by the CA
+       certificate thus obtained.
+
+       <b>T</b><b>h</b><b>i</b><b>s</b> <b>o</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b> <b>e</b><b>x</b><b>p</b><b>o</b><b>s</b><b>e</b><b>s</b> <b>t</b><b>h</b><b>e</b> <b>S</b><b>S</b><b>L</b> <b>c</b><b>o</b><b>n</b><b>n</b><b>e</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b> <b>t</b><b>o</b>  <b>a</b>  <b>m</b><b>a</b><b>n</b><b>-</b><b>i</b><b>n</b><b>-</b><b>t</b><b>h</b><b>e</b><b>-</b><b>m</b><b>i</b><b>d</b><b>d</b><b>l</b><b>e</b>  <b>a</b><b>t</b><b>t</b><b>a</b><b>c</b><b>k</b>
+       <b>o</b><b>b</b><b>t</b><b>a</b><b>i</b><b>n</b><b>i</b><b>n</b><b>g</b>  <b>t</b><b>h</b><b>e</b>  <b>i</b><b>n</b><b>i</b><b>t</b><b>i</b><b>a</b><b>l</b>  <b>C</b><b>A</b> <b>c</b><b>e</b><b>r</b><b>t</b><b>i</b><b>f</b><b>i</b><b>c</b><b>a</b><b>t</b><b>e</b>, but it may be useful for boot‐
+       strapping.
+
+       This option is only useful if the controller sends its  CA  certificate
+       as  part  of  the  SSL  certificate  chain.   The SSL protocol does not
+       require the controller to send the CA certificate.
+
+   <b>D</b><b>a</b><b>t</b><b>a</b><b>b</b><b>a</b><b>s</b><b>e</b> <b>C</b><b>o</b><b>m</b><b>m</b><b>a</b><b>n</b><b>d</b><b>s</b>
+       These commands query and modify the contents of <b>o</b><b>v</b><b>s</b><b>d</b><b>b</b> tables.  They are
+       a slight abstraction of the <b>o</b><b>v</b><b>s</b><b>d</b><b>b</b> interface and as such they operate at
+       a lower level than other <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> commands.
+
+     <u>I</u><u>d</u><u>e</u><u>n</u><u>t</u><u>i</u><u>f</u><u>y</u><u>i</u><u>n</u><u>g</u> <u>T</u><u>a</u><u>b</u><u>l</u><u>e</u><u>s</u><u>,</u> <u>R</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u><u>s</u><u>,</u> <u>a</u><u>n</u><u>d</u> <u>C</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u><u>s</u>
+
+       Each of these commands has a <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> parameter to identify a table within
+       the  database.   Many of them also take a <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> parameter that identi‐
+       fies a particular record within a table.  The <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> parameter  may  be
+       the  UUID  for a record, and many tables offer additional ways to iden‐
+       tify records.  Some commands also take <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u> parameters that  identify
+       a particular field within the records in a table.
+
+       The following tables are currently defined:
+
+       <b>O</b><b>p</b><b>e</b><b>n</b><b>_</b><b>v</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>
+              Global  configuration  for an <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>d</b>.  This table contains
+              exactly one record, identified by specifying  <b>.</b>  as  the  record
+              name.
+
+       <b>B</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b> Configuration  for a bridge within an Open vSwitch.  Records may
+              be identified by bridge name.
+
+       <b>P</b><b>o</b><b>r</b><b>t</b>   A bridge port.  Records may be identified by port name.
+
+       <b>I</b><b>n</b><b>t</b><b>e</b><b>r</b><b>f</b><b>a</b><b>c</b><b>e</b>
+              A network device attached to a port.  Records may be  identified
+              by name.
+
+       <b>F</b><b>l</b><b>o</b><b>w</b><b>_</b><b>T</b><b>a</b><b>b</b><b>l</b><b>e</b>
+              Configuration for a particular OpenFlow flow table.  Records may
+              be identified by name.
+
+       <b>Q</b><b>o</b><b>S</b>    Quality-of-service configuration for a  <b>P</b><b>o</b><b>r</b><b>t</b>.   Records  may  be
+              identified by port name.
+
+       <b>Q</b><b>u</b><b>e</b><b>u</b><b>e</b>  Configuration for one queue within a <b>Q</b><b>o</b><b>S</b> configuration.  Records
+              may only be identified by UUID.
+
+       <b>M</b><b>i</b><b>r</b><b>r</b><b>o</b><b>r</b> A port mirroring configuration attached to  a  bridge.   Records
+              may be identified by mirror name.
+
+       <b>C</b><b>o</b><b>n</b><b>t</b><b>r</b><b>o</b><b>l</b><b>l</b><b>e</b><b>r</b>
+              Configuration for an OpenFlow controller.  A controller attached
+              to a particular bridge may be identified by the bridge's name.
+
+       <b>M</b><b>a</b><b>n</b><b>a</b><b>g</b><b>e</b><b>r</b>
+              Configuration for an OVSDB connection.  Records may  be  identi‐
+              fied by target (e.g. <b>t</b><b>c</b><b>p</b><b>:</b><b>1</b><b>.</b><b>2</b><b>.</b><b>3</b><b>.</b><b>4</b>).
+
+       <b>N</b><b>e</b><b>t</b><b>F</b><b>l</b><b>o</b><b>w</b>
+              A  NetFlow  configuration  attached to a bridge.  Records may be
+              identified by bridge name.
+
+       <b>S</b><b>S</b><b>L</b>    The global  SSL  configuration  for  <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>d</b>.   The  record
+              attached to the <b>O</b><b>p</b><b>e</b><b>n</b><b>_</b><b>v</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b> table may be identified by specify‐
+              ing <b>.</b> as the record name.
+
+       <b>s</b><b>F</b><b>l</b><b>o</b><b>w</b>  An sFlow exporter configuration attached to a  bridge.   Records
+              may be identified by bridge name.
+
+       <b>I</b><b>P</b><b>F</b><b>I</b><b>X</b>  An  IPFIX  exporter configuration attached to a bridge.  Records
+              may be identified by bridge name.
+
+       <b>F</b><b>l</b><b>o</b><b>w</b><b>_</b><b>S</b><b>a</b><b>m</b><b>p</b><b>l</b><b>e</b><b>_</b><b>C</b><b>o</b><b>l</b><b>l</b><b>e</b><b>c</b><b>t</b><b>o</b><b>r</b><b>_</b><b>S</b><b>e</b><b>t</b>
+              An IPFIX exporter configuration attached to a  bridge  for  sam‐
+              pling packets on a per-flow basis using OpenFlow <b>s</b><b>a</b><b>m</b><b>p</b><b>l</b><b>e</b> actions.
+
+       Record names must be specified in full and with correct capitalization.
+       Names of tables and columns are not case-sensitive, and <b>-</b><b>-</b>  and  <b>_</b>  are
+       treated interchangeably.  Unique abbreviations are acceptable, e.g. <b>n</b><b>e</b><b>t</b>
+       or <b>n</b> is sufficient to identify the <b>N</b><b>e</b><b>t</b><b>F</b><b>l</b><b>o</b><b>w</b> table.
+
+     <u>D</u><u>a</u><u>t</u><u>a</u><u>b</u><u>a</u><u>s</u><u>e</u> <u>V</u><u>a</u><u>l</u><u>u</u><u>e</u><u>s</u>
+
+       Each column in the database accepts a fixed type  of  data.   The  cur‐
+       rently defined basic types, and their representations, are:
+
+       integer
+              A decimal integer in the range -2**63 to 2**63-1, inclusive.
+
+       real   A floating-point number.
+
+       Boolean
+              True or false, written <b>t</b><b>r</b><b>u</b><b>e</b> or <b>f</b><b>a</b><b>l</b><b>s</b><b>e</b>, respectively.
+
+       string An  arbitrary  Unicode  string,  except  that null bytes are not
+              allowed.  Quotes are optional for most strings that  begin  with
+              an  English  letter  or  underscore and consist only of letters,
+              underscores, hyphens, and periods.  However, <b>t</b><b>r</b><b>u</b><b>e</b> and <b>f</b><b>a</b><b>l</b><b>s</b><b>e</b>  and
+              strings  that  match  the  syntax  of  UUIDs (see below) must be
+              enclosed in double quotes to distinguish them from  other  basic
+              types.   When  double  quotes  are  used,  the syntax is that of
+              strings in JSON, e.g. backslashes may be used to escape  special
+              characters.   The  empty string must be represented as a pair of
+              double quotes (<b>"</b><b>"</b>).
+
+       UUID   Either a universally unique identifier in the style of RFC 4122,
+              e.g.  <b>f</b><b>8</b><b>1</b><b>d</b><b>4</b><b>f</b><b>a</b><b>e</b><b>-</b><b>7</b><b>d</b><b>e</b><b>c</b><b>-</b><b>1</b><b>1</b><b>d</b><b>0</b><b>-</b><b>a</b><b>7</b><b>6</b><b>5</b><b>-</b><b>0</b><b>0</b><b>a</b><b>0</b><b>c</b><b>9</b><b>1</b><b>e</b><b>6</b><b>b</b><b>f</b><b>6</b>,  or an <b>@</b><u>n</u><u>a</u><u>m</u><u>e</u> defined
+              by a <b>g</b><b>e</b><b>t</b> or <b>c</b><b>r</b><b>e</b><b>a</b><b>t</b><b>e</b> command within the same <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> invocation.
+
+       Multiple values in a single column may be separated by spaces or a sin‐
+       gle  comma.   When  multiple  values  are  present,  duplicates are not
+       allowed, and order is not important.  Conversely, some database columns
+       can have an empty set of values, represented as <b>[</b><b>]</b>, and square brackets
+       may optionally enclose other non-empty sets or single values as well.
+
+       A few database columns are ``maps'' of key-value pairs, where  the  key
+       and  the  value are each some fixed database type.  These are specified
+       in the form <u>k</u><u>e</u><u>y</u><b>=</b><u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>, where <u>k</u><u>e</u><u>y</u> and <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u> follow the  syntax  for  the
+       column's  key  type  and value type, respectively.  When multiple pairs
+       are present (separated by spaces or a comma), duplicate  keys  are  not
+       allowed,  and  again  the order is not important.  Duplicate values are
+       allowed.  An empty map is represented as <b>{</b><b>}</b>.  Curly braces may  option‐
+       ally  enclose  non-empty  maps  as  well (but use quotes to prevent the
+       shell  from  expanding  <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>-</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>=</b><b>{</b><b>0</b><b>=</b><b>x</b><b>,</b><b>1</b><b>=</b><b>y</b><b>}</b>  into   <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>-</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>=</b><b>0</b><b>=</b><b>x</b>
+       <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>-</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>=</b><b>1</b><b>=</b><b>y</b>, which may not have the desired effect).
+
+     <u>D</u><u>a</u><u>t</u><u>a</u><u>b</u><u>a</u><u>s</u><u>e</u> <u>C</u><u>o</u><u>m</u><u>m</u><u>a</u><u>n</u><u>d</u> <u>S</u><u>y</u><u>n</u><u>t</u><u>a</u><u>x</u>
+
+       [<b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>] [<b>-</b><b>-</b><b>c</b><b>o</b><b>l</b><b>u</b><b>m</b><b>n</b><b>s</b><b>=</b><u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>[<b>,</b><u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>]...] <b>l</b><b>i</b><b>s</b><b>t</b> <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> [<u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u>]...
+              Lists  the  data  in  each  specified <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u>.  If no records are
+              specified, lists all the records in <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u>.
+
+              If <b>-</b><b>-</b><b>c</b><b>o</b><b>l</b><b>u</b><b>m</b><b>n</b><b>s</b>  is  specified,  only  the  requested  columns  are
+              listed,  in  the  specified  order.   Otherwise, all columns are
+              listed, in alphabetical order by column name.
+
+              Without <b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>, it is an error if any specified <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> does
+              not  exist.   With  <b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>,  the command ignores any <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u>
+              that does not exist, without producing any output.
+
+       [<b>-</b><b>-</b><b>c</b><b>o</b><b>l</b><b>u</b><b>m</b><b>n</b><b>s</b><b>=</b><u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>[<b>,</b><u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>]...] <b>f</b><b>i</b><b>n</b><b>d</b> <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> [<u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>[<b>:</b><u>k</u><u>e</u><u>y</u>]<b>=</b><u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>]...
+              Lists the data in each record in <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> whose <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u> equals <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>
+              or,  if  <u>k</u><u>e</u><u>y</u>  is specified, whose <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u> contains a <u>k</u><u>e</u><u>y</u> with the
+              specified <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>.  The following operators may be used where <b>=</b> is
+              written in the syntax summary:
+
+              <b>=</b> <b>!</b><b>=</b> <lt;<lt; >gt;>gt; <lt;<lt;<b>=</b> >gt;>gt;<b>=</b>
+                     Selects  records  in  which <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>[<b>:</b><u>k</u><u>e</u><u>y</u>] equals, does not
+                     equal, is less than, is greater than,  is  less  than  or
+                     equal  to,  or is greater than or equal to <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>, respec‐
+                     tively.
+
+                     Consider <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>[<b>:</b><u>k</u><u>e</u><u>y</u>] and  <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>  as  sets  of  elements.
+                     Identical  sets  are considered equal.  Otherwise, if the
+                     sets have different numbers of  elements,  then  the  set
+                     with  more  elements  is considered to be larger.  Other‐
+                     wise, consider a  element  from  each  set  pairwise,  in
+                     increasing  order  within  each set.  The first pair that
+                     differs determines the result.  (For a column  that  con‐
+                     tains  key-value  pairs, first all the keys are compared,
+                     and values are considered only if the  two  sets  contain
+                     identical keys.)
+
+              <b>{</b><b>=</b><b>}</b> <b>{</b><b>!</b><b>=</b><b>}</b>
+                     Test for set equality or inequality, respectively.
+
+              <b>{</b><lt;<lt;<b>=</b><b>}</b>   Selects  records  in  which  <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>[<b>:</b><u>k</u><u>e</u><u>y</u>]  is a subset of
+                     <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>.  For example, <b>f</b><b>l</b><b>o</b><b>o</b><b>d</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>s</b><b>{</b><lt;<lt;<b>=</b><b>}</b><b>1</b><b>,</b><b>2</b>  selects  records
+                     in  which the <b>f</b><b>l</b><b>o</b><b>o</b><b>d</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>s</b> column is the empty set or con‐
+                     tains 1 or 2 or both.
+
+              <b>{</b><lt;<lt;<b>}</b>    Selects records in which <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>[<b>:</b><u>k</u><u>e</u><u>y</u>] is a proper  subset
+                     of <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>.  For example, <b>f</b><b>l</b><b>o</b><b>o</b><b>d</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>s</b><b>{</b><lt;<lt;<b>}</b><b>1</b><b>,</b><b>2</b> selects records
+                     in which the <b>f</b><b>l</b><b>o</b><b>o</b><b>d</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>s</b> column is the empty set or  con‐
+                     tains 1 or 2 but not both.
+
+              <b>{</b>>gt;>gt;<b>=</b><b>}</b> <b>{</b>>gt;>gt;<b>}</b>
+                     Same as <b>{</b><lt;<lt;<b>=</b><b>}</b> and <b>{</b><lt;<lt;<b>}</b>, respectively, except that the rela‐
+                     tionship is reversed.   For  example,  <b>f</b><b>l</b><b>o</b><b>o</b><b>d</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>s</b><b>{</b>>gt;>gt;<b>=</b><b>}</b><b>1</b><b>,</b><b>2</b>
+                     selects  records in which the <b>f</b><b>l</b><b>o</b><b>o</b><b>d</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>s</b> column contains
+                     both 1 and 2.
+
+              For arithmetic operators (<b>=</b> <b>!</b><b>=</b> <lt;<lt; >gt;>gt; <lt;<lt;<b>=</b> >gt;>gt;<b>=</b>), when <u>k</u><u>e</u><u>y</u> is specified
+              but  a  particular  record's  <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>  does  not contain <u>k</u><u>e</u><u>y</u>, the
+              record is always omitted from the results.  Thus, the  condition
+              <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>-</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>:</b><b>m</b><b>t</b><b>u</b><b>!</b><b>=</b><b>1</b><b>5</b><b>0</b><b>0</b> matches records that have a <b>m</b><b>t</b><b>u</b> key whose
+              value is not 1500, but not those that lack an <b>m</b><b>t</b><b>u</b> key.
+
+              For the set operators, when <u>k</u><u>e</u><u>y</u> is specified  but  a  particular
+              record's  <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>  does  not  contain <u>k</u><u>e</u><u>y</u>, the comparison is done
+              against  an  empty  set.    Thus,   the   condition   <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>-</b><b>c</b><b>o</b><b>n</b><b>‐</b>
+              <b>f</b><b>i</b><b>g</b><b>:</b><b>m</b><b>t</b><b>u</b><b>{</b><b>!</b><b>=</b><b>}</b><b>1</b><b>5</b><b>0</b><b>0</b>  matches records that have a <b>m</b><b>t</b><b>u</b> key whose value
+              is not 1500 and those that lack an <b>m</b><b>t</b><b>u</b> key.
+
+              Don't forget to escape <lt;<lt; or >gt;>gt; from interpretation by the shell.
+
+              If <b>-</b><b>-</b><b>c</b><b>o</b><b>l</b><b>u</b><b>m</b><b>n</b><b>s</b>  is  specified,  only  the  requested  columns  are
+              listed,  in  the  specified  order.   Otherwise  all columns are
+              listed, in alphabetical order by column name.
+
+              The UUIDs shown for rows created in the same  <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b>  invoca‐
+              tion will be wrong.
+
+       [<b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>] [<b>-</b><b>-</b><b>i</b><b>d</b><b>=</b><b>@</b><u>n</u><u>a</u><u>m</u><u>e</u>] <b>g</b><b>e</b><b>t</b> <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> [<u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>[<b>:</b><u>k</u><u>e</u><u>y</u>]]...
+              Prints the value of each specified <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u> in the given <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> in
+              <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u>.  For map columns, a <u>k</u><u>e</u><u>y</u> may optionally be  specified,  in
+              which  case  the  value  associated  with  <u>k</u><u>e</u><u>y</u>  in the column is
+              printed, instead of the entire map.
+
+              Without <b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>, it is an error if <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> does not exist  or
+              <u>k</u><u>e</u><u>y</u>  is  specified,  if  <u>k</u><u>e</u><u>y</u>  does  not  exist  in <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u>.  With
+              <b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>, a missing <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> yields no output and a missing <u>k</u><u>e</u><u>y</u>
+              prints a blank line.
+
+              If  <b>@</b><u>n</u><u>a</u><u>m</u><u>e</u> is specified, then the UUID for <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> may be referred
+              to by that name later in the same <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> invocation  in  con‐
+              texts where a UUID is expected.
+
+              Both  <b>-</b><b>-</b><b>i</b><b>d</b> and the <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u> arguments are optional, but usually at
+              least one or the other should be specified.  If both  are  omit‐
+              ted,  then <b>g</b><b>e</b><b>t</b> has no effect except to verify that <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> exists
+              in <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u>.
+
+              <b>-</b><b>-</b><b>i</b><b>d</b> and <b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b> cannot be used together.
+
+       [<b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>] <b>s</b><b>e</b><b>t</b> <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>[<b>:</b><u>k</u><u>e</u><u>y</u>]<b>=</b><u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>...
+              Sets the value of each specified <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u> in the given  <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u>  in
+              <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> to <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>.  For map columns, a <u>k</u><u>e</u><u>y</u> may optionally be speci‐
+              fied, in which case the value associated with <u>k</u><u>e</u><u>y</u> in that column
+              is  changed  (or  added,  if none exists), instead of the entire
+              map.
+
+              Without <b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>, it is an error if <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u>  does  not  exist.
+              With  <b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>,  this command does nothing if <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> does not
+              exist.
+
+       [<b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>] <b>a</b><b>d</b><b>d</b> <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u> [<u>k</u><u>e</u><u>y</u><b>=</b>]<u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>...
+              Adds the specified value or key-value pair to <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>  in  <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u>
+              in  <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u>.   If <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u> is a map, then <u>k</u><u>e</u><u>y</u> is required, otherwise
+              it is prohibited.  If <u>k</u><u>e</u><u>y</u> already exists in a map  column,  then
+              the  current  <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>  is  not  replaced  (use  the <b>s</b><b>e</b><b>t</b> command to
+              replace an existing value).
+
+              Without <b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>, it is an error if <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u>  does  not  exist.
+              With  <b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>,  this command does nothing if <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> does not
+              exist.
+
+       [<b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>] <b>r</b><b>e</b><b>m</b><b>o</b><b>v</b><b>e</b> <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u> <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>...
+       [<b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>] <b>r</b><b>e</b><b>m</b><b>o</b><b>v</b><b>e</b> <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u> <u>k</u><u>e</u><u>y</u>...
+       [<b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>] <b>r</b><b>e</b><b>m</b><b>o</b><b>v</b><b>e</b> <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u> <u>k</u><u>e</u><u>y</u><b>=</b><u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>...
+              Removes the specified values or key-value pairs from  <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>  in
+              <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> in <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u>.  The first form applies to columns that are not
+              maps: each specified <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u> is removed from the column.  The sec‐
+              ond and third forms apply to map columns: if only a <u>k</u><u>e</u><u>y</u> is spec‐
+              ified, then any key-value pair with the given  <u>k</u><u>e</u><u>y</u>  is  removed,
+              regardless  of  its  value;  if  a <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u> is given then a pair is
+              removed only if both key and value match.
+
+              It is not an error if the column does not contain the  specified
+              key or value or pair.
+
+              Without  <b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>,  it  is an error if <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> does not exist.
+              With <b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>, this command does nothing if <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u>  does  not
+              exist.
+
+       [<b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>] <b>c</b><b>l</b><b>e</b><b>a</b><b>r</b> <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>...
+              Sets  each  <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>  in <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> in <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> to the empty set or empty
+              map, as appropriate.  This command applies only to columns  that
+              are allowed to be empty.
+
+              Without  <b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>,  it  is an error if <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> does not exist.
+              With <b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>, this command does nothing if <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u>  does  not
+              exist.
+
+       [<b>-</b><b>-</b><b>i</b><b>d</b><b>=</b><b>@</b><u>n</u><u>a</u><u>m</u><u>e</u>] <b>c</b><b>r</b><b>e</b><b>a</b><b>t</b><b>e</b> <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>[<b>:</b><u>k</u><u>e</u><u>y</u>]<b>=</b><u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>...
+              Creates  a  new  record  in <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> and sets the initial values of
+              each <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>.  Columns not  explicitly  set  will  receive  their
+              default values.  Outputs the UUID of the new row.
+
+              If  <b>@</b><u>n</u><u>a</u><u>m</u><u>e</u>  is  specified,  then  the UUID for the new row may be
+              referred to by that name elsewhere in the same <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> invoca‐
+              tion  in contexts where a UUID is expected.  Such references may
+              precede or follow the <b>c</b><b>r</b><b>e</b><b>a</b><b>t</b><b>e</b> command.
+
+              Records in the Open vSwitch database are significant  only  when
+              they can be reached directly or indirectly from the <b>O</b><b>p</b><b>e</b><b>n</b><b>_</b><b>v</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>
+              table.  Except for records in the <b>Q</b><b>o</b><b>S</b> or <b>Q</b><b>u</b><b>e</b><b>u</b><b>e</b>  tables,  records
+              that are not reachable from the <b>O</b><b>p</b><b>e</b><b>n</b><b>_</b><b>v</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b> table are automati‐
+              cally deleted from the database.  This deletion happens  immedi‐
+              ately,  without  waiting  for  additional  <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> commands or
+              other database activity.  Thus, a <b>c</b><b>r</b><b>e</b><b>a</b><b>t</b><b>e</b> command must  generally
+              be  accompanied by additional commands <u>w</u><u>i</u><u>t</u><u>h</u><u>i</u><u>n</u> <u>t</u><u>h</u><u>e</u> <u>s</u><u>a</u><u>m</u><u>e</u> <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b>
+              <u>i</u><u>n</u><u>v</u><u>o</u><u>c</u><u>a</u><u>t</u><u>i</u><u>o</u><u>n</u> to add a chain of references  to  the  newly  created
+              record  from  the  top-level  <b>O</b><b>p</b><b>e</b><b>n</b><b>_</b><b>v</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b> record.  The <b>E</b><b>X</b><b>A</b><b>M</b><b>P</b><b>L</b><b>E</b><b>S</b>
+              section gives some examples that show how to do this.
+
+       [<b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>] <b>d</b><b>e</b><b>s</b><b>t</b><b>r</b><b>o</b><b>y</b> <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u>...
+              Deletes each specified <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> from <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u>.  Unless <b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b> is
+              specified, each <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u>s must exist.
+
+       <b>-</b><b>-</b><b>a</b><b>l</b><b>l</b> <b>d</b><b>e</b><b>s</b><b>t</b><b>r</b><b>o</b><b>y</b> <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u>
+              Deletes all records from the <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u>.
+
+              The  <b>d</b><b>e</b><b>s</b><b>t</b><b>r</b><b>o</b><b>y</b>  command  is  only useful for records in the <b>Q</b><b>o</b><b>S</b> or
+              <b>Q</b><b>u</b><b>e</b><b>u</b><b>e</b> tables.  Records in other tables are automatically deleted
+              from   the  database  when  they  become  unreachable  from  the
+              <b>O</b><b>p</b><b>e</b><b>n</b><b>_</b><b>v</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b> table.  This means that deleting the last reference
+              to  a  record is sufficient for deleting the record itself.  For
+              records in these tables, <b>d</b><b>e</b><b>s</b><b>t</b><b>r</b><b>o</b><b>y</b> is silently ignored.   See  the
+              <b>E</b><b>X</b><b>A</b><b>M</b><b>P</b><b>L</b><b>E</b><b>S</b> section below for more information.
+
+       <b>w</b><b>a</b><b>i</b><b>t</b><b>-</b><b>u</b><b>n</b><b>t</b><b>i</b><b>l</b> <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> [<u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>[<b>:</b><u>k</u><u>e</u><u>y</u>]<b>=</b><u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>]...
+              Waits  until  <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u>  contains a record named <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> whose <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>
+              equals <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u> or, if <u>k</u><u>e</u><u>y</u> is specified, whose  <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>  contains  a
+              <u>k</u><u>e</u><u>y</u>  with  the  specified <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>.  Any of the operators <b>!</b><b>=</b>, <lt;<lt;, >gt;>gt;,
+              <lt;<lt;<b>=</b>, or >gt;>gt;<b>=</b> may be substituted for <b>=</b> to test for inequality,  less
+              than,  greater  than,  less than or equal to, or greater than or
+              equal to, respectively.  (Don't forget to escape  <lt;<lt;  or  >gt;>gt;  from
+              interpretation by the shell.)
+
+              If no <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>[<b>:</b><u>k</u><u>e</u><u>y</u>]<b>=</b><u>v</u><u>a</u><u>l</u><u>u</u><u>e</u> arguments are given, this command waits
+              only until <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> exists.  If more than  one  such  argument  is
+              given, the command waits until all of them are satisfied.
+
+              Usually <b>w</b><b>a</b><b>i</b><b>t</b><b>-</b><b>u</b><b>n</b><b>t</b><b>i</b><b>l</b> should be placed at the beginning of a set of
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> commands.  For example, <b>w</b><b>a</b><b>i</b><b>t</b><b>-</b><b>u</b><b>n</b><b>t</b><b>i</b><b>l</b> <b>b</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b> <b>b</b><b>r</b><b>0</b>  <b>-</b><b>-</b>  <b>g</b><b>e</b><b>t</b>
+              <b>b</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b>  <b>b</b><b>r</b><b>0</b>  <b>d</b><b>a</b><b>t</b><b>a</b><b>p</b><b>a</b><b>t</b><b>h</b><b>_</b><b>i</b><b>d</b>  waits until a bridge named <b>b</b><b>r</b><b>0</b> is cre‐
+              ated, then prints its <b>d</b><b>a</b><b>t</b><b>a</b><b>p</b><b>a</b><b>t</b><b>h</b><b>_</b><b>i</b><b>d</b> column, whereas <b>g</b><b>e</b><b>t</b> <b>b</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b> <b>b</b><b>r</b><b>0</b>
+              <b>d</b><b>a</b><b>t</b><b>a</b><b>p</b><b>a</b><b>t</b><b>h</b><b>_</b><b>i</b><b>d</b>  <b>-</b><b>-</b>  <b>w</b><b>a</b><b>i</b><b>t</b><b>-</b><b>u</b><b>n</b><b>t</b><b>i</b><b>l</b>  <b>b</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b>  <b>b</b><b>r</b><b>0</b> will abort if no bridge
+              named <b>b</b><b>r</b><b>0</b> exists when <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> initially connects to the  data‐
+              base.
+
+              Consider specifying <b>-</b><b>-</b><b>t</b><b>i</b><b>m</b><b>e</b><b>o</b><b>u</b><b>t</b><b>=</b><b>0</b> along with <b>-</b><b>-</b><b>w</b><b>a</b><b>i</b><b>t</b><b>-</b><b>u</b><b>n</b><b>t</b><b>i</b><b>l</b>, to pre‐
+              vent <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> from terminating after waiting  only  at  most  5
+              seconds.
+
+       <b>c</b><b>o</b><b>m</b><b>m</b><b>e</b><b>n</b><b>t</b> [<u>a</u><u>r</u><u>g</u>]...
+              This  command  has  no  effect on behavior, but any database log
+              record created by the command will include the command  and  its
+              arguments.
+
+<b>E</b><b>X</b><b>A</b><b>M</b><b>P</b><b>L</b><b>E</b><b>S</b>
+       Create a new bridge named br0 and add port eth0 to it:
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>a</b><b>d</b><b>d</b><b>-</b><b>b</b><b>r</b> <b>b</b><b>r</b><b>0</b>
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>a</b><b>d</b><b>d</b><b>-</b><b>p</b><b>o</b><b>r</b><b>t</b> <b>b</b><b>r</b><b>0</b> <b>e</b><b>t</b><b>h</b><b>0</b>
+
+       Alternatively, perform both operations in a single atomic transaction:
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>a</b><b>d</b><b>d</b><b>-</b><b>b</b><b>r</b> <b>b</b><b>r</b><b>0</b> <b>-</b><b>-</b> <b>a</b><b>d</b><b>d</b><b>-</b><b>p</b><b>o</b><b>r</b><b>t</b> <b>b</b><b>r</b><b>0</b> <b>e</b><b>t</b><b>h</b><b>0</b>
+
+       Delete bridge <b>b</b><b>r</b><b>0</b>, reporting an error if it does not exist:
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>d</b><b>e</b><b>l</b><b>-</b><b>b</b><b>r</b> <b>b</b><b>r</b><b>0</b>
+
+       Delete bridge <b>b</b><b>r</b><b>0</b> if it exists:
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b> <b>d</b><b>e</b><b>l</b><b>-</b><b>b</b><b>r</b> <b>b</b><b>r</b><b>0</b>
+
+       Set  the  <b>q</b><b>o</b><b>s</b>  column of the <b>P</b><b>o</b><b>r</b><b>t</b> record for <b>e</b><b>t</b><b>h</b><b>0</b> to point to a new <b>Q</b><b>o</b><b>S</b>
+       record, which in turn points with its queue 0 to a new <b>Q</b><b>u</b><b>e</b><b>u</b><b>e</b> record:
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>-</b><b>-</b> <b>s</b><b>e</b><b>t</b> <b>p</b><b>o</b><b>r</b><b>t</b> <b>e</b><b>t</b><b>h</b><b>0</b> <b>q</b><b>o</b><b>s</b><b>=</b><b>@</b><b>n</b><b>e</b><b>w</b><b>q</b><b>o</b><b>s</b>  <b>-</b><b>-</b>  <b>-</b><b>-</b><b>i</b><b>d</b><b>=</b><b>@</b><b>n</b><b>e</b><b>w</b><b>q</b><b>o</b><b>s</b>  <b>c</b><b>r</b><b>e</b><b>a</b><b>t</b><b>e</b>
+              <b>q</b><b>o</b><b>s</b>         <b>t</b><b>y</b><b>p</b><b>e</b><b>=</b><b>l</b><b>i</b><b>n</b><b>u</b><b>x</b><b>-</b><b>h</b><b>t</b><b>b</b>         <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>-</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>:</b><b>m</b><b>a</b><b>x</b><b>-</b><b>r</b><b>a</b><b>t</b><b>e</b><b>=</b><b>1</b><b>0</b><b>0</b><b>0</b><b>0</b><b>0</b><b>0</b>
+              <b>q</b><b>u</b><b>e</b><b>u</b><b>e</b><b>s</b><b>:</b><b>0</b><b>=</b><b>@</b><b>n</b><b>e</b><b>w</b><b>q</b><b>u</b><b>e</b><b>u</b><b>e</b> <b>-</b><b>-</b>  <b>-</b><b>-</b><b>i</b><b>d</b><b>=</b><b>@</b><b>n</b><b>e</b><b>w</b><b>q</b><b>u</b><b>e</b><b>u</b><b>e</b>  <b>c</b><b>r</b><b>e</b><b>a</b><b>t</b><b>e</b>  <b>q</b><b>u</b><b>e</b><b>u</b><b>e</b>  <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>-</b><b>c</b><b>o</b><b>n</b><b>‐</b>
+              <b>f</b><b>i</b><b>g</b><b>:</b><b>m</b><b>i</b><b>n</b><b>-</b><b>r</b><b>a</b><b>t</b><b>e</b><b>=</b><b>1</b><b>0</b><b>0</b><b>0</b><b>0</b><b>0</b><b>0</b> <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>-</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>:</b><b>m</b><b>a</b><b>x</b><b>-</b><b>r</b><b>a</b><b>t</b><b>e</b><b>=</b><b>1</b><b>0</b><b>0</b><b>0</b><b>0</b><b>0</b><b>0</b>
+
+<b>C</b><b>O</b><b>N</b><b>F</b><b>I</b><b>G</b><b>U</b><b>R</b><b>A</b><b>T</b><b>I</b><b>O</b><b>N</b> <b>C</b><b>O</b><b>O</b><b>K</b><b>B</b><b>O</b><b>O</b><b>K</b>
+   <b>P</b><b>o</b><b>r</b><b>t</b> <b>C</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>u</b><b>r</b><b>a</b><b>t</b><b>i</b><b>o</b><b>n</b>
+       Add an ``internal port'' <b>v</b><b>l</b><b>a</b><b>n</b><b>1</b><b>0</b> to bridge <b>b</b><b>r</b><b>0</b> as a VLAN access port for
+       VLAN 10, and configure it with an IP address:
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>a</b><b>d</b><b>d</b><b>-</b><b>p</b><b>o</b><b>r</b><b>t</b> <b>b</b><b>r</b><b>0</b> <b>v</b><b>l</b><b>a</b><b>n</b><b>1</b><b>0</b> <b>t</b><b>a</b><b>g</b><b>=</b><b>1</b><b>0</b>  <b>-</b><b>-</b>  <b>s</b><b>e</b><b>t</b>  <b>I</b><b>n</b><b>t</b><b>e</b><b>r</b><b>f</b><b>a</b><b>c</b><b>e</b>  <b>v</b><b>l</b><b>a</b><b>n</b><b>1</b><b>0</b>
+              <b>t</b><b>y</b><b>p</b><b>e</b><b>=</b><b>i</b><b>n</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b>
+
+              <b>i</b><b>f</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b> <b>v</b><b>l</b><b>a</b><b>n</b><b>1</b><b>0</b> <b>1</b><b>9</b><b>2</b><b>.</b><b>1</b><b>6</b><b>8</b><b>.</b><b>0</b><b>.</b><b>1</b><b>2</b><b>3</b>
+
+       Add a GRE tunnel port <b>g</b><b>r</b><b>e</b><b>0</b> to remote IP address 1.2.3.4 to bridge <b>b</b><b>r</b><b>0</b>:
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b>  <b>a</b><b>d</b><b>d</b><b>-</b><b>p</b><b>o</b><b>r</b><b>t</b>  <b>b</b><b>r</b><b>0</b>  <b>g</b><b>r</b><b>e</b><b>0</b>  <b>-</b><b>-</b>  <b>s</b><b>e</b><b>t</b>  <b>I</b><b>n</b><b>t</b><b>e</b><b>r</b><b>f</b><b>a</b><b>c</b><b>e</b> <b>g</b><b>r</b><b>e</b><b>0</b> <b>t</b><b>y</b><b>p</b><b>e</b><b>=</b><b>g</b><b>r</b><b>e</b>
+              <b>o</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b><b>:</b><b>r</b><b>e</b><b>m</b><b>o</b><b>t</b><b>e</b><b>_</b><b>i</b><b>p</b><b>=</b><b>1</b><b>.</b><b>2</b><b>.</b><b>3</b><b>.</b><b>4</b>
+
+   <b>P</b><b>o</b><b>r</b><b>t</b> <b>M</b><b>i</b><b>r</b><b>r</b><b>o</b><b>r</b><b>i</b><b>n</b><b>g</b>
+       Mirror all packets received or sent on <b>e</b><b>t</b><b>h</b><b>0</b> or <b>e</b><b>t</b><b>h</b><b>1</b> onto <b>e</b><b>t</b><b>h</b><b>2</b>, assuming
+       that  all  of  those  ports  exist on bridge <b>b</b><b>r</b><b>0</b> (as a side-effect this
+       causes any packets received on <b>e</b><b>t</b><b>h</b><b>2</b> to be ignored):
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>-</b><b>-</b> <b>s</b><b>e</b><b>t</b> <b>B</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b> <b>b</b><b>r</b><b>0</b> <b>m</b><b>i</b><b>r</b><b>r</b><b>o</b><b>r</b><b>s</b><b>=</b><b>@</b><b>m</b> <b>\</b>
+
+              <b>-</b><b>-</b> <b>-</b><b>-</b><b>i</b><b>d</b><b>=</b><b>@</b><b>e</b><b>t</b><b>h</b><b>0</b> <b>g</b><b>e</b><b>t</b> <b>P</b><b>o</b><b>r</b><b>t</b> <b>e</b><b>t</b><b>h</b><b>0</b> <b>\</b>
+
+              <b>-</b><b>-</b> <b>-</b><b>-</b><b>i</b><b>d</b><b>=</b><b>@</b><b>e</b><b>t</b><b>h</b><b>1</b> <b>g</b><b>e</b><b>t</b> <b>P</b><b>o</b><b>r</b><b>t</b> <b>e</b><b>t</b><b>h</b><b>1</b> <b>\</b>
+
+              <b>-</b><b>-</b> <b>-</b><b>-</b><b>i</b><b>d</b><b>=</b><b>@</b><b>e</b><b>t</b><b>h</b><b>2</b> <b>g</b><b>e</b><b>t</b> <b>P</b><b>o</b><b>r</b><b>t</b> <b>e</b><b>t</b><b>h</b><b>2</b> <b>\</b>
+
+              <b>-</b><b>-</b>   <b>-</b><b>-</b><b>i</b><b>d</b><b>=</b><b>@</b><b>m</b>    <b>c</b><b>r</b><b>e</b><b>a</b><b>t</b><b>e</b>    <b>M</b><b>i</b><b>r</b><b>r</b><b>o</b><b>r</b>    <b>n</b><b>a</b><b>m</b><b>e</b><b>=</b><b>m</b><b>y</b><b>m</b><b>i</b><b>r</b><b>r</b><b>o</b><b>r</b>    <b>s</b><b>e</b><b>l</b><b>e</b><b>c</b><b>t</b><b>-</b><b>d</b><b>s</b><b>t</b><b>-</b>
+              <b>p</b><b>o</b><b>r</b><b>t</b><b>=</b><b>@</b><b>e</b><b>t</b><b>h</b><b>0</b><b>,</b><b>@</b><b>e</b><b>t</b><b>h</b><b>1</b> <b>s</b><b>e</b><b>l</b><b>e</b><b>c</b><b>t</b><b>-</b><b>s</b><b>r</b><b>c</b><b>-</b><b>p</b><b>o</b><b>r</b><b>t</b><b>=</b><b>@</b><b>e</b><b>t</b><b>h</b><b>0</b><b>,</b><b>@</b><b>e</b><b>t</b><b>h</b><b>1</b> <b>o</b><b>u</b><b>t</b><b>p</b><b>u</b><b>t</b><b>-</b><b>p</b><b>o</b><b>r</b><b>t</b><b>=</b><b>@</b><b>e</b><b>t</b><b>h</b><b>2</b>
+
+       Remove  the mirror created above from <b>b</b><b>r</b><b>0</b>, which also destroys the Mir‐
+       ror record (since it is now unreferenced):
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>-</b><b>-</b> <b>-</b><b>-</b><b>i</b><b>d</b><b>=</b><b>@</b><b>r</b><b>e</b><b>c</b> <b>g</b><b>e</b><b>t</b> <b>M</b><b>i</b><b>r</b><b>r</b><b>o</b><b>r</b> <b>m</b><b>y</b><b>m</b><b>i</b><b>r</b><b>r</b><b>o</b><b>r</b> <b>\</b>
+
+              <b>-</b><b>-</b> <b>r</b><b>e</b><b>m</b><b>o</b><b>v</b><b>e</b> <b>B</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b> <b>b</b><b>r</b><b>0</b> <b>m</b><b>i</b><b>r</b><b>r</b><b>o</b><b>r</b><b>s</b> <b>@</b><b>r</b><b>e</b><b>c</b>
+
+       The following simpler command also works:
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>c</b><b>l</b><b>e</b><b>a</b><b>r</b> <b>B</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b> <b>b</b><b>r</b><b>0</b> <b>m</b><b>i</b><b>r</b><b>r</b><b>o</b><b>r</b><b>s</b>
+
+   <b>Q</b><b>u</b><b>a</b><b>l</b><b>i</b><b>t</b><b>y</b> <b>o</b><b>f</b> <b>S</b><b>e</b><b>r</b><b>v</b><b>i</b><b>c</b><b>e</b> <b>(</b><b>Q</b><b>o</b><b>S</b><b>)</b>
+       Create a <b>l</b><b>i</b><b>n</b><b>u</b><b>x</b><b>-</b><b>h</b><b>t</b><b>b</b> QoS record that points to a few queues and use it on
+       <b>e</b><b>t</b><b>h</b><b>0</b> and <b>e</b><b>t</b><b>h</b><b>1</b>:
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>-</b><b>-</b> <b>s</b><b>e</b><b>t</b> <b>P</b><b>o</b><b>r</b><b>t</b> <b>e</b><b>t</b><b>h</b><b>0</b> <b>q</b><b>o</b><b>s</b><b>=</b><b>@</b><b>n</b><b>e</b><b>w</b><b>q</b><b>o</b><b>s</b> <b>\</b>
+
+              <b>-</b><b>-</b> <b>s</b><b>e</b><b>t</b> <b>P</b><b>o</b><b>r</b><b>t</b> <b>e</b><b>t</b><b>h</b><b>1</b> <b>q</b><b>o</b><b>s</b><b>=</b><b>@</b><b>n</b><b>e</b><b>w</b><b>q</b><b>o</b><b>s</b> <b>\</b>
+
+              <b>-</b><b>-</b>    <b>-</b><b>-</b><b>i</b><b>d</b><b>=</b><b>@</b><b>n</b><b>e</b><b>w</b><b>q</b><b>o</b><b>s</b>    <b>c</b><b>r</b><b>e</b><b>a</b><b>t</b><b>e</b>   <b>Q</b><b>o</b><b>S</b>   <b>t</b><b>y</b><b>p</b><b>e</b><b>=</b><b>l</b><b>i</b><b>n</b><b>u</b><b>x</b><b>-</b><b>h</b><b>t</b><b>b</b>   <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>-</b><b>c</b><b>o</b><b>n</b><b>‐</b>
+              <b>f</b><b>i</b><b>g</b><b>:</b><b>m</b><b>a</b><b>x</b><b>-</b><b>r</b><b>a</b><b>t</b><b>e</b><b>=</b><b>1</b><b>0</b><b>0</b><b>0</b><b>0</b><b>0</b><b>0</b><b>0</b><b>0</b><b>0</b> <b>q</b><b>u</b><b>e</b><b>u</b><b>e</b><b>s</b><b>=</b><b>0</b><b>=</b><b>@</b><b>q</b><b>0</b><b>,</b><b>1</b><b>=</b><b>@</b><b>q</b><b>1</b> <b>\</b>
+
+              <b>-</b><b>-</b>   <b>-</b><b>-</b><b>i</b><b>d</b><b>=</b><b>@</b><b>q</b><b>0</b>   <b>c</b><b>r</b><b>e</b><b>a</b><b>t</b><b>e</b>   <b>Q</b><b>u</b><b>e</b><b>u</b><b>e</b>   <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>-</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>:</b><b>m</b><b>i</b><b>n</b><b>-</b><b>r</b><b>a</b><b>t</b><b>e</b><b>=</b><b>1</b><b>0</b><b>0</b><b>0</b><b>0</b><b>0</b><b>0</b><b>0</b><b>0</b>
+              <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>-</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>:</b><b>m</b><b>a</b><b>x</b><b>-</b><b>r</b><b>a</b><b>t</b><b>e</b><b>=</b><b>1</b><b>0</b><b>0</b><b>0</b><b>0</b><b>0</b><b>0</b><b>0</b><b>0</b> <b>\</b>
+
+              <b>-</b><b>-</b> <b>-</b><b>-</b><b>i</b><b>d</b><b>=</b><b>@</b><b>q</b><b>1</b> <b>c</b><b>r</b><b>e</b><b>a</b><b>t</b><b>e</b> <b>Q</b><b>u</b><b>e</b><b>u</b><b>e</b> <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>-</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>:</b><b>m</b><b>i</b><b>n</b><b>-</b><b>r</b><b>a</b><b>t</b><b>e</b><b>=</b><b>5</b><b>0</b><b>0</b><b>0</b><b>0</b><b>0</b><b>0</b><b>0</b><b>0</b>
+
+       Deconfigure the QoS record above from <b>e</b><b>t</b><b>h</b><b>1</b> only:
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>c</b><b>l</b><b>e</b><b>a</b><b>r</b> <b>P</b><b>o</b><b>r</b><b>t</b> <b>e</b><b>t</b><b>h</b><b>1</b> <b>q</b><b>o</b><b>s</b>
+
+       To  deconfigure  the QoS record from both <b>e</b><b>t</b><b>h</b><b>0</b> and <b>e</b><b>t</b><b>h</b><b>1</b> and then delete
+       the QoS record (which must be done explicitly because unreferenced  QoS
+       records are not automatically destroyed):
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b>  <b>-</b><b>-</b>  <b>d</b><b>e</b><b>s</b><b>t</b><b>r</b><b>o</b><b>y</b>  <b>Q</b><b>o</b><b>S</b> <b>e</b><b>t</b><b>h</b><b>0</b> <b>-</b><b>-</b> <b>c</b><b>l</b><b>e</b><b>a</b><b>r</b> <b>P</b><b>o</b><b>r</b><b>t</b> <b>e</b><b>t</b><b>h</b><b>0</b> <b>q</b><b>o</b><b>s</b> <b>-</b><b>-</b> <b>c</b><b>l</b><b>e</b><b>a</b><b>r</b>
+              <b>P</b><b>o</b><b>r</b><b>t</b> <b>e</b><b>t</b><b>h</b><b>1</b> <b>q</b><b>o</b><b>s</b>
+
+       (This command will leave two unreferenced Queue records  in  the  data‐
+       base.   To delete them, use "<b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>l</b><b>i</b><b>s</b><b>t</b> <b>Q</b><b>u</b><b>e</b><b>u</b><b>e</b>" to find their UUIDs,
+       then "<b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>d</b><b>e</b><b>s</b><b>t</b><b>r</b><b>o</b><b>y</b> <b>Q</b><b>u</b><b>e</b><b>u</b><b>e</b> <u>u</u><u>u</u><u>i</u><u>d</u><u>1</u> <u>u</u><u>u</u><u>i</u><u>d</u><u>2</u>" to destroy each of  them  or
+       use "<b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>-</b><b>-</b> <b>-</b><b>-</b><b>a</b><b>l</b><b>l</b> <b>d</b><b>e</b><b>s</b><b>t</b><b>r</b><b>o</b><b>y</b> <b>Q</b><b>u</b><b>e</b><b>u</b><b>e</b>" to delete all records.)
+
+   <b>C</b><b>o</b><b>n</b><b>n</b><b>e</b><b>c</b><b>t</b><b>i</b><b>v</b><b>i</b><b>t</b><b>y</b> <b>M</b><b>o</b><b>n</b><b>i</b><b>t</b><b>o</b><b>r</b><b>i</b><b>n</b><b>g</b>
+       Monitor connectivity to a remote maintenance point on eth0.
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>s</b><b>e</b><b>t</b> <b>I</b><b>n</b><b>t</b><b>e</b><b>r</b><b>f</b><b>a</b><b>c</b><b>e</b> <b>e</b><b>t</b><b>h</b><b>0</b> <b>c</b><b>f</b><b>m</b><b>_</b><b>m</b><b>p</b><b>i</b><b>d</b><b>=</b><b>1</b>
+
+       Deconfigure connectivity monitoring from above:
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>c</b><b>l</b><b>e</b><b>a</b><b>r</b> <b>I</b><b>n</b><b>t</b><b>e</b><b>r</b><b>f</b><b>a</b><b>c</b><b>e</b> <b>e</b><b>t</b><b>h</b><b>0</b> <b>c</b><b>f</b><b>m</b><b>_</b><b>m</b><b>p</b><b>i</b><b>d</b>
+
+   <b>N</b><b>e</b><b>t</b><b>F</b><b>l</b><b>o</b><b>w</b>
+       Configure  bridge  <b>b</b><b>r</b><b>0</b> to send NetFlow records to UDP port 5566 on host
+       192.168.0.34, with an active timeout of 30 seconds:
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>-</b><b>-</b> <b>s</b><b>e</b><b>t</b> <b>B</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b> <b>b</b><b>r</b><b>0</b> <b>n</b><b>e</b><b>t</b><b>f</b><b>l</b><b>o</b><b>w</b><b>=</b><b>@</b><b>n</b><b>f</b> <b>\</b>
+
+              <b>-</b><b>-</b>   <b>-</b><b>-</b><b>i</b><b>d</b><b>=</b><b>@</b><b>n</b><b>f</b>   <b>c</b><b>r</b><b>e</b><b>a</b><b>t</b><b>e</b>   <b>N</b><b>e</b><b>t</b><b>F</b><b>l</b><b>o</b><b>w</b>   <b>t</b><b>a</b><b>r</b><b>g</b><b>e</b><b>t</b><b>s</b><b>=</b><b>\</b><b>"</b><b>1</b><b>9</b><b>2</b><b>.</b><b>1</b><b>6</b><b>8</b><b>.</b><b>0</b><b>.</b><b>3</b><b>4</b><b>:</b><b>5</b><b>5</b><b>6</b><b>6</b><b>\</b><b>"</b>
+              <b>a</b><b>c</b><b>t</b><b>i</b><b>v</b><b>e</b><b>-</b><b>t</b><b>i</b><b>m</b><b>e</b><b>o</b><b>u</b><b>t</b><b>=</b><b>3</b><b>0</b>
+
+       Update  the  NetFlow  configuration  created by the previous command to
+       instead use an active timeout of 60 seconds:
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>s</b><b>e</b><b>t</b> <b>N</b><b>e</b><b>t</b><b>F</b><b>l</b><b>o</b><b>w</b> <b>b</b><b>r</b><b>0</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>v</b><b>e</b><b>_</b><b>t</b><b>i</b><b>m</b><b>e</b><b>o</b><b>u</b><b>t</b><b>=</b><b>6</b><b>0</b>
+
+       Deconfigure the NetFlow settings from <b>b</b><b>r</b><b>0</b>, which also destroys the Net‐
+       Flow record (since it is now unreferenced):
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>c</b><b>l</b><b>e</b><b>a</b><b>r</b> <b>B</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b> <b>b</b><b>r</b><b>0</b> <b>n</b><b>e</b><b>t</b><b>f</b><b>l</b><b>o</b><b>w</b>
+
+   <b>s</b><b>F</b><b>l</b><b>o</b><b>w</b>
+       Configure  bridge  <b>b</b><b>r</b><b>0</b> to send sFlow records to a collector on 10.0.0.1
+       at port 6343, using <b>e</b><b>t</b><b>h</b><b>1</b>´s IP address as the source, with specific sam‐
+       pling parameters:
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b>    <b>-</b><b>-</b>    <b>-</b><b>-</b><b>i</b><b>d</b><b>=</b><b>@</b><b>s</b>    <b>c</b><b>r</b><b>e</b><b>a</b><b>t</b><b>e</b>   <b>s</b><b>F</b><b>l</b><b>o</b><b>w</b>   <b>a</b><b>g</b><b>e</b><b>n</b><b>t</b><b>=</b><b>e</b><b>t</b><b>h</b><b>1</b>   <b>t</b><b>a</b><b>r</b><b>‐</b>
+              <b>g</b><b>e</b><b>t</b><b>=</b><b>\</b><b>"</b><b>1</b><b>0</b><b>.</b><b>0</b><b>.</b><b>0</b><b>.</b><b>1</b><b>:</b><b>6</b><b>3</b><b>4</b><b>3</b><b>\</b><b>"</b> <b>h</b><b>e</b><b>a</b><b>d</b><b>e</b><b>r</b><b>=</b><b>1</b><b>2</b><b>8</b> <b>s</b><b>a</b><b>m</b><b>p</b><b>l</b><b>i</b><b>n</b><b>g</b><b>=</b><b>6</b><b>4</b> <b>p</b><b>o</b><b>l</b><b>l</b><b>i</b><b>n</b><b>g</b><b>=</b><b>1</b><b>0</b> <b>\</b>
+
+              <b>-</b><b>-</b> <b>s</b><b>e</b><b>t</b> <b>B</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b> <b>b</b><b>r</b><b>0</b> <b>s</b><b>f</b><b>l</b><b>o</b><b>w</b><b>=</b><b>@</b><b>s</b>
+
+       Deconfigure sFlow from <b>b</b><b>r</b><b>0</b>, which also destroys the sFlow record (since
+       it is now unreferenced):
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>-</b><b>-</b> <b>c</b><b>l</b><b>e</b><b>a</b><b>r</b> <b>B</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b> <b>b</b><b>r</b><b>0</b> <b>s</b><b>f</b><b>l</b><b>o</b><b>w</b>
+
+   <b>I</b><b>P</b><b>F</b><b>I</b><b>X</b>
+       Configure bridge <b>b</b><b>r</b><b>0</b> to send one IPFIX flow record per packet sample to
+       UDP port 4739 on host 192.168.0.34, with Observation Domain ID 123  and
+       Observation  Point  ID 456, a flow cache active timeout of 1 minute (60
+       seconds), maximum flow cache size of 13 flows,  and  flows  sampled  on
+       output  port  with  tunnel  info(sampling  on  input and output port is
+       enabled by default if not disabled) :
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>-</b><b>-</b> <b>s</b><b>e</b><b>t</b> <b>B</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b> <b>b</b><b>r</b><b>0</b> <b>i</b><b>p</b><b>f</b><b>i</b><b>x</b><b>=</b><b>@</b><b>i</b> <b>\</b>
+
+              <b>-</b><b>-</b>   <b>-</b><b>-</b><b>i</b><b>d</b><b>=</b><b>@</b><b>i</b>    <b>c</b><b>r</b><b>e</b><b>a</b><b>t</b><b>e</b>    <b>I</b><b>P</b><b>F</b><b>I</b><b>X</b>    <b>t</b><b>a</b><b>r</b><b>g</b><b>e</b><b>t</b><b>s</b><b>=</b><b>\</b><b>"</b><b>1</b><b>9</b><b>2</b><b>.</b><b>1</b><b>6</b><b>8</b><b>.</b><b>0</b><b>.</b><b>3</b><b>4</b><b>:</b><b>4</b><b>7</b><b>3</b><b>9</b><b>\</b><b>"</b>
+              <b>o</b><b>b</b><b>s</b><b>_</b><b>d</b><b>o</b><b>m</b><b>a</b><b>i</b><b>n</b><b>_</b><b>i</b><b>d</b><b>=</b><b>1</b><b>2</b><b>3</b>    <b>o</b><b>b</b><b>s</b><b>_</b><b>p</b><b>o</b><b>i</b><b>n</b><b>t</b><b>_</b><b>i</b><b>d</b><b>=</b><b>4</b><b>5</b><b>6</b>    <b>c</b><b>a</b><b>c</b><b>h</b><b>e</b><b>_</b><b>a</b><b>c</b><b>t</b><b>i</b><b>v</b><b>e</b><b>_</b><b>t</b><b>i</b><b>m</b><b>e</b><b>o</b><b>u</b><b>t</b><b>=</b><b>6</b><b>0</b>
+              <b>c</b><b>a</b><b>c</b><b>h</b><b>e</b><b>_</b><b>m</b><b>a</b><b>x</b><b>_</b><b>f</b><b>l</b><b>o</b><b>w</b><b>s</b><b>=</b><b>1</b><b>3</b> <b>\</b>
+
+              <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>:</b><b>e</b><b>n</b><b>a</b><b>b</b><b>l</b><b>e</b><b>-</b><b>i</b><b>n</b><b>p</b><b>u</b><b>t</b><b>-</b><b>s</b><b>a</b><b>m</b><b>p</b><b>l</b><b>i</b><b>n</b><b>g</b><b>=</b><b>f</b><b>a</b><b>l</b><b>s</b><b>e</b>    <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>:</b><b>e</b><b>n</b><b>a</b><b>b</b><b>l</b><b>e</b><b>-</b>
+              <b>t</b><b>u</b><b>n</b><b>n</b><b>e</b><b>l</b><b>-</b><b>s</b><b>a</b><b>m</b><b>p</b><b>l</b><b>i</b><b>n</b><b>g</b><b>=</b><b>t</b><b>r</b><b>u</b><b>e</b>
+
+       Deconfigure  the IPFIX settings from <b>b</b><b>r</b><b>0</b>, which also destroys the IPFIX
+       record (since it is now unreferenced):
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>c</b><b>l</b><b>e</b><b>a</b><b>r</b> <b>B</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b> <b>b</b><b>r</b><b>0</b> <b>i</b><b>p</b><b>f</b><b>i</b><b>x</b>
+
+   <b>8</b><b>0</b><b>2</b><b>.</b><b>1</b><b>D</b> <b>S</b><b>p</b><b>a</b><b>n</b><b>n</b><b>i</b><b>n</b><b>g</b> <b>T</b><b>r</b><b>e</b><b>e</b> <b>P</b><b>r</b><b>o</b><b>t</b><b>o</b><b>c</b><b>o</b><b>l</b> <b>(</b><b>S</b><b>T</b><b>P</b><b>)</b>
+       Configure bridge <b>b</b><b>r</b><b>0</b> to participate in an 802.1D spanning tree:
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>s</b><b>e</b><b>t</b> <b>B</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b> <b>b</b><b>r</b><b>0</b> <b>s</b><b>t</b><b>p</b><b>_</b><b>e</b><b>n</b><b>a</b><b>b</b><b>l</b><b>e</b><b>=</b><b>t</b><b>r</b><b>u</b><b>e</b>
+
+       Set the bridge priority of <b>b</b><b>r</b><b>0</b> to 0x7800:
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>s</b><b>e</b><b>t</b> <b>B</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b> <b>b</b><b>r</b><b>0</b> <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>:</b><b>s</b><b>t</b><b>p</b><b>-</b><b>p</b><b>r</b><b>i</b><b>o</b><b>r</b><b>i</b><b>t</b><b>y</b><b>=</b><b>0</b><b>x</b><b>7</b><b>8</b><b>0</b><b>0</b>
+
+       Set the path cost of port <b>e</b><b>t</b><b>h</b><b>0</b> to 10:
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>s</b><b>e</b><b>t</b> <b>P</b><b>o</b><b>r</b><b>t</b> <b>e</b><b>t</b><b>h</b><b>0</b> <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>:</b><b>s</b><b>t</b><b>p</b><b>-</b><b>p</b><b>a</b><b>t</b><b>h</b><b>-</b><b>c</b><b>o</b><b>s</b><b>t</b><b>=</b><b>1</b><b>0</b>
+
+       Deconfigure STP from above:
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>s</b><b>e</b><b>t</b> <b>B</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b> <b>b</b><b>r</b><b>0</b> <b>s</b><b>t</b><b>p</b><b>_</b><b>e</b><b>n</b><b>a</b><b>b</b><b>l</b><b>e</b><b>=</b><b>f</b><b>a</b><b>l</b><b>s</b><b>e</b>
+
+   <b>M</b><b>u</b><b>l</b><b>t</b><b>i</b><b>c</b><b>a</b><b>s</b><b>t</b> <b>S</b><b>n</b><b>o</b><b>o</b><b>p</b><b>i</b><b>n</b><b>g</b>
+       Configure bridge <b>b</b><b>r</b><b>0</b> to enable multicast snooping:
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>s</b><b>e</b><b>t</b> <b>B</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b> <b>b</b><b>r</b><b>0</b> <b>m</b><b>c</b><b>a</b><b>s</b><b>t</b><b>_</b><b>s</b><b>n</b><b>o</b><b>o</b><b>p</b><b>i</b><b>n</b><b>g</b><b>_</b><b>e</b><b>n</b><b>a</b><b>b</b><b>l</b><b>e</b><b>=</b><b>t</b><b>r</b><b>u</b><b>e</b>
+
+       Set the multicast snooping aging time <b>b</b><b>r</b><b>0</b> to 300 seconds:
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b>  <b>s</b><b>e</b><b>t</b>  <b>B</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b>  <b>b</b><b>r</b><b>0</b>   <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>:</b><b>m</b><b>c</b><b>a</b><b>s</b><b>t</b><b>-</b><b>s</b><b>n</b><b>o</b><b>o</b><b>p</b><b>i</b><b>n</b><b>g</b><b>-</b><b>a</b><b>g</b><b>i</b><b>n</b><b>g</b><b>-</b>
+              <b>t</b><b>i</b><b>m</b><b>e</b><b>=</b><b>3</b><b>0</b><b>0</b>
+
+       Set the multicast snooping table size <b>b</b><b>r</b><b>0</b> to 2048 entries:
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b>   <b>s</b><b>e</b><b>t</b>  <b>B</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b>  <b>b</b><b>r</b><b>0</b>  <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>:</b><b>m</b><b>c</b><b>a</b><b>s</b><b>t</b><b>-</b><b>s</b><b>n</b><b>o</b><b>o</b><b>p</b><b>i</b><b>n</b><b>g</b><b>-</b><b>t</b><b>a</b><b>b</b><b>l</b><b>e</b><b>-</b>
+              <b>s</b><b>i</b><b>z</b><b>e</b><b>=</b><b>2</b><b>0</b><b>4</b><b>8</b>
+
+       Disable flooding of unregistered multicast packets to all  ports.  When
+       set  to  <b>t</b><b>r</b><b>u</b><b>e</b>, the switch will send unregistered multicast packets only
+       to ports connected to multicast routers. When it is set to  <b>f</b><b>a</b><b>l</b><b>s</b><b>e</b>,  the
+       switch  will send them to all ports. This command disables the flood of
+       unregistered packets on bridge <b>b</b><b>r</b><b>0</b>.
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>s</b><b>e</b><b>t</b>  <b>B</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b>  <b>b</b><b>r</b><b>0</b>  <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>:</b><b>m</b><b>c</b><b>a</b><b>s</b><b>t</b><b>-</b><b>s</b><b>n</b><b>o</b><b>o</b><b>p</b><b>i</b><b>n</b><b>g</b><b>-</b><b>d</b><b>i</b><b>s</b><b>a</b><b>b</b><b>l</b><b>e</b><b>-</b>
+              <b>f</b><b>l</b><b>o</b><b>o</b><b>d</b><b>-</b><b>u</b><b>n</b><b>r</b><b>e</b><b>g</b><b>i</b><b>s</b><b>t</b><b>e</b><b>r</b><b>e</b><b>d</b><b>=</b><b>t</b><b>r</b><b>u</b><b>e</b>
+
+       Enable flooding of multicast packets on a specific port.
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>s</b><b>e</b><b>t</b> <b>P</b><b>o</b><b>r</b><b>t</b> <b>e</b><b>t</b><b>h</b><b>1</b> <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>:</b><b>m</b><b>c</b><b>a</b><b>s</b><b>t</b><b>-</b><b>s</b><b>n</b><b>o</b><b>o</b><b>p</b><b>i</b><b>n</b><b>g</b><b>-</b><b>f</b><b>l</b><b>o</b><b>o</b><b>d</b><b>=</b><b>t</b><b>r</b><b>u</b><b>e</b>
+
+       Deconfigure multicasting snooping from above:
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>s</b><b>e</b><b>t</b> <b>B</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b> <b>b</b><b>r</b><b>0</b> <b>m</b><b>c</b><b>a</b><b>s</b><b>t</b><b>_</b><b>s</b><b>n</b><b>o</b><b>o</b><b>p</b><b>i</b><b>n</b><b>g</b><b>_</b><b>e</b><b>n</b><b>a</b><b>b</b><b>l</b><b>e</b><b>=</b><b>f</b><b>a</b><b>l</b><b>s</b><b>e</b>
+
+   <b>8</b><b>0</b><b>2</b><b>.</b><b>1</b><b>D</b><b>-</b><b>2</b><b>0</b><b>0</b><b>4</b> <b>R</b><b>a</b><b>p</b><b>i</b><b>d</b> <b>S</b><b>p</b><b>a</b><b>n</b><b>n</b><b>i</b><b>n</b><b>g</b> <b>T</b><b>r</b><b>e</b><b>e</b> <b>P</b><b>r</b><b>o</b><b>t</b><b>o</b><b>c</b><b>o</b><b>l</b> <b>(</b><b>R</b><b>S</b><b>T</b><b>P</b><b>)</b>
+       Configure  bridge  <b>b</b><b>r</b><b>0</b>  to participate in an 802.1D-2004 Rapid Spanning
+       Tree:
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>s</b><b>e</b><b>t</b> <b>B</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b> <b>b</b><b>r</b><b>0</b> <b>r</b><b>s</b><b>t</b><b>p</b><b>_</b><b>e</b><b>n</b><b>a</b><b>b</b><b>l</b><b>e</b><b>=</b><b>t</b><b>r</b><b>u</b><b>e</b>
+
+       Set the bridge address of <b>b</b><b>r</b><b>0</b> to 00:aa:aa:aa:aa:aa :
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b>      <b>s</b><b>e</b><b>t</b>      <b>B</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b>      <b>b</b><b>r</b><b>0</b>       <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>:</b><b>r</b><b>s</b><b>t</b><b>p</b><b>-</b>
+              <b>a</b><b>d</b><b>d</b><b>r</b><b>e</b><b>s</b><b>s</b><b>=</b><b>0</b><b>0</b><b>:</b><b>a</b><b>a</b><b>:</b><b>a</b><b>a</b><b>:</b><b>a</b><b>a</b><b>:</b><b>a</b><b>a</b><b>:</b><b>a</b><b>a</b>
+
+       Set  the  bridge priority of <b>b</b><b>r</b><b>0</b> to 0x7000. The value must be specified
+       in decimal notation and should be a multiple of 4096  (if  not,  it  is
+       rounded  down  to  the  nearest multiple of 4096). The default priority
+       value is 0x800 (32768).
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>s</b><b>e</b><b>t</b> <b>B</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b> <b>b</b><b>r</b><b>0</b> <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>:</b><b>r</b><b>s</b><b>t</b><b>p</b><b>-</b><b>p</b><b>r</b><b>i</b><b>o</b><b>r</b><b>i</b><b>t</b><b>y</b><b>=</b><b>2</b><b>8</b><b>6</b><b>7</b><b>2</b>
+
+       Set the bridge ageing time of <b>b</b><b>r</b><b>0</b> to 1000  s.  The  ageing  time  value
+       should be between 10 s and 1000000 s. The default value is 300 s.
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>s</b><b>e</b><b>t</b> <b>B</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b> <b>b</b><b>r</b><b>0</b> <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>:</b><b>r</b><b>s</b><b>t</b><b>p</b><b>-</b><b>a</b><b>g</b><b>e</b><b>i</b><b>n</b><b>g</b><b>-</b><b>t</b><b>i</b><b>m</b><b>e</b><b>=</b><b>1</b><b>0</b><b>0</b><b>0</b>
+
+       Set  the  bridge force protocol version of <b>b</b><b>r</b><b>0</b> to 0. The force protocol
+       version has two acceptable values: 0 (STP  compatibility  mode)  and  2
+       (normal operation).
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b>  <b>s</b><b>e</b><b>t</b>  <b>B</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b> <b>b</b><b>r</b><b>0</b> <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>:</b><b>r</b><b>s</b><b>t</b><b>p</b><b>-</b><b>f</b><b>o</b><b>r</b><b>c</b><b>e</b><b>-</b><b>p</b><b>r</b><b>o</b><b>t</b><b>o</b><b>c</b><b>o</b><b>l</b><b>-</b><b>v</b><b>e</b><b>r</b><b>‐</b>
+              <b>s</b><b>i</b><b>o</b><b>n</b><b>=</b><b>0</b>
+
+       Set the bridge max age of <b>b</b><b>r</b><b>0</b> to 10 s. The  max  age  value  should  be
+       between 6 s and 40 s. The default value is 20 s.
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>s</b><b>e</b><b>t</b> <b>B</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b> <b>b</b><b>r</b><b>0</b> <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>:</b><b>r</b><b>s</b><b>t</b><b>p</b><b>-</b><b>m</b><b>a</b><b>x</b><b>-</b><b>a</b><b>g</b><b>e</b><b>=</b><b>1</b><b>0</b>
+
+       Set  the  bridge  forward  delay  of <b>b</b><b>r</b><b>0</b> to 15 s.  This value should be
+       between 4 s and 30 s. The default value is 15 s.
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>s</b><b>e</b><b>t</b> <b>B</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b> <b>b</b><b>r</b><b>0</b> <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>:</b><b>r</b><b>s</b><b>t</b><b>p</b><b>-</b><b>f</b><b>o</b><b>r</b><b>w</b><b>a</b><b>r</b><b>d</b><b>-</b><b>d</b><b>e</b><b>l</b><b>a</b><b>y</b><b>=</b><b>1</b><b>5</b>
+
+       Set the bridge transmit hold count of <b>b</b><b>r</b><b>0</b> to 7 s. This value should  be
+       between 1 s and 10 s. The default value is 6 s.
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>s</b><b>e</b><b>t</b> <b>B</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b> <b>b</b><b>r</b><b>0</b> <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>:</b><b>r</b><b>s</b><b>t</b><b>p</b><b>-</b><b>t</b><b>r</b><b>a</b><b>n</b><b>s</b><b>m</b><b>i</b><b>t</b><b>-</b><b>h</b><b>o</b><b>l</b><b>d</b><b>-</b><b>c</b><b>o</b><b>u</b><b>n</b><b>t</b><b>=</b><b>7</b>
+
+       Enable RSTP on the Port <b>e</b><b>t</b><b>h</b><b>0</b>:
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>s</b><b>e</b><b>t</b> <b>P</b><b>o</b><b>r</b><b>t</b> <b>e</b><b>t</b><b>h</b><b>0</b> <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>:</b><b>r</b><b>s</b><b>t</b><b>p</b><b>-</b><b>e</b><b>n</b><b>a</b><b>b</b><b>l</b><b>e</b><b>=</b><b>t</b><b>r</b><b>u</b><b>e</b>
+
+       Disable RSTP on the Port <b>e</b><b>t</b><b>h</b><b>0</b>:
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>s</b><b>e</b><b>t</b> <b>P</b><b>o</b><b>r</b><b>t</b> <b>e</b><b>t</b><b>h</b><b>0</b> <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>:</b><b>r</b><b>s</b><b>t</b><b>p</b><b>-</b><b>e</b><b>n</b><b>a</b><b>b</b><b>l</b><b>e</b><b>=</b><b>f</b><b>a</b><b>l</b><b>s</b><b>e</b>
+
+       Set  the  priority  of  port <b>e</b><b>t</b><b>h</b><b>0</b> to 32. The value must be specified in
+       decimal notation and should be a multiple of 16 (if not, it is  rounded
+       down to the nearest multiple of 16). The default priority value is 0x80
+       (128).
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>s</b><b>e</b><b>t</b> <b>P</b><b>o</b><b>r</b><b>t</b> <b>e</b><b>t</b><b>h</b><b>0</b> <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>:</b><b>r</b><b>s</b><b>t</b><b>p</b><b>-</b><b>p</b><b>o</b><b>r</b><b>t</b><b>-</b><b>p</b><b>r</b><b>i</b><b>o</b><b>r</b><b>i</b><b>t</b><b>y</b><b>=</b><b>3</b><b>2</b>
+
+       Set the port number of port <b>e</b><b>t</b><b>h</b><b>0</b> to 3:
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>s</b><b>e</b><b>t</b> <b>P</b><b>o</b><b>r</b><b>t</b> <b>e</b><b>t</b><b>h</b><b>0</b> <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>:</b><b>r</b><b>s</b><b>t</b><b>p</b><b>-</b><b>p</b><b>o</b><b>r</b><b>t</b><b>-</b><b>n</b><b>u</b><b>m</b><b>=</b><b>3</b>
+
+       Set the path cost of port <b>e</b><b>t</b><b>h</b><b>0</b> to 150:
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>s</b><b>e</b><b>t</b> <b>P</b><b>o</b><b>r</b><b>t</b> <b>e</b><b>t</b><b>h</b><b>0</b> <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>:</b><b>r</b><b>s</b><b>t</b><b>p</b><b>-</b><b>p</b><b>a</b><b>t</b><b>h</b><b>-</b><b>c</b><b>o</b><b>s</b><b>t</b><b>=</b><b>1</b><b>5</b><b>0</b>
+
+       Set the admin edge value of port <b>e</b><b>t</b><b>h</b><b>0</b>:
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>s</b><b>e</b><b>t</b> <b>P</b><b>o</b><b>r</b><b>t</b> <b>e</b><b>t</b><b>h</b><b>0</b> <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>:</b><b>r</b><b>s</b><b>t</b><b>p</b><b>-</b><b>p</b><b>o</b><b>r</b><b>t</b><b>-</b><b>a</b><b>d</b><b>m</b><b>i</b><b>n</b><b>-</b><b>e</b><b>d</b><b>g</b><b>e</b><b>=</b><b>t</b><b>r</b><b>u</b><b>e</b>
+
+       Set the auto edge value of port <b>e</b><b>t</b><b>h</b><b>0</b>:
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>s</b><b>e</b><b>t</b> <b>P</b><b>o</b><b>r</b><b>t</b> <b>e</b><b>t</b><b>h</b><b>0</b> <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>:</b><b>r</b><b>s</b><b>t</b><b>p</b><b>-</b><b>p</b><b>o</b><b>r</b><b>t</b><b>-</b><b>a</b><b>u</b><b>t</b><b>o</b><b>-</b><b>e</b><b>d</b><b>g</b><b>e</b><b>=</b><b>t</b><b>r</b><b>u</b><b>e</b>
+
+       Set the admin point to point MAC value of port <b>e</b><b>t</b><b>h</b><b>0</b>.  Acceptable values
+       are  <b>0</b> (not point-to-point), <b>1</b> (point-to-point, the default value) or <b>2</b>
+       (automatic detection).  The auto-detection mode is not currently imple‐
+       mented, and the value <b>2</b> has the same effect of <b>0</b> (not point-to-point).
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>s</b><b>e</b><b>t</b> <b>P</b><b>o</b><b>r</b><b>t</b> <b>e</b><b>t</b><b>h</b><b>0</b> <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>:</b><b>r</b><b>s</b><b>t</b><b>p</b><b>-</b><b>a</b><b>d</b><b>m</b><b>i</b><b>n</b><b>-</b><b>p</b><b>2</b><b>p</b><b>-</b><b>m</b><b>a</b><b>c</b><b>=</b><b>1</b>
+
+       Set  the  admin  port  state  value  of port <b>e</b><b>t</b><b>h</b><b>0</b>.  <b>t</b><b>r</b><b>u</b><b>e</b> is the default
+       value.
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>s</b><b>e</b><b>t</b> <b>P</b><b>o</b><b>r</b><b>t</b> <b>e</b><b>t</b><b>h</b><b>0</b> <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>:</b><b>r</b><b>s</b><b>t</b><b>p</b><b>-</b><b>a</b><b>d</b><b>m</b><b>i</b><b>n</b><b>-</b><b>p</b><b>o</b><b>r</b><b>t</b><b>-</b><b>s</b><b>t</b><b>a</b><b>t</b><b>e</b><b>=</b><b>f</b><b>a</b><b>l</b><b>s</b><b>e</b>
+
+       Set the mcheck value of port <b>e</b><b>t</b><b>h</b><b>0</b>:
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>s</b><b>e</b><b>t</b> <b>P</b><b>o</b><b>r</b><b>t</b> <b>e</b><b>t</b><b>h</b><b>0</b> <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>:</b><b>r</b><b>s</b><b>t</b><b>p</b><b>-</b><b>p</b><b>o</b><b>r</b><b>t</b><b>-</b><b>m</b><b>c</b><b>h</b><b>e</b><b>c</b><b>k</b><b>=</b><b>t</b><b>r</b><b>u</b><b>e</b>
+
+       Deconfigure RSTP from above:
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>s</b><b>e</b><b>t</b> <b>B</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b> <b>b</b><b>r</b><b>0</b> <b>r</b><b>s</b><b>t</b><b>p</b><b>_</b><b>e</b><b>n</b><b>a</b><b>b</b><b>l</b><b>e</b><b>=</b><b>f</b><b>a</b><b>l</b><b>s</b><b>e</b>
+
+   <b>O</b><b>p</b><b>e</b><b>n</b><b>F</b><b>l</b><b>o</b><b>w</b> <b>V</b><b>e</b><b>r</b><b>s</b><b>i</b><b>o</b><b>n</b>
+       Configure bridge <b>b</b><b>r</b><b>0</b> to support OpenFlow versions 1.0, 1.2, and 1.3:
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>s</b><b>e</b><b>t</b> <b>b</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b>  <b>b</b><b>r</b><b>0</b>  <b>p</b><b>r</b><b>o</b><b>t</b><b>o</b><b>c</b><b>o</b><b>l</b><b>s</b><b>=</b><b>O</b><b>p</b><b>e</b><b>n</b><b>F</b><b>l</b><b>o</b><b>w</b><b>1</b><b>0</b><b>,</b><b>O</b><b>p</b><b>e</b><b>n</b><b>F</b><b>l</b><b>o</b><b>w</b><b>1</b><b>2</b><b>,</b><b>O</b><b>p</b><b>e</b><b>n</b><b>‐</b>
+              <b>F</b><b>l</b><b>o</b><b>w</b><b>1</b><b>3</b>
+
+   <b>F</b><b>l</b><b>o</b><b>w</b> <b>T</b><b>a</b><b>b</b><b>l</b><b>e</b> <b>C</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>u</b><b>r</b><b>a</b><b>t</b><b>i</b><b>o</b><b>n</b>
+       Limit flow table 0 on bridge br0 to a maximum of 100 flows:
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b>  <b>-</b><b>-</b>  <b>-</b><b>-</b><b>i</b><b>d</b><b>=</b><b>@</b><b>f</b><b>t</b>  <b>c</b><b>r</b><b>e</b><b>a</b><b>t</b><b>e</b>  <b>F</b><b>l</b><b>o</b><b>w</b><b>_</b><b>T</b><b>a</b><b>b</b><b>l</b><b>e</b> <b>f</b><b>l</b><b>o</b><b>w</b><b>_</b><b>l</b><b>i</b><b>m</b><b>i</b><b>t</b><b>=</b><b>1</b><b>0</b><b>0</b> <b>o</b><b>v</b><b>e</b><b>r</b><b>‐</b>
+              <b>f</b><b>l</b><b>o</b><b>w</b><b>_</b><b>p</b><b>o</b><b>l</b><b>i</b><b>c</b><b>y</b><b>=</b><b>r</b><b>e</b><b>f</b><b>u</b><b>s</b><b>e</b> <b>-</b><b>-</b> <b>s</b><b>e</b><b>t</b> <b>B</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b> <b>b</b><b>r</b><b>0</b> <b>f</b><b>l</b><b>o</b><b>w</b><b>_</b><b>t</b><b>a</b><b>b</b><b>l</b><b>e</b><b>s</b><b>=</b><b>0</b><b>=</b><b>@</b><b>f</b><b>t</b>
+
+<b>E</b><b>X</b><b>I</b><b>T</b> <b>S</b><b>T</b><b>A</b><b>T</b><b>U</b><b>S</b>
+       0      Successful program execution.
+
+       1      Usage, syntax, or configuration file error.
+
+       2      The <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u> argument to <b>b</b><b>r</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b> specified the name of a  bridge
+              that does not exist.
+
+<b>S</b><b>E</b><b>E</b> <b>A</b><b>L</b><b>S</b><b>O</b>
+       <b>o</b><b>v</b><b>s</b><b>d</b><b>b</b><b>-</b><b>s</b><b>e</b><b>r</b><b>v</b><b>e</b><b>r</b>(1), <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>d</b>(8), <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>d</b><b>.</b><b>c</b><b>o</b><b>n</b><b>f</b><b>.</b><b>d</b><b>b</b>(5).
+
+
+
+Open vSwitch                        2.3.90                        ovs-vsctl(8)
+</pre></body></html>

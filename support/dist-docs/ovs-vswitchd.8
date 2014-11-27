@@ -1,0 +1,992 @@
+.\" -*- nroff -*-
+.de IQ
+.  br
+.  ns
+.  IP "\\$1"
+..
+.TH ovs\-vswitchd 8 "2.3.90" "Open vSwitch" "Open vSwitch Manual"
+.\" This program's name:
+.ds PN ovs\-vswitchd
+.
+.SH NAME
+ovs\-vswitchd \- Open vSwitch daemon
+.
+.SH SYNOPSIS
+\fBovs\-vswitchd \fR[\fIdatabase\fR]
+.
+.SH DESCRIPTION
+A daemon that manages and controls any number of Open vSwitch switches
+on the local machine.
+.PP
+The \fIdatabase\fR argument specifies how \fBovs\-vswitchd\fR connects
+to \fBovsdb\-server\fR.  The default is \fBunix:/var/run/openvswitch/db.sock\fR.
+The following forms are accepted:
+.IP "\fBssl:\fIip\fB:\fIport\fR"
+The specified SSL \fIport\fR on the host at the given \fIip\fR, which
+must be expressed as an IP address (not a DNS name) in IPv4 or IPv6 address
+format.  If \fIip\fR is an IPv6 address, then wrap \fIip\fR with square
+brackets, e.g.: \fBssl:[::1]:6632\fR.
+The \fB\-\-private\-key\fR, \fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR
+options are mandatory when this form is used.
+.
+.IP "\fBtcp:\fIip\fB:\fIport\fR"
+Connect to the given TCP \fIport\fR on \fIip\fR, where \fIip\fR can be IPv4
+or IPv6 address. If \fIip\fR is an IPv6 address, then wrap \fIip\fR with
+square brackets, e.g.: \fBtcp:[::1]:6632\fR.
+.
+.IP "\fBunix:\fIfile\fR"
+On POSIX, connect to the Unix domain server socket named \fIfile\fR.
+.IP
+On Windows, connect to a localhost TCP port whose value is written in
+\fIfile\fR.
+.IP "\fBpssl:\fIport\fR[\fB:\fIip\fR]"
+Listen on the given SSL \fIport\fR for a connection.  By default,
+connections are not bound to a particular local IP address and
+it listens only on IPv4 (but not IPv6) addresses, but
+specifying \fIip\fR limits connections to those from the given
+\fIip\fR, either IPv4 or IPv6 address.  If \fIip\fR is
+an IPv6 address, then wrap \fIip\fR with square brackets, e.g.:
+\fBpssl:6632:[::1]\fR.  The \fB\-\-private\-key\fR,
+\fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR options are mandatory
+when this form is used.
+.
+.IP "\fBptcp:\fIport\fR[\fB:\fIip\fR]"
+Listen on the given TCP \fIport\fR for a connection.  By default,
+connections are not bound to a particular local IP address and
+it listens only on IPv4 (but not IPv6) addresses, but
+\fIip\fR may be specified to listen only for connections to the given
+\fIip\fR, either IPv4 or IPv6 address.  If \fIip\fR is
+an IPv6 address, then wrap \fIip\fR with square brackets, e.g.:
+\fBptcp:6632:[::1]\fR.
+.
+.IP "\fBpunix:\fIfile\fR"
+On POSIX, listen on the Unix domain server socket named \fIfile\fR for a
+connection.
+.IP
+On Windows, listen on a kernel chosen TCP port on the localhost. The kernel
+chosen TCP port value is written in \fIfile\fR.
+.PP
+\fBovs\-vswitchd\fR retrieves its configuration from \fIdatabase\fR at
+startup.  It sets up Open vSwitch datapaths and then operates
+switching across each bridge described in its configuration files.  As
+the database changes, \fBovs\-vswitchd\fR automatically updates its
+configuration to match.
+.PP
+\fBovs\-vswitchd\fR switches may be configured with any of the following
+features:
+.
+.IP \(bu
+L2 switching with MAC learning.
+.
+.IP \(bu
+NIC bonding with automatic fail-over and source MAC-based TX load
+balancing ("SLB").
+.
+.IP \(bu
+802.1Q VLAN support.
+.
+.IP \(bu
+Port mirroring, with optional VLAN tagging.
+.
+.IP \(bu
+NetFlow v5 flow logging.
+.
+.IP \(bu
+sFlow(R) monitoring.
+.
+.IP \(bu
+Connectivity to an external OpenFlow controller, such as NOX.
+.
+.PP
+Only a single instance of \fBovs\-vswitchd\fR is intended to run at a time.
+A single \fBovs\-vswitchd\fR can manage any number of switch instances, up
+to the maximum number of supported Open vSwitch datapaths.
+.PP
+\fBovs\-vswitchd\fR does all the necessary management of Open vSwitch datapaths
+itself.  Thus, external tools, such \fBovs\-dpctl\fR(8), are not needed for
+managing datapaths in conjunction with \fBovs\-vswitchd\fR, and their use
+to modify datapaths when \fBovs\-vswitchd\fR is running can interfere with
+its operation.  (\fBovs\-dpctl\fR may still be useful for diagnostics.)
+.PP
+An Open vSwitch datapath kernel module must be loaded for \fBovs\-vswitchd\fR
+to be useful.  Please refer to the \fBINSTALL.Linux\fR file included in the
+Open vSwitch distribution for instructions on how to build and load
+the Open vSwitch kernel module.
+.PP
+.SH OPTIONS
+.IP "\fB\-\-mlockall\fR"
+Causes \fBovs\-vswitchd\fR to call the \fBmlockall()\fR function, to
+attempt to lock all of its process memory into physical RAM,
+preventing the kernel from paging any of its memory to disk.  This
+helps to avoid networking interruptions due to system memory pressure.
+.IP
+Some systems do not support \fBmlockall()\fR at all, and other systems
+only allow privileged users, such as the superuser, to use it.
+\fBovs\-vswitchd\fR emits a log message if \fBmlockall()\fR is
+unavailable or unsuccessful.
+.
+.SS "DPDK Options"
+.IP "\fB\-\-dpdk\fR"
+Initialize \fBovs\-vswitchd\fR DPDK datapath.  Refer to INSTALL.DPDK
+for details.
+.SS "Daemon Options"
+.ds DD \
+\fBovs\-vswitchd\fR detaches only after it has connected to the \
+database, retrieved the initial configuration, and set up that \
+configuration.
+The following options are valid on POSIX based platforms.
+.TP
+\fB\-\-pidfile\fR[\fB=\fIpidfile\fR]
+Causes a file (by default, \fB\*(PN.pid\fR) to be created indicating
+the PID of the running process.  If the \fIpidfile\fR argument is not
+specified, or
+if it does not begin with \fB/\fR, then it is created in
+\fB/var/run/openvswitch\fR.
+.IP
+If \fB\-\-pidfile\fR is not specified, no pidfile is created.
+.
+.TP
+\fB\-\-overwrite\-pidfile\fR
+By default, when \fB\-\-pidfile\fR is specified and the specified pidfile 
+already exists and is locked by a running process, \fB\*(PN\fR refuses 
+to start.  Specify \fB\-\-overwrite\-pidfile\fR to cause it to instead 
+overwrite the pidfile.
+.IP
+When \fB\-\-pidfile\fR is not specified, this option has no effect.
+.
+.TP
+\fB\-\-detach\fR
+Causes \fB\*(PN\fR to detach itself from the foreground session and
+run as a background process. \*(DD
+.
+.TP
+\fB\-\-monitor\fR
+Creates an additional process to monitor the \fB\*(PN\fR daemon.  If
+the daemon dies due to a signal that indicates a programming error
+(\fBSIGABRT\fR, \fBSIGALRM\fR, \fBSIGBUS\fR, \fBSIGFPE\fR,
+\fBSIGILL\fR, \fBSIGPIPE\fR, \fBSIGSEGV\fR, \fBSIGXCPU\fR, or
+\fBSIGXFSZ\fR) then the monitor process starts a new copy of it.  If
+the daemon dies or exits for another reason, the monitor process exits.
+.IP
+This option is normally used with \fB\-\-detach\fR, but it also
+functions without it.
+.
+.TP
+\fB\-\-no\-chdir\fR
+By default, when \fB\-\-detach\fR is specified, \fB\*(PN\fR 
+changes its current working directory to the root directory after it 
+detaches.  Otherwise, invoking \fB\*(PN\fR from a carelessly chosen 
+directory would prevent the administrator from unmounting the file 
+system that holds that directory.
+.IP
+Specifying \fB\-\-no\-chdir\fR suppresses this behavior, preventing
+\fB\*(PN\fR from changing its current working directory.  This may be 
+useful for collecting core files, since it is common behavior to write 
+core dumps into the current working directory and the root directory 
+is not a good directory to use.
+.IP
+This option has no effect when \fB\-\-detach\fR is not specified.
+.SS "Service Options"
+The following options are valid only on Windows platform.
+.TP
+\fB\-\-service\fR
+Causes \fB\*(PN\fR to run as a service in the background. The service
+should already have been created through external tools like \fBSC.exe\fR.
+.
+.TP
+\fB\-\-service\-monitor\fR
+Causes the \fB\*(PN\fR service to be automatically restarted by the Windows
+services manager if the service dies or exits for unexpected reasons.
+.IP
+When \fB\-\-service\fR is not specified, this option has no effect.
+.SS "Public Key Infrastructure Options"
+.de IQ
+.  br
+.  ns
+.  IP "\\$1"
+..
+.IP "\fB\-p\fR \fIprivkey.pem\fR"
+.IQ "\fB\-\-private\-key=\fIprivkey.pem\fR"
+Specifies a PEM file containing the private key used as \fB\*(PN\fR's
+identity for outgoing SSL connections.
+.
+.IP "\fB\-c\fR \fIcert.pem\fR"
+.IQ "\fB\-\-certificate=\fIcert.pem\fR"
+Specifies a PEM file containing a certificate that certifies the
+private key specified on \fB\-p\fR or \fB\-\-private\-key\fR to be
+trustworthy.  The certificate must be signed by the certificate
+authority (CA) that the peer in SSL connections will use to verify it.
+.
+.IP "\fB\-C\fR \fIcacert.pem\fR"
+.IQ "\fB\-\-ca\-cert=\fIcacert.pem\fR"
+Specifies a PEM file containing the CA certificate that \fB\*(PN\fR
+should use to verify certificates presented to it by SSL peers.  (This
+may be the same certificate that SSL peers use to verify the
+certificate specified on \fB\-c\fR or \fB\-\-certificate\fR, or it may
+be a different one, depending on the PKI design in use.)
+.
+.IP "\fB\-C none\fR"
+.IQ "\fB\-\-ca\-cert=none\fR"
+Disables verification of certificates presented by SSL peers.  This
+introduces a security risk, because it means that certificates cannot
+be verified to be those of known trusted hosts.
+.IP "\fB\-\-bootstrap\-ca\-cert=\fIcacert.pem\fR"
+When \fIcacert.pem\fR exists, this option has the same effect as
+\fB\-C\fR or \fB\-\-ca\-cert\fR.  If it does not exist, then
+\fB\*(PN\fR will attempt to obtain the CA certificate from the
+SSL peer on its first SSL connection and save it to the named PEM
+file.  If it is successful, it will immediately drop the connection
+and reconnect, and from then on all SSL connections must be
+authenticated by a certificate signed by the CA certificate thus
+obtained.
+.IP
+\fBThis option exposes the SSL connection to a man-in-the-middle
+attack obtaining the initial CA certificate\fR, but it may be useful
+for bootstrapping.
+.IP
+This option is only useful if the SSL peer sends its CA certificate as
+part of the SSL certificate chain.  The SSL protocol does not require
+the server to send the CA certificate.
+.IP
+This option is mutually exclusive with \fB\-C\fR and
+\fB\-\-ca\-cert\fR.
+.SS "Logging Options"
+.de IQ
+.  br
+.  ns
+.  IP "\\$1"
+..
+.IP "\fB\-v\fR[\fIspec\fR]
+.IQ "\fB\-\-verbose=\fR[\fIspec\fR]
+.
+Sets logging levels.  Without any \fIspec\fR, sets the log level for
+every module and facility to \fBdbg\fR.  Otherwise, \fIspec\fR is a
+list of words separated by spaces or commas or colons, up to one from
+each category below:
+.
+.RS
+.IP \(bu
+A valid module name, as displayed by the \fBvlog/list\fR command on
+\fBovs\-appctl\fR(8), limits the log level change to the specified
+module.
+.
+.IP \(bu
+\fBsyslog\fR, \fBconsole\fR, or \fBfile\fR, to limit the log level
+change to only to the system log, to the console, or to a file,
+respectively.
+.IP
+On Windows platform, \fBsyslog\fR is accepted as a word and is only
+useful along with the \fB\-\-syslog\-target\fR option (the word has no
+effect otherwise).
+.
+.IP \(bu
+\fBoff\fR, \fBemer\fR, \fBerr\fR, \fBwarn\fR, \fBinfo\fR, or
+\fBdbg\fR, to control the log level.  Messages of the given severity
+or higher will be logged, and messages of lower severity will be
+filtered out.  \fBoff\fR filters out all messages.  See
+\fBovs\-appctl\fR(8) for a definition of each log level.
+.RE
+.
+.IP
+Case is not significant within \fIspec\fR.
+.IP
+Regardless of the log levels set for \fBfile\fR, logging to a file
+will not take place unless \fB\-\-log\-file\fR is also specified (see
+below).
+.IP
+For compatibility with older versions of OVS, \fBany\fR is accepted as
+a word but has no effect.
+.
+.IP "\fB\-v\fR"
+.IQ "\fB\-\-verbose\fR"
+Sets the maximum logging verbosity level, equivalent to
+\fB\-\-verbose=dbg\fR.
+.
+.IP "\fB\-vPATTERN:\fIfacility\fB:\fIpattern\fR"
+.IQ "\fB\-\-verbose=PATTERN:\fIfacility\fB:\fIpattern\fR"
+Sets the log pattern for \fIfacility\fR to \fIpattern\fR.  Refer to
+\fBovs\-appctl\fR(8) for a description of the valid syntax for \fIpattern\fR.
+.
+.TP
+\fB\-\-log\-file\fR[\fB=\fIfile\fR]
+Enables logging to a file.  If \fIfile\fR is specified, then it is
+used as the exact name for the log file.  The default log file name
+used if \fIfile\fR is omitted is \fB/var/log/openvswitch/\*(PN.log\fR.
+.
+.IP "\fB\-\-syslog\-target=\fIhost\fB:\fIport\fR"
+Send syslog messages to UDP \fIport\fR on \fIhost\fR, in addition to
+the system syslog.  The \fIhost\fR must be a numerical IP address, not
+a hostname.
+.SS "Other Options"
+.IP "\fB\-\-unixctl=\fIsocket\fR"
+Sets the name of the control socket on which \fB\*(PN\fR listens for
+runtime management commands (see \fBRUNTIME MANAGEMENT COMMANDS\fR,
+below).  If \fIsocket\fR does not begin with \fB/\fR, it is
+interpreted as relative to \fB/var/run/openvswitch\fR.  If \fB\-\-unixctl\fR is
+not used at all, the default socket is
+\fB/var/run/openvswitch/\*(PN.\fIpid\fB.ctl\fR, where \fIpid\fR is \fB\*(PN\fR's
+process ID.
+.IP
+On Windows, uses a kernel chosen TCP port on the localhost to listen
+for runtime management commands.  The kernel chosen TCP port value is written
+in a file whose absolute path is pointed by \fIsocket\fR. If \fB\-\-unixctl\fR
+is not used at all, the file is created as \fB\*(PN.ctl\fR in the configured
+\fIOVS_RUNDIR\fR directory.
+.IP
+Specifying \fBnone\fR for \fIsocket\fR disables the control socket
+feature.
+.de IQ
+.  br
+.  ns
+.  IP "\\$1"
+..
+.IP "\fB\-h\fR"
+.IQ "\fB\-\-help\fR"
+Prints a brief help message to the console.
+.
+.IP "\fB\-V\fR"
+.IQ "\fB\-\-version\fR"
+Prints version information to the console.
+.
+.SH "RUNTIME MANAGEMENT COMMANDS"
+\fBovs\-appctl\fR(8) can send commands to a running
+\fBovs\-vswitchd\fR process.  The currently supported commands are
+described below.  The command descriptions assume an understanding of
+how to configure Open vSwitch.
+.SS "GENERAL COMMANDS"
+.IP "\fBexit\fR"
+Causes \fBovs\-vswitchd\fR to gracefully terminate.
+.IP "\fBqos/show\fR \fIinterface\fR"
+Queries the kernel for Quality of Service configuration and statistics
+associated with the given \fIinterface\fR.
+.IP "\fBbfd/show\fR [\fIinterface\fR]"
+Displays detailed information about Bidirectional Forwarding Detection
+configured on \fIinterface\fR.  If \fIinterface\fR is not specified,
+then displays detailed information about all interfaces with BFD
+enabled.
+.IP "\fBbfd/set-forwarding\fR [\fIinterface\fR] \fIstatus\fR"
+Force the fault status of the BFD module on \fIinterface\fR (or all
+interfaces if none is given) to be \fIstatus\fR.  \fIstatus\fR can be
+"true", "false", or "normal" which reverts to the standard behavior.
+.IP "\fBcfm/show\fR [\fIinterface\fR]"
+Displays detailed information about Connectivity Fault Management
+configured on \fIinterface\fR.  If \fIinterface\fR is not specified,
+then displays detailed information about all interfaces with CFM
+enabled.
+.IP "\fBcfm/set-fault\fR [\fIinterface\fR] \fIstatus\fR"
+Force the fault status of the CFM module on \fIinterface\fR (or all
+interfaces if none is given) to be \fIstatus\fR.  \fIstatus\fR can be
+"true", "false", or "normal" which reverts to the standard behavior.
+.IP "\fBstp/tcn\fR [\fIbridge\fR]"
+Forces a topology change event on \fIbridge\fR if it's running STP.  This
+may cause it to send Topology Change Notifications to its peers and flush
+its MAC table..  If no \fIbridge\fR is given, forces a topology change
+event on all bridges.
+.SS "BRIDGE COMMANDS"
+These commands manage bridges.
+.IP "\fBfdb/flush\fR [\fIbridge\fR]"
+Flushes \fIbridge\fR MAC address learning table, or all learning tables
+if no \fIbridge\fR is given.
+.IP "\fBfdb/show\fR \fIbridge\fR"
+Lists each MAC address/VLAN pair learned by the specified \fIbridge\fR,
+along with the port on which it was learned and the age of the entry,
+in seconds.
+.IP "\fBmdb/flush\fR [\fIbridge\fR]"
+Flushes \fIbridge\fR multicast snooping table, or all snooping tables
+if no \fIbridge\fR is given.
+.IP "\fBmdb/show\fR \fIbridge\fR"
+Lists each multicast group/VLAN pair learned by the specified \fIbridge\fR,
+along with the port on which it was learned and the age of the entry,
+in seconds.
+.IP "\fBbridge/reconnect\fR [\fIbridge\fR]"
+Makes \fIbridge\fR drop all of its OpenFlow controller connections and
+reconnect.  If \fIbridge\fR is not specified, then all bridges drop
+their controller connections and reconnect.
+.IP
+This command might be useful for debugging OpenFlow controller issues.
+.
+.IP "\fBbridge/dump\-flows\fR \fIbridge\fR"
+Lists all flows in \fIbridge\fR, including those normally hidden to
+commands such as \fBovs\-ofctl dump\-flows\fR.  Flows set up by mechanisms
+such as in-band control and fail-open are hidden from the controller
+since it is not allowed to modify or override them.
+.SS "BOND COMMANDS"
+These commands manage bonded ports on an Open vSwitch's bridges.  To
+understand some of these commands, it is important to understand a
+detail of the bonding implementation called ``source load balancing''
+(SLB).  Instead of directly assigning Ethernet source addresses to
+slaves, the bonding implementation computes a function that maps an
+48-bit Ethernet source addresses into an 8-bit value (a ``MAC hash''
+value).  All of the Ethernet addresses that map to a single 8-bit
+value are then assigned to a single slave.
+.IP "\fBbond/list\fR"
+Lists all of the bonds, and their slaves, on each bridge.
+.
+.IP "\fBbond/show\fR [\fIport\fR]"
+Lists all of the bond-specific information (updelay, downdelay, time
+until the next rebalance) about the given bonded \fIport\fR, or all
+bonded ports if no \fIport\fR is given.  Also lists information about
+each slave: whether it is enabled or disabled, the time to completion
+of an updelay or downdelay if one is in progress, whether it is the
+active slave, the hashes assigned to the slave.  Any LACP information
+related to this bond may be found using the \fBlacp/show\fR command.
+.
+.IP "\fBbond/migrate\fR \fIport\fR \fIhash\fR \fIslave\fR"
+Only valid for SLB bonds.  Assigns a given MAC hash to a new slave.
+\fIport\fR specifies the bond port, \fIhash\fR the MAC hash to be
+migrated (as a decimal number between 0 and 255), and \fIslave\fR the
+new slave to be assigned.
+.IP
+The reassignment is not permanent: rebalancing or fail-over will
+cause the MAC hash to be shifted to a new slave in the usual
+manner.
+.IP
+A MAC hash cannot be migrated to a disabled slave.
+.IP "\fBbond/set\-active\-slave\fR \fIport\fR \fIslave\fR"
+Sets \fIslave\fR as the active slave on \fIport\fR.  \fIslave\fR must
+currently be enabled.
+.IP
+The setting is not permanent: a new active slave will be selected
+if \fIslave\fR becomes disabled.
+.IP "\fBbond/enable\-slave\fR \fIport\fR \fIslave\fR"
+.IQ "\fBbond/disable\-slave\fR \fIport\fR \fIslave\fR"
+Enables (or disables) \fIslave\fR on the given bond \fIport\fR, skipping any
+updelay (or downdelay).
+.IP
+This setting is not permanent: it persists only until the carrier
+status of \fIslave\fR changes.
+.IP "\fBbond/hash\fR \fImac\fR [\fIvlan\fR] [\fIbasis\fR]"
+Returns the hash value which would be used for \fImac\fR with \fIvlan\fR
+and \fIbasis\fR if specified.
+.
+.IP "\fBlacp/show\fR [\fIport\fR]"
+Lists all of the LACP related information about the given \fIport\fR:
+active or passive, aggregation key, system id, and system priority.  Also
+lists information about each slave: whether it is enabled or disabled,
+whether it is attached or detached, port id and priority, actor
+information, and partner information.  If \fIport\fR is not specified,
+then displays detailed information about all interfaces with CFM
+enabled.
+.SS "DPCTL DATAPATH DEBUGGING COMMANDS"
+The primary way to configure \fBovs\-vswitchd\fR is through the Open
+vSwitch database, e.g. using \fBovs\-vsctl\fR(8).  These commands
+provide a debugging interface for managing datapaths.  They implement
+the same features (and syntax) as \fBovs\-dpctl\fR(8).  Unlike
+\fBovs\-dpctl\fR(8), these commands work with datapaths that are
+integrated into \fBovs\-vswitchd\fR (e.g. the \fBnetdev\fR datapath
+type).
+.PP
+.
+.ds DX \fBdpctl/\fR
+.de DO
+\\$2 \\$1 \\$3
+..
+.TP
+\*(DX\fBadd\-dp \fIdp\fR [\fInetdev\fR[\fB,\fIoption\fR]...]
+Creates datapath \fIdp\fR, with a local port also named \fIdp\fR.
+This will fail if a network device \fIdp\fR already exists.
+.IP
+If \fInetdev\fRs are specified, \fB\*(PN\fR adds them to the
+new datapath, just as if \fBadd\-if\fR was specified.
+.
+.TP
+\*(DX\fBdel\-dp \fIdp\fR
+Deletes datapath \fIdp\fR.  If \fIdp\fR is associated with any network
+devices, they are automatically removed.
+.
+.TP
+\*(DX\fBadd\-if \fIdp netdev\fR[\fB,\fIoption\fR]...
+Adds each \fInetdev\fR to the set of network devices datapath
+\fIdp\fR monitors, where \fIdp\fR is the name of an existing
+datapath, and \fInetdev\fR is the name of one of the host's
+network devices, e.g. \fBeth0\fR.  Once a network device has been added
+to a datapath, the datapath has complete ownership of the network device's
+traffic and the network device appears silent to the rest of the
+system.
+.IP
+A \fInetdev\fR may be followed by a comma-separated list of options.
+The following options are currently supported:
+.
+.RS
+.IP "\fBtype=\fItype\fR"
+Specifies the type of port to add.  The default type is \fBsystem\fR.
+.IP "\fBport_no=\fIport\fR"
+Requests a specific port number within the datapath.  If this option is
+not specified then one will be automatically assigned.
+.IP "\fIkey\fB=\fIvalue\fR"
+Adds an arbitrary key-value option to the port's configuration.
+.RE
+.IP
+\fBovs\-vswitchd.conf.db\fR(5) documents the available port types and
+options.
+.
+.IP "\*(DX\fBset\-if \fIdp port\fR[\fB,\fIoption\fR]..."
+Reconfigures each \fIport\fR in \fIdp\fR as specified.  An
+\fIoption\fR of the form \fIkey\fB=\fIvalue\fR adds the specified
+key-value option to the port or overrides an existing key's value.  An
+\fIoption\fR of the form \fIkey\fB=\fR, that is, without a value,
+deletes the key-value named \fIkey\fR.  The type and port number of a
+port cannot be changed, so \fBtype\fR and \fBport_no\fR are only allowed if
+they match the existing configuration.
+.TP
+\*(DX\fBdel\-if \fIdp netdev\fR...
+Removes each \fInetdev\fR from the list of network devices datapath
+\fIdp\fR monitors.
+.
+.TP
+\*(DX\fBdump\-dps\fR
+Prints the name of each configured datapath on a separate line.
+.
+.TP
+.DO "[\fB\-s\fR | \fB\-\-statistics\fR]" "\*(DX\fBshow" "\fR[\fIdp\fR...]"
+Prints a summary of configured datapaths, including their datapath
+numbers and a list of ports connected to each datapath.  (The local
+port is identified as port 0.)  If \fB\-s\fR or \fB\-\-statistics\fR
+is specified, then packet and byte counters are also printed for each
+port.
+.IP
+The datapath numbers consists of flow stats and mega flow mask stats.
+.IP
+The "lookups" row displays three stats related to flow lookup triggered
+by processing incoming packets in the datapath. "hit" displays number
+of packets matches existing flows. "missed" displays the number of
+packets not matching any existing flow and require user space processing.
+"lost" displays number of packets destined for user space process but
+subsequently dropped before reaching userspace. The sum of "hit" and "miss"
+equals to the total number of packets datapath processed.
+.IP
+The "flows" row displays the number of flows in datapath.
+.IP
+The "masks" row displays the mega flow mask stats. This row is omitted
+for datapath not implementing mega flow. "hit" displays the total number
+of masks visited for matching incoming packets. "total" displays number of
+masks in the datapath. "hit/pkt" displays the average number of masks
+visited per packet; the ratio between "hit" and total number of
+packets processed by the datapath".
+.IP
+If one or more datapaths are specified, information on only those
+datapaths are displayed.  Otherwise, \fB\*(PN\fR displays information
+about all configured datapaths.
+.SS "DATAPATH FLOW TABLE DEBUGGING COMMANDS"
+The following commands are primarily useful for debugging Open
+vSwitch.  The flow table entries (both matches and actions) that they
+work with are not OpenFlow flow entries.  Instead, they are different
+and considerably simpler flows maintained by the Open vSwitch kernel
+module.  Use \fBovs\-ofctl\fR(8), instead, to work with OpenFlow flow
+entries.
+.
+.PP
+The \fIdp\fR argument to each of these commands is optional when
+exactly one datapath exists, in which case that datapath is the
+default.  When multiple datapaths exist, then a datapath name is
+required.
+.
+.TP
+.DO "[\fB\-m \fR| \fB\-\-more\fR]" \*(DX\fBdump\-flows\fR "[\fIdp\fR] [\fBfilter=\fIfilter\fR]"
+Prints to the console all flow entries in datapath \fIdp\fR's flow
+table.  Without \fB\-m\fR or \fB\-\-more\fR, output omits match fields
+that a flow wildcards entirely; with \fB\-m\fR or \fB\-\-more\fR,
+output includes all wildcarded fields.
+.IP
+If \fBfilter=\fIfilter\fR is specified, only displays the flows
+that match the \fIfilter\fR. \fIfilter\fR is a flow in the form similiar
+to that accepted by \fBovs\-ofctl\fR(8)'s \fBadd\-flow\fR command. (This is
+not an OpenFlow flow: besides other differences, it never contains wildcards.)
+The \fIfilter\fR is also useful to match wildcarded fields in the datapath
+flow. As an example, \fBfilter='tcp,tp_src=100'\fR will match the
+datapath flow containing '\fBtcp(src=80/0xff00,dst=8080/0xff)\fR'.
+.
+.IP "\*(DX\fBadd\-flow\fR [\fIdp\fR] \fIflow actions\fR"
+.TP
+.DO "[\fB\-\-clear\fR] [\fB\-\-may-create\fR] [\fB\-s\fR | \fB\-\-statistics\fR]" "\*(DX\fBmod\-flow\fR" "[\fIdp\fR] \fIflow actions\fR"
+Adds or modifies a flow in \fIdp\fR's flow table that, when a packet
+matching \fIflow\fR arrives, causes \fIactions\fR to be executed.
+.IP
+The \fBadd\-flow\fR command succeeds only if \fIflow\fR does not
+already exist in \fIdp\fR.  Contrariwise, \fBmod\-flow\fR without
+\fB\-\-may\-create\fR only modifies the actions for an existing flow.
+With \fB\-\-may\-create\fR, \fBmod\-flow\fR will add a new flow or
+modify an existing one.
+.IP
+If \fB\-s\fR or \fB\-\-statistics\fR is specified, then
+\fBmod\-flows\fR prints the modified flow's statistics.  A flow's
+statistics are the number of packets and bytes that have passed
+through the flow, the elapsed time since the flow last processed a
+packet (if ever), and (for TCP flows) the union of the TCP flags
+processed through the flow.
+.IP
+With \fB\-\-clear\fR, \fBmod\-flows\fR zeros out the flow's
+statistics.  The statistics printed if \fB\-s\fR or
+\fB\-\-statistics\fR is also specified are those from just before
+clearing the statistics.
+.
+.TP
+.DO "[\fB\-s\fR | \fB\-\-statistics\fR]" "\*(DX\fBdel\-flow\fR" "[\fIdp\fR] \fIflow\fR"
+Deletes the flow from \fIdp\fR's flow table that matches \fIflow\fR.
+If \fB\-s\fR or \fB\-\-statistics\fR is specified, then
+\fBmod\-flows\fR prints the deleted flow's statistics.
+.
+.IP "\*(DX\fBdel\-flows\fR [\fIdp\fR]"
+Deletes all flow entries from datapath \fIdp\fR's flow table.
+.
+.SS "DATAPATH DEBUGGING COMMANDS"
+These commands query and modify datapaths.  They are are similar to
+\fBovs\-dpctl\fR(8) commands.  \fBdpif/show\fR has the additional
+functionality, beyond \fBdpctl/show\fR of printing OpenFlow port
+numbers.  The other commands are redundant and will be removed in a
+future release.
+.
+.IP "\fBdpif/dump\-dps\fR"
+Prints the name of each configured datapath on a separate line.
+.
+.IP "\fBdpif/show\fR"
+Prints a summary of configured datapaths, including statistics and a
+list of connected ports.  The port information includes the OpenFlow
+port number, datapath port number, and the type.  (The local port is
+identified as OpenFlow port 65534.)
+.
+.IP "\fBdpif/dump\-flows\fR [\fB\-m\fR] \fIdp\fR"
+Prints to the console all flow entries in datapath \fIdp\fR's
+flow table. Without \fB\-m\fR, output omits match fields that a flow
+wildcards entirely; with \fB\-m\fR output includes all wildcarded fields.
+.IP
+This command is primarily useful for debugging Open vSwitch.  The flow
+table entries that it displays are not OpenFlow flow entries.  Instead,
+they are different and considerably simpler flows maintained by the
+datapath module.  If you wish to see the OpenFlow flow entries, use
+\fBovs\-ofctl dump\-flows\fR.
+.
+.IP "\fBdpif/del\-flows \fIdp\fR"
+Deletes all flow entries from datapath \fIdp\fR's flow table and
+underlying datapath implementation (e.g., kernel datapath module).
+.IP
+This command is primarily useful for debugging Open vSwitch.  As
+discussed in \fBdpif/dump\-flows\fR, these entries are
+not OpenFlow flow entries.
+.SS "OFPROTO COMMANDS"
+These commands manage the core OpenFlow switch implementation (called
+\fBofproto\fR).
+.
+.IP "\fBofproto/list\fR"
+Lists the names of the running ofproto instances.  These are the names
+that may be used on \fBofproto/trace\fR.
+.
+.IP "\fBofproto/trace\fR [\fIdpname\fR] \fIodp_flow\fR [\fB\-generate \fR| \fIpacket\fR]"
+.IQ "\fBofproto/trace\fR \fIbridge\fR \fIbr_flow\fR [\fB\-generate \fR| \fIpacket\fR]"
+.IQ "\fBofproto/trace\-packet\-out\fR [\fB\-consistent\fR] [\fIdpname\fR] \fIodp_flow\fR [\fB\-generate \fR| \fIpacket\fR] \fIactions\fR"
+.IQ "\fBofproto/trace\-packet\-out\fR [\fB\-consistent\fR] \fIbridge\fR \fIbr_flow\fR [\fB\-generate \fR| \fIpacket\fR] \fIactions\fR"
+Traces the path of an imaginary packet through \fIswitch\fR and
+reports the path that it took.  The initial treatment of the packet
+varies based on the command:
+.
+.RS
+.IP \(bu
+\fBofproto/trace\fR looks the packet up in the OpenFlow flow table, as
+if the packet had arrived on an OpenFlow port.
+.
+.IP \(bu
+\fBofproto/trace\-packet\-out\fR applies the specified OpenFlow
+\fIactions\fR, as if the packet, flow, and actions had been specified
+in an OpenFlow ``packet-out'' request.
+.RE
+.
+.IP
+The packet's headers (e.g. source and destination) and metadata
+(e.g. input port), together called its ``flow,'' are usually all that
+matter for the purpose of tracing a packet.  You can specify the flow
+in the following ways:
+.
+.RS
+.IP "\fIdpname\fR \fIodp_flow\fR"
+\fIodp_flow\fR is a flow in the form printed by \fBovs\-dpctl\fR(8)'s
+\fBdump\-flows\fR command.  If all of your bridges have the same type,
+which is the common case, then you can omit \fIdpname\fR, but if you
+have bridges of different types (say, both \fBovs-netdev\fR and
+\fBovs-system\fR), then you need to specify a \fIdpname\fR to disambiguate.
+.
+.IP "\fIbridge\fR \fIbr_flow\fR"
+\fIbr_flow\fR is a flow in the form similar to that accepted by
+\fBovs\-ofctl\fR(8)'s \fBadd\-flow\fR command.  (This is not an
+OpenFlow flow: besides other differences, it never contains
+wildcards.)  \fIbridge\fR names of the bridge through which
+\fIbr_flow\fR should be traced.
+.RE
+.
+.IP
+Most commonly, one specifies only a flow, using one of the forms
+above, but sometimes one might need to specify an actual packet
+instead of just a flow:
+.
+.RS
+.IP "Side effects."
+Some actions have side effects.  For example, the \fBnormal\fR action
+can update the MAC learning table, and the \fBlearn\fR action can
+change OpenFlow tables.  The trace commands only perform side
+effects when a packet is specified.  If you want side effects to take
+place, then you must supply a packet.
+.
+.IP
+(Output actions are obviously side effects too, but
+the trace commands never execute them, even when one specifies a
+packet.)
+.
+.IP "Incomplete information."
+Most of the time, Open vSwitch can figure out everything about the
+path of a packet using just the flow, but in some special
+circumstances it needs to look at parts of the packet that are not
+included in the flow.  When this is the case, and you do not supply a
+packet, then a trace command will tell you it needs a packet.
+.RE
+.
+.IP
+If you wish to include a packet as part of a trace operation, there
+are two ways to do it:
+.
+.RS
+.IP \fB\-generate\fR
+This option, added to one of the ways to specify a flow already
+described, causes Open vSwitch to internally generate a packet with
+the flow described and then to use that packet.  If your goal is to
+execute side effects, then \fB\-generate\fR is the easiest way to do
+it, but \fB\-generate\fR is not a good way to fill in incomplete
+information, because it generates packets based on only the flow
+information, which means that the packets really do not have any more
+information than the flow.
+.
+.IP \fIpacket\fR
+This form supplies an explicit \fIpacket\fR as a sequence of hex
+digits.  An Ethernet frame is at least 14 bytes long, so there must be
+at least 28 hex digits.  Obviously, it is inconvenient to type in the
+hex digits by hand, so the \fBovs\-pcap\fR(1) and
+\fBovs\-tcpundump\fR(1) utilities provide easier ways.
+.IP
+With this form, packet headers are extracted directly from
+\fIpacket\fR, so the \fIodp_flow\fR or \fIbr_flow\fR should specify
+only metadata. The metadata can be:
+.RS
+.IP \fIskb_priority\fR
+Packet QoS priority.
+.IP \fIpkt_mark\fR
+Mark of the packet.
+.IP \fItun_id\fR
+The tunnel ID on which the packet arrived.
+.IP \fIin_port\fR
+The port on which the packet arrived.
+.RE
+.RE
+.
+.IP
+The in_port value is kernel datapath port number for the first format
+and OpenFlow port number for the second format. The numbering of these
+two types of port usually differs and there is no relationship.
+.
+.IP
+\fBofproto\-trace\-packet\-out\fR accepts an additional
+\fB\-consistent\fR option.  With this option specified, the command
+rejects \fIactions\fR that are inconsistent with the specified packet.
+(An example of an inconsistency is attempting to strip the VLAN tag
+from a packet that does not have a VLAN tag.)  Open vSwitch ignores
+most forms of inconsistency in OpenFlow 1.0 and rejects
+inconsistencies in later versions of OpenFlow.  The option is
+necessary because the command does not ordinarily imply a particular
+OpenFlow version.  One exception is that, when \fIactions\fR includes
+an action that only OpenFlow 1.1 and later supports (such as
+\fBpush_vlan\fR), \fB\-consistent\fR is automatically enabled.
+.IP "\fBofproto/self\-check\fR [\fIswitch\fR]"
+Runs an internal consistency check on \fIswitch\fR, if specified,
+otherwise on all ofproto instances, and responds with a brief summary
+of the results.  If the summary reports any errors, then the Open
+vSwitch logs should contain more detailed information.  Please pass
+along errors reported by this command to the Open vSwitch developers
+as bugs.
+.de IQ
+.  br
+.  ns
+.  IP "\\$1"
+..
+.SS "VLOG COMMANDS"
+These commands manage \fB\*(PN\fR's logging settings.
+.IP "\fBvlog/set\fR [\fIspec\fR]"
+Sets logging levels.  Without any \fIspec\fR, sets the log level for
+every module and facility to \fBdbg\fR.  Otherwise, \fIspec\fR is a
+list of words separated by spaces or commas or colons, up to one from
+each category below:
+.
+.RS
+.IP \(bu
+A valid module name, as displayed by the \fBvlog/list\fR command on
+\fBovs\-appctl\fR(8), limits the log level change to the specified
+module.
+.
+.IP \(bu
+\fBsyslog\fR, \fBconsole\fR, or \fBfile\fR, to limit the log level
+change to only to the system log, to the console, or to a file,
+respectively.
+.IP
+On Windows platform, \fBsyslog\fR is accepted as a word and is only
+useful along with the \fB\-\-syslog\-target\fR option (the word has no
+effect otherwise).
+.
+.IP \(bu 
+\fBoff\fR, \fBemer\fR, \fBerr\fR, \fBwarn\fR, \fBinfo\fR, or
+\fBdbg\fR, to control the log level.  Messages of the given severity
+or higher will be logged, and messages of lower severity will be
+filtered out.  \fBoff\fR filters out all messages.  See
+\fBovs\-appctl\fR(8) for a definition of each log level.
+.RE
+.
+.IP
+Case is not significant within \fIspec\fR.
+.IP
+Regardless of the log levels set for \fBfile\fR, logging to a file
+will not take place unless \fB\*(PN\fR was invoked with the
+\fB\-\-log\-file\fR option.
+.IP
+For compatibility with older versions of OVS, \fBany\fR is accepted as
+a word but has no effect.
+.RE
+.IP "\fBvlog/set PATTERN:\fIfacility\fB:\fIpattern\fR"
+Sets the log pattern for \fIfacility\fR to \fIpattern\fR.  Refer to
+\fBovs\-appctl\fR(8) for a description of the valid syntax for \fIpattern\fR.
+.
+.IP "\fBvlog/list\fR"
+Lists the supported logging modules and their current levels.
+.
+.IP "\fBvlog/reopen\fR"
+Causes \fB\*(PN\fR to close and reopen its log file.  (This is useful
+after rotating log files, to cause a new log file to be used.)
+.IP
+This has no effect unless \fB\*(PN\fR was invoked with the
+\fB\-\-log\-file\fR option.
+.
+.IP "\fBvlog/disable\-rate\-limit \fR[\fImodule\fR]..."
+.IQ "\fBvlog/enable\-rate\-limit \fR[\fImodule\fR]..."
+By default, \fB\*(PN\fR limits the rate at which certain messages can
+be logged.  When a message would appear more frequently than the
+limit, it is suppressed.  This saves disk space, makes logs easier to
+read, and speeds up execution, but occasionally troubleshooting
+requires more detail.  Therefore, \fBvlog/disable\-rate\-limit\fR
+allows rate limits to be disabled at the level of an individual log
+module.  Specify one or more module names, as displayed by the
+\fBvlog/list\fR command.  Specifying either no module names at all or
+the keyword \fBany\fR disables rate limits for every log module.
+.
+.IP
+The \fBvlog/enable\-rate\-limit\fR command, whose syntax is the same
+as \fBvlog/disable\-rate\-limit\fR, can be used to re-enable a rate
+limit that was previously disabled.
+.SS "MEMORY COMMANDS"
+These commands report memory usage.
+.
+.IP "\fBmemory/show\fR"
+Displays some basic statistics about \fB\*(PN\fR's memory usage.
+\fB\*(PN\fR also logs this information soon after startup and
+periodically as its memory consumption grows.
+.SS "COVERAGE COMMANDS"
+These commands manage \fB\*(PN\fR's ``coverage counters,'' which count
+the number of times particular events occur during a daemon's runtime.
+In addition to these commands, \fB\*(PN\fR automatically logs coverage
+counter values, at \fBINFO\fR level, when it detects that the daemon's
+main loop takes unusually long to run.
+.PP
+Coverage counters are useful mainly for performance analysis and
+debugging.
+.IP "\fBcoverage/show\fR"
+Displays the averaged per-second rates for the last few seconds, the
+last minute and the last hour, and the total counts of all of the
+coverage counters.
+.SS "OPENVSWITCH TUNNELING COMMANDS"
+These commands query and modify OVS tunnel components. Ref to
+README-native-tunneling.md for more info.
+.
+.IP "\fBovs/route/add ipv4_address/plen output_bridge [GW]\fR"
+Adds ipv4_address/plen route to vswitchd routing table. output_bridge
+needs to be OVS bridge name.  This command is useful if OVS cached
+routes does not look right.
+.
+.IP "\fBovs/route/show\fR"
+Print all routes in OVS routing table, This includes routes cached
+from system routing table and user configured routes.
+.
+.IP "\fBovs/route/del ipv4_address/plen\fR"
+Delete ipv4_address/plen route from OVS routing table.
+.
+.IP "\fBtnl/arp/show\fR"
+OVS builds ARP cache by snooping are messages. This command shows
+ARP cache table.
+.
+.IP "\fBtnl/arp/flush\fR"
+Flush ARP table.
+.
+.IP "\fBtnl/egress_port_range [num1] [num2]\fR"
+Set range for UDP source port used for UDP based Tunnels. For
+example VxLAN. If case of zero arguments this command prints
+current range in use.
+.
+.SH "OPENFLOW IMPLEMENTATION"
+.
+.PP
+This section documents aspects of OpenFlow for which the OpenFlow
+specification requires documentation.
+.
+.SS "Packet buffering."
+The OpenFlow specification, version 1.2, says:
+.
+.IP
+Switches that implement buffering are expected to expose, through
+documentation, both the amount of available buffering, and the length
+of time before buffers may be reused.
+.
+.PP
+Open vSwitch maintains a separate set of 256 packet buffers for each
+OpenFlow connection.  Any given packet buffer is preserved until it is
+referenced by an \fBOFPT_FLOW_MOD\fR or \fBOFPT_PACKET_OUT\fR request
+or for 5 seconds, whichever comes first.
+.
+.SH "LIMITS"
+.
+.PP
+We believe these limits to be accurate as of this writing.  These
+limits assume the use of the Linux kernel datapath.
+.
+.IP \(bu
+\fBovs\-vswitchd\fR started through \fBovs\-ctl\fR(8) provides a limit of 7500
+file descriptors.  The limits on the number of bridges and ports is decided by
+the availability of file descriptors.  With the Linux kernel datapath, creation
+of a single bridge consumes 3 file descriptors and adding a port consumes
+1 file descriptor.  Performance will degrade beyond 1,024 ports per bridge due
+to fixed hash table sizing.  Other platforms may have different limitations.
+.
+.IP \(bu
+2,048 MAC learning entries per bridge, by default.  (This is
+configurable via \fBother\-config:mac\-table\-size\fR in the
+\fBBridge\fR table.  See \fBovs\-vswitchd.conf.db\fR(5) for details.)
+.
+.IP \(bu
+Kernel flows are limited only by memory available to the kernel.
+Performance will degrade beyond 1,048,576 kernel flows per bridge with
+a 32-bit kernel, beyond 262,144 with a 64-bit kernel.
+(\fBovs\-vswitchd\fR should never install anywhere near that many
+flows.)
+.
+.IP \(bu
+OpenFlow flows are limited only by available memory.  Performance is
+linear in the number of unique wildcard patterns.  That is, an
+OpenFlow table that contains many flows that all match on the same
+fields in the same way has a constant-time lookup, but a table that
+contains many flows that match on different fields requires lookup
+time linear in the number of flows.
+.
+.IP \(bu
+255 ports per bridge participating in 802.1D Spanning Tree Protocol.
+.
+.IP \(bu
+32 mirrors per bridge.
+.
+.IP \(bu
+15 bytes for the name of a port.  (This is a Linux kernel limitation.)
+.
+.SH "SEE ALSO"
+.BR ovs\-appctl (8),
+.BR ovsdb\-server (1),
+\fBINSTALL.Linux\fR in the Open vSwitch distribution.

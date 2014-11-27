@@ -1,0 +1,2494 @@
+.\" -*- nroff -*-
+.de IQ
+.  br
+.  ns
+.  IP "\\$1"
+..
+.TH ovs\-ofctl 8 "2.3.90" "Open vSwitch" "Open vSwitch Manual"
+.ds PN ovs\-ofctl
+.
+.SH NAME
+ovs\-ofctl \- administer OpenFlow switches
+.
+.SH SYNOPSIS
+.B ovs\-ofctl
+[\fIoptions\fR] \fIcommand \fR[\fIswitch\fR] [\fIargs\fR\&...]
+.
+.SH DESCRIPTION
+The
+.B ovs\-ofctl
+program is a command line tool for monitoring and administering
+OpenFlow switches.  It can also show the current state of an OpenFlow
+switch, including features, configuration, and table entries.
+It should work with any OpenFlow switch, not just Open vSwitch.
+.
+.SS "OpenFlow Switch Management Commands"
+.PP
+These commands allow \fBovs\-ofctl\fR to monitor and administer an OpenFlow
+switch.  It is able to show the current state of a switch, including
+features, configuration, and table entries.
+.PP
+Most of these commands take an argument that specifies the method for
+connecting to an OpenFlow switch.  The following connection methods
+are supported:
+.
+.RS
+.IP "\fBssl:\fIip\fR[\fB:\fIport\fR]"
+.IQ "\fBtcp:\fIip\fR[\fB:\fIport\fR]"
+The specified \fIport\fR on the host at the given \fIip\fR, which must
+be expressed as an IP address (not a DNS name) in IPv4 or IPv6 address
+format.  Wrap IPv6 addresses in square brackets,
+e.g. \fBtcp:[::1]:6633\fR.  For \fBssl\fR, the \fB\-\-private\-key\fR,
+\fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR options are mandatory.
+.IP
+If \fIport\fR is not specified, it currently defaults to 6633.  In the
+future, the default will change to 6653, which is the IANA-defined
+value.
+.TP
+\fBunix:\fIfile\fR
+On POSIX, a Unix domain server socket named \fIfile\fR.
+.IP
+On Windows, a localhost TCP port written in \fIfile\fR.
+.
+.IP "\fIfile\fR"
+This is short for \fBunix:\fIfile\fR, as long as \fIfile\fR does not
+contain a colon.
+.
+.IP \fIbridge\fR
+This is short for \fBunix:/var/run/openvswitch/\fIbridge\fB.mgmt\fR, as long as
+\fIbridge\fR does not contain a colon.
+.
+.IP [\fItype\fB@\fR]\fIdp\fR
+Attempts to look up the bridge associated with \fIdp\fR and open as
+above.  If \fItype\fR is given, it specifies the datapath provider of
+\fIdp\fR, otherwise the default provider \fBsystem\fR is assumed.
+.RE
+.
+.TP
+\fBshow \fIswitch\fR
+Prints to the console information on \fIswitch\fR, including
+information on its flow tables and ports.
+.
+.TP
+\fBdump\-tables \fIswitch\fR
+Prints to the console statistics for each of the flow tables used by
+\fIswitch\fR.
+.TP
+\fBdump\-table\-features \fIswitch\fR
+Prints to the console features for each of the flow tables used by
+\fIswitch\fR.
+.
+.IP "\fBmod\-table \fIswitch\fR \fItable_id\fR  \fIflow_miss_handling\fR"
+An OpenFlow 1.0 switch looks up each packet that arrives at the switch
+in table 0, then in table 1 if there is no match in table 0, then in
+table 2, and so on until the packet finds a match in some table.
+Finally, if no match was found, the switch sends the packet to the
+controller
+.IP
+OpenFlow 1.1 and later offer more flexibility.  This command
+configures the flow table miss handling configuration for table
+\fItable_id\fR in \fIswitch\fR.  \fItable_id\fR may be an OpenFlow
+table number between 0 and 254, inclusive, or the keyword \fBALL\fR to
+modify all tables.  \fIflow_miss_handling\fR may be any one of the
+following:
+.RS
+.IP \fBdrop\fR
+Drop the packet.
+.IP \fBcontinue\fR
+Continue to the next table in the pipeline.  (This is how an OpenFlow
+1.0 switch always handles packets that do not match any flow, in
+tables other than the last one.)
+.IP \fBcontroller\fR
+Send to controller.  (This is how an OpenFlow 1.0 switch always
+handles packets that do not match any flow in the last table.)
+.RE
+.
+.TP
+\fBdump\-ports \fIswitch\fR [\fInetdev\fR]
+Prints to the console statistics for network devices associated with 
+\fIswitch\fR.  If \fInetdev\fR is specified, only the statistics
+associated with that device will be printed.  \fInetdev\fR can be an
+OpenFlow assigned port number or device name, e.g. \fBeth0\fR.
+.
+.IP "\fBdump\-ports\-desc \fIswitch\fR [\fIport\fR]"
+Prints to the console detailed information about network devices
+associated with \fIswitch\fR.  To dump only a specific port, specify
+its number as \fIport\fR.  Otherwise, if \fIport\fR is omitted, or if
+it is specified as \fBANY\fR, then all ports are printed.  This is a
+subset of the information provided by the \fBshow\fR command.
+.IP
+If the connection to \fIswitch\fR negotiates OpenFlow 1.0, 1.2, or
+1.2, this command uses an OpenFlow extension only implemented in Open
+vSwitch (version 1.7 and later).
+.IP
+Only OpenFlow 1.5 and later support dumping a specific port.  Earlier
+versions of OpenFlow always dump all ports.
+.
+.IP "\fBmod\-port \fIswitch\fR \fIport\fR \fIaction\fR"
+Modify characteristics of port \fBport\fR in \fIswitch\fR.  \fIport\fR
+may be an OpenFlow port number or name or the keyword \fBLOCAL\fR (the
+preferred way to refer to the OpenFlow local port).  The \fIaction\fR
+may be any one of the following:
+.
+.RS
+.IQ \fBup\fR
+.IQ \fBdown\fR
+Enable or disable the interface.  This is equivalent to \fBifconfig
+up\fR or \fBifconfig down\fR on a Unix system.
+.
+.IP \fBstp\fR
+.IQ \fBno\-stp\fR
+Enable or disable 802.1D spanning tree protocol (STP) on the
+interface.  OpenFlow implementations that don't support STP will
+refuse to enable it.
+.
+.IP \fBreceive\fR
+.IQ \fBno\-receive\fR
+.IQ \fBreceive\-stp\fR
+.IQ \fBno\-receive\-stp\fR
+Enable or disable OpenFlow processing of packets received on this
+interface.  When packet processing is disabled, packets will be
+dropped instead of being processed through the OpenFlow table.  The
+\fBreceive\fR or \fBno\-receive\fR setting applies to all packets
+except 802.1D spanning tree packets, which are separately controlled
+by \fBreceive\-stp\fR or \fBno\-receive\-stp\fR.
+.
+.IP \fBforward\fR
+.IQ \fBno\-forward\fR
+Allow or disallow forwarding of traffic to this interface.  By
+default, forwarding is enabled.
+.
+.IP \fBflood\fR
+.IQ \fBno\-flood\fR
+Controls whether an OpenFlow \fBflood\fR action will send traffic out
+this interface.  By default, flooding is enabled.  Disabling flooding
+is primarily useful to prevent loops when a spanning tree protocol is
+not in use.
+.
+.IP \fBpacket\-in\fR
+.IQ \fBno\-packet\-in\fR
+Controls whether packets received on this interface that do not match
+a flow table entry generate a ``packet in'' message to the OpenFlow
+controller.  By default, ``packet in'' messages are enabled.
+.RE
+.IP
+The \fBshow\fR command displays (among other information) the
+configuration that \fBmod\-port\fR changes.
+.
+.IP "\fBget\-frags \fIswitch\fR"
+Prints \fIswitch\fR's fragment handling mode.  See \fBset\-frags\fR,
+below, for a description of each fragment handling mode.
+.IP
+The \fBshow\fR command also prints the fragment handling mode among
+its other output.
+.
+.IP "\fBset\-frags \fIswitch frag_mode\fR"
+Configures \fIswitch\fR's treatment of IPv4 and IPv6 fragments.  The
+choices for \fIfrag_mode\fR are:
+.RS
+.IP "\fBnormal\fR"
+Fragments pass through the flow table like non-fragmented packets.
+The TCP ports, UDP ports, and ICMP type and code fields are always set
+to 0, even for fragments where that information would otherwise be
+available (fragments with offset 0).  This is the default fragment
+handling mode for an OpenFlow switch.
+.IP "\fBdrop\fR"
+Fragments are dropped without passing through the flow table.
+.IP "\fBreassemble\fR"
+The switch reassembles fragments into full IP packets before passing
+them through the flow table.  Open vSwitch does not implement this
+fragment handling mode.
+.IP "\fBnx\-match\fR"
+Fragments pass through the flow table like non-fragmented packets.
+The TCP ports, UDP ports, and ICMP type and code fields are available
+for matching for fragments with offset 0, and set to 0 in fragments
+with nonzero offset.  This mode is a Nicira extension.
+.RE
+.IP
+See the description of \fBip_frag\fR, below, for a way to match on
+whether a packet is a fragment and on its fragment offset.
+.
+.TP
+\fBdump\-flows \fIswitch \fR[\fIflows\fR]
+Prints to the console all flow entries in \fIswitch\fR's
+tables that match \fIflows\fR.  If \fIflows\fR is omitted, all flows
+in the switch are retrieved.  See \fBFlow Syntax\fR, below, for the
+syntax of \fIflows\fR.  The output format is described in
+\fBTable Entry Output\fR.
+.
+.IP
+By default, \fBovs\-ofctl\fR prints flow entries in the same order
+that the switch sends them, which is unlikely to be intuitive or
+consistent.  See the description of \fB\-\-sort\fR and \fB\-\-rsort\fR,
+under \fBOPTIONS\fR below, to influence the display order.
+.
+.TP
+\fBdump\-aggregate \fIswitch \fR[\fIflows\fR]
+Prints to the console aggregate statistics for flows in
+\fIswitch\fR's tables that match \fIflows\fR.  If \fIflows\fR is omitted, 
+the statistics are aggregated across all flows in the switch's flow
+tables.  See \fBFlow Syntax\fR, below, for the syntax of \fIflows\fR.
+The output format is described in \fBTable Entry Output\fR.
+.
+.IP "\fBqueue\-stats \fIswitch \fR[\fIport \fR[\fIqueue\fR]]"
+Prints to the console statistics for the specified \fIqueue\fR on
+\fIport\fR within \fIswitch\fR.  \fIport\fR can be an OpenFlow port
+number or name, the keyword \fBLOCAL\fR (the preferred way to refer to
+the OpenFlow local port), or the keyword \fBALL\fR.  Either of
+\fIport\fR or \fIqueue\fR or both may be omitted (or equivalently the
+keyword \fBALL\fR).  If both are omitted, statistics are printed for
+all queues on all ports.  If only \fIqueue\fR is omitted, then
+statistics are printed for all queues on \fIport\fR; if only
+\fIport\fR is omitted, then statistics are printed for \fIqueue\fR on
+every port where it exists.
+.
+.SS "OpenFlow 1.1+ Group Table Commands"
+.
+The following commands work only with switches that support OpenFlow
+1.1 or later.  Because support for OpenFlow 1.1 and later is still
+experimental in Open vSwitch, it is necessary to explicitly enable
+these protocol versions in \fBovs\-ofctl\fR (using \fB\-O\fR) and in
+the switch itself (with the \fBprotocols\fR column in the \fBBridge\fR
+table).  For more information, see ``Q: What versions of OpenFlow does
+Open vSwitch support?'' in the Open vSwitch FAQ.
+.
+.IP "\fBdump\-groups \fIswitch\fR [\fIgroup\fR]"
+Prints group entries in \fIswitch\fR's tables to console.  To dump
+only a specific group, specify its number as \fIgroup\fR.  Otherwise,
+if \fIgroup\fR is omitted, or if it is specified as \fBALL\fR, then
+all groups are printed.  Each line of output is a group entry as
+described in \fBGroup Syntax\fR below.
+.IP
+Only OpenFlow 1.5 and later support dumping a specific group.  Earlier
+versions of OpenFlow always dump all groups.
+.
+.IP "\fBdump\-group\-features \fIswitch"
+Prints to the console the group features of the \fIswitch\fR.
+.
+.IP "\fBdump\-group-stats \fIswitch \fR[\fIgroups\fR]"
+Prints to the console statistics for the specified \fIgroups in the
+\fIswitch\fR's tables.  If \fIgroups\fR is omitted then statistics for all
+groups are printed.  See \fBGroup Syntax\fR, below, for the syntax of
+\fIgroups\fR.
+.
+.SS "OpenFlow 1.3+ Switch Meter Table Commands"
+.
+These commands manage the meter table in an OpenFlow switch.  In each
+case, \fImeter\fR specifies a meter entry in the format described in
+\fBMeter Syntax\fR, below.
+.
+.PP
+OpenFlow 1.3 introduced support for meters, so these commands only
+work with switches that support OpenFlow 1.3 or later.  The caveats
+described for groups in the previous section also apply to meters.
+.
+.IP "\fBadd\-meter \fIswitch meter\fR"
+Add a meter entry to \fIswitch\fR's tables. The \fImeter\fR syntax is
+described in section \fBMeter Syntax\fR, below.
+.
+.IP "\fBmod\-meter \fIswitch meter\fR"
+Modify an existing meter.
+.
+.IP "\fBdel\-meters \fIswitch\fR"
+.IQ "\fBdel\-meter \fIswitch\fR [\fImeter\fR]"
+Delete entries from \fIswitch\fR's meter table.  \fImeter\fR can specify
+a single meter with syntax \fBmeter=\fIid\fR, or all meters with syntax
+\fBmeter=all\fR.
+.
+.IP "\fBdump\-meters \fIswitch\fR"
+.IQ "\fBdump\-meter \fIswitch\fR [\fImeter\fR]"
+Print meter configuration.  \fImeter\fR can specify a single meter with
+syntax \fBmeter=\fIid\fR, or all meters with syntax \fBmeter=all\fR.
+.
+.IP "\fBmeter\-stats \fIswitch\fR [\fImeter\fR]"
+Print meter statistics.  \fImeter\fR can specify a single meter with
+syntax \fBmeter=\fIid\fR, or all meters with syntax \fBmeter=all\fR.
+.
+.IP "\fBmeter\-features \fIswitch\fR"
+Print meter features.
+.
+.SS "OpenFlow Switch Flow Table Commands"
+.
+These commands manage the flow table in an OpenFlow switch.  In each
+case, \fIflow\fR specifies a flow entry in the format described in
+\fBFlow Syntax\fR, below, and \fIfile\fR is a text file that contains
+zero or more flows in the same syntax, one per line.
+.
+.IP "\fBadd\-flow \fIswitch flow\fR"
+.IQ "\fBadd\-flow \fIswitch \fB\- < \fIfile\fR"
+.IQ "\fBadd\-flows \fIswitch file\fR"
+Add each flow entry to \fIswitch\fR's tables.
+.
+.IP "[\fB\-\-strict\fR] \fBmod\-flows \fIswitch flow\fR"
+.IQ "[\fB\-\-strict\fR] \fBmod\-flows \fIswitch \fB\- < \fIfile\fR"
+Modify the actions in entries from \fIswitch\fR's tables that match
+the specified flows.  With \fB\-\-strict\fR, wildcards are not treated
+as active for matching purposes.
+.
+.IP "\fBdel\-flows \fIswitch\fR"
+.IQ "[\fB\-\-strict\fR] \fBdel\-flows \fIswitch \fR[\fIflow\fR]"
+.IQ "[\fB\-\-strict\fR] \fBdel\-flows \fIswitch \fB\- < \fIfile\fR"
+Deletes entries from \fIswitch\fR's flow table.  With only a
+\fIswitch\fR argument, deletes all flows.  Otherwise, deletes flow
+entries that match the specified flows.  With \fB\-\-strict\fR,
+wildcards are not treated as active for matching purposes.
+.
+.IP "[\fB\-\-readd\fR] \fBreplace\-flows \fIswitch file\fR"
+Reads flow entries from \fIfile\fR (or \fBstdin\fR if \fIfile\fR is
+\fB\-\fR) and queries the flow table from \fIswitch\fR.  Then it fixes
+up any differences, adding flows from \fIflow\fR that are missing on
+\fIswitch\fR, deleting flows from \fIswitch\fR that are not in
+\fIfile\fR, and updating flows in \fIswitch\fR whose actions, cookie,
+or timeouts differ in \fIfile\fR.
+.
+.IP
+With \fB\-\-readd\fR, \fBovs\-ofctl\fR adds all the flows from
+\fIfile\fR, even those that exist with the same actions, cookie, and
+timeout in \fIswitch\fR.  This resets all the flow packet and byte
+counters to 0, which can be useful for debugging.
+.
+.IP "\fBdiff\-flows \fIsource1 source2\fR"
+Reads flow entries from \fIsource1\fR and \fIsource2\fR and prints the
+differences.  A flow that is in \fIsource1\fR but not in \fIsource2\fR
+is printed preceded by a \fB\-\fR, and a flow that is in \fIsource2\fR
+but not in \fIsource1\fR is printed preceded by a \fB+\fR.  If a flow
+exists in both \fIsource1\fR and \fIsource2\fR with different actions,
+cookie, or timeouts, then both versions are printed preceded by
+\fB\-\fR and \fB+\fR, respectively.
+.IP
+\fIsource1\fR and \fIsource2\fR may each name a file or a switch.  If
+a name begins with \fB/\fR or \fB.\fR, then it is considered to be a
+file name.  A name that contains \fB:\fR is considered to be a switch.
+Otherwise, it is a file if a file by that name exists, a switch if
+not.
+.IP
+For this command, an exit status of 0 means that no differences were
+found, 1 means that an error occurred, and 2 means that some
+differences were found.
+.
+.IP "\fBpacket\-out \fIswitch in_port actions packet\fR..."
+Connects to \fIswitch\fR and instructs it to execute the OpenFlow
+\fIactions\fR on each \fIpacket\fR.  Each \fBpacket\fR is specified as a
+series of hex digits.  For the purpose of executing the
+actions, the packets are considered to have arrived on \fIin_port\fR,
+which may be an OpenFlow port number or name (e.g. \fBeth0\fR), the
+keyword \fBLOCAL\fR (the preferred way to refer to the OpenFlow
+``local'' port), or the keyword \fBNONE\fR to indicate that the packet
+was generated by the switch itself.
+.
+.SS "OpenFlow Switch Group Table Commands"
+.
+These commands manage the group table in an OpenFlow switch.  In each
+case, \fIgroup\fR specifies a group entry in the format described in
+\fBGroup Syntax\fR, below, and \fIfile\fR is a text file that contains
+zero or more groups in the same syntax, one per line.
+
+.IP "\fBadd\-group \fIswitch group\fR"
+.IQ "\fBadd\-group \fIswitch \fB\- < \fIfile\fR"
+.IQ "\fBadd\-groups \fIswitch file\fR"
+Add each group entry to \fIswitch\fR's tables.
+.
+.IP "\fBmod\-group \fIswitch group\fR"
+.IQ "\fBmod\-group \fIswitch \fB\- < \fIfile\fR"
+Modify the action buckets in entries from \fIswitch\fR's tables for
+each group entry.
+.
+.IP "\fBdel\-groups \fIswitch\fR"
+.IQ "\fBdel\-groups \fIswitch \fR[\fIgroup\fR]"
+.IQ "\fBdel\-groups \fIswitch \fB\- < \fIfile\fR"
+Deletes entries from \fIswitch\fR's group table.  With only a
+\fIswitch\fR argument, deletes all groups.  Otherwise, deletes the group
+for each group entry.
+.
+.IP "\fBinsert\-buckets \fIswitch group\fR"
+.IQ "\fBinsert\-buckets \fIswitch \fB\- < \fIfile\fR"
+Add buckets to an existing group present in the \fIswitch\fR's group table.
+If no \fIcommand_bucket_id\fR is present in the group specification then all
+buckets of the group are removed.
+.
+.IP "\fBremove\-buckets \fIswitch group\fR"
+.IQ "\fBremove\-buckets \fIswitch \fB\- < \fIfile\fR"
+Remove buckets to an existing group present in the \fIswitch\fR's group table.
+If no \fIcommand_bucket_id\fR is present in the group specification then all
+buckets of the group are removed.
+.
+.SS "OpenFlow Switch Monitoring Commands"
+.
+.IP "\fBsnoop \fIswitch\fR"
+Connects to \fIswitch\fR and prints to the console all OpenFlow
+messages received.  Unlike other \fBovs\-ofctl\fR commands, if
+\fIswitch\fR is the name of a bridge, then the \fBsnoop\fR command
+connects to a Unix domain socket named
+\fB/var/run/openvswitch/\fIbridge\fB.snoop\fR.  \fBovs\-vswitchd\fR listens on
+such a socket for each bridge and sends to it all of the OpenFlow
+messages sent to or received from its configured OpenFlow controller.
+Thus, this command can be used to view OpenFlow protocol activity
+between a switch and its controller.
+.IP
+When a switch has more than one controller configured, only the
+traffic to and from a single controller is output.  If none of the
+controllers is configured as a master or a slave (using a Nicira
+extension to OpenFlow 1.0 or 1.1, or a standard request in OpenFlow
+1.2 or later), then a controller is chosen arbitrarily among
+them.  If there is a master controller, it is chosen; otherwise, if
+there are any controllers that are not masters or slaves, one is
+chosen arbitrarily; otherwise, a slave controller is chosen
+arbitrarily.  This choice is made once at connection time and does not
+change as controllers reconfigure their roles.
+.IP
+If a switch has no controller configured, or if
+the configured controller is disconnected, no traffic is sent, so
+monitoring will not show any traffic.
+.
+.IP "\fBmonitor \fIswitch\fR [\fImiss-len\fR] [\fBinvalid_ttl\fR] [\fBwatch:\fR[\fIspec\fR...]]"
+Connects to \fIswitch\fR and prints to the console all OpenFlow
+messages received.  Usually, \fIswitch\fR should specify the name of a
+bridge in the \fBovs\-vswitchd\fR database.
+.IP
+If \fImiss-len\fR is provided, \fBovs\-ofctl\fR sends an OpenFlow ``set
+configuration'' message at connection setup time that requests
+\fImiss-len\fR bytes of each packet that misses the flow table.  Open vSwitch
+does not send these and other asynchronous messages to an
+\fBovs\-ofctl monitor\fR client connection unless a nonzero value is
+specified on this argument.  (Thus, if \fImiss\-len\fR is not
+specified, very little traffic will ordinarily be printed.)
+.IP
+If \fBinvalid_ttl\fR is passed, \fBovs\-ofctl\fR sends an OpenFlow ``set
+configuration'' message at connection setup time that requests
+\fBINVALID_TTL_TO_CONTROLLER\fR, so that \fBovs\-ofctl monitor\fR can
+receive ``packet-in'' messages when TTL reaches zero on \fBdec_ttl\fR action.
+.IP
+\fBwatch:\fR[\fB\fIspec\fR...] causes \fBovs\-ofctl\fR to send a
+``monitor request'' Nicira extension message to the switch at
+connection setup time.  This message causes the switch to send
+information about flow table changes as they occur.  The following
+comma-separated \fIspec\fR syntax is available:
+.RS
+.IP "\fB!initial\fR"
+Do not report the switch's initial flow table contents.
+.IP "\fB!add\fR"
+Do not report newly added flows.
+.IP "\fB!delete\fR"
+Do not report deleted flows.
+.IP "\fB!modify\fR"
+Do not report modifications to existing flows.
+.IP "\fB!own\fR"
+Abbreviate changes made to the flow table by \fBovs\-ofctl\fR's own
+connection to the switch.  (These could only occur using the
+\fBofctl/send\fR command described below under \fBRUNTIME MANAGEMENT
+COMMANDS\fR.)
+.IP "\fB!actions\fR"
+Do not report actions as part of flow updates.
+.IP "\fBtable=\fInumber\fR"
+Limits the monitoring to the table with the given \fInumber\fR between
+0 and 254.  By default, all tables are monitored.
+.IP "\fBout_port=\fIport\fR"
+If set, only flows that output to \fIport\fR are monitored.  The
+\fIport\fR may be an OpenFlow port number or keyword
+(e.g. \fBLOCAL\fR).
+.IP "\fIfield\fB=\fIvalue\fR"
+Monitors only flows that have \fIfield\fR specified as the given
+\fIvalue\fR.  Any syntax valid for matching on \fBdump\-flows\fR may
+be used.
+.RE
+.IP
+This command may be useful for debugging switch or controller
+implementations.  With \fBwatch:\fR, it is particularly useful for
+observing how a controller updates flow tables.
+.
+.SS "OpenFlow Switch and Controller Commands"
+.
+The following commands, like those in the previous section, may be
+applied to OpenFlow switches, using any of the connection methods
+described in that section.  Unlike those commands, these may also be
+applied to OpenFlow controllers.
+.
+.TP
+\fBprobe \fItarget\fR
+Sends a single OpenFlow echo-request message to \fItarget\fR and waits
+for the response.  With the \fB\-t\fR or \fB\-\-timeout\fR option, this
+command can test whether an OpenFlow switch or controller is up and
+running.
+.
+.TP
+\fBping \fItarget \fR[\fIn\fR]
+Sends a series of 10 echo request packets to \fItarget\fR and times
+each reply.  The echo request packets consist of an OpenFlow header
+plus \fIn\fR bytes (default: 64) of randomly generated payload.  This
+measures the latency of individual requests.
+.
+.TP
+\fBbenchmark \fItarget n count\fR
+Sends \fIcount\fR echo request packets that each consist of an
+OpenFlow header plus \fIn\fR bytes of payload and waits for each
+response.  Reports the total time required.  This is a measure of the
+maximum bandwidth to \fItarget\fR for round-trips of \fIn\fR-byte
+messages.
+.
+.SS "Other Commands"
+.
+.IP "\fBofp\-parse\fR \fIfile\fR"
+Reads \fIfile\fR (or \fBstdin\fR if \fIfile\fR is \fB\-\fR) as a
+series of OpenFlow messages in the binary format used on an OpenFlow
+connection, and prints them to the console.  This can be useful for
+printing OpenFlow messages captured from a TCP stream.
+.
+.IP "\fBofp\-parse\-pcap\fR \fIfile\fR [\fIport\fR...]"
+Reads \fIfile\fR, which must be in the PCAP format used by network
+capture tools such as \fBtcpdump\fR or \fBwireshark\fR, extracts all
+the TCP streams for OpenFlow connections, and prints the OpenFlow
+messages in those connections in human-readable format on
+\fBstdout\fR.
+.IP
+OpenFlow connections are distinguished by TCP port number.
+Non-OpenFlow packets are ignored.  By default, data on TCP ports 6633
+and 6653 are considered to be OpenFlow.  Specify one or more
+\fIport\fR arguments to override the default.
+.IP
+This command cannot usefully print SSL encrypted traffic.  It does not
+understand IPv6.
+.
+.SS "Flow Syntax"
+.PP
+Some \fBovs\-ofctl\fR commands accept an argument that describes a flow or
+flows.  Such flow descriptions comprise a series
+\fIfield\fB=\fIvalue\fR assignments, separated by commas or white
+space.  (Embedding spaces into a flow description normally requires
+quoting to prevent the shell from breaking the description into
+multiple arguments.)
+.PP
+Flow descriptions should be in \fBnormal form\fR.  This means that a
+flow may only specify a value for an L3 field if it also specifies a
+particular L2 protocol, and that a flow may only specify an L4 field
+if it also specifies particular L2 and L3 protocol types.  For
+example, if the L2 protocol type \fBdl_type\fR is wildcarded, then L3
+fields \fBnw_src\fR, \fBnw_dst\fR, and \fBnw_proto\fR must also be
+wildcarded.  Similarly, if \fBdl_type\fR or \fBnw_proto\fR (the L3
+protocol type) is wildcarded, so must be the L4 fields \fBtcp_dst\fR and
+\fBtcp_src\fR.  \fBovs\-ofctl\fR will warn about
+flows not in normal form.
+.PP
+The following field assignments describe how a flow matches a packet.
+If any of these assignments is omitted from the flow syntax, the field
+is treated as a wildcard; thus, if all of them are omitted, the
+resulting flow matches all packets.  The string \fB*\fR may be specified
+to explicitly mark any of these fields as a wildcard.
+(\fB*\fR should be quoted to protect it from shell expansion.)
+.
+.IP \fBin_port=\fIport\fR
+Matches OpenFlow port \fIport\fR, which may be an OpenFlow port number
+or keyword (e.g. \fBLOCAL\fR).
+\fBovs\-ofctl show\fR.
+.IP
+(The \fBresubmit\fR action can search OpenFlow flow tables with
+arbitrary \fBin_port\fR values, so flows that match port numbers that
+do not exist from an OpenFlow perspective can still potentially be
+matched.)
+.
+.IP \fBdl_vlan=\fIvlan\fR
+Matches IEEE 802.1q Virtual LAN tag \fIvlan\fR.  Specify \fB0xffff\fR
+as \fIvlan\fR to match packets that are not tagged with a Virtual LAN;
+otherwise, specify a number between 0 and 4095, inclusive, as the
+12-bit VLAN ID to match.
+.
+.IP \fBdl_vlan_pcp=\fIpriority\fR
+Matches IEEE 802.1q Priority Code Point (PCP) \fIpriority\fR, which is
+specified as a value between 0 and 7, inclusive.  A higher value
+indicates a higher frame priority level.
+.
+.IP \fBdl_src=\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fR
+.IQ \fBdl_dst=\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fR
+Matches an Ethernet source (or destination) address specified as 6
+pairs of hexadecimal digits delimited by colons
+(e.g. \fB00:0A:E4:25:6B:B0\fR).
+.
+.IP \fBdl_src=\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fB/\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fR
+.IQ \fBdl_dst=\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fB/\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fR
+Matches an Ethernet destination address specified as 6 pairs of
+hexadecimal digits delimited by colons (e.g. \fB00:0A:E4:25:6B:B0\fR),
+with a wildcard mask following the slash. Open vSwitch 1.8 and later
+support arbitrary masks for source and/or destination. Earlier
+versions only support masking the destination with the following masks:
+.RS
+.IP \fB01:00:00:00:00:00\fR
+Match only the multicast bit.  Thus,
+\fBdl_dst=01:00:00:00:00:00/01:00:00:00:00:00\fR matches all multicast
+(including broadcast) Ethernet packets, and
+\fBdl_dst=00:00:00:00:00:00/01:00:00:00:00:00\fR matches all unicast
+Ethernet packets.
+.IP \fBfe:ff:ff:ff:ff:ff\fR
+Match all bits except the multicast bit.  This is probably not useful.
+.IP \fBff:ff:ff:ff:ff:ff\fR
+Exact match (equivalent to omitting the mask).
+.IP \fB00:00:00:00:00:00\fR
+Wildcard all bits (equivalent to \fBdl_dst=*\fR.)
+.RE
+.
+.IP \fBdl_type=\fIethertype\fR
+Matches Ethernet protocol type \fIethertype\fR, which is specified as an
+integer between 0 and 65535, inclusive, either in decimal or as a 
+hexadecimal number prefixed by \fB0x\fR (e.g. \fB0x0806\fR to match ARP 
+packets).
+.
+.IP \fBnw_src=\fIip\fR[\fB/\fInetmask\fR]
+.IQ \fBnw_dst=\fIip\fR[\fB/\fInetmask\fR]
+When \fBdl_type\fR is 0x0800 (possibly via shorthand, e.g. \fBip\fR
+or \fBtcp\fR), matches IPv4 source (or destination) address \fIip\fR,
+which may be specified as an IP address or host name
+(e.g. \fB192.168.1.1\fR or \fBwww.example.com\fR).  The optional
+\fInetmask\fR allows restricting a match to an IPv4 address prefix.
+The netmask may be specified as a dotted quad
+(e.g. \fB192.168.1.0/255.255.255.0\fR) or as a CIDR block
+(e.g. \fB192.168.1.0/24\fR).  Open vSwitch 1.8 and later support
+arbitrary dotted quad masks; earlier versions support only CIDR masks,
+that is, the dotted quads that are equivalent to some CIDR block.
+.IP
+When \fBdl_type=0x0806\fR or \fBarp\fR is specified, matches the
+\fBar_spa\fR or \fBar_tpa\fR field, respectively, in ARP packets for
+IPv4 and Ethernet.
+.IP
+When \fBdl_type=0x8035\fR or \fBrarp\fR is specified, matches the
+\fBar_spa\fR or \fBar_tpa\fR field, respectively, in RARP packets for
+IPv4 and Ethernet.
+.IP
+When \fBdl_type\fR is wildcarded or set to a value other than 0x0800,
+0x0806, or 0x8035, the values of \fBnw_src\fR and \fBnw_dst\fR are ignored
+(see \fBFlow Syntax\fR above).
+.
+.IP \fBnw_proto=\fIproto\fR
+.IQ \fBip_proto=\fIproto\fR
+When \fBip\fR or \fBdl_type=0x0800\fR is specified, matches IP
+protocol type \fIproto\fR, which is specified as a decimal number
+between 0 and 255, inclusive (e.g. 1 to match ICMP packets or 6 to match
+TCP packets).
+.IP
+When \fBipv6\fR or \fBdl_type=0x86dd\fR is specified, matches IPv6
+header type \fIproto\fR, which is specified as a decimal number between
+0 and 255, inclusive (e.g. 58 to match ICMPv6 packets or 6 to match
+TCP).  The header type is the terminal header as described in the
+\fBDESIGN\fR document.
+.IP
+When \fBarp\fR or \fBdl_type=0x0806\fR is specified, matches the lower
+8 bits of the ARP opcode.  ARP opcodes greater than 255 are treated as
+0.
+.IP
+When \fBrarp\fR or \fBdl_type=0x8035\fR is specified, matches the lower
+8 bits of the ARP opcode.  ARP opcodes greater than 255 are treated as
+0.
+.IP
+When \fBdl_type\fR is wildcarded or set to a value other than 0x0800,
+0x0806, 0x8035 or 0x86dd, the value of \fBnw_proto\fR is ignored (see
+\fBFlow Syntax\fR above).
+.
+.IP \fBnw_tos=\fItos\fR
+Matches IP ToS/DSCP or IPv6 traffic class field \fItos\fR, which is
+specified as a decimal number between 0 and 255, inclusive.  Note that
+the two lower reserved bits are ignored for matching purposes.
+.IP
+When \fBdl_type\fR is wildcarded or set to a value other than 0x0800 or
+0x86dd, the value of \fBnw_tos\fR is ignored (see \fBFlow Syntax\fR
+above).
+.
+.IP \fBip_dscp=\fIdscp\fR
+Matches IP ToS/DSCP or IPv6 traffic class field \fIdscp\fR, which is
+specified as a decimal number between 0 and 63, inclusive.
+.IP
+When \fBdl_type\fR is wildcarded or set to a value other than 0x0800 or
+0x86dd, the value of \fBip_dscp\fR is ignored (see \fBFlow Syntax\fR
+above).
+.
+.IP \fBnw_ecn=\fIecn\fR
+.IQ \fBip_ecn=\fIecn\fR
+Matches \fIecn\fR bits in IP ToS or IPv6 traffic class fields, which is
+specified as a decimal number between 0 and 3, inclusive.
+.IP
+When \fBdl_type\fR is wildcarded or set to a value other than 0x0800 or
+0x86dd, the value of \fBnw_ecn\fR is ignored (see \fBFlow Syntax\fR
+above).
+.
+.IP \fBnw_ttl=\fIttl\fR
+Matches IP TTL or IPv6 hop limit value \fIttl\fR, which is
+specified as a decimal number between 0 and 255, inclusive.
+.IP
+When \fBdl_type\fR is wildcarded or set to a value other than 0x0800 or
+0x86dd, the value of \fBnw_ttl\fR is ignored (see \fBFlow Syntax\fR
+above).
+.IP
+.
+.IP \fBtcp_src=\fIport\fR
+.IQ \fBtcp_dst=\fIport\fR
+.IQ \fBudp_src=\fIport\fR
+.IQ \fBudp_dst=\fIport\fR
+.IQ \fBsctp_src=\fIport\fR
+.IQ \fBsctp_dst=\fIport\fR
+Matches a TCP, UDP, or SCTP source or destination port \fIport\fR,
+which is specified as a decimal number between 0 and 65535, inclusive.
+.IP
+When \fBdl_type\fR and \fBnw_proto\fR are wildcarded or set to values
+that do not indicate an appropriate protocol, the values of these
+settings are ignored (see \fBFlow Syntax\fR above).
+.
+.IP \fBtcp_src=\fIport\fB/\fImask\fR
+.IQ \fBtcp_dst=\fIport\fB/\fImask\fR
+.IQ \fBudp_src=\fIport\fB/\fImask\fR
+.IQ \fBudp_dst=\fIport\fB/\fImask\fR
+.IQ \fBsctp_src=\fIport\fB/\fImask\fR
+.IQ \fBsctp_dst=\fIport\fB/\fImask\fR
+Bitwise match on TCP (or UDP or SCTP) source or destination port.
+The \fIport\fR and \fImask\fR are 16-bit numbers
+written in decimal or in hexadecimal prefixed by \fB0x\fR.  Each 1-bit
+in \fImask\fR requires that the corresponding bit in \fIport\fR must
+match.  Each 0-bit in \fImask\fR causes the corresponding bit to be
+ignored.
+.IP
+Bitwise matches on transport ports are rarely useful in isolation, but
+a group of them can be used to reduce the number of flows required to
+match on a range of transport ports.  For example, suppose that the
+goal is to match TCP source ports 1000 to 1999, inclusive.  One way is
+to insert 1000 flows, each of which matches on a single source port.
+Another way is to look at the binary representations of 1000 and 1999,
+as follows:
+.br
+.B "01111101000"
+.br
+.B "11111001111"
+.br
+and then to transform those into a series of bitwise matches that
+accomplish the same results:
+.br
+.B "01111101xxx"
+.br
+.B "0111111xxxx"
+.br
+.B "10xxxxxxxxx"
+.br
+.B "110xxxxxxxx"
+.br
+.B "1110xxxxxxx"
+.br
+.B "11110xxxxxx"
+.br
+.B "1111100xxxx"
+.br
+which become the following when written in the syntax required by
+\fBovs\-ofctl\fR:
+.br
+.B "tcp,tcp_src=0x03e8/0xfff8"
+.br
+.B "tcp,tcp_src=0x03f0/0xfff0"
+.br
+.B "tcp,tcp_src=0x0400/0xfe00"
+.br
+.B "tcp,tcp_src=0x0600/0xff00"
+.br
+.B "tcp,tcp_src=0x0700/0xff80"
+.br
+.B "tcp,tcp_src=0x0780/0xffc0"
+.br
+.B "tcp,tcp_src=0x07c0/0xfff0"
+.IP
+Only Open vSwitch 1.6 and later supports bitwise matching on transport
+ports.
+.IP
+Like the exact-match forms described
+above, the bitwise match forms apply only when \fBdl_type\fR and
+\fBnw_proto\fR specify TCP or UDP or SCTP.
+.
+.IP \fBtp_src=\fIport\fR
+.IQ \fBtp_dst=\fIport\fR
+These are deprecated generic forms of L4 port matches.  In new code,
+please use the TCP-, UDP-, or SCTP-specific forms described above.
+.
+.IP \fBtcp_flags=\fIflags\fB/\fImask\fR
+.IQ \fBtcp_flags=\fR[\fB+\fIflag\fR...][\fB-\fIflag\fR...]
+Bitwise match on TCP flags.  The \fIflags\fR and \fImask\fR are 16-bit
+numbers written in decimal or in hexadecimal prefixed by \fB0x\fR.
+Each 1-bit in \fImask\fR requires that the corresponding bit in
+\fIflags\fR must match.  Each 0-bit in \fImask\fR causes the corresponding
+bit to be ignored.
+.IP
+Alternatively, the flags can be specified by their symbolic names
+(listed below), each preceded by either \fB+\fR for a flag that must
+be set, or \fB\-\fR for a flag that must be unset, without any other
+delimiters between the flags.  Flags not mentioned are wildcarded.
+For example, \fBtcp,tcp_flags=+syn\-ack\fR matches TCP SYNs that are
+not ACKs.
+.IP
+TCP protocol currently defines 9 flag bits, and additional 3 bits are
+reserved (must be transmitted as zero), see RFCs 793, 3168, and 3540.
+The flag bits are, numbering from the least significant bit:
+.RS
+.IP "\fB0: fin\fR"
+No more data from sender.
+.IP "\fB1: syn\fR"
+Synchronize sequence numbers.
+.IP "\fB2: rst\fR"
+Reset the connection.
+.IP "\fB3: psh\fR"
+Push function.
+.IP "\fB4: ack\fR"
+Acknowledgement field significant.
+.IP "\fB5: urg\fR"
+Urgent pointer field significant.
+.IP "\fB6: ece\fR"
+ECN Echo.
+.IP "\fB7: cwr\fR"
+Congestion Windows Reduced.
+.IP "\fB8: ns\fR"
+Nonce Sum.
+.IP "\fB9-11:\fR"
+Reserved.
+.IP "\fB12-15:\fR"
+Not matchable, must be zero.
+.RE
+.IP \fBicmp_type=\fItype\fR
+.IQ \fBicmp_code=\fIcode\fR
+When \fBdl_type\fR and \fBnw_proto\fR specify ICMP or ICMPv6, \fItype\fR
+matches the ICMP type and \fIcode\fR matches the ICMP code.  Each is
+specified as a decimal number between 0 and 255, inclusive.
+.IP
+When \fBdl_type\fR and \fBnw_proto\fR take other values, the values of
+these settings are ignored (see \fBFlow Syntax\fR above).
+.
+.IP \fBtable=\fInumber\fR
+For flow dump commands, limits the flows dumped to those in the table
+with the given \fInumber\fR between 0 and 254.  If not specified (or if
+255 is specified as \fInumber\fR), then flows in all tables are
+dumped.
+.
+.IP
+For flow table modification commands, behavior varies based on the
+OpenFlow version used to connect to the switch:
+.
+.RS
+.IP "OpenFlow 1.0"
+OpenFlow 1.0 does not support \fBtable\fR for modifying flows.
+\fBovs\-ofctl\fR will exit with an error if \fBtable\fR (other than
+\fBtable=255\fR) is specified for a switch that only supports OpenFlow
+1.0.
+.IP
+In OpenFlow 1.0, the switch chooses the table into which to insert a
+new flow.  The Open vSwitch software switch always chooses table 0.
+Other Open vSwitch datapaths and other OpenFlow implementations may
+choose different tables.
+.IP
+The OpenFlow 1.0 behavior in Open vSwitch for modifying or removing
+flows depends on whether \fB\-\-strict\fR is used.  Without
+\fB\-\-strict\fR, the command applies to matching flows in all tables.
+With \fB\-\-strict\fR, the command will operate on any single matching
+flow in any table; it will do nothing if there are matches in more
+than one table.  (The distinction between these behaviors only matters
+if non-OpenFlow 1.0 commands were also used, because OpenFlow 1.0
+alone cannot add flows with the same matching criteria to multiple
+tables.)
+.
+.IP "OpenFlow 1.0 with table_id extension"
+Open vSwitch implements an OpenFlow extension that allows the
+controller to specify the table on which to operate.  \fBovs\-ofctl\fR
+automatically enables the extension when \fBtable\fR is specified and
+OpenFlow 1.0 is used.  \fBovs\-ofctl\fR automatically detects whether
+the switch supports the extension.  As of this writing, this extension
+is only known to be implemented by Open vSwitch.
+.
+.IP
+With this extension, \fBovs\-ofctl\fR operates on the requested table
+when \fBtable\fR is specified, and acts as described for OpenFlow 1.0
+above when no \fBtable\fR is specified (or for \fBtable=255\fR).
+.
+.IP "OpenFlow 1.1"
+OpenFlow 1.1 requires flow table modification commands to specify a
+table.  When \fBtable\fR is not specified (or \fBtable=255\fR is
+specified), \fBovs\-ofctl\fR defaults to table 0.
+.
+.IP "OpenFlow 1.2 and later"
+OpenFlow 1.2 and later allow flow deletion commands, but not other
+flow table modification commands, to operate on all flow tables, with
+the behavior described above for OpenFlow 1.0.
+.RE
+.
+.IP \fBmetadata=\fIvalue\fR[\fB/\fImask\fR]
+Matches \fIvalue\fR either exactly or with optional \fImask\fR in the metadata
+field. \fIvalue\fR and \fImask\fR are 64-bit integers, by default in decimal
+(use a \fB0x\fR prefix to specify hexadecimal). Arbitrary \fImask\fR values
+are allowed: a 1-bit in \fImask\fR indicates that the corresponding bit in
+\fIvalue\fR must match exactly, and a 0-bit wildcards that bit. Matching on
+metadata was added in Open vSwitch 1.8.
+.
+.PP
+The following shorthand notations are also available:
+.
+.IP \fBip\fR
+Same as \fBdl_type=0x0800\fR.
+.
+.IP \fBicmp\fR
+Same as \fBdl_type=0x0800,nw_proto=1\fR.
+.
+.IP \fBtcp\fR
+Same as \fBdl_type=0x0800,nw_proto=6\fR.
+.
+.IP \fBudp\fR
+Same as \fBdl_type=0x0800,nw_proto=17\fR.
+.
+.IP \fBsctp\fR
+Same as \fBdl_type=0x0800,nw_proto=132\fR.
+.
+.IP \fBarp\fR
+Same as \fBdl_type=0x0806\fR.
+.
+.IP \fBrarp\fR
+Same as \fBdl_type=0x8035\fR.
+.
+.PP
+The following field assignments require support for the NXM (Nicira
+Extended Match) extension to OpenFlow.  When one of these is specified,
+\fBovs\-ofctl\fR will automatically attempt to negotiate use of this
+extension.  If the switch does not support NXM, then \fBovs\-ofctl\fR
+will report a fatal error.
+.
+.IP \fBvlan_tci=\fItci\fR[\fB/\fImask\fR]
+Matches modified VLAN TCI \fItci\fR.  If \fImask\fR is omitted,
+\fItci\fR is the exact VLAN TCI to match; if \fImask\fR is specified,
+then a 1-bit in \fImask\fR indicates that the corresponding bit in
+\fItci\fR must match exactly, and a 0-bit wildcards that bit.  Both
+\fItci\fR and \fImask\fR are 16-bit values that are decimal by
+default; use a \fB0x\fR prefix to specify them in hexadecimal.
+.
+.IP
+The value that \fBvlan_tci\fR matches against is 0 for a packet that
+has no 802.1Q header.  Otherwise, it is the TCI value from the 802.1Q
+header with the CFI bit (with value \fB0x1000\fR) forced to 1.
+.IP
+Examples:
+.RS
+.IP \fBvlan_tci=0\fR
+Match only packets without an 802.1Q header.
+.IP \fBvlan_tci=0xf123\fR
+Match packets tagged with priority 7 in VLAN 0x123.
+.IP \fBvlan_tci=0x1123/0x1fff\fR
+Match packets tagged with VLAN 0x123 (and any priority).
+.IP \fBvlan_tci=0x5000/0xf000\fR
+Match packets tagged with priority 2 (in any VLAN).
+.IP \fBvlan_tci=0/0xfff\fR
+Match packets with no 802.1Q header or tagged with VLAN 0 (and any
+priority).
+.IP \fBvlan_tci=0x5000/0xe000\fR
+Match packets with no 802.1Q header or tagged with priority 2 (in any
+VLAN).
+.IP \fBvlan_tci=0/0xefff\fR
+Match packets with no 802.1Q header or tagged with VLAN 0 and priority
+0.
+.RE
+.IP
+Some of these matching possibilities can also be achieved with
+\fBdl_vlan\fR and \fBdl_vlan_pcp\fR.
+.
+.IP \fBip_frag=\fIfrag_type\fR
+When \fBdl_type\fR specifies IP or IPv6, \fIfrag_type\fR
+specifies what kind of IP fragments or non-fragments to match.  The
+following values of \fIfrag_type\fR are supported:
+.RS
+.IP "\fBno\fR"
+Matches only non-fragmented packets.
+.IP "\fByes\fR"
+Matches all fragments.
+.IP "\fBfirst\fR"
+Matches only fragments with offset 0.
+.IP "\fBlater\fR"
+Matches only fragments with nonzero offset.
+.IP "\fBnot_later\fR"
+Matches non-fragmented packets and fragments with zero offset.
+.RE
+.IP
+The \fBip_frag\fR match type is likely to be most useful in
+\fBnx\-match\fR mode.  See the description of the \fBset\-frags\fR
+command, above, for more details.
+.
+.IP \fBarp_spa=\fIip\fR[\fB/\fInetmask\fR]
+.IQ \fBarp_tpa=\fIip\fR[\fB/\fInetmask\fR]
+When \fBdl_type\fR specifies either ARP or RARP, \fBarp_spa\fR and
+\fBarp_tpa\fR match the source and target IPv4 address, respectively.
+An address may be specified as an IP address or host name
+(e.g. \fB192.168.1.1\fR or \fBwww.example.com\fR).  The optional
+\fInetmask\fR allows restricting a match to an IPv4 address prefix.
+The netmask may be specified as a dotted quad
+(e.g. \fB192.168.1.0/255.255.255.0\fR) or as a CIDR block
+(e.g. \fB192.168.1.0/24\fR).
+.
+.IP \fBarp_sha=\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fR
+.IQ \fBarp_tha=\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fR
+When \fBdl_type\fR specifies either ARP or RARP, \fBarp_sha\fR and
+\fBarp_tha\fR match the source and target hardware address, respectively.  An
+address is specified as 6 pairs of hexadecimal digits delimited by colons
+(e.g. \fB00:0A:E4:25:6B:B0\fR).
+.
+.IP \fBarp_sha=\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fB/\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fR
+.IQ \fBarp_tha=\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fB/\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fR
+When \fBdl_type\fR specifies either ARP or RARP, \fBarp_sha\fR and
+\fBarp_tha\fR match the source and target hardware address, respectively.  An
+address is specified as 6 pairs of hexadecimal digits delimited by colons
+(e.g. \fB00:0A:E4:25:6B:B0\fR), with a wildcard mask following the slash.
+.
+
+.IP \fBipv6_src=\fIipv6\fR[\fB/\fInetmask\fR]
+.IQ \fBipv6_dst=\fIipv6\fR[\fB/\fInetmask\fR]
+When \fBdl_type\fR is 0x86dd (possibly via shorthand, e.g., \fBipv6\fR
+or \fBtcp6\fR), matches IPv6 source (or destination) address \fIipv6\fR,
+which may be specified as defined in RFC 2373.  The preferred format is 
+\fIx\fB:\fIx\fB:\fIx\fB:\fIx\fB:\fIx\fB:\fIx\fB:\fIx\fB:\fIx\fR, where
+\fIx\fR are the hexadecimal values of the eight 16-bit pieces of the
+address.  A single instance of \fB::\fR may be used to indicate multiple
+groups of 16-bits of zeros.  The optional \fInetmask\fR allows
+restricting a match to an IPv6 address prefix.  A netmask is specified
+as an IPv6 address (e.g. \fB2001:db8:3c4d:1::/ffff:ffff:ffff:ffff::\fR)
+or a CIDR block (e.g. \fB2001:db8:3c4d:1::/64\fR).  Open vSwitch 1.8
+and later support arbitrary masks; earlier versions support only CIDR
+masks, that is, CIDR block and IPv6 addresses that are equivalent to
+CIDR blocks.
+.
+.IP \fBipv6_label=\fIlabel\fR
+When \fBdl_type\fR is 0x86dd (possibly via shorthand, e.g., \fBipv6\fR
+or \fBtcp6\fR), matches IPv6 flow label \fIlabel\fR.
+.
+.IP \fBnd_target=\fIipv6\fR[\fB/\fInetmask\fR]
+When \fBdl_type\fR, \fBnw_proto\fR, and \fBicmp_type\fR specify
+IPv6 Neighbor Discovery (ICMPv6 type 135 or 136), matches the target address
+\fIipv6\fR.  \fIipv6\fR is in the same format described earlier for the
+\fBipv6_src\fR and \fBipv6_dst\fR fields.
+.
+.IP \fBnd_sll=\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fR
+When \fBdl_type\fR, \fBnw_proto\fR, and \fBicmp_type\fR specify IPv6
+Neighbor Solicitation (ICMPv6 type 135), matches the source link\-layer
+address option.  An address is specified as 6 pairs of hexadecimal
+digits delimited by colons.
+.
+.IP \fBnd_tll=\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fR
+When \fBdl_type\fR, \fBnw_proto\fR, and \fBicmp_type\fR specify IPv6
+Neighbor Advertisement (ICMPv6 type 136), matches the target link\-layer
+address option.  An address is specified as 6 pairs of hexadecimal
+digits delimited by colons.
+.
+.IP \fBmpls_bos=\fIbos\fR
+When \fBdl_type\fR is 0x8847 or 0x8848 (possibly via shorthand e.g.,
+\fBmpls\fR or \fBmplsm\fR), matches the bottom-of-stack bit of the
+outer-most MPLS label stack entry. Valid values are 0 and 1.
+.IP
+If 1 then for a packet with a well-formed MPLS label stack the
+bottom-of-stack bit indicates that the outer label stack entry is also
+the inner-most label stack entry and thus that is that there is only one
+label stack entry present.  Conversely, if 0 then for a packet with a
+well-formed MPLS label stack the bottom-of-stack bit indicates that the
+outer label stack entry is not the inner-most label stack entry and
+thus there is more than one label stack entry present.
+.
+.IP \fBmpls_label=\fIlabel\fR
+When \fBdl_type\fR is 0x8847 or 0x8848 (possibly via shorthand e.g.,
+\fBmpls\fR or \fBmplsm\fR), matches the label of the outer
+MPLS label stack entry. The label is a 20-bit value that is decimal by default;
+use a \fB0x\fR prefix to specify them in hexadecimal.
+.
+.IP \fBmpls_tc=\fItc\fR
+When \fBdl_type\fR is 0x8847 or 0x8848 (possibly via shorthand e.g.,
+\fBmpls\fR or \fBmplsm\fR), matches the traffic-class of the outer
+MPLS label stack entry. Valid values are between 0 (lowest) and 7 (highest).
+.
+.IP \fBtun_id=\fItunnel-id\fR[\fB/\fImask\fR]
+.IQ \fBtunnel_id=\fItunnel-id\fR[\fB/\fImask\fR]
+Matches tunnel identifier \fItunnel-id\fR.  Only packets that arrive
+over a tunnel that carries a key (e.g. GRE with the RFC 2890 key
+extension and a nonzero key value) will have a nonzero tunnel ID.
+If \fImask\fR is omitted, \fItunnel-id\fR is the exact tunnel ID to match;
+if \fImask\fR is specified, then a 1-bit in \fImask\fR indicates that the
+corresponding bit in \fItunnel-id\fR must match exactly, and a 0-bit
+wildcards that bit.
+.
+.IP \fBtun_src=\fIip\fR[\fB/\fInetmask\fR]
+.IQ \fBtun_dst=\fIip\fR[\fB/\fInetmask\fR]
+Matches tunnel IPv4 source (or destination) address \fIip\fR. Only packets
+that arrive over a tunnel will have nonzero tunnel addresses.
+The address may be specified as an IP address or host name
+(e.g. \fB192.168.1.1\fR or \fBwww.example.com\fR).  The optional
+\fInetmask\fR allows restricting a match to a masked IPv4 address.
+The netmask may be specified as a dotted quad
+(e.g. \fB192.168.1.0/255.255.255.0\fR) or as a CIDR block
+(e.g. \fB192.168.1.0/24\fR).
+.
+.IP "\fBreg\fIidx\fB=\fIvalue\fR[\fB/\fImask\fR]"
+Matches \fIvalue\fR either exactly or with optional \fImask\fR in
+register number \fIidx\fR.  The valid range of \fIidx\fR depends on
+the switch.  \fIvalue\fR and \fImask\fR are 32-bit integers, by
+default in decimal (use a \fB0x\fR prefix to specify hexadecimal).
+Arbitrary \fImask\fR values are allowed: a 1-bit in \fImask\fR
+indicates that the corresponding bit in \fIvalue\fR must match
+exactly, and a 0-bit wildcards that bit.
+.IP
+When a packet enters an OpenFlow switch, all of the registers are set
+to 0.  Only explicit actions change register values.
+.
+.IP "\fBxreg\fIidx\fB=\fIvalue\fR[\fB/\fImask\fR]"
+Matches \fIvalue\fR either exactly or with optional \fImask\fR in
+64-bit ``extended register'' number \fIidx\fR.  Each of the 64-bit
+extended registers overlays two of the 32-bit registers: \fBxreg0\fR
+overlays \fBreg0\fR and \fBreg1\fR, with \fBreg0\fR supplying the
+most-significant bits of \fBxreg0\fR and \fBreg1\fR the
+least-significant.  \fBxreg1\fR similarly overlays \fBreg2\fR and
+\fBreg3\fR, and so on.
+.IP
+These fields were added in Open vSwitch 2.3 to conform with the
+OpenFlow 1.5 (draft) specification.  OpenFlow 1.5 calls these fields
+just the ``packet registers,'' but Open vSwitch already had 32-bit
+registers by that name, which is why Open vSwitch refers to the
+standard registers as ``extended registers''.
+.
+.IP \fBpkt_mark=\fIvalue\fR[\fB/\fImask\fR]
+Matches packet metadata mark \fIvalue\fR either exactly or with optional
+\fImask\fR. The mark is associated data that may be passed into other
+system components in order to facilitate interaction between subsystems.
+On Linux this corresponds to the skb mark but the exact implementation is
+platform-dependent.
+.
+.IP \fBactset_output=\fIport\fR
+Matches the output port currently in the OpenFlow action set, where
+\fIport\fR may be an OpenFlow port number or keyword
+(e.g. \fBLOCAL\fR).  If there is no output port in the OpenFlow action
+set, or if the output port will be ignored (e.g. because there is an
+output group in the OpenFlow action set), then the value will be
+\fBUNSET\fR.
+.IP
+This field was introduced in Open vSwitch 2.4 to conform with the
+OpenFlow 1.5 (draft) specification.
+.PP
+Defining IPv6 flows (those with \fBdl_type\fR equal to 0x86dd) requires
+support for NXM.  The following shorthand notations are available for
+IPv6-related flows:
+.
+.IP \fBipv6\fR
+Same as \fBdl_type=0x86dd\fR.
+.
+.IP \fBtcp6\fR
+Same as \fBdl_type=0x86dd,nw_proto=6\fR.
+.
+.IP \fBudp6\fR
+Same as \fBdl_type=0x86dd,nw_proto=17\fR.
+.
+.IP \fBsctp6\fR
+Same as \fBdl_type=0x86dd,nw_proto=132\fR.
+.
+.IP \fBicmp6\fR
+Same as \fBdl_type=0x86dd,nw_proto=58\fR.
+.
+.PP
+Finally, field assignments to \fBduration\fR, \fBn_packets\fR, or
+\fBn_bytes\fR are ignored to allow output from the \fBdump\-flows\fR
+command to be used as input for other commands that parse flows.
+.
+.PP
+The \fBadd\-flow\fR, \fBadd\-flows\fR, and \fBmod\-flows\fR commands
+require an additional field, which must be the final field specified:
+.
+.IP \fBactions=\fR[\fIaction\fR][\fB,\fIaction\fR...]\fR
+Specifies a comma-separated list of actions to take on a packet when the 
+flow entry matches.  If no \fIaction\fR is specified, then packets
+matching the flow are dropped.  The following forms of \fIaction\fR
+are supported:
+.
+.RS
+.IP \fIport\fR
+.IQ \fBoutput:\fIport\fR
+Outputs the packet to OpenFlow port number \fIport\fR.  If \fIport\fR
+is the packet's input port, the packet is not output.
+.
+.IP \fBoutput:\fIsrc\fB[\fIstart\fB..\fIend\fB]
+Outputs the packet to the OpenFlow port number read from \fIsrc\fR,
+which must be an NXM field as described above.  For example,
+\fBoutput:NXM_NX_REG0[16..31]\fR outputs to the OpenFlow port number
+written in the upper half of register 0.  If the port number is the
+packet's input port, the packet is not output.
+.IP
+This form of \fBoutput\fR was added in Open vSwitch 1.3.0.  This form
+of \fBoutput\fR uses an OpenFlow extension that is not supported by
+standard OpenFlow switches.
+.
+.IP \fBgroup:\fIgroup_id\fR
+Outputs the packet to the OpenFlow group \fIgroup_id\fR. Group tables
+are only supported in OpenFlow 1.1+. See Group Syntax for more details.
+.
+.IP \fBnormal\fR
+Subjects the packet to the device's normal L2/L3 processing.  (This
+action is not implemented by all OpenFlow switches.)
+.
+.IP \fBflood\fR
+Outputs the packet on all switch physical ports other than the port on
+which it was received and any ports on which flooding is disabled
+(typically, these would be ports disabled by the IEEE 802.1D spanning
+tree protocol).
+.
+.IP \fBall\fR
+Outputs the packet on all switch physical ports other than the port on
+which it was received.
+.
+.IP \fBlocal\fR
+Outputs the packet on the ``local port,'' which corresponds to the
+network device that has the same name as the bridge.
+.
+.IP \fBin_port\fR
+Outputs the packet on the port from which it was received.
+.
+.IP \fBcontroller(\fIkey\fB=\fIvalue\fR...\fB)
+Sends the packet to the OpenFlow controller as a ``packet in''
+message.  The supported key-value pairs are:
+.RS
+.IP "\fBmax_len=\fInbytes\fR"
+Limit to \fInbytes\fR the number of bytes of the packet to send to
+the controller.  By default the entire packet is sent.
+.IP "\fBreason=\fIreason\fR"
+Specify \fIreason\fR as the reason for sending the message in the
+``packet in'' message.  The supported reasons are \fBaction\fR (the
+default), \fBno_match\fR, and \fBinvalid_ttl\fR.
+.IP "\fBid=\fIcontroller-id\fR"
+Specify \fIcontroller-id\fR, a 16-bit integer, as the connection ID of
+the OpenFlow controller or controllers to which the ``packet in''
+message should be sent.  The default is zero.  Zero is also the
+default connection ID for each controller connection, and a given
+controller connection will only have a nonzero connection ID if its
+controller uses the \fBNXT_SET_CONTROLLER_ID\fR Nicira extension to
+OpenFlow.
+.RE
+.IP
+Any \fIreason\fR other than \fBaction\fR and any nonzero
+\fIcontroller-id\fR uses a Nicira vendor extension that, as of this
+writing, is only known to be implemented by Open vSwitch (version 1.6
+or later).
+.
+.IP \fBcontroller\fR
+.IQ \fBcontroller\fR[\fB:\fInbytes\fR]
+Shorthand for \fBcontroller()\fR or
+\fBcontroller(max_len=\fInbytes\fB)\fR, respectively.
+.
+.IP \fBenqueue(\fIport\fB,\fIqueue\fB)\fR
+Enqueues the packet on the specified \fIqueue\fR within port
+\fIport\fR, which must be an OpenFlow port number or keyword
+(e.g. \fBLOCAL\fR).  The number of supported queues depends on the
+switch; some OpenFlow implementations do not support queuing at all.
+.
+.IP \fBdrop\fR
+Discards the packet, so no further processing or forwarding takes place.
+If a drop action is used, no other actions may be specified.
+.
+.IP \fBmod_vlan_vid\fR:\fIvlan_vid\fR
+Modifies the VLAN id on a packet.  The VLAN tag is added or modified 
+as necessary to match the value specified.  If the VLAN tag is added,
+a priority of zero is used (see the \fBmod_vlan_pcp\fR action to set
+this).
+.
+.IP \fBmod_vlan_pcp\fR:\fIvlan_pcp\fR
+Modifies the VLAN priority on a packet.  The VLAN tag is added or modified 
+as necessary to match the value specified.  Valid values are between 0
+(lowest) and 7 (highest).  If the VLAN tag is added, a vid of zero is used 
+(see the \fBmod_vlan_vid\fR action to set this).
+.
+.IP \fBstrip_vlan\fR
+Strips the VLAN tag from a packet if it is present.
+.
+.IP \fBpush_vlan\fR:\fIethertype\fR
+Push a new VLAN tag onto the packet.  Ethertype is used as the the Ethertype
+for the tag. Only ethertype 0x8100 should be used. (0x88a8 which the spec
+allows isn't supported at the moment.)
+A priority of zero and the tag of zero are used for the new tag.
+.
+.IP \fBpush_mpls\fR:\fIethertype\fR
+Changes the packet's Ethertype to \fIethertype\fR, which must be either
+\fB0x8847\fR or \fB0x8848\fR, and pushes an MPLS LSE.
+.IP
+If the packet does not already contain any MPLS labels then an initial
+label stack entry is pushed.  The label stack entry's label is 2 if the
+packet contains IPv6 and 0 otherwise, its default traffic control value is
+the low 3 bits of the packet's DSCP value (0 if the packet is not IP), and
+its TTL is copied from the IP TTL (64 if the packet is not IP).
+.IP
+If the packet does already contain an MPLS label, pushes a new
+outermost label as a copy of the existing outermost label.
+.IP
+A limitation of the implementation is that processing of actions will stop
+if \fBpush_mpls\fR follows another \fBpush_mpls\fR unless there is a
+\fBpop_mpls\fR in between.
+.
+.IP \fBpop_mpls\fR:\fIethertype\fR
+Strips the outermost MPLS label stack entry.
+Currently the implementation restricts \fIethertype\fR to a non-MPLS Ethertype
+and thus \fBpop_mpls\fR should only be applied to packets with
+an MPLS label stack depth of one. A further limitation is that processing of
+actions will stop if \fBpop_mpls\fR follows another \fBpop_mpls\fR unless
+there is a \fBpush_mpls\fR in between.
+.
+.IP \fBmod_dl_src\fB:\fImac\fR
+Sets the source Ethernet address to \fImac\fR.
+.
+.IP \fBmod_dl_dst\fB:\fImac\fR
+Sets the destination Ethernet address to \fImac\fR.
+.
+.IP \fBmod_nw_src\fB:\fIip\fR
+Sets the IPv4 source address to \fIip\fR.
+.
+.IP \fBmod_nw_dst\fB:\fIip\fR
+Sets the IPv4 destination address to \fIip\fR.
+.
+.IP \fBmod_tp_src\fB:\fIport\fR
+Sets the TCP or UDP or SCTP source port to \fIport\fR.
+.
+.IP \fBmod_tp_dst\fB:\fIport\fR
+Sets the TCP or UDP or SCTP destination port to \fIport\fR.
+.
+.IP \fBmod_nw_tos\fB:\fItos\fR
+Sets the DSCP bits in the IPv4 ToS/DSCP or IPv6 traffic class field to
+\fItos\fR, which must be a multiple of 4 between 0 and 255.  This action
+does not modify the two least significant bits of the ToS field (the ECN bits).
+.
+.IP \fBmod_nw_ecn\fB:\fIecn\fR
+Sets the ECN bits in the IPv4 ToS or IPv6 traffic class field to \fIecn\fR,
+which must be a value between 0 and 3, inclusive.  This action does not modify
+the six most significant bits of the field (the DSCP bits).
+.IP
+Requires OpenFlow 1.1 or later.
+.
+.IP \fBmod_nw_ttl\fB:\fIttl\fR
+Sets the IPv4 TTL or IPv6 hop limit field to \fIttl\fR, which is specified as
+a decimal number between 0 and 255, inclusive.  Switch behavior when setting
+\fIttl\fR to zero is not well specified, though.
+.IP
+Requires OpenFlow 1.1 or later.
+.RE
+.IP
+The following actions are Nicira vendor extensions that, as of this writing, are
+only known to be implemented by Open vSwitch:
+.
+.RS
+.
+.IP \fBresubmit\fB:\fIport\fR
+.IQ \fBresubmit\fB(\fR[\fIport\fR]\fB,\fR[\fItable\fR]\fB)
+Re-searches this OpenFlow flow table (or the table whose number is
+specified by \fItable\fR) with the \fBin_port\fR field replaced by
+\fIport\fR (if \fIport\fR is specified) and executes the actions
+found, if any, in addition to any other actions in this flow entry.
+.IP
+Recursive \fBresubmit\fR actions are obeyed up to an
+implementation-defined maximum depth.  Open vSwitch 1.0.1 and earlier
+did not support recursion; Open vSwitch before 1.2.90 did not support
+\fItable\fR.
+.
+.IP \fBset_tunnel\fB:\fIid\fR
+.IQ \fBset_tunnel64\fB:\fIid\fR
+If outputting to a port that encapsulates the packet in a tunnel and
+supports an identifier (such as GRE), sets the identifier to \fIid\fR.
+If the \fBset_tunnel\fR form is used and \fIid\fR fits in 32 bits,
+then this uses an action extension that is supported by Open vSwitch
+1.0 and later.  Otherwise, if \fIid\fR is a 64-bit value, it requires
+Open vSwitch 1.1 or later.
+.
+.IP \fBset_queue\fB:\fIqueue\fR
+Sets the queue that should be used to \fIqueue\fR when packets are
+output.  The number of supported queues depends on the switch; some
+OpenFlow implementations do not support queuing at all.
+.
+.IP \fBpop_queue\fR
+Restores the queue to the value it was before any \fBset_queue\fR
+actions were applied.
+.
+.IP \fBdec_ttl\fR
+.IQ \fBdec_ttl\fB[\fR(\fIid1,id2\fI)\fR]\fR
+Decrement TTL of IPv4 packet or hop limit of IPv6 packet.  If the
+TTL or hop limit is initially zero or decrementing would make it so, no
+decrement occurs, as packets reaching TTL zero must be rejected.  Instead,
+a ``packet-in'' message with reason code \fBOFPR_INVALID_TTL\fR is
+sent to each connected controller that has enabled receiving them,
+if any.  Processing the current set of actions then stops.  However,
+if the current set of actions was reached through ``resubmit'' then
+remaining actions in outer levels resume processing.  This action
+also optionally supports the ability to specify a list of valid
+controller ids.  Each of controllers in the list will receive the
+``packet_in'' message only if they have registered to receive the
+invalid ttl packets.  If controller ids are not specified, the
+``packet_in'' message will be sent only to the controllers having
+controller id zero which have registered for the invalid ttl packets.
+.
+.IP \fBset_mpls_label\fR:\fIlabel\fR
+Set the label of the outer MPLS label stack entry of a packet.
+\fIlabel\fR should be a 20-bit value that is decimal by default;
+use a \fB0x\fR prefix to specify them in hexadecimal.
+.
+.IP \fBset_mpls_tc\fR:\fItc\fR
+Set the traffic-class of the outer MPLS label stack entry of a packet.
+\fItc\fR should be a in the range 0 to 7 inclusive.
+.
+.IP \fBset_mpls_ttl\fR:\fIttl\fR
+Set the TTL of the outer MPLS label stack entry of a packet.
+\fIttl\fR should be in the range 0 to 255 inclusive.
+.
+.IP \fBdec_mpls_ttl\fR
+Decrement TTL of the outer MPLS label stack entry of a packet.  If the TTL
+is initially zero or decrementing would make it so, no decrement occurs.
+Instead, a ``packet-in'' message with reason code \fBOFPR_INVALID_TTL\fR
+is sent to the main controller (id zero), if it has enabled receiving them.
+Processing the current set of actions then stops.  However, if the current
+set of actions was reached through ``resubmit'' then remaining actions in
+outer levels resume processing.
+.
+.IP \fBnote:\fR[\fIhh\fR]...
+Does nothing at all.  Any number of bytes represented as hex digits
+\fIhh\fR may be included.  Pairs of hex digits may be separated by
+periods for readability.
+The \fBnote\fR action's format doesn't include an exact length for its
+payload, so the provided bytes will be padded on the right by enough
+bytes with value 0 to make the total number 6 more than a multiple of
+8.
+.
+.IP "\fBmove:\fIsrc\fB[\fIstart\fB..\fIend\fB]\->\fIdst\fB[\fIstart\fB..\fIend\fB]\fR"
+Copies the named bits from field \fIsrc\fR to field \fIdst\fR.
+\fIsrc\fR and \fIdst\fR must be NXM field names as defined in
+\fBnicira\-ext.h\fR, e.g. \fBNXM_OF_UDP_SRC\fR or \fBNXM_NX_REG0\fR.
+Each \fIstart\fR and \fIend\fR pair, which are inclusive, must specify
+the same number of bits and must fit within its respective field.
+Shorthands for \fB[\fIstart\fB..\fIend\fB]\fR exist: use
+\fB[\fIbit\fB]\fR to specify a single bit or \fB[]\fR to specify an
+entire field.
+.IP
+Examples: \fBmove:NXM_NX_REG0[0..5]\->NXM_NX_REG1[26..31]\fR copies the
+six bits numbered 0 through 5, inclusive, in register 0 into bits 26
+through 31, inclusive;
+\fBmove:NXM_NX_REG0[0..15]\->NXM_OF_VLAN_TCI[]\fR copies the least
+significant 16 bits of register 0 into the VLAN TCI field.
+.IP
+In OpenFlow 1.0 through 1.4, \fBmove\fR uses an Open vSwitch extension
+to OpenFlow.  In OpenFlow 1.5, \fBmove\fR uses the OpenFlow 1.5
+(draft) standard \fBcopy_field\fR action.
+.
+.IP "\fBset_field:\fIvalue\fR[/\fImask\fR]\fB\->\fIdst"
+.IQ "\fBload:\fIvalue\fB\->\fIdst\fB[\fIstart\fB..\fIend\fB]"
+Loads a literal value into a field or part of a field.  With
+\fBset_field\fR, \fBvalue\fR and the optional \fBmask\fR are given in
+the customary syntax for field \fIdst\fR, which is expressed as a
+field name.  For example, \fBset_field:00:11:22:33:44:55->eth_src\fR
+sets the Ethernet source address to 00:11:22:33:44:55.  With
+\fBload\fR, \fIvalue\fR must be an integer value (in decimal or
+prefixed by \fB0x\fR for hexadecimal) and \fIdst\fR is the NXM or OXM
+name for the field.  For example,
+\fBload:0x001122334455->OXM_OF_ETH_DST[]\fR has the same effect as the
+prior \fBset_field\fR example.
+.IP
+The two forms exist for historical reasons.  Open vSwitch 1.1
+introduced \fBNXAST_REG_LOAD\fR as a Nicira extension to OpenFlow 1.0
+and used \fBload\fR to express it.  Later, OpenFlow 1.2 introduced a
+standard \fBOFPAT_SET_FIELD\fR action that was restricted to loading
+entire fields, so Open vSwitch added the form \fBset_field\fR with
+this restriction.  OpenFlow 1.5 extended \fBOFPAT_SET_FIELD\fR to the
+point that it became a superset of \fBNXAST_REG_LOAD\fR.  Open vSwitch
+translates either syntax as necessary for the OpenFlow version in use:
+in OpenFlow 1.0 and 1.1, \fBNXAST_REG_LOAD\fR; in OpenFlow 1.2, 1.3,
+and 1.4, \fBNXAST_REG_LOAD\fR for \fBload\fR or for loading a
+subfield, \fBOFPAT_SET_FIELD\fR otherwise; and OpenFlow 1.5 and later,
+\fBOFPAT_SET_FIELD\fR.
+.
+.IP "\fBpush:\fIsrc\fB[\fIstart\fB..\fIend\fB]"
+Pushes \fIstart\fR to \fIend\fR bits inclusive, in fields
+on top of the stack.
+.IP
+Example: \fBpush:NXM_NX_REG2[0..5]\fR push the value stored in register
+2 bits 0 through 5, inclusive, on to the internal stack.
+.
+.IP "\fBpop:\fIdst\fB[\fIstart\fB..\fIend\fB]"
+Pops from the top of the stack, retrieves the \fIstart\fR to \fIend\fR bits
+inclusive, from the value popped and store them into the corresponding
+bits in \fIdst\fR.
+.
+.IP
+Example: \fBpop:NXM_NX_REG2[0..5]\fR pops the value from top of the stack.
+Set register 2 bits 0 through 5, inclusive, based on bits 0 through 5 from the
+value just popped.
+.
+.
+.IP "\fBmultipath(\fIfields\fB, \fIbasis\fB, \fIalgorithm\fB, \fIn_links\fB, \fIarg\fB, \fIdst\fB[\fIstart\fB..\fIend\fB])\fR"
+Hashes \fIfields\fR using \fIbasis\fR as a universal hash parameter,
+then the applies multipath link selection \fIalgorithm\fR (with
+parameter \fIarg\fR) to choose one of \fIn_links\fR output links
+numbered 0 through \fIn_links\fR minus 1, and stores the link into
+\fIdst\fB[\fIstart\fB..\fIend\fB]\fR, which must be an NXM field as
+described above.
+.IP
+Currently, \fIfields\fR must be either \fBeth_src\fR or
+\fBsymmetric_l4\fR and \fIalgorithm\fR must be one of \fBmodulo_n\fR,
+\fBhash_threshold\fR, \fBhrw\fR, and \fBiter_hash\fR.  Only
+the \fBiter_hash\fR algorithm uses \fIarg\fR.
+.IP
+Refer to \fBnicira\-ext.h\fR for more details.
+.
+.IP "\fBbundle(\fIfields\fB, \fIbasis\fB, \fIalgorithm\fB, \fIslave_type\fB, slaves:[\fIs1\fB, \fIs2\fB, ...])\fR"
+Hashes \fIfields\fR using \fIbasis\fR as a universal hash parameter, then
+applies the bundle link selection \fIalgorithm\fR to choose one of the listed
+slaves represented as \fIslave_type\fR.  Currently the only supported
+\fIslave_type\fR is \fBofport\fR.  Thus, each \fIs1\fR through \fIsN\fR should
+be an OpenFlow port number. Outputs to the selected slave.
+.IP
+Currently, \fIfields\fR must be either \fBeth_src\fR or \fBsymmetric_l4\fR and
+\fIalgorithm\fR must be one of \fBhrw\fR and \fBactive_backup\fR.
+.IP
+Example: \fBbundle(eth_src,0,hrw,ofport,slaves:4,8)\fR uses an Ethernet source
+hash with basis 0, to select between OpenFlow ports 4 and 8 using the Highest
+Random Weight algorithm.
+.IP
+Refer to \fBnicira\-ext.h\fR for more details.
+.
+.IP "\fBbundle_load(\fIfields\fB, \fIbasis\fB, \fIalgorithm\fB, \fIslave_type\fB, \fIdst\fB[\fIstart\fB..\fIend\fB], slaves:[\fIs1\fB, \fIs2\fB, ...])\fR"
+Has the same behavior as the \fBbundle\fR action, with one exception.  Instead
+of outputting to the selected slave, it writes its selection to
+\fIdst\fB[\fIstart\fB..\fIend\fB]\fR, which must be an NXM field as described
+above.
+.IP
+Example: \fBbundle_load(eth_src, 0, hrw, ofport, NXM_NX_REG0[],
+slaves:4, 8)\fR uses an Ethernet source hash with basis 0, to select
+between OpenFlow ports 4 and 8 using the Highest Random Weight
+algorithm, and writes the selection to \fBNXM_NX_REG0[]\fR.
+.IP
+Refer to \fBnicira\-ext.h\fR for more details.
+.
+.IP "\fBlearn(\fIargument\fR[\fB,\fIargument\fR]...\fB)\fR"
+This action adds or modifies a flow in an OpenFlow table, similar to
+\fBovs\-ofctl \-\-strict mod\-flows\fR.  The arguments specify the
+flow's match fields, actions, and other properties, as follows.  At
+least one match criterion and one action argument should ordinarily be
+specified.
+.RS
+.IP \fBidle_timeout=\fIseconds\fR
+.IQ \fBhard_timeout=\fIseconds\fR
+.IQ \fBpriority=\fIvalue\fR
+.IQ \fBcookie=\fIvalue\fR
+.IQ \fBsend_flow_rem\fR
+These arguments have the same meaning as in the usual \fBovs\-ofctl\fR
+flow syntax.
+.
+.IP \fBfin_idle_timeout=\fIseconds\fR
+.IQ \fBfin_hard_timeout=\fIseconds\fR
+Adds a \fBfin_timeout\fR action with the specified arguments to the
+new flow.  This feature was added in Open vSwitch 1.5.90.
+.
+.IP \fBtable=\fInumber\fR
+The table in which the new flow should be inserted.  Specify a decimal
+number between 0 and 254.  The default, if \fBtable\fR is unspecified,
+is table 1.
+.
+.IP \fBdelete_learned\fR
+This flag enables deletion of the learned flows when the flow with the
+\fBlearn\fR action is removed.  Specifically, when the last
+\fBlearn\fR action with this flag and particular \fBtable\fR and
+\fBcookie\fR values is removed, the switch deletes all of the flows in
+the specified table with the specified cookie.
+.
+.IP
+This flag was added in Open vSwitch 2.4.
+.
+.IP \fIfield\fB=\fIvalue\fR
+.IQ \fIfield\fB[\fIstart\fB..\fIend\fB]=\fIsrc\fB[\fIstart\fB..\fIend\fB]\fR
+.IQ \fIfield\fB[\fIstart\fB..\fIend\fB]\fR
+Adds a match criterion to the new flow.
+.IP
+The first form specifies that \fIfield\fR must match the literal
+\fIvalue\fR, e.g. \fBdl_type=0x0800\fR.  All of the fields and values
+for \fBovs\-ofctl\fR flow syntax are available with their usual
+meanings.
+.IP
+The second form specifies that \fIfield\fB[\fIstart\fB..\fIend\fB]\fR
+in the new flow must match \fIsrc\fB[\fIstart\fB..\fIend\fB]\fR taken
+from the flow currently being processed.
+.IP
+The third form is a shorthand for the second form.  It specifies that
+\fIfield\fB[\fIstart\fB..\fIend\fB]\fR in the new flow must match
+\fIfield\fB[\fIstart\fB..\fIend\fB]\fR taken from the flow currently
+being processed.
+.
+.IP \fBload:\fIvalue\fB\->\fIdst\fB[\fIstart\fB..\fIend\fB]
+.IQ \fBload:\fIsrc\fB[\fIstart\fB..\fIend\fB]\->\fIdst\fB[\fIstart\fB..\fIend\fB]
+.
+Adds a \fBload\fR action to the new flow.
+.IP
+The first form loads the literal \fIvalue\fR into bits \fIstart\fR
+through \fIend\fR, inclusive, in field \fIdst\fR.  Its syntax is the
+same as the \fBload\fR action described earlier in this section.
+.IP
+The second form loads \fIsrc\fB[\fIstart\fB..\fIend\fB]\fR, a value
+from the flow currently being processed, into bits \fIstart\fR
+through \fIend\fR, inclusive, in field \fIdst\fR.
+.
+.IP \fBoutput:\fIfield\fB[\fIstart\fB..\fIend\fB]\fR
+Add an \fBoutput\fR action to the new flow's actions, that outputs to
+the OpenFlow port taken from \fIfield\fB[\fIstart\fB..\fIend\fB]\fR,
+which must be an NXM field as described above.
+.RE
+.IP
+For best performance, segregate learned flows into a table (using
+\fBtable=\fInumber\fR) that is not used for any other flows except
+possibly for a lowest-priority ``catch-all'' flow, that is, a flow
+with no match criteria.  (This is why the default \fBtable\fR is 1, to
+keep the learned flows separate from the primary flow table 0.)
+.RE
+.
+.RS
+.
+.IP \fBclear_actions\fR
+Clears all the actions in the action set immediately.
+.
+.IP \fBwrite_actions(\fR[\fIaction\fR][\fB,\fIaction\fR...]\fB)
+Add the specific actions to the action set.  The syntax of
+\fIactions\fR is the same as in the \fBactions=\fR field.  The action
+set is carried between flow tables and then executed at the end of the
+pipeline.
+.
+.IP
+The actions in the action set are applied in the following order, as
+required by the OpenFlow specification, regardless of the order in
+which they were added to the action set.  Except as specified
+otherwise below, the action set only holds at most a single action of
+each type.  When more than one action of a single type is written to
+the action set, the one written later replaces the earlier action:
+.
+.RS
+.IP 1.
+\fBstrip_vlan\fR
+.IQ
+\fBpop_mpls\fR
+.
+.IP 2.
+\fBpush_mpls\fR
+.
+.IP 3.
+\fBpush_vlan\fR
+.
+.IP 4.
+\fBdec_ttl\fR
+.IQ
+\fBdec_mpls_ttl\fR
+.
+.IP 5.
+\fBload\fR
+.IQ
+\fBmove\fR
+.IQ
+\fBmod_dl_dst\fR
+.IQ
+\fBmod_dl_src\fR
+.IQ
+\fBmod_nw_dst\fR
+.IQ
+\fBmod_nw_src\fR
+.IQ
+\fBmod_nw_tos\fR
+.IQ
+\fBmod_nw_ecn\fR
+.IQ
+\fBmod_nw_ttl\fR
+.IQ
+\fBmod_tp_dst\fR
+.IQ
+\fBmod_tp_src\fR
+.IQ
+\fBmod_vlan_pcp\fR
+.IQ
+\fBmod_vlan_vid\fR
+.IQ
+\fBset_field\fR
+.IQ
+\fBset_tunnel\fR
+.IQ
+\fBset_tunnel64\fR
+.IQ
+The action set can contain any number of these actions, with
+cumulative effect. They will be applied in the order as added.
+That is, when multiple actions modify the same part of a field,
+the later modification takes effect, and when they modify
+different parts of a field (or different fields), then both
+modifications are applied.
+.
+.IP 6.
+\fBset_queue\fR
+.
+.IP 7.
+\fBgroup\fR
+.IQ
+\fBoutput\fR
+.IQ
+\fBresubmit\fR
+.IQ
+If more than one of these actions is present, then the one listed
+earliest above is executed and the others are ignored, regardless of
+the order in which they were added to the action set.  (If none of these
+actions is present, the action set has no real effect, because the
+modified packet is not sent anywhere and thus the modifications are
+not visible.)
+.RE
+.IP
+Only the actions listed above may be written to the action set.
+.
+.IP \fBwrite_metadata\fB:\fIvalue\fR[/\fImask\fR]
+Updates the metadata field for the flow. If \fImask\fR is omitted, the
+metadata field is set exactly to \fIvalue\fR; if \fImask\fR is specified, then
+a 1-bit in \fImask\fR indicates that the corresponding bit in the metadata
+field will be replaced with the corresponding bit from \fIvalue\fR. Both
+\fIvalue\fR and \fImask\fR are 64-bit values that are decimal by default; use
+a \fB0x\fR prefix to specify them in hexadecimal.
+.
+.IP \fBmeter\fR:\fImeter_id\fR
+Apply the \fImeter_id\fR before any other actions. If a meter band rate is
+exceeded, the packet may be dropped, or modified, depending on the meter
+band type. See the description of the \fBMeter Table Commands\fR, above,
+for more details.
+.
+.IP \fBgoto_table\fR:\fItable\fR
+Indicates the next table in the process pipeline.
+.
+.IP "\fBfin_timeout(\fIargument\fR[\fB,\fIargument\fR]\fB)"
+This action changes the idle timeout or hard timeout, or both, of this
+OpenFlow rule when the rule matches a TCP packet with the FIN or RST
+flag.  When such a packet is observed, the action reduces the rule's
+timeouts to those specified on the action.  If the rule's existing
+timeout is already shorter than the one that the action specifies,
+then that timeout is unaffected.
+.IP
+\fIargument\fR takes the following forms:
+.RS
+.IP "\fBidle_timeout=\fIseconds\fR"
+Causes the flow to expire after the given number of seconds of
+inactivity.
+.
+.IP "\fBhard_timeout=\fIseconds\fR"
+Causes the flow to expire after the given number of seconds,
+regardless of activity.  (\fIseconds\fR specifies time since the
+flow's creation, not since the receipt of the FIN or RST.)
+.RE
+.IP
+This action was added in Open vSwitch 1.5.90.
+.
+.IP "\fBsample(\fIargument\fR[\fB,\fIargument\fR]...\fB)\fR"
+Samples packets and sends one sample for every sampled packet.
+.IP
+\fIargument\fR takes the following forms:
+.RS
+.IP "\fBprobability=\fIpackets\fR"
+The number of sampled packets out of 65535.  Must be greater or equal to 1.
+.IP "\fBcollector_set_id=\fIid\fR"
+The unsigned 32-bit integer identifier of the set of sample collectors
+to send sampled packets to.  Defaults to 0.
+.IP "\fBobs_domain_id=\fIid\fR"
+When sending samples to IPFIX collectors, the unsigned 32-bit integer
+Observation Domain ID sent in every IPFIX flow record.  Defaults to 0.
+.IP "\fBobs_point_id=\fIid\fR"
+When sending samples to IPFIX collectors, the unsigned 32-bit integer
+Observation Point ID sent in every IPFIX flow record.  Defaults to 0.
+.RE
+.IP
+Refer to \fBovs\-vswitchd.conf.db\fR(8) for more details on
+configuring sample collector sets.
+.IP
+This action was added in Open vSwitch 1.10.90.
+.
+.IP "\fBexit\fR"
+This action causes Open vSwitch to immediately halt execution of
+further actions.  Those actions which have already been executed are
+unaffected.  Any further actions, including those which may be in
+other tables, or different levels of the \fBresubmit\fR call stack,
+are ignored.  Actions in the action set is still executed (specify
+\fBclear_actions\fR before \fBexit\fR to discard them).
+.RE
+.
+.PP
+An opaque identifier called a cookie can be used as a handle to identify
+a set of flows:
+.
+.IP \fBcookie=\fIvalue\fR
+.
+A cookie can be associated with a flow using the \fBadd\-flow\fR,
+\fBadd\-flows\fR, and \fBmod\-flows\fR commands.  \fIvalue\fR can be any
+64-bit number and need not be unique among flows.  If this field is
+omitted, a default cookie value of 0 is used.
+.
+.IP \fBcookie=\fIvalue\fR\fB/\fImask\fR
+.
+When using NXM, the cookie can be used as a handle for querying,
+modifying, and deleting flows.  \fIvalue\fR and \fImask\fR may be
+supplied for the \fBdel\-flows\fR, \fBmod\-flows\fR, \fBdump\-flows\fR, and
+\fBdump\-aggregate\fR commands to limit matching cookies.  A 1-bit in
+\fImask\fR indicates that the corresponding bit in \fIcookie\fR must
+match exactly, and a 0-bit wildcards that bit.  A mask of \-1 may be used
+to exactly match a cookie.
+.IP
+The \fBmod\-flows\fR command can update the cookies of flows that
+match a cookie by specifying the \fIcookie\fR field twice (once with a
+mask for matching and once without to indicate the new value):
+.RS
+.IP "\fBovs\-ofctl mod\-flows br0 cookie=1,actions=normal\fR"
+Change all flows' cookies to 1 and change their actions to \fBnormal\fR.
+.IP "\fBovs\-ofctl mod\-flows br0 cookie=1/\-1,cookie=2,actions=normal\fR"
+Update cookies with a value of 1 to 2 and change their actions to
+\fBnormal\fR.
+.RE
+.IP
+The ability to match on cookies was added in Open vSwitch 1.5.0.
+.
+.PP
+The following additional field sets the priority for flows added by
+the \fBadd\-flow\fR and \fBadd\-flows\fR commands.  For
+\fBmod\-flows\fR and \fBdel\-flows\fR when \fB\-\-strict\fR is
+specified, priority must match along with the rest of the flow
+specification.  For \fBmod-flows\fR without \fB\-\-strict\fR,
+priority is only significant if the command creates a new flow, that
+is, non-strict \fBmod\-flows\fR does not match on priority and will
+not change the priority of existing flows.  Other commands do not
+allow priority to be specified.
+.
+.IP \fBpriority=\fIvalue\fR
+The priority at which a wildcarded entry will match in comparison to
+others.  \fIvalue\fR is a number between 0 and 65535, inclusive.  A higher 
+\fIvalue\fR will match before a lower one.  An exact-match entry will always 
+have priority over an entry containing wildcards, so it has an implicit 
+priority value of 65535.  When adding a flow, if the field is not specified, 
+the flow's priority will default to 32768.
+.IP
+OpenFlow leaves behavior undefined when two or more flows with the
+same priority can match a single packet.  Some users expect
+``sensible'' behavior, such as more specific flows taking precedence
+over less specific flows, but OpenFlow does not specify this and Open
+vSwitch does not implement it.  Users should therefore take care to
+use priorities to ensure the behavior that they expect.
+.
+.PP
+The \fBadd\-flow\fR, \fBadd\-flows\fR, and \fBmod\-flows\fR commands
+support the following additional options.  These options affect only
+new flows.  Thus, for \fBadd\-flow\fR and \fBadd\-flows\fR, these
+options are always significant, but for \fBmod\-flows\fR they are
+significant only if the command creates a new flow, that is, their
+values do not update or affect existing flows.
+.
+.IP "\fBidle_timeout=\fIseconds\fR"
+Causes the flow to expire after the given number of seconds of
+inactivity.  A value of 0 (the default) prevents a flow from expiring
+due to inactivity.
+.
+.IP \fBhard_timeout=\fIseconds\fR
+Causes the flow to expire after the given number of seconds,
+regardless of activity.  A value of 0 (the default) gives the flow no
+hard expiration deadline.
+.
+.IP "\fBimportance=\fIvalue\fR"
+Sets the importance of a flow.  The flow entry eviction mechanism can
+use importance as a factor in deciding which flow to evict.  A value
+of 0 (the default) makes the flow non-evictable on the basis of
+importance.  Specify a value between 0 and 65535.
+.IP
+Only OpenFlow 1.4 and later support \fBimportance\fR.
+.
+.IP "\fBsend_flow_rem\fR"
+Marks the flow with a flag that causes the switch to generate a ``flow
+removed'' message and send it to interested controllers when the flow
+later expires or is removed.
+.
+.IP "\fBcheck_overlap\fR"
+Forces the switch to check that the flow match does not overlap that
+of any different flow with the same priority in the same table.  (This
+check is expensive so it is best to avoid it.)
+.
+.PP
+The \fBdump\-flows\fR, \fBdump\-aggregate\fR, \fBdel\-flow\fR 
+and \fBdel\-flows\fR commands support one additional optional field:
+.
+.TP
+\fBout_port=\fIport\fR
+If set, a matching flow must include an output action to \fIport\fR,
+which must be an OpenFlow port number or name (e.g. \fBlocal\fR).
+.
+.SS "Table Entry Output"
+.
+The \fBdump\-tables\fR and \fBdump\-aggregate\fR commands print information 
+about the entries in a datapath's tables.  Each line of output is a 
+flow entry as described in \fBFlow Syntax\fR, above, plus some
+additional fields:
+.
+.IP \fBduration=\fIsecs\fR
+The time, in seconds, that the entry has been in the table.
+\fIsecs\fR includes as much precision as the switch provides, possibly
+to nanosecond resolution.
+.
+.IP \fBn_packets\fR
+The number of packets that have matched the entry.
+.
+.IP \fBn_bytes\fR
+The total number of bytes from packets that have matched the entry.
+.
+.PP
+The following additional fields are included only if the switch is
+Open vSwitch 1.6 or later and the NXM flow format is used to dump the
+flow (see the description of the \fB\-\-flow-format\fR option below).
+The values of these additional fields are approximations only and in
+particular \fBidle_age\fR will sometimes become nonzero even for busy
+flows.
+.
+.IP \fBhard_age=\fIsecs\fR
+The integer number of seconds since the flow was added or modified.
+\fBhard_age\fR is displayed only if it differs from the integer part
+of \fBduration\fR.  (This is separate from \fBduration\fR because
+\fBmod\-flows\fR restarts the \fBhard_timeout\fR timer without zeroing
+\fBduration\fR.)
+.
+.IP \fBidle_age=\fIsecs\fR
+The integer number of seconds that have passed without any packets
+passing through the flow.
+.
+.SS "Group Syntax"
+.PP
+Some \fBovs\-ofctl\fR commands accept an argument that describes a group or
+groups.  Such flow descriptions comprise a series
+\fIfield\fB=\fIvalue\fR assignments, separated by commas or white
+space.  (Embedding spaces into a group description normally requires
+quoting to prevent the shell from breaking the description into
+multiple arguments.). Unless noted otherwise only the last instance
+of each field is honoured.
+.PP
+.IP \fBgroup_id=\fIid\fR
+The integer group id of group.
+When this field is specified in \fBdel\-groups\fR or \fBdump\-groups\fR,
+the keyword "all" may be used to designate all groups.
+.
+This field is required.
+
+
+.IP \fBtype=\fItype\fR
+The type of the group.  The \fBadd-group\fR, \fBadd-groups\fR and
+\fBmod-groups\fR commands require this field.  It is prohibited for
+other commands. The following keywords designated the allowed types:
+.RS
+.IP \fBall\fR
+Execute all buckets in the group.
+.IP \fBselect\fR
+Execute one bucket in the group.
+The switch should select the bucket in such a way that should implement
+equal load sharing is achieved.  The switch may optionally select the
+bucket based on bucket weights.
+.IP \fBindirect\fR
+Executes the one bucket in the group.
+.IP \fBff\fR
+.IQ \fBfast_failover\fR
+Executes the first live bucket in the group which is associated with
+a live port or group.
+.RE
+
+.IP \fBcommand_bucket_id=\fIid\fR
+The bucket to operate on.  The \fBinsert-buckets\fR and \fBremove-buckets\fR
+commands require this field.  It is prohibited for other commands.
+\fIid\fR may be an integer or one of the following keywords:
+.RS
+.IP \fBall\fR
+Operate on all buckets in the group.
+Only valid when used with the \fBremove-buckets\fR command in which
+case the effect is to remove all buckets from the group.
+.IP \fBfirst\fR
+Operate on the first bucket present in the group.
+In the case of the \fBinsert-buckets\fR command the effect is to
+insert new bucets just before the first bucket already present in the group;
+or to replace the buckets of the group if there are no buckets already present
+in the group.
+In the case of the \fBremove-buckets\fR command the effect is to
+remove the first bucket of the group; or do nothing if there are no
+buckets present in the group.
+.IP \fBlast\fR
+Operate on the last bucket present in the group.
+In the case of the \fBinsert-buckets\fR command the effect is to
+insert new bucets just after the last bucket already present in the group;
+or to replace the buckets of the group if there are no buckets already present
+in the group.
+In the case of the \fBremove-buckets\fR command the effect is to
+remove the last bucket of the group; or do nothing if there are no
+buckets present in the group.
+.RE
+.IP
+If \fIid\fR is an integer then it should correspond to the \fBbucket_id\fR
+of a bucket present in the group.
+In case of the \fBinsert-buckets\fR command the effect is to
+insert buckets just before the bucket in the group whose \fBbucket_id\fR is
+\fIid\fR.
+In case of the \fBiremove-buckets\fR command the effect is to
+remove the in the group whose \fBbucket_id\fR is \fIid\fR.
+It is an error if there is no bucket persent group in whose \fBbucket_id\fR is
+\fIid\fR.
+
+.IP \fBbucket\fR=\fIbucket_parameters\fR
+The \fBadd-group\fR, \fBadd-groups\fR and \fBmod-group\fR commands
+require at least one bucket field. Bucket fields must appear after
+all other fields.
+.
+Multiple bucket fields to specify multiple buckets.
+The order in which buckets are specified corresponds to their order in
+the group. If the type of the group is "indirect" then only one group may
+be specified.
+.
+\fIbucket_parameters\fR consists of a list of \fIfield\fB=\fIvalue\fR
+assignments, separated by commas or white space followed by a
+comma-separated list of actions.
+The fields for \fIbucket_parameters\fR are:
+.
+.RS
+.IP \fBbucket_id=\fIid\fR
+The 32-bit integer group id of the bucket.  Values greater than
+0xffffff00 are reserved.
+.
+This field was added in Open vSwitch 2.4 to conform with the OpenFlow
+1.5 (draft) specification. It is not supported when earlier versions
+of OpenFlow are used.  Open vSwitch will automatically allocate bucket
+ids when they are not specified.
+.IP \fBactions=\fR[\fIaction\fR][\fB,\fIaction\fR...]\fR
+The syntax of actions are identical to the \fBactions=\fR field described in
+\fBFlow Syntax\fR above. Specyfing \fBactions=\fR is optional, any unknown
+bucket parameter will be interpreted as an action.
+.IP \fBweight=\fIvalue\fR
+The relative weight of the bucket as an integer. This may be used by the switch
+during bucket select for groups whose \fBtype\fR is \fBselect\fR.
+.IP \fBwatch_port=\fIport\fR
+Port used to determine liveness of group.
+This or the \fBwatch_group\fR field is required
+for groups whose \fBtype\fR is \fBff\fR or \fBfast_failover\fR.
+.IP \fBwatch_group=\fIgroup_id\fR
+Group identifier of group used to determine liveness of group.
+This or the \fBwatch_port\fR field is required
+for groups whose \fBtype\fR is \fBff\fR or \fBfast_failover\fR.
+.RE
+.
+.SS "Meter Syntax"
+.PP
+The meter table commands accept an argument that describes a meter.
+Such meter descriptions comprise a series \fIfield\fB=\fIvalue\fR
+assignments, separated by commas or white space.
+(Embedding spaces into a group description normally requires
+quoting to prevent the shell from breaking the description into
+multiple arguments.). Unless noted otherwise only the last instance
+of each field is honoured.
+.PP
+.IP \fBmeter=\fIid\fR
+The integer meter id of the meter.
+When this field is specified in \fBdel-meter\fR, \fBdump-meter\fR, or
+\fBmeter-stats\fR, the keyword "all" may be used to designate all meters.
+.
+This field is required, exept for \fBmeter-stats\fR, which dumps all stats
+when this field is not specified.
+
+.IP \fBkbps\fR
+.IQ \fBpktps\fR
+The unit for the meter band rate parameters, either kilobits per second, or
+packets per second, respectively.  One of these must be specified.  The burst
+size unit corresponds to the rate unit by dropping the "per second", i.e.,
+burst is in units of kilobits or packets, respectively.
+
+.IP \fBburst\fR
+Specify burst size for all bands, or none of them, if this flag is not given.
+
+.IP \fBstats\fR
+Collect meter and band statistics.
+
+.IP \fBbands\fR=\fIband_parameters\fR
+The \fBadd-meter\fR and \fBmod-meter\fR commands require at least one
+band specification. Bands must appear after all other fields.
+.RS
+.IP \fBtype=\fItype\fR
+The type of the meter band.  This keyword starts a new band specification.
+Each band specifies a rate above which the band is to take some action. The
+action depends on the band type.  If multiple bands' rate is exceeded, then
+the band with the highest rate among the exceeded bands is selected.
+The following keywords designate the allowed
+meter band types:
+.RS
+.IP \fBdrop\fR
+Drop packets exceeding the band's rate limit.
+.RE
+.
+.IP "The other \fIband_parameters\fR are:"
+.IP \fBrate=\fIvalue\fR
+The relative rate limit for this band, in kilobits per second or packets per
+second, depending on the meter flags defined above.
+.IP \fBburst_size=\fIport\fR
+The maximum burst allowed for the band.  If unspecified, the switch is free to
+select some reasonable value depending on it's configuration.
+.RE
+.
+.SH OPTIONS
+.TP
+\fB\-\-strict\fR
+Uses strict matching when running flow modification commands.
+.
+.de IQ
+.  br
+.  ns
+.  IP "\\$1"
+..
+.IP "\fB\-O \fR[\fIversion\fR[\fB,\fIversion\fR]...]\fR"
+.IQ "\fB\-\-protocols=\fR[\fIversion\fR[\fB,\fIversion\fR]...]\fR"
+Sets the OpenFlow protocol versions that are allowed when establishing
+an OpenFlow session.
+.
+.IP
+The following versions are considered to be ready for general use.
+These protocol versions are enabled by default:
+.
+.RS
+.IP \(bu
+\fBOpenFlow10\fR, for OpenFlow 1.0.
+.RE
+.
+.IP
+Support for the following protocol versions is provided for testing
+and development purposes.  They are not enabled by default:
+.
+.RS
+.IP \(bu
+\fBOpenFlow11\fR, for OpenFlow 1.1.
+.
+.IP \(bu
+\fBOpenFlow12\fR, for OpenFlow 1.2.
+.
+.IP \(bu
+\fBOpenFlow13\fR, for OpenFlow 1.3.
+.RE
+.
+.IP "\fB\-F \fIformat\fR[\fB,\fIformat\fR...]"
+.IQ "\fB\-\-flow\-format=\fIformat\fR[\fB,\fIformat\fR...]"
+\fBovs\-ofctl\fR supports the following individual flow formats, any
+number of which may be listed as \fIformat\fR:
+.RS
+.IP "\fBOpenFlow10\-table_id\fR"
+This is the standard OpenFlow 1.0 flow format.  All OpenFlow switches
+and all versions of Open vSwitch support this flow format.
+.
+.IP "\fBOpenFlow10+table_id\fR"
+This is the standard OpenFlow 1.0 flow format plus a Nicira extension
+that allows \fBovs\-ofctl\fR to specify the flow table in which a
+particular flow should be placed.  Open vSwitch 1.2 and later supports
+this flow format.
+.
+.IP "\fBNXM\-table_id\fR (Nicira Extended Match)"
+This Nicira extension to OpenFlow is flexible and extensible.  It
+supports all of the Nicira flow extensions, such as \fBtun_id\fR and
+registers.  Open vSwitch 1.1 and later supports this flow format.
+.
+.IP "\fBNXM+table_id\fR (Nicira Extended Match)"
+This combines Nicira Extended match with the ability to place a flow
+in a specific table.  Open vSwitch 1.2 and later supports this flow
+format.
+.
+.IP "\fBOXM-OpenFlow12\fR"
+.IQ "\fBOXM-OpenFlow13\fR"
+.IQ "\fBOXM-OpenFlow14\fR"
+These are the standard OXM (OpenFlow Extensible Match) flow format in
+OpenFlow 1.2, 1.3, and 1.4, respectively.
+.RE
+.
+.IP
+\fBovs\-ofctl\fR also supports the following abbreviations for
+collections of flow formats:
+.RS
+.IP "\fBany\fR"
+Any supported flow format.
+.IP "\fBOpenFlow10\fR"
+\fBOpenFlow10\-table_id\fR or \fBOpenFlow10+table_id\fR.
+.IP "\fBNXM\fR"
+\fBNXM\-table_id\fR or \fBNXM+table_id\fR.
+.IP "\fBOXM\fR"
+\fBOXM-OpenFlow12\fR, \fBOXM-OpenFlow13\fR, or \fBOXM-OpenFlow14\fR.
+.RE
+.
+.IP
+For commands that modify the flow table, \fBovs\-ofctl\fR by default
+negotiates the most widely supported flow format that supports the
+flows being added.  For commands that query the flow table,
+\fBovs\-ofctl\fR by default uses the most advanced format supported by
+the switch.
+.IP
+This option, where \fIformat\fR is a comma-separated list of one or
+more of the formats listed above, limits \fBovs\-ofctl\fR's choice of
+flow format.  If a command cannot work as requested using one of the
+specified flow formats, \fBovs\-ofctl\fR will report a fatal error.
+.
+.IP "\fB\-P \fIformat\fR"
+.IQ "\fB\-\-packet\-in\-format=\fIformat\fR"
+\fBovs\-ofctl\fR supports the following packet_in formats, in order of
+increasing capability:
+.RS
+.IP "\fBopenflow10\fR"
+This is the standard OpenFlow 1.0 packet in format. It should be supported by
+all OpenFlow switches.
+.
+.IP "\fBnxm\fR (Nicira Extended Match)"
+This packet_in format includes flow metadata encoded using the NXM format.
+.
+.RE
+.IP
+Usually, \fBovs\-ofctl\fR prefers the \fBnxm\fR packet_in format, but will
+allow the switch to choose its default if \fBnxm\fR is unsupported.  When
+\fIformat\fR is one of the formats listed in the above table, \fBovs\-ofctl\fR
+will insist on the selected format.  If the switch does not support the
+requested format, \fBovs\-ofctl\fR will report a fatal error.  This option only
+affects the \fBmonitor\fR command.
+.
+.IP "\fB\-\-timestamp\fR"
+Print a timestamp before each received packet.  This option only
+affects the \fBmonitor\fR, \fBsnoop\fR, and \fBofp\-parse\-pcap\fR
+commands.
+.
+.IP "\fB\-m\fR"
+.IQ "\fB\-\-more\fR"
+Increases the verbosity of OpenFlow messages printed and logged by
+\fBovs\-ofctl\fR commands.  Specify this option more than once to
+increase verbosity further.
+.
+.IP \fB\-\-sort\fR[\fB=\fIfield\fR]
+.IQ \fB\-\-rsort\fR[\fB=\fIfield\fR]
+Display output sorted by flow \fIfield\fR in ascending
+(\fB\-\-sort\fR) or descending (\fB\-\-rsort\fR) order, where
+\fIfield\fR is any of the fields that are allowed for matching or
+\fBpriority\fR to sort by priority.  When \fIfield\fR is omitted, the
+output is sorted by priority.  Specify these options multiple times to
+sort by multiple fields.
+.IP
+Any given flow will not necessarily specify a value for a given
+field.  This requires special treatement:
+.RS
+.IP \(bu
+A flow that does not specify any part of a field that is used for sorting is
+sorted after all the flows that do specify the field.  For example,
+\fB\-\-sort=tcp_src\fR will sort all the flows that specify a TCP
+source port in ascending order, followed by the flows that do not
+specify a TCP source port at all.
+.IP \(bu
+A flow that only specifies some bits in a field is sorted as if the
+wildcarded bits were zero.  For example, \fB\-\-sort=nw_src\fR would
+sort a flow that specifies \fBnw_src=192.168.0.0/24\fR the same as
+\fBnw_src=192.168.0.0\fR.
+.RE
+.IP
+These options currently affect only \fBdump\-flows\fR output.
+.
+.ds DD \
+\fBovs\-ofctl\fR detaches only when executing the \fBmonitor\fR or \
+\fBsnoop\fR commands.
+The following options are valid on POSIX based platforms.
+.TP
+\fB\-\-pidfile\fR[\fB=\fIpidfile\fR]
+Causes a file (by default, \fB\*(PN.pid\fR) to be created indicating
+the PID of the running process.  If the \fIpidfile\fR argument is not
+specified, or
+if it does not begin with \fB/\fR, then it is created in
+\fB/var/run/openvswitch\fR.
+.IP
+If \fB\-\-pidfile\fR is not specified, no pidfile is created.
+.
+.TP
+\fB\-\-overwrite\-pidfile\fR
+By default, when \fB\-\-pidfile\fR is specified and the specified pidfile 
+already exists and is locked by a running process, \fB\*(PN\fR refuses 
+to start.  Specify \fB\-\-overwrite\-pidfile\fR to cause it to instead 
+overwrite the pidfile.
+.IP
+When \fB\-\-pidfile\fR is not specified, this option has no effect.
+.
+.TP
+\fB\-\-detach\fR
+Causes \fB\*(PN\fR to detach itself from the foreground session and
+run as a background process. \*(DD
+.
+.TP
+\fB\-\-monitor\fR
+Creates an additional process to monitor the \fB\*(PN\fR daemon.  If
+the daemon dies due to a signal that indicates a programming error
+(\fBSIGABRT\fR, \fBSIGALRM\fR, \fBSIGBUS\fR, \fBSIGFPE\fR,
+\fBSIGILL\fR, \fBSIGPIPE\fR, \fBSIGSEGV\fR, \fBSIGXCPU\fR, or
+\fBSIGXFSZ\fR) then the monitor process starts a new copy of it.  If
+the daemon dies or exits for another reason, the monitor process exits.
+.IP
+This option is normally used with \fB\-\-detach\fR, but it also
+functions without it.
+.
+.TP
+\fB\-\-no\-chdir\fR
+By default, when \fB\-\-detach\fR is specified, \fB\*(PN\fR 
+changes its current working directory to the root directory after it 
+detaches.  Otherwise, invoking \fB\*(PN\fR from a carelessly chosen 
+directory would prevent the administrator from unmounting the file 
+system that holds that directory.
+.IP
+Specifying \fB\-\-no\-chdir\fR suppresses this behavior, preventing
+\fB\*(PN\fR from changing its current working directory.  This may be 
+useful for collecting core files, since it is common behavior to write 
+core dumps into the current working directory and the root directory 
+is not a good directory to use.
+.IP
+This option has no effect when \fB\-\-detach\fR is not specified.
+.IP "\fB\-\-unixctl=\fIsocket\fR"
+Sets the name of the control socket on which \fB\*(PN\fR listens for
+runtime management commands (see \fBRUNTIME MANAGEMENT COMMANDS\fR,
+below).  If \fIsocket\fR does not begin with \fB/\fR, it is
+interpreted as relative to \fB/var/run/openvswitch\fR.  If \fB\-\-unixctl\fR is
+not used at all, the default socket is
+\fB/var/run/openvswitch/\*(PN.\fIpid\fB.ctl\fR, where \fIpid\fR is \fB\*(PN\fR's
+process ID.
+.IP
+On Windows, uses a kernel chosen TCP port on the localhost to listen
+for runtime management commands.  The kernel chosen TCP port value is written
+in a file whose absolute path is pointed by \fIsocket\fR. If \fB\-\-unixctl\fR
+is not used at all, the file is created as \fB\*(PN.ctl\fR in the configured
+\fIOVS_RUNDIR\fR directory.
+.IP
+Specifying \fBnone\fR for \fIsocket\fR disables the control socket
+feature.
+.SS "Public Key Infrastructure Options"
+.de IQ
+.  br
+.  ns
+.  IP "\\$1"
+..
+.IP "\fB\-p\fR \fIprivkey.pem\fR"
+.IQ "\fB\-\-private\-key=\fIprivkey.pem\fR"
+Specifies a PEM file containing the private key used as \fB\*(PN\fR's
+identity for outgoing SSL connections.
+.
+.IP "\fB\-c\fR \fIcert.pem\fR"
+.IQ "\fB\-\-certificate=\fIcert.pem\fR"
+Specifies a PEM file containing a certificate that certifies the
+private key specified on \fB\-p\fR or \fB\-\-private\-key\fR to be
+trustworthy.  The certificate must be signed by the certificate
+authority (CA) that the peer in SSL connections will use to verify it.
+.
+.IP "\fB\-C\fR \fIcacert.pem\fR"
+.IQ "\fB\-\-ca\-cert=\fIcacert.pem\fR"
+Specifies a PEM file containing the CA certificate that \fB\*(PN\fR
+should use to verify certificates presented to it by SSL peers.  (This
+may be the same certificate that SSL peers use to verify the
+certificate specified on \fB\-c\fR or \fB\-\-certificate\fR, or it may
+be a different one, depending on the PKI design in use.)
+.
+.IP "\fB\-C none\fR"
+.IQ "\fB\-\-ca\-cert=none\fR"
+Disables verification of certificates presented by SSL peers.  This
+introduces a security risk, because it means that certificates cannot
+be verified to be those of known trusted hosts.
+.de IQ
+.  br
+.  ns
+.  IP "\\$1"
+..
+.IP "\fB\-v\fR[\fIspec\fR]
+.IQ "\fB\-\-verbose=\fR[\fIspec\fR]
+.
+Sets logging levels.  Without any \fIspec\fR, sets the log level for
+every module and facility to \fBdbg\fR.  Otherwise, \fIspec\fR is a
+list of words separated by spaces or commas or colons, up to one from
+each category below:
+.
+.RS
+.IP \(bu
+A valid module name, as displayed by the \fBvlog/list\fR command on
+\fBovs\-appctl\fR(8), limits the log level change to the specified
+module.
+.
+.IP \(bu
+\fBsyslog\fR, \fBconsole\fR, or \fBfile\fR, to limit the log level
+change to only to the system log, to the console, or to a file,
+respectively.
+.IP
+On Windows platform, \fBsyslog\fR is accepted as a word and is only
+useful along with the \fB\-\-syslog\-target\fR option (the word has no
+effect otherwise).
+.
+.IP \(bu
+\fBoff\fR, \fBemer\fR, \fBerr\fR, \fBwarn\fR, \fBinfo\fR, or
+\fBdbg\fR, to control the log level.  Messages of the given severity
+or higher will be logged, and messages of lower severity will be
+filtered out.  \fBoff\fR filters out all messages.  See
+\fBovs\-appctl\fR(8) for a definition of each log level.
+.RE
+.
+.IP
+Case is not significant within \fIspec\fR.
+.IP
+Regardless of the log levels set for \fBfile\fR, logging to a file
+will not take place unless \fB\-\-log\-file\fR is also specified (see
+below).
+.IP
+For compatibility with older versions of OVS, \fBany\fR is accepted as
+a word but has no effect.
+.
+.IP "\fB\-v\fR"
+.IQ "\fB\-\-verbose\fR"
+Sets the maximum logging verbosity level, equivalent to
+\fB\-\-verbose=dbg\fR.
+.
+.IP "\fB\-vPATTERN:\fIfacility\fB:\fIpattern\fR"
+.IQ "\fB\-\-verbose=PATTERN:\fIfacility\fB:\fIpattern\fR"
+Sets the log pattern for \fIfacility\fR to \fIpattern\fR.  Refer to
+\fBovs\-appctl\fR(8) for a description of the valid syntax for \fIpattern\fR.
+.
+.TP
+\fB\-\-log\-file\fR[\fB=\fIfile\fR]
+Enables logging to a file.  If \fIfile\fR is specified, then it is
+used as the exact name for the log file.  The default log file name
+used if \fIfile\fR is omitted is \fB/var/log/openvswitch/\*(PN.log\fR.
+.
+.IP "\fB\-\-syslog\-target=\fIhost\fB:\fIport\fR"
+Send syslog messages to UDP \fIport\fR on \fIhost\fR, in addition to
+the system syslog.  The \fIhost\fR must be a numerical IP address, not
+a hostname.
+.de IQ
+.  br
+.  ns
+.  IP "\\$1"
+..
+.IP "\fB\-h\fR"
+.IQ "\fB\-\-help\fR"
+Prints a brief help message to the console.
+.
+.IP "\fB\-V\fR"
+.IQ "\fB\-\-version\fR"
+Prints version information to the console.
+.
+.SH "RUNTIME MANAGEMENT COMMANDS"
+\fBovs\-appctl\fR(8) can send commands to a running \fBovs\-ofctl\fR
+process.  The supported commands are listed below.
+.
+.IP "\fBexit\fR"
+Causes \fBovs\-ofctl\fR to gracefully terminate.  This command applies
+only when executing the \fBmonitor\fR or \fBsnoop\fR commands.
+.
+.IP "\fBofctl/set\-output\-file \fIfile\fR"
+Causes all subsequent output to go to \fIfile\fR instead of stderr.
+This command applies only when executing the \fBmonitor\fR or
+\fBsnoop\fR commands.
+.
+.IP "\fBofctl/send \fIofmsg\fR..."
+Sends each \fIofmsg\fR, specified as a sequence of hex digits that
+express an OpenFlow message, on the OpenFlow connection.  This command
+is useful only when executing the \fBmonitor\fR command.
+.
+.IP "\fBofctl/barrier\fR"
+Sends an OpenFlow barrier request on the OpenFlow connection and waits
+for a reply.  This command is useful only for the \fBmonitor\fR
+command.
+.
+.SH EXAMPLES
+.
+The following examples assume that \fBovs\-vswitchd\fR has a bridge
+named \fBbr0\fR configured.
+.
+.TP
+\fBovs\-ofctl dump\-tables br0\fR
+Prints out the switch's table stats.  (This is more interesting after
+some traffic has passed through.)
+.
+.TP
+\fBovs\-ofctl dump\-flows br0\fR
+Prints the flow entries in the switch.
+.
+.SH "SEE ALSO"
+.
+.BR ovs\-appctl (8),
+.BR ovs\-vswitchd (8)
+.BR ovs\-vswitchd.conf.db (8)

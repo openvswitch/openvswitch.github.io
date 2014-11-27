@@ -1,0 +1,301 @@
+<html><head>
+  <meta charset="UTF-8"></head>
+  <link rel="stylesheet" type="text/css" href="style.css">
+  <title>INSTALL.DPDK.md (Open vSwitch 2.3.90)</title>
+</head><body>
+<h1>Using Open vSwitch with DPDK</h1>
+
+<p>Open vSwitch can use Intel(R) DPDK lib to operate entirely in
+userspace. This file explains how to install and use Open vSwitch in
+such a mode.</p>
+
+<p>The DPDK support of Open vSwitch is considered experimental.
+It has not been thoroughly tested.</p>
+
+<p>This version of Open vSwitch should be built manually with <code>configure</code>
+and <code>make</code>.</p>
+
+<p>OVS needs a system with 1GB hugepages support.</p>
+
+<h2>Building and Installing:</h2>
+
+<p>Required DPDK 1.7</p>
+
+<ol>
+<li><p>Configure build &amp; install DPDK:</p>
+
+<ol>
+<li><p>Set <code>$DPDK_DIR</code></p>
+
+<p><code>
+export DPDK_DIR=/usr/src/dpdk-1.7.1
+cd $DPDK_DIR
+</code></p></li>
+<li><p>Update <code>config/common_linuxapp</code> so that DPDK generate single lib file.
+(modification also required for IVSHMEM build)</p>
+
+<p><code>CONFIG_RTE_BUILD_COMBINE_LIBS=y</code></p>
+
+<p>Then run <code>make install</code> to build and isntall the library.
+For default install without IVSHMEM:</p>
+
+<p><code>make install T=x86_64-native-linuxapp-gcc</code></p>
+
+<p>To include IVSHMEM (shared memory):</p>
+
+<p><code>make install T=x86_64-ivshmem-linuxapp-gcc</code></p>
+
+<p>For further details refer to http://dpdk.org/</p></li>
+</ol></li>
+<li><p>Configure &amp; build the Linux kernel:</p>
+
+<p>Refer to intel-dpdk-getting-started-guide.pdf for understanding
+DPDK kernel requirement.</p></li>
+<li><p>Configure &amp; build OVS:</p>
+
+<ul>
+<li><p>Non IVSHMEM:</p>
+
+<p><code>export DPDK_BUILD=$DPDK_DIR/x86_64-native-linuxapp-gcc/</code></p></li>
+<li><p>IVSHMEM:</p>
+
+<p><code>export DPDK_BUILD=$DPDK_DIR/x86_64-ivshmem-linuxapp-gcc/</code></p></li>
+</ul>
+
+<p><code>
+cd $(OVS_DIR)/openvswitch
+./boot.sh
+./configure --with-dpdk=$DPDK_BUILD
+make
+</code></p></li>
+</ol>
+
+<p>To have better performance one can enable aggressive compiler optimizations and
+use the special instructions(popcnt, crc32) that may not be available on all
+machines. Instead of typing <code>make</code>, type:</p>
+
+<p><code>make CFLAGS='-O3 -march=native'</code></p>
+
+<p>Refer to [INSTALL.userspace.md] for general requirements of building userspace OVS.</p>
+
+<h2>Using the DPDK with ovs-vswitchd:</h2>
+
+<ol>
+<li><p>Setup system boot
+Add the following options to the kernel bootline:</p>
+
+<p><code>default_hugepagesz=1GB hugepagesz=1G hugepages=1</code></p></li>
+<li><p>Setup DPDK devices:</p>
+
+<ol>
+<li>insert uio.ko: <code>modprobe uio</code></li>
+<li>insert igb_uio.ko: <code>insmod $DPDK_BUILD/kmod/igb_uio.ko</code></li>
+<li>Bind network device to igb_uio: <code>$DPDK_DIR/tools/dpdk_nic_bind.py --bind=igb_uio eth1</code></li>
+</ol></li>
+<li><p>Mount the hugetable filsystem</p>
+
+<p><code>mount -t hugetlbfs -o pagesize=1G none /dev/hugepages</code></p>
+
+<p>Ref to http://www.dpdk.org/doc/quick-start for verifying DPDK setup.</p></li>
+<li><p>Start ovsdb-server as discussed in [INSTALL.md] doc:</p>
+
+<ol>
+<li><p>First time only db creation (or clearing):</p>
+
+<p><code>
+mkdir -p /usr/local/etc/openvswitch
+mkdir -p /usr/local/var/run/openvswitch
+rm /usr/local/etc/openvswitch/conf.db
+cd $OVS_DIR
+./ovsdb/ovsdb-tool create /usr/local/etc/openvswitch/conf.db \
+     ./vswitchd/vswitch.ovsschema
+</code></p></li>
+<li><p>start ovsdb-server</p>
+
+<p><code>
+cd $OVS_DIR
+./ovsdb/ovsdb-server --remote=punix:/usr/local/var/run/openvswitch/db.sock \
+  --remote=db:Open_vSwitch,Open_vSwitch,manager_options \
+  --private-key=db:Open_vSwitch,SSL,private_key \
+  --certificate=Open_vSwitch,SSL,certificate \
+  --bootstrap-ca-cert=db:Open_vSwitch,SSL,ca_cert --pidfile --detach
+</code></p></li>
+<li><p>First time after db creation, initialize:</p>
+
+<p><code>
+cd $OVS_DIR
+./utilities/ovs-vsctl --no-wait init
+</code></p></li>
+</ol></li>
+<li><p>Start vswitchd:</p>
+
+<p>DPDK configuration arguments can be passed to vswitchd via <code>--dpdk</code>
+argument. This needs to be first argument passed to vswitchd process.
+dpdk arg -c is ignored by ovs-dpdk, but it is a required parameter
+for dpdk initialization.</p>
+
+<pre><code>export DB_SOCK=/usr/local/var/run/openvswitch/db.sock
+./vswitchd/ovs-vswitchd --dpdk -c 0x1 -n 4 -- unix:$DB_SOCK --pidfile --detach
+</code></pre>
+
+<p>If allocated more than one GB hugepage (as for IVSHMEM), set amount and use NUMA
+node 0 memory:</p>
+
+<pre><code>./vswitchd/ovs-vswitchd --dpdk -c 0x1 -n 4 --socket-mem 1024,0 \
+  -- unix:$DB_SOCK --pidfile --detach
+</code></pre></li>
+<li><p>Add bridge &amp; ports</p>
+
+<p>To use ovs-vswitchd with DPDK, create a bridge with datapath_type
+"netdev" in the configuration database.  For example:</p>
+
+<pre><code>`ovs-vsctl add-br br0 -- set bridge br0 datapath_type=netdev`
+</code></pre>
+
+<p>Now you can add dpdk devices. OVS expect DPDK device name start with dpdk
+and end with portid. vswitchd should print (in the log file) the number of dpdk
+devices found.</p>
+
+<pre><code>ovs-vsctl add-port br0 dpdk0 -- set Interface dpdk0 type=dpdk
+ovs-vsctl add-port br0 dpdk1 -- set Interface dpdk1 type=dpdk
+</code></pre>
+
+<p>Once first DPDK port is added to vswitchd, it creates a Polling thread and
+polls dpdk device in continuous loop. Therefore CPU utilization
+for that thread is always 100%.</p></li>
+<li><p>Add test flows</p>
+
+<p>Test flow script across NICs (assuming ovs in /usr/src/ovs):
+Execute script:</p>
+
+<p>```</p>
+
+<h1>! /bin/sh</h1>
+
+<h1>Move to command directory</h1>
+
+<p>cd /usr/src/ovs/utilities/</p>
+
+<h1>Clear current flows</h1>
+
+<p>./ovs-ofctl del-flows br0</p>
+
+<h1>Add flows between port 1 (dpdk0) to port 2 (dpdk1)</h1>
+
+<p>./ovs-ofctl add-flow br0 in<em>port=1,action=output:2
+./ovs-ofctl add-flow br0 in</em>port=2,action=output:1
+```</p></li>
+<li><p>Performance tuning</p>
+
+<p>With pmd multi-threading support, OVS creates one pmd thread for each
+numa node as default.  The pmd thread handles the I/O of all DPDK
+interfaces on the same numa node.  The following two commands can be used
+to configure the multi-threading behavior.</p>
+
+<pre><code>ovs-vsctl set Open_vSwitch . other_config:pmd-cpu-mask=&lt;hex string&gt;
+</code></pre>
+
+<p>The command above asks for a CPU mask for setting the affinity of pmd threads.
+A set bit in the mask means a pmd thread is created and pinned to the
+corresponding CPU core.  For more information, please refer to
+<code>man ovs-vswitchd.conf.db</code></p>
+
+<pre><code>ovs-vsctl set Open_vSwitch . other_config:n-dpdk-rxqs=&lt;integer&gt;
+</code></pre>
+
+<p>The command above sets the number of rx queues of each DPDK interface. The
+rx queues are assigned to pmd threads on the same numa node in round-robin
+fashion.  For more information, please refer to <code>man ovs-vswitchd.conf.db</code></p>
+
+<p>Ideally for maximum throughput, the pmd thread should not be scheduled out
+which temporarily halts its execution. The following affinitization methods
+can help.</p>
+
+<p>Lets pick core 4,6,8,10 for pmd threads to run on.  Also assume a dual 8 core
+sandy bridge system with hyperthreading enabled where CPU1 has cores 0,...,7
+and 16,...,23 &amp; CPU2 cores 8,...,15 &amp; 24,...,31.  (A different cpu
+configuration could have different core mask requirements).</p>
+
+<p>To kernel bootline add core isolation list for cores and associated hype cores
+(e.g.  isolcpus=4,20,6,22,8,24,10,26,).  Reboot system for isolation to take
+effect, restart everything.</p>
+
+<p>Configure pmd threads on core 4,6,8,10 using 'pmd-cpu-mask':</p>
+
+<pre><code>ovs-vsctl set Open_vSwitch . other_config:pmd-cpu-mask=00000550
+</code></pre>
+
+<p>You should be able to check that pmd threads are pinned to the correct cores
+via:</p>
+
+<pre><code>top -p `pidof ovs-vswitchd` -H -d1
+</code></pre>
+
+<p>Note, the pmd threads on a numa node are only created if there is at least
+one DPDK interface from the numa node that has been added to OVS.</p>
+
+<p>Note, core 0 is always reserved from non-pmd threads and should never be set
+in the cpu mask.</p></li>
+</ol>
+
+<h2>DPDK Rings :</h2>
+
+<p>Following the steps above to create a bridge, you can now add dpdk rings
+as a port to the vswitch.  OVS will expect the DPDK ring device name to
+start with dpdkr and end with a portid.</p>
+
+<pre><code>ovs-vsctl add-port br0 dpdkr0 -- set Interface dpdkr0 type=dpdkr
+</code></pre>
+
+<p>DPDK rings client test application</p>
+
+<p>Included in the test directory is a sample DPDK application for testing
+the rings.  This is from the base dpdk directory and modified to work
+with the ring naming used within ovs.</p>
+
+<p>location tests/ovs_client</p>
+
+<p>To run the client :</p>
+
+<pre><code>cd /usr/src/ovs/tests/
+ovsclient -c 1 -n 4 --proc-type=secondary -- -n "port id you gave dpdkr"
+</code></pre>
+
+<p>In the case of the dpdkr example above the "port id you gave dpdkr" is 0.</p>
+
+<p>It is essential to have --proc-type=secondary</p>
+
+<p>The application simply receives an mbuf on the receive queue of the
+ethernet ring and then places that same mbuf on the transmit ring of
+the ethernet ring.  It is a trivial loopback application.</p>
+
+<h2>DPDK rings in VM (IVSHMEM shared memory communications)</h2>
+
+<p>In addition to executing the client in the host, you can execute it within
+a guest VM. To do so you will need a patched qemu.  You can download the
+patch and getting started guide at :</p>
+
+<p>https://01.org/packet-processing/downloads</p>
+
+<p>A general rule of thumb for better performance is that the client
+application should not be assigned the same dpdk core mask "-c" as
+the vswitchd.</p>
+
+<h2>Restrictions:</h2>
+
+<ul>
+<li>This Support is for Physical NIC. I have tested with Intel NIC only.</li>
+<li>Work with 1500 MTU, needs few changes in DPDK lib to fix this issue.</li>
+<li><p>Currently DPDK port does not make use any offload functionality.</p>
+
+<p>ivshmem:</p></li>
+<li>The shared memory is currently restricted to the use of a 1GB
+huge pages.</li>
+<li>All huge pages are shared amongst the host, clients, virtual
+machines etc.</li>
+</ul>
+
+<h2>Bug Reporting:</h2>
+
+<p>Please report problems to bugs@openvswitch.org.</p>
+</body></html>

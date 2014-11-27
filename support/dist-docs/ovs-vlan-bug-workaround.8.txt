@@ -1,0 +1,105 @@
+ovs-vlan-bug-workaround(8)    Open vSwitch Manual   ovs-vlan-bug-workaround(8)
+
+
+
+NAME
+       ovs-vlan-bug-workaround - utility for configuring Linux VLAN driver bug
+       workaround
+
+SYNOPSIS
+       ovs-vlan-bug-workaround netdev on
+       ovs-vlan-bug-workaround netdev off
+       ovs-vlan-bug-workaround --help
+       ovs-vlan-bug-workaround --version
+
+DESCRIPTION
+       Some Linux network drivers support a feature  called  ``VLAN  accelera‐
+       tion''.  VLAN acceleration is associated with a data structure called a
+       vlan_group that is, abstractly, a dictionary that maps from a  VLAN  ID
+       (in  the  range  0  to 4095) to a VLAN device, that is, a Linux network
+       device associated with a particular VLAN, e.g. eth0.9  for  VLAN  9  on
+       eth0.
+
+       Some drivers that support VLAN acceleration have bugs that fall roughly
+       into the categories listed below.  ovs-vlan-test(8) can test for  these
+       driver bugs.
+
+       ·      When NICs use VLAN stripping on receive they must pass a pointer
+              to a vlan_group when reporting the stripped tag to the  network‐
+              ing  core.   If  no  vlan_group is in use then some drivers just
+              drop the extracted tag.  Drivers are  supposed  to  only  enable
+              stripping  if  a vlan_group is registered but not all of them do
+              that.
+
+       ·      On receive, some drivers handle  priority  tagged  packets  spe‐
+              cially  and don't pass the tag onto the network stack at all, so
+              Open vSwitch never has a chance to see it.
+
+       ·      Some drivers size their  receive  buffers  based  on  whether  a
+              vlan_group is enabled, meaning that a maximum size packet with a
+              VLAN tag will not fit if no vlan_group is configured.
+
+       ·      On transmit, some drivers expect that VLAN acceleration will  be
+              used  if it is available, which can only be done if a vlan_group
+              is configured.  In these cases, the driver may fail to parse the
+              packet and correctly setup checksum offloading or TSO.
+
+       The correct long term solution is to fix these driver bugs.
+
+       For  now,  ovs-vlan-bug-workaround  can  enable a special-purpose work‐
+       around for devices with buggy VLAN acceleration.  A kernel  patch  must
+       be applied for this workaround to work.
+
+       Use  the  command  ovs-vlan-bug-workaround netdev on to enable the VLAN
+       driver bug workaround for  network  device  netdev.   Use  the  command
+       ovs-vlan-bug-workaround netdev off to disable the VLAN driver bug work‐
+       around for network device netdev.
+
+DRIVER DETAILS
+       The       following       drivers        in        Linux        version
+       2.6.32.12-0.7.1.xs1.0.0.311.170586  implement VLAN acceleration and are
+       relevant to Open vSwitch on XenServer.  We have not tested any  version
+       of  most  of  these drivers, so we do not know whether they have a VLAN
+       problem that needs to be fixed.  The drivers are  listed  by  the  name
+       that  they report in, e.g., ethtool -i output; in a few cases this dif‐
+       fers slightly from the name of the module's .ko file:
+       8139cp    acenic    amd8111e  atl1c     ATL1E     atl1
+       atl2      be2net    bna       bnx2      bnx2x     cnic
+       cxgb      cxgb3     e1000     e1000e    enic      forcedeth
+       igb       igbvf     ixgb      ixgbe     jme       ml4x_core
+       ns83820   qlge      r8169     S2IO      sky2      starfire
+       tehuti    tg3       typhoon   via-velocity        vxge
+
+       The following drivers use vlan_group but are irrelevant to Open vSwitch
+       on XenServer:
+
+       bonding
+              Not used with Open vSwitch on XenServer.
+
+       gianfar
+              Not shipped with XenServer.  A FreeScale CPU-integrated device.
+
+       ehea   Cannot be built on x86.  IBM Power architecture only.
+
+       stmmac Cannot be built on x86.  SH4 architecture only.
+
+       vmxnet3
+              Not shipped with XenServer.  For use inside VMware VMs only.
+
+OPTIONS
+       -h
+       --help Prints a brief help message to the console.
+
+       -V
+       --version
+              Prints version information to the console.
+
+BUGS
+       Obviously.
+
+SEE ALSO
+       ovs-vlan-test(8).
+
+
+
+Open vSwitch                        2.3.90          ovs-vlan-bug-workaround(8)

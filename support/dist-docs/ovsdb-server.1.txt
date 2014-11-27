@@ -1,0 +1,588 @@
+ovsdb-server(1)               Open vSwitch Manual              ovsdb-server(1)
+
+
+
+NAME
+       ovsdb-server - Open vSwitch database server
+
+SYNOPSIS
+       ovsdb-server [database]...  [--remote=remote]...  [--run=command]
+
+       Daemon options:
+              [--pidfile[=pidfile]]      [--overwrite-pidfile]      [--detach]
+              [--no-chdir]
+
+       Service options:
+              [--service] [--service-monitor]
+
+       Logging options:
+              [-v[module[:facility[:level]]]]...
+              [--verbose[=module[:facility[:level]]]]...
+              [--log-file[=file]]
+
+       Public key infrastructure options:
+              [--private-key=privkey.pem]
+              [--certificate=cert.pem]
+              [--ca-cert=cacert.pem]
+              [--bootstrap-ca-cert=cacert.pem]
+
+       Runtime management options:
+              --unixctl=socket
+
+       Common options:
+              [-h | --help] [-V | --version]
+
+
+DESCRIPTION
+       The ovsdb-server program provides RPC interfaces to one  or  more  Open
+       vSwitch  databases  (OVSDBs).   It supports JSON-RPC client connections
+       over active or passive TCP/IP or Unix domain sockets.
+
+       Each OVSDB file may be specified on the command line as  database.   If
+       none  is  specified,  the default is /usr/etc/openvswitch/conf.db.  The
+       database files must already have been created  and  initialized  using,
+       for example, ovsdb-tool create.
+
+OPTIONS
+       --remote=remote
+              Adds remote as a connection method used by ovsdb-server.  remote
+              must take one of the following forms:
+
+              pssl:port[:ip]
+                     Listen on the  given  SSL  port  for  a  connection.   By
+                     default,  connections are not bound to a particular local
+                     IP address and it listens only on  IPv4  (but  not  IPv6)
+                     addresses,  but specifying ip limits connections to those
+                     from the given ip, either IPv4 or IPv6 address.  If ip is
+                     an IPv6 address, then wrap ip with square brackets, e.g.:
+                     pssl:6632:[::1].  The --private-key,  --certificate,  and
+                     --ca-cert options are mandatory when this form is used.
+
+              ptcp:port[:ip]
+                     Listen  on  the  given  TCP  port  for  a connection.  By
+                     default, connections are not bound to a particular  local
+                     IP  address  and  it  listens only on IPv4 (but not IPv6)
+                     addresses, but ip may be specified  to  listen  only  for
+                     connections to the given ip, either IPv4 or IPv6 address.
+                     If ip is an IPv6 address, then wrap ip with square brack‐
+                     ets, e.g.: ptcp:6632:[::1].
+
+              punix:file
+                     On  POSIX,  listen on the Unix domain server socket named
+                     file for a connection.
+
+                     On Windows, listen on a kernel chosen  TCP  port  on  the
+                     localhost. The kernel chosen TCP port value is written in
+                     file.
+
+              ssl:ip:port
+                     The specified SSL port on the host at the given ip, which
+                     must  be  expressed  as an IP address (not a DNS name) in
+                     IPv4 or IPv6 address format.  If ip is an  IPv6  address,
+                     then  wrap ip with square brackets, e.g.: ssl:[::1]:6632.
+                     The --private-key, --certificate, and  --ca-cert  options
+                     are mandatory when this form is used.
+
+              tcp:ip:port
+                     Connect to the given TCP port on ip, where ip can be IPv4
+                     or IPv6 address. If ip is an IPv6 address, then  wrap  ip
+                     with square brackets, e.g.: tcp:[::1]:6632.
+
+              unix:file
+                     On  POSIX, connect to the Unix domain server socket named
+                     file.
+
+                     On Windows, connect to a localhost TCP port  whose  value
+                     is written in file.
+
+              db:db,table,column
+                     Reads additional connection methods from column in all of
+                     the rows in table within db.  As the contents  of  column
+                     changes,  ovsdb-server  also  adds  and  drops connection
+                     methods accordingly.
+
+                     If column's type is string or set of  strings,  then  the
+                     connection  methods  are  taken directly from the column.
+                     The connection methods in the column must have one of the
+                     forms described above.
+
+                     If column's type is UUID or set of UUIDs and references a
+                     table, then each UUID is looked up in the referenced  ta‐
+                     ble  to  obtain a row.  The following columns in the row,
+                     if present and of the correct type, configure  a  connec‐
+                     tion method.  Any additional columns are ignored.
+
+                     target (string)
+                            Connection  method,  in one of the forms described
+                            above.  This column is mandatory: if it is missing
+                            or  empty then no connection method can be config‐
+                            ured.
+
+                     max_backoff (integer)
+                            Maximum number of  milliseconds  to  wait  between
+                            connection attempts.
+
+                     inactivity_probe (integer)
+                            Maximum  number  of  milliseconds  of idle time on
+                            connection to client before sending an  inactivity
+                            probe message.
+
+                     It is an error for column to have another type.
+
+              To  connect or listen on multiple connection methods, use multi‐
+              ple --remote options.
+
+       --run=command]
+              Ordinarily ovsdb-server runs forever, or until  it  is  told  to
+              exit (see RUNTIME MANAGEMENT COMMANDS below).  With this option,
+              ovsdb-server instead starts a shell subprocess running  command.
+              When  the  subprocess terminates, ovsdb-server also exits grace‐
+              fully.  If the subprocess exits normally with exit code 0,  then
+              ovsdb-server  exits  with  exit code 0 also; otherwise, it exits
+              with exit code 1.
+
+              This option can be useful where a database server is needed only
+              to     run     a     single    command,    e.g.:    ovsdb-server
+              --remote=punix:socket   --run='ovsdb-client   dump   unix:socket
+              Open_vSwitch'
+
+              This option is not supported on Windows platform.
+
+   Daemon Options
+       The following options are valid on POSIX based platforms.
+
+       --pidfile[=pidfile]
+              Causes a file (by default, ovsdb-server.pid) to be created indi‐
+              cating the PID of the running process.  If the pidfile  argument
+              is  not  specified,  or  if it does not begin with /, then it is
+              created in /var/run/openvswitch.
+
+              If --pidfile is not specified, no pidfile is created.
+
+       --overwrite-pidfile
+              By default, when --pidfile is specified and the  specified  pid‐
+              file  already  exists  and  is  locked  by  a  running  process,
+              ovsdb-server refuses to start.  Specify  --overwrite-pidfile  to
+              cause it to instead overwrite the pidfile.
+
+              When --pidfile is not specified, this option has no effect.
+
+       --detach
+              Causes ovsdb-server to detach itself from the foreground session
+              and run as a  background  process.  ovsdb-server  detaches  only
+              after it starts listening on all configured remotes.
+
+       --monitor
+              Creates  an  additional process to monitor the ovsdb-server dae‐
+              mon.  If the daemon dies due to a signal that indicates  a  pro‐
+              gramming  error  (SIGABRT, SIGALRM, SIGBUS, SIGFPE, SIGILL, SIG‐
+              PIPE, SIGSEGV, SIGXCPU, or SIGXFSZ)  then  the  monitor  process
+              starts  a  new  copy  of  it.   If  the daemon dies or exits for
+              another reason, the monitor process exits.
+
+              This option is normally used with --detach, but  it  also  func‐
+              tions without it.
+
+       --no-chdir
+              By default, when --detach is specified, ovsdb-server changes its
+              current  working  directory  to  the  root  directory  after  it
+              detaches.   Otherwise,  invoking  ovsdb-server from a carelessly
+              chosen directory would prevent the administrator from unmounting
+              the file system that holds that directory.
+
+              Specifying   --no-chdir  suppresses  this  behavior,  preventing
+              ovsdb-server from changing its current working directory.   This
+              may  be  useful  for  collecting  core files, since it is common
+              behavior to write core dumps into the current working  directory
+              and the root directory is not a good directory to use.
+
+              This option has no effect when --detach is not specified.
+
+   Service Options
+       The following options are valid only on Windows platform.
+
+       --service
+              Causes  ovsdb-server  to run as a service in the background. The
+              service should already have been created through external  tools
+              like SC.exe.
+
+       --service-monitor
+              Causes the ovsdb-server service to be automatically restarted by
+              the Windows services manager if the service dies  or  exits  for
+              unexpected reasons.
+
+              When --service is not specified, this option has no effect.
+
+   Logging Options
+       -v[spec]
+       --verbose=[spec]
+              Sets  logging  levels.  Without any spec, sets the log level for
+              every module and facility to dbg.  Otherwise, spec is a list  of
+              words  separated  by  spaces or commas or colons, up to one from
+              each category below:
+
+              ·      A valid module name, as displayed by the  vlog/list  com‐
+                     mand on ovs-appctl(8), limits the log level change to the
+                     specified module.
+
+              ·      syslog, console, or file, to limit the log  level  change
+                     to  only to the system log, to the console, or to a file,
+                     respectively.
+
+                     On Windows platform, syslog is accepted as a word and  is
+                     only  useful  along  with the --syslog-target option (the
+                     word has no effect otherwise).
+
+              ·      off, emer, err, warn, info, or dbg, to  control  the  log
+                     level.   Messages of the given severity or higher will be
+                     logged, and messages of lower severity will  be  filtered
+                     out.   off  filters  out all messages.  See ovs-appctl(8)
+                     for a definition of each log level.
+
+              Case is not significant within spec.
+
+              Regardless of the log levels set for file,  logging  to  a  file
+              will  not  take  place  unless --log-file is also specified (see
+              below).
+
+              For compatibility with older versions of OVS, any is accepted as
+              a word but has no effect.
+
+       -v
+       --verbose
+              Sets  the  maximum logging verbosity level, equivalent to --ver‐
+              bose=dbg.
+
+       -vPATTERN:facility:pattern
+       --verbose=PATTERN:facility:pattern
+              Sets  the  log  pattern  for  facility  to  pattern.   Refer  to
+              ovs-appctl(8) for a description of the valid syntax for pattern.
+
+       --log-file[=file]
+              Enables  logging  to  a  file.  If file is specified, then it is
+              used as the exact name for the log file.  The default  log  file
+              name    used    if    file    is   omitted   is   /var/log/open‐
+              vswitch/ovsdb-server.log.
+
+       --syslog-target=host:port
+              Send syslog messages to UDP port on host,  in  addition  to  the
+              system  syslog.   The host must be a numerical IP address, not a
+              hostname.
+
+   Public Key Infrastructure Options
+       The options described below for configuring the SSL public  key  infra‐
+       structure  accept  a  special  syntax for obtaining their configuration
+       from the database.  If any of these options is given db:db,table,column
+       as  its  argument, then the actual file name is read from the specified
+       column in table within the db database.   The  column  must  have  type
+       string  or  set  of strings.  The first nonempty string in the table is
+       taken as the file name.  (This means that ordinarily there should be at
+       most one row in table.)
+
+       -p privkey.pem
+       --private-key=privkey.pem
+              Specifies  a  PEM  file  containing  the  private  key  used  as
+              ovsdb-server's identity for outgoing SSL connections.
+
+       -c cert.pem
+       --certificate=cert.pem
+              Specifies a PEM file containing a certificate that certifies the
+              private  key specified on -p or --private-key to be trustworthy.
+              The certificate must be signed by the certificate authority (CA)
+              that the peer in SSL connections will use to verify it.
+
+       -C cacert.pem
+       --ca-cert=cacert.pem
+              Specifies   a  PEM  file  containing  the  CA  certificate  that
+              ovsdb-server should use to verify certificates presented  to  it
+              by  SSL peers.  (This may be the same certificate that SSL peers
+              use to verify the certificate specified on -c or  --certificate,
+              or  it  may  be  a different one, depending on the PKI design in
+              use.)
+
+       -C none
+       --ca-cert=none
+              Disables verification of certificates presented  by  SSL  peers.
+              This  introduces a security risk, because it means that certifi‐
+              cates cannot be verified to be those of known trusted hosts.
+
+       --bootstrap-ca-cert=cacert.pem
+              When cacert.pem exists, this option has the same effect as -C or
+              --ca-cert.  If it does not exist, then ovsdb-server will attempt
+              to obtain the CA certificate from the SSL peer on its first  SSL
+              connection and save it to the named PEM file.  If it is success‐
+              ful, it will immediately drop the connection and reconnect,  and
+              from then on all SSL connections must be authenticated by a cer‐
+              tificate signed by the CA certificate thus obtained.
+
+              This option exposes the SSL connection  to  a  man-in-the-middle
+              attack  obtaining the initial CA certificate, but it may be use‐
+              ful for bootstrapping.
+
+              This option is only useful if the SSL peer sends its CA certifi‐
+              cate  as  part  of  the SSL certificate chain.  The SSL protocol
+              does not require the server to send the CA certificate.
+
+              This option is mutually exclusive with -C and --ca-cert.
+
+   Other Options
+       --unixctl=socket
+              Sets the name of the control socket on which  ovsdb-server  lis‐
+              tens  for  runtime  management  commands (see RUNTIME MANAGEMENT
+              COMMANDS, below).  If socket does not begin with /, it is inter‐
+              preted as relative to /var/run/openvswitch.  If --unixctl is not
+              used   at   all,   the   default   socket   is    /var/run/open‐
+              vswitch/ovsdb-server.pid.ctl,   where   pid   is  ovsdb-server's
+              process ID.
+
+              On Windows, uses a kernel chosen TCP port on  the  localhost  to
+              listen  for  runtime management commands.  The kernel chosen TCP
+              port value is written in a file whose absolute path  is  pointed
+              by  socket. If --unixctl is not used at all, the file is created
+              as ovsdb-server.ctl in the configured OVS_RUNDIR directory.
+
+              Specifying none for socket disables the control socket feature.
+
+       -h
+       --help Prints a brief help message to the console.
+
+       -V
+       --version
+              Prints version information to the console.
+
+RUNTIME MANAGEMENT COMMANDS
+       ovs-appctl(8) can send commands to a running ovsdb-server process.  The
+       currently supported commands are described below.
+
+   OVSDB-SERVER COMMANDS
+       These commands are specific to ovsdb-server.
+
+       exit   Causes ovsdb-server to gracefully terminate.
+
+       ovsdb-server/compact [db]...
+              Compacts each database db in-place.  If no db is specified, com‐
+              pacts every database in-place.  Databases are also automatically
+              compacted occasionally.
+
+       ovsdb-server/reconnect
+              Makes ovsdb-server drop all of the JSON-RPC connections to data‐
+              base clients and reconnect.
+
+              This command might be useful for debugging issues with  database
+              clients.
+
+       ovsdb-server/add-remote remote
+              Adds  a  remote, as if --remote=remote had been specified on the
+              ovsdb-server command line.  (If remote is already a remote, this
+              command succeeds without changing the configuration.)
+
+       ovsdb-server/remove-remote remote
+              Removes  the  specified  remote  from the configuration, failing
+              with an error if remote is not configured  as  a  remote.   This
+              command  only  works with remotes that were named on --remote or
+              ovsdb-server/add-remote, that is, it  will  not  remove  remotes
+              added  indirectly  because  they  were read from the database by
+              configuring a db:db,table,column  remote.   (You  can  remove  a
+              database source with ovsdb-server/remove-remote db:db,table,col‐
+              umn, but not individual remotes  found  indirectly  through  the
+              database.)
+
+       ovsdb-server/list-remotes
+              Outputs  a  list  of  the  currently configured remotes named on
+              --remote or ovsdb-server/add-remote, that is, it does  not  list
+              remotes  added  indirectly because they were read from the data‐
+              base by configuring a db:db,table,column remote.
+
+       ovsdb-server/add-db database
+              Adds the database to the  running  ovsdb-server.   The  database
+              file  must  already have been created and initialized using, for
+              example, ovsdb-tool create.
+
+       ovsdb-server/remove-db database
+              Removes database from the running ovsdb-server.   database  must
+              be a database name as listed by ovsdb-server/list-dbs.
+
+              If  a  remote  has  been configured that points to the specified
+              database (e.g. --remote=db:database,... on  the  command  line),
+              then  it  will  be disabled until another database with the same
+              name is added again (with ovsdb-server/add-db).
+
+              Any public key infrastructure  options  specified  through  this
+              database  (e.g.  --private-key=db:database,...  on  the  command
+              line) will be disabled until another database with the same name
+              is added again (with ovsdb-server/add-db).
+
+       ovsdb-server/list-dbs
+              Outputs  a  list  of  the  currently  configured databases added
+              either   through   the   command    line    or    through    the
+              ovsdb-server/add-db command.
+
+   VLOG COMMANDS
+       These commands manage ovsdb-server's logging settings.
+
+       vlog/set [spec]
+              Sets  logging  levels.  Without any spec, sets the log level for
+              every module and facility to dbg.  Otherwise, spec is a list  of
+              words  separated  by  spaces or commas or colons, up to one from
+              each category below:
+
+              ·      A valid module name, as displayed by the  vlog/list  com‐
+                     mand on ovs-appctl(8), limits the log level change to the
+                     specified module.
+
+              ·      syslog, console, or file, to limit the log  level  change
+                     to  only to the system log, to the console, or to a file,
+                     respectively.
+
+                     On Windows platform, syslog is accepted as a word and  is
+                     only  useful  along  with the --syslog-target option (the
+                     word has no effect otherwise).
+
+              ·      off, emer, err, warn, info, or dbg, to  control  the  log
+                     level.   Messages of the given severity or higher will be
+                     logged, and messages of lower severity will  be  filtered
+                     out.   off  filters  out all messages.  See ovs-appctl(8)
+                     for a definition of each log level.
+
+              Case is not significant within spec.
+
+              Regardless of the log levels set for file,  logging  to  a  file
+              will  not  take  place  unless ovsdb-server was invoked with the
+              --log-file option.
+
+              For compatibility with older versions of OVS, any is accepted as
+              a word but has no effect.
+
+       vlog/set PATTERN:facility:pattern
+              Sets  the  log  pattern  for  facility  to  pattern.   Refer  to
+              ovs-appctl(8) for a description of the valid syntax for pattern.
+
+       vlog/list
+              Lists the supported logging modules and their current levels.
+
+       vlog/reopen
+              Causes ovsdb-server to close and reopen its log file.  (This  is
+              useful  after  rotating log files, to cause a new log file to be
+              used.)
+
+              This has no effect unless  ovsdb-server  was  invoked  with  the
+              --log-file option.
+
+       vlog/disable-rate-limit [module]...
+       vlog/enable-rate-limit [module]...
+              By  default,  ovsdb-server limits the rate at which certain mes‐
+              sages can be logged.  When a  message  would  appear  more  fre‐
+              quently  than  the  limit,  it  is  suppressed.  This saves disk
+              space, makes logs easier to read, and speeds up  execution,  but
+              occasionally  troubleshooting  requires more detail.  Therefore,
+              vlog/disable-rate-limit allows rate limits to be disabled at the
+              level  of  an individual log module.  Specify one or more module
+              names, as displayed by the vlog/list command.  Specifying either
+              no  module  names at all or the keyword any disables rate limits
+              for every log module.
+
+              The vlog/enable-rate-limit command, whose syntax is the same  as
+              vlog/disable-rate-limit,  can  be used to re-enable a rate limit
+              that was previously disabled.
+
+   MEMORY COMMANDS
+       These commands report memory usage.
+
+       memory/show
+              Displays  some  basic  statistics  about  ovsdb-server's  memory
+              usage.   ovsdb-server  also  logs  this  information  soon after
+              startup and periodically as its memory consumption grows.
+
+   COVERAGE COMMANDS
+       These commands manage ovsdb-server's ``coverage counters,'' which count
+       the  number of times particular events occur during a daemon's runtime.
+       In addition to these commands, ovsdb-server automatically logs coverage
+       counter  values,  at INFO level, when it detects that the daemon's main
+       loop takes unusually long to run.
+
+       Coverage counters are useful mainly for performance analysis and debug‐
+       ging.
+
+       coverage/show
+              Displays the averaged per-second rates for the last few seconds,
+              the last minute and the last hour, and the total counts  of  all
+              of the coverage counters.
+
+SPECIFICATIONS
+       ovsdb-server  implements  the  Open  vSwitch  Database (OVSDB) protocol
+       specified in RFC 7047, with the following clarifications:
+
+       3.1. JSON Usage
+              RFC 4627 says that names within a JSON object should be  unique.
+              The Open vSwitch JSON parser discards all but the last value for
+              a name that is specified more than once.
+
+              The definition of <error> allows for implementation  extensions.
+              Currently  ovsdb-server  uses  the  following additional "error"
+              strings which might change in later releases):
+
+              syntax error or unknown column
+                     The request could not be parsed as an OVSDB request.   An
+                     additional  "syntax" member, whose value is a string that
+                     contains JSON, may narrow down the particular syntax that
+                     could not be parsed.
+
+              internal error
+                     The request triggered a bug in ovsdb-server.
+
+              ovsdb error
+                     A map or set contains a duplicate key.
+
+       3.2. Schema Format
+              RFC  7047  requires  the  "version"  field in <database-schema>.
+              Current versions of ovsdb-server allow it to be omitted  (future
+              versions are likely to require it).
+
+       4. Wire Protocol
+              The original OVSDB specifications included the following reason,
+              omitted from RFC 7047,  to  operate  JSON-RPC  directly  over  a
+              stream instead of over HTTP:
+
+              ·      JSON-RPC  is  a  peer-to-peer  protocol,  but  HTTP  is a
+                     client-server protocol, which is  a  poor  match.   Thus,
+                     JSON-RPC  over  HTTP  requires the client to periodically
+                     poll the server to receive server requests.
+
+              ·      HTTP is more  complicated  than  stream  connections  and
+                     doesn't provide any corresponding advantage.
+
+              ·      The  JSON-RPC  specification for HTTP transport is incom‐
+                     plete.
+
+       4.1.5. Monitor
+              For backward compatibility,  ovsdb-server  currently  permits  a
+              single  <monitor-request>  to be used instead of an array; it is
+              treated  as  a  single-element  array.    Future   versions   of
+              ovsdb-server might remove this compatibility feature.
+
+              Because  the  <json-value> parameter is used to match subsequent
+              update notifications (see below) to  the  request,  it  must  be
+              unique  among all active monitors.  ovsdb-server rejects attempt
+              to create two monitors with the same identifier.
+
+       5.1. Notation
+              For <condition>, RFC  7047  only  allows  the  use  of  !=,  ==,
+              includes,  and  excludes operators with set types.  Open vSwitch
+              2.4 and later extend <condition> to allow the use of <, <=,  >=,
+              and > operators with columns with type ``set of 0 or 1 integer''
+              and ``set of 0 or 1 real''.  These conditions evaluate to  false
+              when the column is empty, and otherwise as described in RFC 7047
+              for integer and real types.
+
+       6. IANA Considerations
+              ovsdb-server currently defaults to its  historical  port  number
+              6632.   Future  versions  will  adopt IANA-assigned port 6640 as
+              default.
+
+
+SEE ALSO
+       ovsdb-tool(1).
+
+
+
+Open vSwitch                        2.3.90                     ovsdb-server(1)

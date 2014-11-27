@@ -1,0 +1,107 @@
+<html><head><meta charset="UTF-8"></head><body><pre>
+ovs-vlan-bug-workaround(8)    Open vSwitch Manual   ovs-vlan-bug-workaround(8)
+
+
+
+<b>N</b><b>A</b><b>M</b><b>E</b>
+       ovs-vlan-bug-workaround - utility for configuring Linux VLAN driver bug
+       workaround
+
+<b>S</b><b>Y</b><b>N</b><b>O</b><b>P</b><b>S</b><b>I</b><b>S</b>
+       <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>-</b><b>b</b><b>u</b><b>g</b><b>-</b><b>w</b><b>o</b><b>r</b><b>k</b><b>a</b><b>r</b><b>o</b><b>u</b><b>n</b><b>d</b> <u>n</u><u>e</u><u>t</u><u>d</u><u>e</u><u>v</u> <b>o</b><b>n</b>
+       <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>-</b><b>b</b><b>u</b><b>g</b><b>-</b><b>w</b><b>o</b><b>r</b><b>k</b><b>a</b><b>r</b><b>o</b><b>u</b><b>n</b><b>d</b> <u>n</u><u>e</u><u>t</u><u>d</u><u>e</u><u>v</u> <b>o</b><b>f</b><b>f</b>
+       <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>-</b><b>b</b><b>u</b><b>g</b><b>-</b><b>w</b><b>o</b><b>r</b><b>k</b><b>a</b><b>r</b><b>o</b><b>u</b><b>n</b><b>d</b> <b>-</b><b>-</b><b>h</b><b>e</b><b>l</b><b>p</b>
+       <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>-</b><b>b</b><b>u</b><b>g</b><b>-</b><b>w</b><b>o</b><b>r</b><b>k</b><b>a</b><b>r</b><b>o</b><b>u</b><b>n</b><b>d</b> <b>-</b><b>-</b><b>v</b><b>e</b><b>r</b><b>s</b><b>i</b><b>o</b><b>n</b>
+
+<b>D</b><b>E</b><b>S</b><b>C</b><b>R</b><b>I</b><b>P</b><b>T</b><b>I</b><b>O</b><b>N</b>
+       Some Linux network drivers support a feature  called  ``VLAN  accelera‐
+       tion''.  VLAN acceleration is associated with a data structure called a
+       <b>v</b><b>l</b><b>a</b><b>n</b><b>_</b><b>g</b><b>r</b><b>o</b><b>u</b><b>p</b> that is, abstractly, a dictionary that maps from a  VLAN  ID
+       (in  the  range  0  to 4095) to a VLAN device, that is, a Linux network
+       device associated with a particular VLAN, e.g. <b>e</b><b>t</b><b>h</b><b>0</b><b>.</b><b>9</b>  for  VLAN  9  on
+       <b>e</b><b>t</b><b>h</b><b>0</b>.
+
+       Some drivers that support VLAN acceleration have bugs that fall roughly
+       into the categories listed below.  <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b>(8) can test for  these
+       driver bugs.
+
+       ·      When NICs use VLAN stripping on receive they must pass a pointer
+              to a <b>v</b><b>l</b><b>a</b><b>n</b><b>_</b><b>g</b><b>r</b><b>o</b><b>u</b><b>p</b> when reporting the stripped tag to the  network‐
+              ing  core.   If  no  <b>v</b><b>l</b><b>a</b><b>n</b><b>_</b><b>g</b><b>r</b><b>o</b><b>u</b><b>p</b> is in use then some drivers just
+              drop the extracted tag.  Drivers are  supposed  to  only  enable
+              stripping  if  a <b>v</b><b>l</b><b>a</b><b>n</b><b>_</b><b>g</b><b>r</b><b>o</b><b>u</b><b>p</b> is registered but not all of them do
+              that.
+
+       ·      On receive, some drivers handle  priority  tagged  packets  spe‐
+              cially  and don't pass the tag onto the network stack at all, so
+              Open vSwitch never has a chance to see it.
+
+       ·      Some drivers size their  receive  buffers  based  on  whether  a
+              <b>v</b><b>l</b><b>a</b><b>n</b><b>_</b><b>g</b><b>r</b><b>o</b><b>u</b><b>p</b> is enabled, meaning that a maximum size packet with a
+              VLAN tag will not fit if no <b>v</b><b>l</b><b>a</b><b>n</b><b>_</b><b>g</b><b>r</b><b>o</b><b>u</b><b>p</b> is configured.
+
+       ·      On transmit, some drivers expect that VLAN acceleration will  be
+              used  if it is available, which can only be done if a <b>v</b><b>l</b><b>a</b><b>n</b><b>_</b><b>g</b><b>r</b><b>o</b><b>u</b><b>p</b>
+              is configured.  In these cases, the driver may fail to parse the
+              packet and correctly setup checksum offloading or TSO.
+
+       The correct long term solution is to fix these driver bugs.
+
+       For  now,  <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>-</b><b>b</b><b>u</b><b>g</b><b>-</b><b>w</b><b>o</b><b>r</b><b>k</b><b>a</b><b>r</b><b>o</b><b>u</b><b>n</b><b>d</b>  can  enable a special-purpose work‐
+       around for devices with buggy VLAN acceleration.  A kernel  patch  must
+       be applied for this workaround to work.
+
+       Use  the  command  <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>-</b><b>b</b><b>u</b><b>g</b><b>-</b><b>w</b><b>o</b><b>r</b><b>k</b><b>a</b><b>r</b><b>o</b><b>u</b><b>n</b><b>d</b> <u>n</u><u>e</u><u>t</u><u>d</u><u>e</u><u>v</u> <b>o</b><b>n</b> to enable the VLAN
+       driver bug workaround for  network  device  <u>n</u><u>e</u><u>t</u><u>d</u><u>e</u><u>v</u>.   Use  the  command
+       <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>-</b><b>b</b><b>u</b><b>g</b><b>-</b><b>w</b><b>o</b><b>r</b><b>k</b><b>a</b><b>r</b><b>o</b><b>u</b><b>n</b><b>d</b> <u>n</u><u>e</u><u>t</u><u>d</u><u>e</u><u>v</u> <b>o</b><b>f</b><b>f</b> to disable the VLAN driver bug work‐
+       around for network device <u>n</u><u>e</u><u>t</u><u>d</u><u>e</u><u>v</u>.
+
+<b>D</b><b>R</b><b>I</b><b>V</b><b>E</b><b>R</b> <b>D</b><b>E</b><b>T</b><b>A</b><b>I</b><b>L</b><b>S</b>
+       The       following       drivers        in        Linux        version
+       2.6.32.12-0.7.1.xs1.0.0.311.170586  implement VLAN acceleration and are
+       relevant to Open vSwitch on XenServer.  We have not tested any  version
+       of  most  of  these drivers, so we do not know whether they have a VLAN
+       problem that needs to be fixed.  The drivers are  listed  by  the  name
+       that  they report in, e.g., <b>e</b><b>t</b><b>h</b><b>t</b><b>o</b><b>o</b><b>l</b> <b>-</b><b>i</b> output; in a few cases this dif‐
+       fers slightly from the name of the module's <b>.</b><b>k</b><b>o</b> file:
+       <b>8</b><b>1</b><b>3</b><b>9</b><b>c</b><b>p</b>    <b>a</b><b>c</b><b>e</b><b>n</b><b>i</b><b>c</b>    <b>a</b><b>m</b><b>d</b><b>8</b><b>1</b><b>1</b><b>1</b><b>e</b>  <b>a</b><b>t</b><b>l</b><b>1</b><b>c</b>     <b>A</b><b>T</b><b>L</b><b>1</b><b>E</b>     <b>a</b><b>t</b><b>l</b><b>1</b>
+       <b>a</b><b>t</b><b>l</b><b>2</b>      <b>b</b><b>e</b><b>2</b><b>n</b><b>e</b><b>t</b>    <b>b</b><b>n</b><b>a</b>       <b>b</b><b>n</b><b>x</b><b>2</b>      <b>b</b><b>n</b><b>x</b><b>2</b><b>x</b>     <b>c</b><b>n</b><b>i</b><b>c</b>
+       <b>c</b><b>x</b><b>g</b><b>b</b>      <b>c</b><b>x</b><b>g</b><b>b</b><b>3</b>     <b>e</b><b>1</b><b>0</b><b>0</b><b>0</b>     <b>e</b><b>1</b><b>0</b><b>0</b><b>0</b><b>e</b>    <b>e</b><b>n</b><b>i</b><b>c</b>      <b>f</b><b>o</b><b>r</b><b>c</b><b>e</b><b>d</b><b>e</b><b>t</b><b>h</b>
+       <b>i</b><b>g</b><b>b</b>       <b>i</b><b>g</b><b>b</b><b>v</b><b>f</b>     <b>i</b><b>x</b><b>g</b><b>b</b>      <b>i</b><b>x</b><b>g</b><b>b</b><b>e</b>     <b>j</b><b>m</b><b>e</b>       <b>m</b><b>l</b><b>4</b><b>x</b><b>_</b><b>c</b><b>o</b><b>r</b><b>e</b>
+       <b>n</b><b>s</b><b>8</b><b>3</b><b>8</b><b>2</b><b>0</b>   <b>q</b><b>l</b><b>g</b><b>e</b>      <b>r</b><b>8</b><b>1</b><b>6</b><b>9</b>     <b>S</b><b>2</b><b>I</b><b>O</b>      <b>s</b><b>k</b><b>y</b><b>2</b>      <b>s</b><b>t</b><b>a</b><b>r</b><b>f</b><b>i</b><b>r</b><b>e</b>
+       <b>t</b><b>e</b><b>h</b><b>u</b><b>t</b><b>i</b>    <b>t</b><b>g</b><b>3</b>       <b>t</b><b>y</b><b>p</b><b>h</b><b>o</b><b>o</b><b>n</b>   <b>v</b><b>i</b><b>a</b><b>-</b><b>v</b><b>e</b><b>l</b><b>o</b><b>c</b><b>i</b><b>t</b><b>y</b>        <b>v</b><b>x</b><b>g</b><b>e</b>
+
+       The following drivers use <b>v</b><b>l</b><b>a</b><b>n</b><b>_</b><b>g</b><b>r</b><b>o</b><b>u</b><b>p</b> but are irrelevant to Open vSwitch
+       on XenServer:
+
+       <b>b</b><b>o</b><b>n</b><b>d</b><b>i</b><b>n</b><b>g</b>
+              Not used with Open vSwitch on XenServer.
+
+       <b>g</b><b>i</b><b>a</b><b>n</b><b>f</b><b>a</b><b>r</b>
+              Not shipped with XenServer.  A FreeScale CPU-integrated device.
+
+       <b>e</b><b>h</b><b>e</b><b>a</b>   Cannot be built on x86.  IBM Power architecture only.
+
+       <b>s</b><b>t</b><b>m</b><b>m</b><b>a</b><b>c</b> Cannot be built on x86.  SH4 architecture only.
+
+       <b>v</b><b>m</b><b>x</b><b>n</b><b>e</b><b>t</b><b>3</b>
+              Not shipped with XenServer.  For use inside VMware VMs only.
+
+<b>O</b><b>P</b><b>T</b><b>I</b><b>O</b><b>N</b><b>S</b>
+       <b>-</b><b>h</b>
+       <b>-</b><b>-</b><b>h</b><b>e</b><b>l</b><b>p</b> Prints a brief help message to the console.
+
+       <b>-</b><b>V</b>
+       <b>-</b><b>-</b><b>v</b><b>e</b><b>r</b><b>s</b><b>i</b><b>o</b><b>n</b>
+              Prints version information to the console.
+
+<b>B</b><b>U</b><b>G</b><b>S</b>
+       Obviously.
+
+<b>S</b><b>E</b><b>E</b> <b>A</b><b>L</b><b>S</b><b>O</b>
+       <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b>(8).
+
+
+
+Open vSwitch                        2.3.90          ovs-vlan-bug-workaround(8)
+</pre></body></html>

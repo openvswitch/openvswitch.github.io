@@ -1,0 +1,606 @@
+<html><head>
+  <meta charset="UTF-8"></head>
+  <link rel="stylesheet" type="text/css" href="style.css">
+  <title>INSTALL.md (Open vSwitch 2.3.90)</title>
+</head><body>
+<h1>How to Install Open vSwitch on Linux, FreeBSD and NetBSD</h1>
+
+<p>This document describes how to build and install Open vSwitch on a
+generic Linux, FreeBSD, or NetBSD host. For specifics around installation
+on a specific platform, please see one of these files:</p>
+
+<ul>
+<li>[INSTALL.Debian.md]</li>
+<li>[INSTALL.Fedora.md]</li>
+<li>[INSTALL.RHEL.md]</li>
+<li>[INSTALL.XenServer.md]</li>
+<li>[INSTALL.NetBSD.md]</li>
+<li>[INSTALL.DPDK.md]</li>
+</ul>
+
+<h2>Build Requirements</h2>
+
+<p>To compile the userspace programs in the Open vSwitch distribution,
+you will need the following software:</p>
+
+<ul>
+<li><p>GNU make.</p></li>
+<li><p>A C compiler, such as:</p>
+
+<ul>
+<li><p>GCC 4.x.</p></li>
+<li><p>Clang.  Clang 3.4 and later provide useful static semantic
+analysis and thread-safety checks.  For Ubuntu, there are
+nightly built packages available on clang's website.</p></li>
+</ul>
+
+<p><p>While OVS may be compatible with other compilers, optimal
+support for atomic operations may be missing, making OVS very
+slow (see lib/ovs-atomic.h).</p></li>
+<li><p>libssl, from OpenSSL, is optional but recommended if you plan to
+connect the Open vSwitch to an OpenFlow controller.  libssl is
+required to establish confidentiality and authenticity in the
+connections from an Open vSwitch to an OpenFlow controller.  If
+libssl is installed, then Open vSwitch will automatically build
+with support for it.</p></li>
+<li><p>Python 2.x, for x >= 4.</p></li>
+</ul>
+On Linux, you may choose to compile the kernel module that comes with
+the Open vSwitch distribution or to use the kernel module built into
+the Linux kernel (version 3.3 or later).  See the [FAQ.md] question
+"What features are not available in the Open vSwitch kernel datapath that
+ships as part of the upstream Linux kernel?" for more information on
+this trade-off.  You may also use the userspace-only implementation,
+at some cost in features and performance (see [INSTALL.userspace.md]
+for details).  To compile the kernel module on Linux, you must also
+install the following:</p>
+
+<ul>
+<li><p>A supported Linux kernel version.  Please refer to [README.md] for a
+list of supported versions.</p>
+
+<p>The Open vSwitch datapath requires bridging support
+(CONFIG_BRIDGE) to be built as a kernel module.  (This is common
+in kernels provided by Linux distributions.)  The bridge module
+must not be loaded or in use.  If the bridge module is running
+(check with "lsmod | grep bridge"), you must remove it ("rmmod
+bridge") before starting the datapath.</p>
+
+<p>For optional support of ingress policing, you must enable kernel
+configuration options NET<em>CLS</em>BASIC, NET<em>SCH</em>INGRESS, and
+NET<em>ACT</em>POLICE, either built-in or as modules.  (NET<em>CLS</em>POLICE is
+obsolete and not needed.)</p>
+
+<p>To use GRE tunneling on Linux 2.6.37 or newer, kernel support
+for GRE demultiplexing (CONFIG<em>NET</em>IPGRE<em>DEMUX) must be compiled
+in or available as a module.  Also, on kernels before 3.11, the
+ip</em>gre module, for GRE tunnels over IP (NET_IPGRE), must not be
+loaded or compiled in.</p>
+
+<p>To configure HTB or HFSC quality of service with Open vSwitch,
+you must enable the respective configuration options.</p>
+
+<p>To use Open vSwitch support for TAP devices, you must enable
+CONFIG_TUN.</p></li>
+<li><p>To build a kernel module, you need the same version of GCC that
+was used to build that kernel.</p></li>
+<li><p>A kernel build directory corresponding to the Linux kernel image
+the module is to run on.  Under Debian and Ubuntu, for example,
+each linux-image package containing a kernel binary has a
+corresponding linux-headers package with the required build
+infrastructure.</p></li>
+</ul>
+
+<p>If you are working from a Git tree or snapshot (instead of from a
+distribution tarball), or if you modify the Open vSwitch build system
+or the database schema, you will also need the following software:</p>
+
+<ul>
+<li><p>Autoconf version 2.63 or later.</p></li>
+<li><p>Automake version 1.10 or later.</p></li>
+<li><p>libtool version 2.4 or later.  (Older versions might work too.)</p></li>
+</ul>
+
+<p>To run the unit tests, you also need:</p>
+
+<ul>
+<li>Perl.  Version 5.10.1 is known to work.  Earlier versions should
+also work.</li>
+</ul>
+
+<p>The ovs-vswitchd.conf.db(5) manpage will include an E-R diagram, in
+formats other than plain text, only if you have the following:</p>
+
+<ul>
+<li><p>"dot" from graphviz (http://www.graphviz.org/).</p></li>
+<li><p>Perl.  Version 5.10.1 is known to work.  Earlier versions should
+also work.</p></li>
+<li><p>Python 2.x, for x >= 4.</p></li>
+</ul>
+
+<p>If you are going to extensively modify Open vSwitch, please consider
+installing the following to obtain better warnings:</p>
+
+<ul>
+<li><p>"sparse" version 0.4.4 or later
+(http://www.kernel.org/pub/software/devel/sparse/dist/).</p></li>
+<li><p>GNU make.</p></li>
+<li><p>clang, version 3.4 or later</p></li>
+</ul>
+
+<p>Also, you may find the ovs-dev script found in utilities/ovs-dev.py useful.</p>
+
+<h2>Installation Requirements</h2>
+
+<p>The machine on which Open vSwitch is to be installed must have the
+following software:</p>
+
+<ul>
+<li><p>libc compatible with the libc used for build.</p></li>
+<li><p>libssl compatible with the libssl used for build, if OpenSSL was
+used for the build.</p></li>
+<li><p>On Linux, the same kernel version configured as part of the build.</p></li>
+<li><p>For optional support of ingress policing on Linux, the "tc" program
+from iproute2 (part of all major distributions and available at
+http://www.linux-foundation.org/en/Net:Iproute2).</p></li>
+</ul>
+
+<p>On Linux you should ensure that /dev/urandom exists.  To support TAP
+devices, you must also ensure that /dev/net/tun exists.</p>
+
+<h1>Building and Installing Open vSwitch for Linux, FreeBSD or NetBSD</h1>
+
+<p>Once you have installed all the prerequisites listed above in the Base
+Prerequisites section, follow the procedure below to build.</p>
+
+<ol>
+<li><p>If you pulled the sources directly from an Open vSwitch Git tree,
+run boot.sh in the top source directory:</p>
+
+<p><code>% ./boot.sh</code></p></li>
+<li><p>Configure the package by running the configure script.  You can
+usually invoke configure without any arguments.  For example:</p>
+
+<p><code>% ./configure</code></p>
+
+<p>By default all files are installed under /usr/local.  If you want
+to install into, e.g., /usr and /var instead of /usr/local and
+/usr/local/var, add options as shown here:</p>
+
+<p><code>% ./configure --prefix=/usr --localstatedir=/var</code></p>
+
+<p>By default, static libraries are built and linked against. If you
+want to use shared libraries instead:</p>
+
+<p>% ./configure --enable-shared</p>
+
+<p>To use a specific C compiler for compiling Open vSwitch user
+programs, also specify it on the configure command line, like so:</p>
+
+<p><code>% ./configure CC=gcc-4.2</code></p>
+
+<p>To use 'clang' compiler:</p>
+
+<p><code>% ./configure CC=clang</code></p>
+
+<p>To build the Linux kernel module, so that you can run the
+kernel-based switch, pass the location of the kernel build
+directory on --with-linux.  For example, to build for a running
+instance of Linux:</p>
+
+<p><code>% ./configure --with-linux=/lib/modules/</code>uname -r<code>/build</code></p>
+
+<p>If --with-linux requests building for an unsupported version of
+Linux, then "configure" will fail with an error message.  Please
+refer to the [FAQ.md] for advice in that case.</p>
+
+<p>If you wish to build the kernel module for an architecture other
+than the architecture of the machine used for the build, you may
+specify the kernel architecture string using the KARCH variable
+when invoking the configure script.  For example, to build for MIPS
+with Linux:</p>
+
+<p><code>% ./configure --with-linux=/path/to/linux KARCH=mips</code></p>
+
+<p>If you plan to do much Open vSwitch development, you might want to
+add --enable-Werror, which adds the -Werror option to the compiler
+command line, turning warnings into errors.  That makes it
+impossible to miss warnings generated by the build.</p>
+
+<p>To build with gcov code coverage support, add --enable-coverage,
+e.g.:</p>
+
+<p><code>% ./configure --enable-coverage</code></p>
+
+<p>The configure script accepts a number of other options and honors
+additional environment variables.  For a full list, invoke
+configure with the --help option.</p>
+
+<p>You can also run configure from a separate build directory.  This
+is helpful if you want to build Open vSwitch in more than one way
+from a single source directory, e.g. to try out both GCC and Clang
+builds, or to build kernel modules for more than one Linux version.
+Here is an example:</p>
+
+<p><code>% mkdir _gcc &amp;&amp; (cd _gcc &amp;&amp; ../configure CC=gcc)</code> <br />
+  <code>% mkdir _clang &amp;&amp; (cd _clang &amp;&amp; ../configure CC=clang)</code></p></li>
+<li><p>Run GNU make in the build directory, e.g.:</p>
+
+<p><code>% make</code></p>
+
+<p>or if GNU make is installed as "gmake":</p>
+
+<p><code>% gmake</code></p>
+
+<p>If you used a separate build directory, run make or gmake from that
+directory, e.g.:</p>
+
+<p><code>% make -C _gcc</code> <br />
+  <code>% make -C _clang</code></p>
+
+<p>For improved warnings if you installed "sparse" (see
+"Prerequisites"), add C=1 to the command line.</p></li>
+<li><p>Consider running the testsuite.  Refer to "Running the Testsuite"
+below, for instructions.</p></li>
+<li><p>Become root by running "su" or another program.</p></li>
+<li><p>Run "make install" to install the executables and manpages into the
+running system, by default under /usr/local.</p></li>
+<li><p>If you built kernel modules, you may install and load them, e.g.:</p>
+
+<p><code>% make modules_install</code> <br />
+  <code>% /sbin/modprobe openvswitch</code></p>
+
+<p>To verify that the modules have been loaded, run "/sbin/lsmod" and
+check that openvswitch is listed.</p>
+
+<p>If the <code>modprobe</code> operation fails, look at the last few kernel log
+messages (e.g. with <code>dmesg | tail</code>):</p>
+
+<ul>
+<li><p>The message "openvswitch: exports duplicate symbol
+br<em>should</em>route_hook (owned by bridge)" means that the bridge
+module is loaded.  Run <code>/sbin/rmmod bridge</code> to remove it.</p>
+
+<p>If <code>/sbin/rmmod bridge</code> fails with "ERROR: Module bridge does
+not exist in /proc/modules", then the bridge is compiled into
+the kernel, rather than as a module.  Open vSwitch does not
+support this configuration (see "Build Requirements", above).</p></li>
+<li><p>The message "openvswitch: exports duplicate symbol
+dp<em>ioctl</em>hook (owned by ofdatapath)" means that the ofdatapath
+module from the OpenFlow reference implementation is loaded.
+Run <code>/sbin/rmmod ofdatapath</code> to remove it.  (You might have to
+delete any existing datapaths beforehand, using the "dpctl"
+program included with the OpenFlow reference implementation.
+"ovs-dpctl" will not work.)</p></li>
+<li><p>Otherwise, the most likely problem is that Open vSwitch was
+built for a kernel different from the one into which you are
+trying to load it.  Run <code>modinfo</code> on openvswitch.ko and on
+a module built for the running kernel, e.g.:</p>
+
+<p><code>
+   % /sbin/modinfo openvswitch.ko
+   % /sbin/modinfo /lib/modules/`uname -r`/kernel/net/bridge/bridge.ko
+</code></p>
+
+<p>Compare the "vermagic" lines output by the two commands.  If
+they differ, then Open vSwitch was built for the wrong kernel.</p></li>
+<li><p>If you decide to report a bug or ask a question related to
+module loading, please include the output from the <code>dmesg</code> and
+<code>modinfo</code> commands mentioned above.</p></li>
+</ul>
+
+<p>There is an optional module parameter to openvswitch.ko called
+vlan_tso that enables TCP segmentation offload over VLANs on NICs
+that support it. Many drivers do not expose support for TSO on VLANs
+in a way that Open vSwitch can use but there is no way to detect
+whether this is the case. If you know that your particular driver can
+handle it (for example by testing sending large TCP packets over VLANs)
+then passing in a value of 1 may improve performance. Modules built for
+Linux kernels 2.6.37 and later, as well as specially patched versions
+of earlier kernels, do not need this and do not have this parameter. If
+you do not understand what this means or do not know if your driver
+will work, do not set this.</p></li>
+<li><p>Initialize the configuration database using ovsdb-tool, e.g.:</p>
+
+<p><code>% mkdir -p /usr/local/etc/openvswitch</code> <br />
+  <code>% ovsdb-tool create /usr/local/etc/openvswitch/conf.db vswitchd/vswitch.ovsschema</code></p></li>
+</ol>
+
+<h1>Startup</h1>
+
+<p>Before starting ovs-vswitchd itself, you need to start its
+configuration database, ovsdb-server.  Each machine on which Open
+vSwitch is installed should run its own copy of ovsdb-server.
+Configure it to use the database you created during installation (as
+explained above), to listen on a Unix domain socket, to connect to any
+managers specified in the database itself, and to use the SSL
+configuration in the database:</p>
+
+<pre><code>  % ovsdb-server --remote=punix:/usr/local/var/run/openvswitch/db.sock \
+                 --remote=db:Open_vSwitch,Open_vSwitch,manager_options \
+                 --private-key=db:Open_vSwitch,SSL,private_key \
+                 --certificate=db:Open_vSwitch,SSL,certificate \
+                 --bootstrap-ca-cert=db:Open_vSwitch,SSL,ca_cert \
+                 --pidfile --detach
+</code></pre>
+
+<p>(If you built Open vSwitch without SSL support, then omit
+--private-key, --certificate, and --bootstrap-ca-cert.)</p>
+
+<p>Then initialize the database using ovs-vsctl.  This is only
+necessary the first time after you create the database with
+ovsdb-tool (but running it at any time is harmless):</p>
+
+<pre><code>  % ovs-vsctl --no-wait init
+</code></pre>
+
+<p>Then start the main Open vSwitch daemon, telling it to connect to the
+same Unix domain socket:</p>
+
+<pre><code>  % ovs-vswitchd --pidfile --detach
+</code></pre>
+
+<p>Now you may use ovs-vsctl to set up bridges and other Open vSwitch
+features.  For example, to create a bridge named br0 and add ports
+eth0 and vif1.0 to it:</p>
+
+<pre><code>  % ovs-vsctl add-br br0
+  % ovs-vsctl add-port br0 eth0
+  % ovs-vsctl add-port br0 vif1.0
+</code></pre>
+
+<p>Please refer to ovs-vsctl(8) for more details.</p>
+
+<h1>Upgrading</h1>
+
+<p>When you upgrade Open vSwitch from one version to another, you should
+also upgrade the database schema:</p>
+
+<ol>
+<li><p>Stop the Open vSwitch daemons, e.g.:</p>
+
+<p><code>
+  % kill `cd /usr/local/var/run/openvswitch &amp;&amp; cat ovsdb-server.pid ovs-vswitchd.pid`
+</code></p></li>
+<li><p>Install the new Open vSwitch release.</p></li>
+<li><p>Upgrade the database, in one of the following two ways:</p>
+
+<ul>
+<li><p>If there is no important data in your database, then you may
+delete the database file and recreate it with ovsdb-tool,
+following the instructions under "Building and Installing Open
+vSwitch for Linux, FreeBSD or NetBSD".</p></li>
+<li><p>If you want to preserve the contents of your database, back it
+up first, then use "ovsdb-tool convert" to upgrade it, e.g.:</p>
+
+<p><code>% ovsdb-tool convert /usr/local/etc/openvswitch/conf.db vswitchd/vswitch.ovsschema</code></p></li>
+</ul></li>
+<li><p>Start the Open vSwitch daemons as described under "Building and
+Installing Open vSwitch for Linux, FreeBSD or NetBSD" above.</p></li>
+</ol>
+
+<h1>Hot Upgrading</h1>
+
+<p>Upgrading Open vSwitch from one version to the next version with minimum
+disruption of traffic going through the system that is using that Open vSwitch
+needs some considerations:</p>
+
+<ol>
+<li><p>If the upgrade only involves upgrading the userspace utilities and daemons
+of Open vSwitch, make sure that the new userspace version is compatible with
+the previously loaded kernel module.</p></li>
+<li><p>An upgrade of userspace daemons means that they have to be restarted.
+Restarting the daemons means that the OpenFlow flows in the ovs-vswitchd daemon
+will be lost.  One way to restore the flows is to let the controller
+re-populate it.  Another way is to save the previous flows using a utility
+like ovs-ofctl and then re-add them after the restart. Restoring the old flows
+is accurate only if the new Open vSwitch interfaces retain the old 'ofport'
+values.</p></li>
+<li><p>When the new userspace daemons get restarted, they automatically flush
+the old flows setup in the kernel. This can be expensive if there are hundreds
+of new flows that are entering the kernel but userspace daemons are busy
+setting up new userspace flows from either the controller or an utility like
+ovs-ofctl. Open vSwitch database provides an option to solve this problem
+through the other<em>config:flow-restore-wait column of the Open</em>vSwitch table.
+Refer to the ovs-vswitchd.conf.db(5) manpage for details.</p></li>
+<li><p>If the upgrade also involves upgrading the kernel module, the old kernel
+module needs to be unloaded and the new kernel module should be loaded. This
+means that the kernel network devices belonging to Open vSwitch is recreated
+and the kernel flows are lost. The downtime of the traffic can be reduced
+if the userspace daemons are restarted immediately and the userspace flows
+are restored as soon as possible.</p></li>
+</ol>
+
+<p>The ovs-ctl utility's "restart" function only restarts the userspace daemons,
+makes sure that the 'ofport' values remain consistent across restarts, restores
+userspace flows using the ovs-ofctl utility and also uses the
+other_config:flow-restore-wait column to keep the traffic downtime to the
+minimum. The ovs-ctl utility's "force-reload-kmod" function does all of the
+above, but also replaces the old kernel module with the new one. Open vSwitch
+startup scripts for Debian, XenServer and RHEL use ovs-ctl's functions and it
+is recommended that these functions be used for other software platforms too.</p>
+
+<h1>Testsuites</h1>
+
+<p>This section describe Open vSwitch's built-in support for various test
+suites.  You must configure and build Open vSwitch (steps 1 through 3
+in "Building and Installing Open vSwitch for Linux, FreeBSD or NetBSD"
+above) before you run the tests described here.  You do not need to
+install Open vSwitch or to build or load the kernel module to run
+these test suites.  You do not need supervisor privilege to run these
+test suites.</p>
+
+<h2>Self-Tests</h2>
+
+<p>Open vSwitch includes a suite of self-tests.  Before you submit patches
+upstream, we advise that you run the tests and ensure that they pass.
+If you add new features to Open vSwitch, then adding tests for those
+features will ensure your features don't break as developers modify
+other areas of Open vSwitch.</p>
+
+<p>Refer to "Testsuites" above for prerequisites.</p>
+
+<p>To run all the unit tests in Open vSwitch, one at a time:
+      <code>make check</code>
+This takes under 5 minutes on a modern desktop system.</p>
+
+<p>To run all the unit tests in Open vSwitch, up to 8 in parallel:
+      <code>make check TESTSUITEFLAGS=-j8</code>
+This takes under a minute on a modern 4-core desktop system.</p>
+
+<p>To see a list of all the available tests, run:
+      <code>make check TESTSUITEFLAGS=--list</code></p>
+
+<p>To run only a subset of tests, e.g. test 123 and tests 477 through 484:
+      <code>make check TESTSUITEFLAGS='123 477-484'</code>
+(Tests do not have inter-dependencies, so you may run any subset.)</p>
+
+<p>To run tests matching a keyword, e.g. "ovsdb":
+      <code>make check TESTSUITEFLAGS='-k ovsdb'</code></p>
+
+<p>To see a complete list of test options:
+      <code>make check TESTSUITEFLAGS=--help</code></p>
+
+<p>The results of a testing run are reported in tests/testsuite.log.
+Please report test failures as bugs and include the testsuite.log in
+your report.</p>
+
+<p>If you have "valgrind" installed, then you can also run the testsuite
+under valgrind by using "make check-valgrind" in place of "make
+check".  All the same options are available via TESTSUITEFLAGS.  When
+you do this, the "valgrind" results for test <code>&lt;N&gt;</code> are reported in files
+named <code>tests/testsuite.dir/&lt;N&gt;/valgrind.*</code>.  You may find that the
+valgrind results are easier to interpret if you put "-q" in
+~/.valgrindrc, since that reduces the amount of output.</p>
+
+<p>Sometimes a few tests may fail on some runs but not others.  This is
+usually a bug in the testsuite, not a bug in Open vSwitch itself.  If
+you find that a test fails intermittently, please report it, since the
+developers may not have noticed.</p>
+
+<h2>OFTest</h2>
+
+<p>OFTest is an OpenFlow protocol testing suite.  Open vSwitch includes a
+Makefile target to run OFTest with Open vSwitch in "dummy mode".  In
+this mode of testing, no packets travel across physical or virtual
+networks.  Instead, Unix domain sockets stand in as simulated
+networks.  This simulation is imperfect, but it is much easier to set
+up, does not require extra physical or virtual hardware, and does not
+require supervisor privileges.</p>
+
+<p>To run OFTest with Open vSwitch, first read and follow the
+instructions under "Testsuites" above.  Second, obtain a copy of
+OFTest and install its prerequisites.  You need a copy of OFTest that
+includes commit 406614846c5 (make ovs-dummy platform work again).
+This commit was merged into the OFTest repository on Feb 1, 2013, so
+any copy of OFTest more recent than that should work.  Testing OVS in
+dummy mode does not require root privilege, so you may ignore that
+requirement.</p>
+
+<p>Optionally, add the top-level OFTest directory (containing the "oft"
+program) to your $PATH.  This slightly simplifies running OFTest later.</p>
+
+<p>To run OFTest in dummy mode, run the following command from your Open
+vSwitch build directory:
+    <code>make check-oftest OFT=&lt;oft-binary&gt;</code>
+where <code>&lt;oft-binary&gt;</code> is the absolute path to the "oft" program in
+OFTest.</p>
+
+<p>If you added "oft" to your $PATH, you may omit the OFT variable
+assignment:
+    <code>make check-oftest</code>
+By default, "check-oftest" passes "oft" just enough options to enable
+dummy mode.  You can use OFTFLAGS to pass additional options.  For
+example, to run just the basic.Echo test instead of all tests (the
+default) and enable verbose logging:
+    <code>make check-oftest OFT=&lt;oft-binary&gt; OFTFLAGS='--verbose -T basic.Echo'</code></p>
+
+<p>If you use OFTest that does not include commit 4d1f3eb2c792 (oft:
+change default port to 6653), merged into the OFTest repository in
+October 2013, then you need to add an option to use the IETF-assigned
+controller port:
+    <code>make check-oftest OFT=&lt;oft-binary&gt; OFTFLAGS='--port=6653'</code></p>
+
+<p>Please interpret OFTest results cautiously.  Open vSwitch can fail a
+given test in OFTest for many reasons, including bugs in Open vSwitch,
+bugs in OFTest, bugs in the "dummy mode" integration, and differing
+interpretations of the OpenFlow standard and other standards.</p>
+
+<p>Open vSwitch has not been validated against OFTest.  Please do report
+test failures that you believe to represent bugs in Open vSwitch.
+Include the precise versions of Open vSwitch and OFTest in your bug
+report, plus any other information needed to reproduce the problem.</p>
+
+<h2>Ryu</h2>
+
+<p>Ryu is an OpenFlow controller written in Python that includes an
+extensive OpenFlow testsuite.  Open vSwitch includes a Makefile target
+to run Ryu in "dummy mode".  See "OFTest" above for an explanation of
+dummy mode.</p>
+
+<p>To run Ryu tests with Open vSwitch, first read and follow the
+instructions under "Testsuites" above.  Second, obtain a copy of Ryu,
+install its prerequisites, and build it.  You do not need to install
+Ryu (some of the tests do not get installed, so it does not help).</p>
+
+<p>To run Ryu tests, run the following command from your Open vSwitch
+build directory:
+    <code>make check-ryu RYUDIR=&lt;ryu-source-dir&gt;</code>
+where <code>&lt;ryu-source-dir&gt;</code> is the absolute path to the root of the Ryu
+source distribution.  The default <code>&lt;ryu-source-dir&gt;</code> is <code>$srcdir/../ryu</code>
+where $srcdir is your Open vSwitch source directory, so if this
+default is correct then you make simply run <code>make check-ryu</code>.</p>
+
+<p>Open vSwitch has not been validated against Ryu.  Please do report
+test failures that you believe to represent bugs in Open vSwitch.
+Include the precise versions of Open vSwitch and Ryu in your bug
+report, plus any other information needed to reproduce the problem.</p>
+
+<h2>Continuous Integration with Travis-CI</h2>
+
+<p>A .travis.yml file is provided to automatically build Open vSwitch with
+various build configurations and run the testsuite using travis-ci.
+Builds will be performed with gcc, sparse and clang with the -Werror
+compiler flag included, therefore the build will fail if a new warning
+has been introduced.</p>
+
+<p>The CI build is triggered via git push (regardless of the specific
+branch) or pull request against any Open vSwitch GitHub repository that
+is linked to travis-ci.</p>
+
+<p>Instructions to setup travis-ci for your GitHub repository:</p>
+
+<ol>
+<li>Go to http://travis-ci.org/ and sign in using your GitHub ID.</li>
+<li>Go to the "Repositories" tab and enable the ovs repository. You
+may disable builds for pushes or pull requests.</li>
+<li><p>In order to avoid forks sending build failures to the upstream
+mailing list, the notification email recipient is encrypted. If you
+want to receive email notification for build failures, replace the
+the encrypted string:
+3.1) Install the travis-ci CLI (Requires ruby >=2.0):
+       gem install travis
+3.2) In your Open vSwitch repository:
+       travis encrypt mylist@mydomain.org
+3.3) Add/replace the notifications section in .travis.yml and fill
+    in the secure string as returned by travis encrypt:</p>
+
+<pre><code> notifications:
+   email:
+     recipients:
+       - secure: "....."
+</code></pre>
+
+<p>(You may remove/omit the notifications section to fall back to
+default notification behaviour which is to send an email directly
+to the author and committer of the failing commit. Note that the
+email is only sent if the author/committer have commit rights for
+the particular GitHub repository).</p></li>
+<li><p>Pushing a commit to the repository which breaks the build or the
+testsuite will now trigger a email sent to mylist@mydomain.org</p></li>
+</ol>
+
+<h1>Bug Reporting</h1>
+
+<p>Please report problems to bugs@openvswitch.org.</p>
+</body></html>

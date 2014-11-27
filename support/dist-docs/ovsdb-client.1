@@ -1,0 +1,476 @@
+.\" -*- nroff -*-
+.de IQ
+.  br
+.  ns
+.  IP "\\$1"
+..
+.\" -*- nroff -*-
+.TH ovsdb\-client 1 "2.3.90" "Open vSwitch" "Open vSwitch Manual"
+.\" This program's name:
+.ds PN ovsdb\-client
+.
+.SH NAME
+ovsdb\-client \- command-line interface to \fBovsdb-server\fR(1)
+.
+.SH SYNOPSIS
+\fBovsdb\-client \fR[\fIoptions\fR] \fBlist\-dbs \fR[\fIserver\fR]
+.br
+\fBovsdb\-client \fR[\fIoptions\fR] \fBget\-schema \fR[\fIserver\fR] \fR[\fIdatabase\fR]
+.br
+\fBovsdb\-client \fR[\fIoptions\fR] \fBget\-schema\-version\fI \fR[\fIserver\fR] \fR[\fIdatabase\fR]
+.br
+\fBovsdb\-client \fR[\fIoptions\fR] \fBlist\-tables\fI \fR[\fIserver\fR] \fR[\fIdatabase\fR]
+.br
+\fBovsdb\-client \fR[\fIoptions\fR] \fBlist\-columns\fI \fR[\fIserver\fR] \fR[\fIdatabase\fR] [\fItable\fR]
+.br
+\fBovsdb\-client \fR[\fIoptions\fR] \fBtransact\fI \fR[\fIserver\fR] \fItransaction\fR
+.br
+\fBovsdb\-client \fR[\fIoptions\fR] \fBdump\fI \fR[\fIserver\fR] \fR[\fIdatabase\fR]\fR
+.br
+\fBovsdb\-client \fR[\fIoptions\fR] \fBmonitor\fI \fR[\fIserver\fR] \fR[\fIdatabase\fR] \fItable\fR
+[\fIcolumn\fR[\fB,\fIcolumn\fR]...]...
+.br
+\fBovsdb\-client \fR[\fIoptions\fR] \fBmonitor\fI \fR[\fIserver\fR] \fR[\fIdatabase\fR] \fBALL\fR
+.br
+\fBovsdb\-client help\fR
+.IP "Output formatting options:"
+[\fB\-\-format=\fIformat\fR]
+[\fB\-\-data=\fIformat\fR]
+[\fB\-\-no-heading\fR]
+[\fB\-\-pretty\fR]
+[\fB\-\-bare\fR]
+[\fB\-\-no\-heading\fR]
+[\fB\-\-timestamp\fR]
+.IP "Daemon options:"
+[\fB\-\-pidfile\fR[\fB=\fIpidfile\fR]]
+[\fB\-\-overwrite\-pidfile\fR]
+[\fB\-\-detach\fR]
+[\fB\-\-no\-chdir\fR]
+.IP "Logging options:"
+[\fB\-v\fR[\fImodule\fR[\fB:\fIfacility\fR[\fB:\fIlevel\fR]]]]\&...
+.br
+[\fB\-\-verbose[=\fImodule\fR[\fB:\fIfacility\fR[\fB:\fIlevel\fR]]]]\&...
+.br
+[\fB\-\-log\-file\fR[\fB=\fIfile\fR]]
+.IP "Public key infrastructure options:"
+[\fB\-\-private\-key=\fIprivkey.pem\fR]
+.br
+[\fB\-\-certificate=\fIcert.pem\fR]
+.br
+[\fB\-\-ca\-cert=\fIcacert.pem\fR]
+.br
+[\fB\-\-bootstrap\-ca\-cert=\fIcacert.pem]
+.IP "Common options:"
+[\fB\-h\fR | \fB\-\-help\fR]
+[\fB\-V\fR | \fB\-\-version\fR]
+
+.
+.SH DESCRIPTION
+The \fBovsdb\-client\fR program is a command-line client for
+interacting with a running \fBovsdb\-server\fR process.
+Each command connects to an OVSDB server, which is
+\fBunix:/var/run/openvswitch/db.sock\fR by default, or may be specified as
+\fIserver\fR in one of the following forms:
+.RS
+.IP "\fBssl:\fIip\fB:\fIport\fR"
+The specified SSL \fIport\fR on the host at the given \fIip\fR, which
+must be expressed as an IP address (not a DNS name) in IPv4 or IPv6 address
+format.  If \fIip\fR is an IPv6 address, then wrap \fIip\fR with square
+brackets, e.g.: \fBssl:[::1]:6632\fR.
+The \fB\-\-private\-key\fR, \fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR
+options are mandatory when this form is used.
+.
+.IP "\fBtcp:\fIip\fB:\fIport\fR"
+Connect to the given TCP \fIport\fR on \fIip\fR, where \fIip\fR can be IPv4
+or IPv6 address. If \fIip\fR is an IPv6 address, then wrap \fIip\fR with
+square brackets, e.g.: \fBtcp:[::1]:6632\fR.
+.
+.IP "\fBunix:\fIfile\fR"
+On POSIX, connect to the Unix domain server socket named \fIfile\fR.
+.IP
+On Windows, connect to a localhost TCP port whose value is written in
+\fIfile\fR.
+.IP "\fBpssl:\fIport\fR[\fB:\fIip\fR]"
+Listen on the given SSL \fIport\fR for a connection.  By default,
+connections are not bound to a particular local IP address and
+it listens only on IPv4 (but not IPv6) addresses, but
+specifying \fIip\fR limits connections to those from the given
+\fIip\fR, either IPv4 or IPv6 address.  If \fIip\fR is
+an IPv6 address, then wrap \fIip\fR with square brackets, e.g.:
+\fBpssl:6632:[::1]\fR.  The \fB\-\-private\-key\fR,
+\fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR options are mandatory
+when this form is used.
+.
+.IP "\fBptcp:\fIport\fR[\fB:\fIip\fR]"
+Listen on the given TCP \fIport\fR for a connection.  By default,
+connections are not bound to a particular local IP address and
+it listens only on IPv4 (but not IPv6) addresses, but
+\fIip\fR may be specified to listen only for connections to the given
+\fIip\fR, either IPv4 or IPv6 address.  If \fIip\fR is
+an IPv6 address, then wrap \fIip\fR with square brackets, e.g.:
+\fBptcp:6632:[::1]\fR.
+.
+.IP "\fBpunix:\fIfile\fR"
+On POSIX, listen on the Unix domain server socket named \fIfile\fR for a
+connection.
+.IP
+On Windows, listen on a kernel chosen TCP port on the localhost. The kernel
+chosen TCP port value is written in \fIfile\fR.
+.RE
+.PP
+The default \fIdatabase\fR is \fBOpen_vSwitch\fR.
+.
+.SS "Commands"
+The following commands are implemented:
+.IP "\fBlist\-dbs \fR[\fIserver\fR]"
+Connects to \fIserver\fR, retrieves the list of known databases, and
+prints them one per line.  These database names are the ones that may
+be used for \fIdatabase\fR in the following commands.
+.
+.IP "\fBget\-schema \fR[\fIserver\fR] \fR[\fIdatabase\fR]"
+Connects to \fIserver\fR, retrieves the schema for \fIdatabase\fR, and
+prints it in JSON format.
+.
+.IP "\fBget\-schema\-version\fI \fR[\fIserver\fR] \fR[\fIdatabase\fR]"
+Connects to \fIserver\fR, retrieves the schema for \fIdatabase\fR, and
+prints its version number on stdout.  A schema version number has the form
+\fIx\fB.\fIy\fB.\fIz\fR.  See \fBovs\-vswitchd.conf.db\fR(5) for
+details.
+.IP
+Schema version numbers and Open vSwitch version numbers are
+independent.
+.IP
+If \fIdatabase\fR was created before schema versioning was introduced,
+then it will not have a version number and this command will print a
+blank line.
+.
+.IP "\fBlist\-tables\fI \fR[\fIserver\fR] \fR[\fIdatabase\fR]"
+Connects to \fIserver\fR, retrieves the schema for \fIdatabase\fR, and
+prints a table listing the name of each table
+within the database.
+.
+.IP "\fBlist\-columns\fI \fR[\fIserver\fR] \fR[\fIdatabase\fR] \fItable\fR"
+Connects to \fIserver\fR, retrieves the schema for \fIdatabase\fR, and
+prints a table listing the name and type of each
+column.  If \fItable\fR is specified, only columns in that table are
+listed; otherwise, the tables include columns in all tables.
+.
+.IP "\fBtransact\fI \fR[\fIserver\fR] \fItransaction\fR"
+Connects to \fIserver\fR, sends it the specified \fItransaction\fR,
+which must be a JSON array containing one or more valid OVSDB
+operations, and prints the received reply on stdout.
+.
+.IP "\fBdump\fI \fR[\fIserver\fR] \fR[\fIdatabase\fR]\fR"
+Connects to \fIserver\fR, retrieves all of the data in \fIdatabase\fR,
+and prints it on stdout as a series of tables.
+.
+.IP "\fBmonitor\fI \fR[\fIserver\fR] \fR[\fIdatabase\fR] \fItable\fR [\fIcolumn\fR[\fB,\fIcolumn\fR]...]..."
+Connects to \fIserver\fR and monitors the contents of \fItable\fR in
+\fIdatabase\fR.  By default, the initial contents of \fItable\fR are
+printed, followed by each change as it occurs.  If at least one
+\fIcolumn\fR is specified, only those columns are monitored.  The
+following \fIcolumn\fR names have special meanings:
+.RS
+.IP "\fB!initial\fR"
+Do not print the initial contents of the specified columns.
+.IP "\fB!insert\fR"
+Do not print newly inserted rows.
+.IP "\fB!delete\fR"
+Do not print deleted rows.
+.IP "\fB!modify\fR"
+Do not print modifications to existing rows.
+.RE
+.IP
+Multiple [\fIcolumn\fR[\fB,\fIcolumn\fR]...] groups may be specified
+as separate arguments, e.g. to apply different reporting parameters to
+each group.  Whether multiple groups or only a single group is
+specified, any given column may only be mentioned once on the command
+line.
+.IP
+If \fB\-\-detach\fR is used with \fBmonitor\fR, then \fBovsdb\-client\fR
+detaches after it has successfully received and printed the initial
+contents of \fItable\fR.
+.
+.IP "\fBmonitor\fI \fR[\fIserver\fR] \fR[\fIdatabase\fR] \fBALL\fR"
+Connects to \fIserver\fR and monitors the contents of all tables in
+\fIdatabase\fR.  Prints initial values and all kinds of changes to all
+columns in the database.  The \fB\-\-detach\fR option causes
+\fBovsdb\-client\fR to detach after it successfully receives and
+prints the initial database contents.
+.
+.SH OPTIONS
+.SS "Output Formatting Options"
+Much of the output from \fBovsdb\-client\fR is in the form of tables.
+The following options controlling output formatting:
+.
+.ds TD (default)
+.IP "\fB\-f \fIformat\fR"
+.IQ "\fB\-\-format=\fIformat\fR"
+Sets the type of table formatting.  The following types of
+\fIformat\fR are available:
+.RS
+.ie '\*(PN'ovs\-vsctl' .IP "\fBtable\fR"
+.el                    .IP "\fBtable\fR (default)"
+2-D text tables with aligned columns.
+.ie '\*(PN'ovs\-vsctl' .IP "\fBlist\fR (default)"
+.el                    .IP "\fBlist\fR"
+A list with one column per line and rows separated by a blank line.
+.IP "\fBhtml\fR"
+HTML tables.
+.IP "\fBcsv\fR"
+Comma-separated values as defined in RFC 4180.
+.IP "\fBjson\fR"
+JSON format as defined in RFC 4627.  The output is a sequence of JSON
+objects, each of which corresponds to one table.  Each JSON object has
+the following members with the noted values:
+.RS
+.IP "\fBcaption\fR"
+The table's caption.  This member is omitted if the table has no
+caption.
+.IP "\fBheadings\fR"
+An array with one element per table column.  Each array element is a
+string giving the corresponding column's heading.
+.IP "\fBdata\fR"
+An array with one element per table row.  Each element is also an
+array with one element per table column.  The elements of this
+second-level array are the cells that constitute the table.  Cells
+that represent OVSDB data or data types are expressed in the format
+described in the OVSDB specification; other cells are simply expressed
+as text strings.
+.RE
+.RE
+.
+.IP "\fB\-d \fIformat\fR"
+.IQ "\fB\-\-data=\fIformat\fR"
+Sets the formatting for cells within output tables.  The following
+types of \fIformat\fR are available:
+.RS
+.IP "\fBstring\fR (default)"
+The simple format described in the \fBDatabase Values\fR
+.ie '\*(PN'ovs\-vsctl' section below.
+.el                    section of \fBovs\-vsctl\fR(8).
+.IP "\fBbare\fR"
+The simple format with punctuation stripped off: \fB[]\fR and \fB{}\fR
+are omitted around sets, maps, and empty columns, items within sets
+and maps are space-separated, and strings are never quoted.  This
+format may be easier for scripts to parse.
+.IP "\fBjson\fR"
+JSON.
+.RE
+.IP
+The \fBjson\fR output format always outputs cells in JSON format,
+ignoring this option.
+.
+.IP "\fB\-\-no\-heading\fR"
+This option suppresses the heading row that otherwise appears in the
+first row of table output.
+.
+.IP "\fB\-\-pretty\fR"
+By default, JSON in output is printed as compactly as possible.  This
+option causes JSON in output to be printed in a more readable
+fashion.  Members of objects and elements of arrays are printed one
+per line, with indentation.
+.IP
+This option does not affect JSON in tables, which is always printed
+compactly.
+.IP "\fB\-\-bare\fR"
+Equivalent to \fB\-\-format=list \-\-data=bare \-\-no\-headings\fR.
+.
+.IP "\fB\-\-timestamp\fR"
+For the \fBmonitor\fR command, adds a timestamp to each table
+update.  Most output formats add the timestamp on a line of its own
+just above the table.  The JSON output format puts the timestamp in a
+member of the top-level JSON object named \fBtime\fR.
+.
+.SS "Daemon Options"
+The daemon options apply only to the \fBmonitor\fR command.  With any
+other command, they have no effect.
+.ds DD
+The following options are valid on POSIX based platforms.
+.TP
+\fB\-\-pidfile\fR[\fB=\fIpidfile\fR]
+Causes a file (by default, \fB\*(PN.pid\fR) to be created indicating
+the PID of the running process.  If the \fIpidfile\fR argument is not
+specified, or
+if it does not begin with \fB/\fR, then it is created in
+\fB/var/run/openvswitch\fR.
+.IP
+If \fB\-\-pidfile\fR is not specified, no pidfile is created.
+.
+.TP
+\fB\-\-overwrite\-pidfile\fR
+By default, when \fB\-\-pidfile\fR is specified and the specified pidfile 
+already exists and is locked by a running process, \fB\*(PN\fR refuses 
+to start.  Specify \fB\-\-overwrite\-pidfile\fR to cause it to instead 
+overwrite the pidfile.
+.IP
+When \fB\-\-pidfile\fR is not specified, this option has no effect.
+.
+.TP
+\fB\-\-detach\fR
+Causes \fB\*(PN\fR to detach itself from the foreground session and
+run as a background process. \*(DD
+.
+.TP
+\fB\-\-monitor\fR
+Creates an additional process to monitor the \fB\*(PN\fR daemon.  If
+the daemon dies due to a signal that indicates a programming error
+(\fBSIGABRT\fR, \fBSIGALRM\fR, \fBSIGBUS\fR, \fBSIGFPE\fR,
+\fBSIGILL\fR, \fBSIGPIPE\fR, \fBSIGSEGV\fR, \fBSIGXCPU\fR, or
+\fBSIGXFSZ\fR) then the monitor process starts a new copy of it.  If
+the daemon dies or exits for another reason, the monitor process exits.
+.IP
+This option is normally used with \fB\-\-detach\fR, but it also
+functions without it.
+.
+.TP
+\fB\-\-no\-chdir\fR
+By default, when \fB\-\-detach\fR is specified, \fB\*(PN\fR 
+changes its current working directory to the root directory after it 
+detaches.  Otherwise, invoking \fB\*(PN\fR from a carelessly chosen 
+directory would prevent the administrator from unmounting the file 
+system that holds that directory.
+.IP
+Specifying \fB\-\-no\-chdir\fR suppresses this behavior, preventing
+\fB\*(PN\fR from changing its current working directory.  This may be 
+useful for collecting core files, since it is common behavior to write 
+core dumps into the current working directory and the root directory 
+is not a good directory to use.
+.IP
+This option has no effect when \fB\-\-detach\fR is not specified.
+.SS "Logging Options"
+.de IQ
+.  br
+.  ns
+.  IP "\\$1"
+..
+.IP "\fB\-v\fR[\fIspec\fR]
+.IQ "\fB\-\-verbose=\fR[\fIspec\fR]
+.
+Sets logging levels.  Without any \fIspec\fR, sets the log level for
+every module and facility to \fBdbg\fR.  Otherwise, \fIspec\fR is a
+list of words separated by spaces or commas or colons, up to one from
+each category below:
+.
+.RS
+.IP \(bu
+A valid module name, as displayed by the \fBvlog/list\fR command on
+\fBovs\-appctl\fR(8), limits the log level change to the specified
+module.
+.
+.IP \(bu
+\fBsyslog\fR, \fBconsole\fR, or \fBfile\fR, to limit the log level
+change to only to the system log, to the console, or to a file,
+respectively.
+.IP
+On Windows platform, \fBsyslog\fR is accepted as a word and is only
+useful along with the \fB\-\-syslog\-target\fR option (the word has no
+effect otherwise).
+.
+.IP \(bu
+\fBoff\fR, \fBemer\fR, \fBerr\fR, \fBwarn\fR, \fBinfo\fR, or
+\fBdbg\fR, to control the log level.  Messages of the given severity
+or higher will be logged, and messages of lower severity will be
+filtered out.  \fBoff\fR filters out all messages.  See
+\fBovs\-appctl\fR(8) for a definition of each log level.
+.RE
+.
+.IP
+Case is not significant within \fIspec\fR.
+.IP
+Regardless of the log levels set for \fBfile\fR, logging to a file
+will not take place unless \fB\-\-log\-file\fR is also specified (see
+below).
+.IP
+For compatibility with older versions of OVS, \fBany\fR is accepted as
+a word but has no effect.
+.
+.IP "\fB\-v\fR"
+.IQ "\fB\-\-verbose\fR"
+Sets the maximum logging verbosity level, equivalent to
+\fB\-\-verbose=dbg\fR.
+.
+.IP "\fB\-vPATTERN:\fIfacility\fB:\fIpattern\fR"
+.IQ "\fB\-\-verbose=PATTERN:\fIfacility\fB:\fIpattern\fR"
+Sets the log pattern for \fIfacility\fR to \fIpattern\fR.  Refer to
+\fBovs\-appctl\fR(8) for a description of the valid syntax for \fIpattern\fR.
+.
+.TP
+\fB\-\-log\-file\fR[\fB=\fIfile\fR]
+Enables logging to a file.  If \fIfile\fR is specified, then it is
+used as the exact name for the log file.  The default log file name
+used if \fIfile\fR is omitted is \fB/var/log/openvswitch/\*(PN.log\fR.
+.
+.IP "\fB\-\-syslog\-target=\fIhost\fB:\fIport\fR"
+Send syslog messages to UDP \fIport\fR on \fIhost\fR, in addition to
+the system syslog.  The \fIhost\fR must be a numerical IP address, not
+a hostname.
+.SS "Public Key Infrastructure Options"
+.de IQ
+.  br
+.  ns
+.  IP "\\$1"
+..
+.IP "\fB\-p\fR \fIprivkey.pem\fR"
+.IQ "\fB\-\-private\-key=\fIprivkey.pem\fR"
+Specifies a PEM file containing the private key used as \fB\*(PN\fR's
+identity for outgoing SSL connections.
+.
+.IP "\fB\-c\fR \fIcert.pem\fR"
+.IQ "\fB\-\-certificate=\fIcert.pem\fR"
+Specifies a PEM file containing a certificate that certifies the
+private key specified on \fB\-p\fR or \fB\-\-private\-key\fR to be
+trustworthy.  The certificate must be signed by the certificate
+authority (CA) that the peer in SSL connections will use to verify it.
+.
+.IP "\fB\-C\fR \fIcacert.pem\fR"
+.IQ "\fB\-\-ca\-cert=\fIcacert.pem\fR"
+Specifies a PEM file containing the CA certificate that \fB\*(PN\fR
+should use to verify certificates presented to it by SSL peers.  (This
+may be the same certificate that SSL peers use to verify the
+certificate specified on \fB\-c\fR or \fB\-\-certificate\fR, or it may
+be a different one, depending on the PKI design in use.)
+.
+.IP "\fB\-C none\fR"
+.IQ "\fB\-\-ca\-cert=none\fR"
+Disables verification of certificates presented by SSL peers.  This
+introduces a security risk, because it means that certificates cannot
+be verified to be those of known trusted hosts.
+.IP "\fB\-\-bootstrap\-ca\-cert=\fIcacert.pem\fR"
+When \fIcacert.pem\fR exists, this option has the same effect as
+\fB\-C\fR or \fB\-\-ca\-cert\fR.  If it does not exist, then
+\fB\*(PN\fR will attempt to obtain the CA certificate from the
+SSL peer on its first SSL connection and save it to the named PEM
+file.  If it is successful, it will immediately drop the connection
+and reconnect, and from then on all SSL connections must be
+authenticated by a certificate signed by the CA certificate thus
+obtained.
+.IP
+\fBThis option exposes the SSL connection to a man-in-the-middle
+attack obtaining the initial CA certificate\fR, but it may be useful
+for bootstrapping.
+.IP
+This option is only useful if the SSL peer sends its CA certificate as
+part of the SSL certificate chain.  The SSL protocol does not require
+the server to send the CA certificate.
+.IP
+This option is mutually exclusive with \fB\-C\fR and
+\fB\-\-ca\-cert\fR.
+.SS "Other Options"
+.de IQ
+.  br
+.  ns
+.  IP "\\$1"
+..
+.IP "\fB\-h\fR"
+.IQ "\fB\-\-help\fR"
+Prints a brief help message to the console.
+.
+.IP "\fB\-V\fR"
+.IQ "\fB\-\-version\fR"
+Prints version information to the console.
+.SH "SEE ALSO"
+.
+\fBovsdb\-server\fR(1),
+\fBovsdb\-client\fR(1),
+and the OVSDB specification.

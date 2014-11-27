@@ -1,0 +1,939 @@
+<html><head>
+  <meta charset="UTF-8"></head>
+  <link rel="stylesheet" type="text/css" href="style.css">
+  <title>tutorial/Tutorial.md (Open vSwitch 2.3.90)</title>
+</head><body>
+<h1>Open vSwitch Advanced Features Tutorial</h1>
+
+<p>Many tutorials cover the basics of OpenFlow.  This is not such a
+tutorial.  Rather, a knowledge of the basics of OpenFlow is a
+prerequisite.  If you do not already understand how an OpenFlow flow
+table works, please go read a basic tutorial and then continue reading
+here afterward.</p>
+
+<p>It is also important to understand the basics of Open vSwitch before
+you begin.  If you have never used ovs-vsctl or ovs-ofctl before, you
+should learn a little about them before proceeding.</p>
+
+<p>Most of the features covered in this tutorial are Open vSwitch
+extensions to OpenFlow.  Also, most of the features in this tutorial
+are specific to the software Open vSwitch implementation.  If you are
+using an Open vSwitch port to an ASIC-based hardware switch, this
+tutorial will not help you.</p>
+
+<p>This tutorial does not cover every aspect of the features that it
+mentions.  You can find the details elsewhere in the Open vSwitch
+documentation, especially ovs-ofctl(8) and the comments in the
+include/openflow/nicira-ext.h header file.</p>
+
+<blockquote>
+  <blockquote>
+  <blockquote>
+  <p>In this tutorial, paragraphs set off like this designate notes
+    with additional information that readers may wish to skip on a
+    first read.</p>
+</blockquote>
+
+<p></blockquote></p>
+
+<p></blockquote></p>
+
+<h2>Getting Started</h2>
+
+<p>This is a hands-on tutorial.  To get the most out of it, you will need
+Open vSwitch binaries.  You do not, on the other hand, need any
+physical networking hardware or even supervisor privilege on your
+system.  Instead, we will use a script called "ovs-sandbox", which
+accompanies the tutorial, that constructs a software simulated network
+environment based on Open vSwitch.</p>
+
+<p>You can use <code>ovs-sandbox</code> three ways:</p>
+
+<ul>
+<li><p>If you have already installed Open vSwitch on your system, then
+you should be able to just run <code>ovs-sandbox</code> from this directory
+without any options.</p></li>
+<li><p>If you have not installed Open vSwitch (and you do not want to
+install it), then you can build Open vSwitch according to the
+instructions in INSTALL, without installing it.  Then run
+<code>./ovs-sandbox -b DIRECTORY</code> from this directory, substituting
+the Open vSwitch build directory for DIRECTORY.</p></li>
+<li><p>As a slight variant on the latter, you can run <code>make sandbox</code>
+from an Open vSwitch build directory.</p></li>
+</ul>
+
+<p>When you run ovs-sandbox, it does the following:</p>
+
+<ol>
+<li><p>CAUTION: Deletes any subdirectory of the current directory
+ named "sandbox" and any files in that directory.</p></li>
+<li><p>Creates a new directory "sandbox" in the current directory.</p></li>
+<li><p>Sets up special environment variables that ensure that Open
+ vSwitch programs will look inside the "sandbox" directory
+ instead of in the Open vSwitch installation directory.</p></li>
+<li><p>If you are using a built but not installed Open vSwitch,
+ installs the Open vSwitch manpages in a subdirectory of
+ "sandbox" and adjusts the MANPATH environment variable to point
+ to this directory.  This means that you can use, for example,
+ <code>man ovs-vsctl</code> to see a manpage for the ovs-vsctl program that
+ you built.</p></li>
+<li><p>Creates an empty Open vSwitch configuration database under
+ "sandbox".</p></li>
+<li><p>Starts ovsdb-server running under "sandbox".</p></li>
+<li><p>Starts ovs-vswitchd running under "sandbox", passing special
+ options that enable a special "dummy" mode for testing.</p></li>
+<li><p>Starts a nested interactive shell inside "sandbox".</p></li>
+</ol>
+
+<p>At this point, you can run all the usual Open vSwitch utilities from
+the nested shell environment.  You can, for example, use ovs-vsctl to
+create a bridge:</p>
+
+<pre><code>ovs-vsctl add-br br0
+</code></pre>
+
+<p>From Open vSwitch's perspective, the bridge that you create this way
+is as real as any other.  You can, for example, connect it to an
+OpenFlow controller or use "ovs-ofctl" to examine and modify it and
+its OpenFlow flow table.  On the other hand, the bridge is not visible
+to the operating system's network stack, so "ifconfig" or "ip" cannot
+see it or affect it, which means that utilities like "ping" and
+"tcpdump" will not work either.  (That has its good side, too: you
+can't screw up your computer's network stack by manipulating a
+sandboxed OVS.)</p>
+
+<p>When you're done using OVS from the sandbox, exit the nested shell (by
+entering the "exit" shell command or pressing Control+D).  This will
+kill the daemons that ovs-sandbox started, but it leaves the "sandbox"
+directory and its contents in place.</p>
+
+<p>The sandbox directory contains log files for the Open vSwitch dameons.
+You can examine them while you're running in the sandboxed environment
+or after you exit.</p>
+
+<h2>Motivation</h2>
+
+<p>The goal of this tutorial is to demonstrate the power of Open vSwitch
+flow tables.  The tutorial works through the implementation of a
+MAC-learning switch with VLAN trunk and access ports.  Outside of the
+Open vSwitch features that we will discuss, OpenFlow provides at least
+two ways to implement such a switch:</p>
+
+<ol>
+<li><p>An OpenFlow controller to implement MAC learning in a
+ "reactive" fashion.  Whenever a new MAC appears on the switch,
+ or a MAC moves from one switch port to another, the controller
+ adjusts the OpenFlow flow table to match.</p></li>
+<li><p>The "normal" action.  OpenFlow defines this action to submit a
+ packet to "the traditional non-OpenFlow pipeline of the
+ switch".  That is, if a flow uses this action, then the packets
+ in the flow go through the switch in the same way that they
+ would if OpenFlow was not configured on the switch.</p></li>
+</ol>
+
+<p>Each of these approaches has unfortunate pitfalls.  In the first
+approach, using an OpenFlow controller to implement MAC learning, has
+a significant cost in terms of network bandwidth and latency.  It also
+makes the controller more difficult to scale to large numbers of
+switches, which is especially important in environments with thousands
+of hypervisors (each of which contains a virtual OpenFlow switch).
+MAC learning at an OpenFlow controller also behaves poorly if the
+OpenFlow controller fails, slows down, or becomes unavailable due to
+network problems.</p>
+
+<p>The second approach, using the "normal" action, has different
+problems.  First, little about the "normal" action is standardized, so
+it behaves differently on switches from different vendors, and the
+available features and how those features are configured (usually not
+through OpenFlow) varies widely.  Second, "normal" does not work well
+with other OpenFlow actions.  It is "all-or-nothing", with little
+potential to adjust its behavior slightly or to compose it with other
+features.</p>
+
+<h2>Scenario</h2>
+
+<p>We will construct Open vSwitch flow tables for a VLAN-capable,
+MAC-learning switch that has four ports:</p>
+
+<ul>
+<li><p>p1, a trunk port that carries all VLANs, on OpenFlow port 1.</p></li>
+<li><p>p2, an access port for VLAN 20, on OpenFlow port 2.</p></li>
+<li><p>p3 and p4, both access ports for VLAN 30, on OpenFlow ports 3
+and 4, respectively.</p></li>
+</ul>
+
+<blockquote>
+  <blockquote>
+  <blockquote>
+  <p>The ports' names are not significant.  You could call them eth1
+    through eth4, or any other names you like.</p>
+
+<p>An OpenFlow switch always has a "local" port as well.  This
+    scenario won't use the local port.</p>
+</blockquote>
+
+<p></blockquote></p>
+
+<p></blockquote></p>
+
+<p>Our switch design will consist of five main flow tables, each of which
+implements one stage in the switch pipeline:</p>
+
+<p>Table 0: Admission control.</p>
+
+<p>Table 1: VLAN input processing.</p>
+
+<p>Table 2: Learn source MAC and VLAN for ingress port.</p>
+
+<p>Table 3: Look up learned port for destination MAC and VLAN.</p>
+
+<p>Table 4: Output processing.</p>
+
+<p>The section below describes how to set up the scenario, followed by a
+section for each OpenFlow table.</p>
+
+<p>You can cut and paste the "ovs-vsctl" and "ovs-ofctl" commands in each
+of the sections below into your "ovs-sandbox" shell.  They are also
+available as shell scripts in this directory, named t-setup, t-stage0,
+t-stage1, ..., t-stage4.  The "ovs-appctl" test commands are intended
+for cutting and pasting and are not supplied separately.</p>
+
+<h2>Setup</h2>
+
+<p>To get started, start "ovs-sandbox".  Inside the interactive shell
+that it starts, run this command:</p>
+
+<pre><code>ovs-vsctl add-br br0 -- set Bridge br0 fail-mode=secure
+</code></pre>
+
+<p>This command creates a new bridge "br0" and puts "br0" into so-called
+"fail-secure" mode.  For our purpose, this just means that the
+OpenFlow flow table starts out empty.</p>
+
+<blockquote>
+  <blockquote>
+  <blockquote>
+  <p>If we did not do this, then the flow table would start out with a
+    single flow that executes the "normal" action.  We could use that
+    feature to yield a switch that behaves the same as the switch we
+    are currently building, but with the caveats described under
+    "Motivation" above.)</p>
+</blockquote>
+
+<p></blockquote></p>
+
+<p></blockquote></p>
+
+<p>The new bridge has only one port on it so far, the "local port" br0.
+We need to add p1, p2, p3, and p4.  A shell "for" loop is one way to
+do it:</p>
+
+<pre><code>for i in 1 2 3 4; do
+    ovs-vsctl add-port br0 p$i -- set Interface p$i ofport_request=$i
+      ovs-ofctl mod-port br0 p$i up
+done
+</code></pre>
+
+<p>In addition to adding a port, the ovs-vsctl command above sets its
+"ofport_request" column to ensure that port p1 is assigned OpenFlow
+port 1, p2 is assigned OpenFlow port 2, and so on.</p>
+
+<blockquote>
+  <blockquote>
+  <blockquote>
+  <p>We could omit setting the ofport_request and let Open vSwitch
+    choose port numbers for us, but it's convenient for the purposes
+    of this tutorial because we can talk about OpenFlow port 1 and
+    know that it corresponds to p1.</p>
+</blockquote>
+
+<p></blockquote></p>
+
+<p></blockquote></p>
+
+<p>The ovs-ofctl command above brings up the simulated interfaces, which
+are down initially, using an OpenFlow request.  The effect is similar
+to "ifconfig up", but the sandbox's interfaces are not visible to the
+operating system and therefore "ifconfig" would not affect them.</p>
+
+<p>We have not configured anything related to VLANs or MAC learning.
+That's because we're going to implement those features in the flow
+table.</p>
+
+<p>To see what we've done so far to set up the scenario, you can run a
+command like "ovs-vsctl show" or "ovs-ofctl show br0".</p>
+
+<h2>Implementing Table 0: Admission control</h2>
+
+<p>Table 0 is where packets enter the switch.  We use this stage to
+discard packets that for one reason or another are invalid.  For
+example, packets with a multicast source address are not valid, so we
+can add a flow to drop them at ingress to the switch with:</p>
+
+<pre><code>ovs-ofctl add-flow br0 \
+    "table=0, dl_src=01:00:00:00:00:00/01:00:00:00:00:00, actions=drop"
+</code></pre>
+
+<p>A switch should also not forward IEEE 802.1D Spanning Tree Protocol
+(STP) packets, so we can also add a flow to drop those and other
+packets with reserved multicast protocols:</p>
+
+<pre><code>ovs-ofctl add-flow br0 \
+    "table=0, dl_dst=01:80:c2:00:00:00/ff:ff:ff:ff:ff:f0, actions=drop"
+</code></pre>
+
+<p>We could add flows to drop other protocols, but these demonstrate the
+pattern.</p>
+
+<p>We need one more flow, with a priority lower than the default, so that
+flows that don't match either of the "drop" flows we added above go on
+to pipeline stage 1 in OpenFlow table 1:</p>
+
+<pre><code>ovs-ofctl add-flow br0 "table=0, priority=0, actions=resubmit(,1)"
+</code></pre>
+
+<p>(The "resubmit" action is an Open vSwitch extension to OpenFlow.)</p>
+
+<h3>Testing Table 0</h3>
+
+<p>If we were using Open vSwitch to set up a physical or a virtual
+switch, then we would naturally test it by sending packets through it
+one way or another, perhaps with common network testing tools like
+"ping" and "tcpdump" or more specialized tools like Scapy.  That's
+difficult with our simulated switch, since it's not visible to the
+operating system.</p>
+
+<p>But our simulated switch has a few specialized testing tools.  The
+most powerful of these tools is "ofproto/trace".  Given a switch and
+the specification of a flow, "ofproto/trace" shows, step-by-step, how
+such a flow would be treated as it goes through the switch.</p>
+
+<h3>EXAMPLE 1</h3>
+
+<p>Try this command:</p>
+
+<pre><code>ovs-appctl ofproto/trace br0 in_port=1,dl_dst=01:80:c2:00:00:05
+</code></pre>
+
+<p>The output should look something like this:</p>
+
+<pre><code>Flow: metadata=0,in_port=1,vlan_tci=0x0000,dl_src=00:00:00:00:00:00,dl_dst=01:80:c2:00:00:05,dl_type=0x0000
+Rule: table=0 cookie=0 dl_dst=01:80:c2:00:00:00/ff:ff:ff:ff:ff:f0
+OpenFlow actions=drop
+
+Final flow: unchanged
+Datapath actions: drop
+</code></pre>
+
+<p>The first block of lines describes an OpenFlow table lookup.  The
+first line shows the fields used for the table lookup (which is mostly
+zeros because that's the default if we don't specify everything).  The
+second line gives the OpenFlow flow that the fields matched (called a
+"rule" because that is the name used inside Open vSwitch for an
+OpenFlow flow).  In this case, we see that this packet that has a
+reserved multicast destination address matches the rule that drops
+those packets.  The third line gives the rule's OpenFlow actions.</p>
+
+<p>The second block of lines summarizes the results, which are not very
+interesting here.</p>
+
+<h3>EXAMPLE 2</h3>
+
+<p>Try another command:</p>
+
+<pre><code>ovs-appctl ofproto/trace br0 in_port=1,dl_dst=01:80:c2:00:00:10
+</code></pre>
+
+<p>The output should be:</p>
+
+<pre><code>Flow: metadata=0,in_port=1,vlan_tci=0x0000,dl_src=00:00:00:00:00:00,dl_dst=01:80:c2:00:00:10,dl_type=0x0000
+Rule: table=0 cookie=0 priority=0
+OpenFlow actions=resubmit(,1)
+
+    Resubmitted flow: unchanged
+    Resubmitted regs: reg0=0x0 reg1=0x0 reg2=0x0 reg3=0x0 reg4=0x0 reg5=0x0 reg6=0x0 reg7=0x0
+    Resubmitted  odp: drop
+    No match
+
+Final flow: unchanged
+Datapath actions: drop
+</code></pre>
+
+<p>This time the flow we handed to "ofproto/trace" doesn't match any of
+our "drop" rules, so it falls through to the low-priority "resubmit"
+rule, which we see in the rule and the actions selected in the first
+block.  The "resubmit" causes a second lookup in OpenFlow table 1,
+described by the additional block of indented text in the output.  We
+haven't yet added any flows to OpenFlow table 1, so no flow actually
+matches in the second lookup.  Therefore, the packet is still actually
+dropped, which means that the externally observable results would be
+identical to our first example.</p>
+
+<h2>Implementing Table 1: VLAN Input Processing</h2>
+
+<p>A packet that enters table 1 has already passed basic validation in
+table 0.  The purpose of table 1 is validate the packet's VLAN, based
+on the VLAN configuration of the switch port through which the packet
+entered the switch.  We will also use it to attach a VLAN header to
+packets that arrive on an access port, which allows later processing
+stages to rely on the packet's VLAN always being part of the VLAN
+header, reducing special cases.</p>
+
+<p>Let's start by adding a low-priority flow that drops all packets,
+before we add flows that pass through acceptable packets.  You can
+think of this as a "default drop" rule:</p>
+
+<pre><code>ovs-ofctl add-flow br0 "table=1, priority=0, actions=drop"
+</code></pre>
+
+<p>Our trunk port p1, on OpenFlow port 1, is an easy case.  p1 accepts
+any packet regardless of whether it has a VLAN header or what the VLAN
+was, so we can add a flow that resubmits everything on input port 1 to
+the next table:</p>
+
+<pre><code>ovs-ofctl add-flow br0 \
+    "table=1, priority=99, in_port=1, actions=resubmit(,2)"
+</code></pre>
+
+<p>On the access ports, we want to accept any packet that has no VLAN
+header, tag it with the access port's VLAN number, and then pass it
+along to the next stage:</p>
+
+<pre><code>ovs-ofctl add-flows br0 - &lt;&lt;'EOF'
+  table=1, priority=99, in_port=2, vlan_tci=0, actions=mod_vlan_vid:20, resubmit(,2)
+  table=1, priority=99, in_port=3, vlan_tci=0, actions=mod_vlan_vid:30, resubmit(,2)
+  table=1, priority=99, in_port=4, vlan_tci=0, actions=mod_vlan_vid:30, resubmit(,2)
+EOF
+</code></pre>
+
+<p>We don't write any rules that match packets with 802.1Q that enter
+this stage on any of the access ports, so the "default drop" rule we
+added earlier causes them to be dropped, which is ordinarily what we
+want for access ports.</p>
+
+<blockquote>
+  <blockquote>
+  <blockquote>
+  <p>Another variation of access ports allows ingress of packets tagged
+    with VLAN 0 (aka 802.1p priority tagged packets).  To allow such
+    packets, replace "vlan<em>tci=0" by "vlan</em>tci=0/0xfff" above.</p>
+</blockquote>
+
+<p></blockquote></p>
+
+<p></blockquote></p>
+
+<h3>Testing Table 1</h3>
+
+<p>"ofproto/trace" allows us to test the ingress VLAN rules that we added
+above.</p>
+
+<h3>EXAMPLE 1: Packet on Trunk Port</h3>
+
+<p>Here's a test of a packet coming in on the trunk port:</p>
+
+<pre><code>ovs-appctl ofproto/trace br0 in_port=1,vlan_tci=5
+</code></pre>
+
+<p>The output shows the lookup in table 0, the resubmit to table 1, and
+the resubmit to table 2 (which does nothing because we haven't put
+anything there yet):</p>
+
+<pre><code>Flow: metadata=0,in_port=1,vlan_tci=0x0005,dl_src=00:00:00:00:00:00,dl_dst=00:00:00:00:00:00,dl_type=0x0000
+Rule: table=0 cookie=0 priority=0
+OpenFlow actions=resubmit(,1)
+
+    Resubmitted flow: unchanged
+    Resubmitted regs: reg0=0x0 reg1=0x0 reg2=0x0 reg3=0x0 reg4=0x0 reg5=0x0 reg6=0x0 reg7=0x0
+    Resubmitted  odp: drop
+    Rule: table=1 cookie=0 priority=99,in_port=1
+    OpenFlow actions=resubmit(,2)
+
+        Resubmitted flow: unchanged
+        Resubmitted regs: reg0=0x0 reg1=0x0 reg2=0x0 reg3=0x0 reg4=0x0 reg5=0x0 reg6=0x0 reg7=0x0
+        Resubmitted  odp: drop
+        No match
+
+Final flow: unchanged
+Datapath actions: drop
+</code></pre>
+
+<h3>EXAMPLE 2: Valid Packet on Access Port</h3>
+
+<p>Here's a test of a valid packet (a packet without an 802.1Q header)
+coming in on access port p2:</p>
+
+<pre><code>ovs-appctl ofproto/trace br0 in_port=2
+</code></pre>
+
+<p>The output is similar to that for the previous case, except that it
+additionally tags the packet with p2's VLAN 20 before it passes it
+along to table 2:</p>
+
+<pre><code>Flow: metadata=0,in_port=2,vlan_tci=0x0000,dl_src=00:00:00:00:00:00,dl_dst=00:00:00:00:00:00,dl_type=0x0000
+Rule: table=0 cookie=0 priority=0
+OpenFlow actions=resubmit(,1)
+
+    Resubmitted flow: unchanged
+    Resubmitted regs: reg0=0x0 reg1=0x0 reg2=0x0 reg3=0x0 reg4=0x0 reg5=0x0 reg6=0x0 reg7=0x0
+    Resubmitted  odp: drop
+    Rule: table=1 cookie=0 priority=99,in_port=2,vlan_tci=0x0000
+    OpenFlow actions=mod_vlan_vid:20,resubmit(,2)
+
+        Resubmitted flow: metadata=0,in_port=2,dl_vlan=20,dl_vlan_pcp=0,dl_src=00:00:00:00:00:00,dl_dst=00:00:00:00:00:00,dl_type=0x0000
+        Resubmitted regs: reg0=0x0 reg1=0x0 reg2=0x0 reg3=0x0 reg4=0x0 reg5=0x0 reg6=0x0 reg7=0x0
+        Resubmitted  odp: drop
+        No match
+
+Final flow: unchanged
+Datapath actions: drop
+</code></pre>
+
+<h3>EXAMPLE 3: Invalid Packet on Access Port</h3>
+
+<p>This tests an invalid packet (one that includes an 802.1Q header)
+coming in on access port p2:</p>
+
+<pre><code>ovs-appctl ofproto/trace br0 in_port=2,vlan_tci=5
+</code></pre>
+
+<p>The output shows the packet matching the default drop rule:</p>
+
+<pre><code>Flow: metadata=0,in_port=2,vlan_tci=0x0005,dl_src=00:00:00:00:00:00,dl_dst=00:00:00:00:00:00,dl_type=0x0000
+Rule: table=0 cookie=0 priority=0
+OpenFlow actions=resubmit(,1)
+
+    Resubmitted flow: unchanged
+    Resubmitted regs: reg0=0x0 reg1=0x0 reg2=0x0 reg3=0x0 reg4=0x0 reg5=0x0 reg6=0x0 reg7=0x0
+    Resubmitted  odp: drop
+    Rule: table=1 cookie=0 priority=0
+    OpenFlow actions=drop
+
+Final flow: unchanged
+Datapath actions: drop
+</code></pre>
+
+<h2>Implementing Table 2: MAC+VLAN Learning for Ingress Port</h2>
+
+<p>This table allows the switch we're implementing to learn that the
+packet's source MAC is located on the packet's ingress port in the
+packet's VLAN.</p>
+
+<blockquote>
+  <blockquote>
+  <blockquote>
+  <p>This table is a good example why table 1 added a VLAN tag to
+    packets that entered the switch through an access port.  We want
+    to associate a MAC+VLAN with a port regardless of whether the VLAN
+    in question was originally part of the packet or whether it was an
+    assumed VLAN associated with an access port.</p>
+</blockquote>
+
+<p></blockquote></p>
+
+<p></blockquote></p>
+
+<p>It only takes a single flow to do this.  The following command adds
+it:</p>
+
+<pre><code>ovs-ofctl add-flow br0 \
+    "table=2 actions=learn(table=10, NXM_OF_VLAN_TCI[0..11], \
+                           NXM_OF_ETH_DST[]=NXM_OF_ETH_SRC[], \
+                           load:NXM_OF_IN_PORT[]-&gt;NXM_NX_REG0[0..15]), \
+                     resubmit(,3)"
+</code></pre>
+
+<p>The "learn" action (an Open vSwitch extension to OpenFlow) modifies a
+flow table based on the content of the flow currently being processed.
+Here's how you can interpret each part of the "learn" action above:</p>
+
+<pre><code>table=10
+
+    Modify flow table 10.  This will be the MAC learning table.
+
+NXM_OF_VLAN_TCI[0..11]
+
+    Make the flow that we add to flow table 10 match the same VLAN
+    ID that the packet we're currently processing contains.  This
+    effectively scopes the MAC learning entry to a single VLAN,
+    which is the ordinary behavior for a VLAN-aware switch.
+
+NXM_OF_ETH_DST[]=NXM_OF_ETH_SRC[]
+
+    Make the flow that we add to flow table 10 match, as Ethernet
+    destination, the Ethernet source address of the packet we're
+    currently processing.
+
+load:NXM_OF_IN_PORT[]-&gt;NXM_NX_REG0[0..15]
+
+    Whereas the preceding parts specify fields for the new flow to
+    match, this specifies an action for the flow to take when it
+    matches.  The action is for the flow to load the ingress port
+    number of the current packet into register 0 (a special field
+    that is an Open vSwitch extension to OpenFlow).
+</code></pre>
+
+<blockquote>
+  <blockquote>
+  <blockquote>
+  <p>A real use of "learn" for MAC learning would probably involve two
+    additional elements.  First, the "learn" action would specify a
+    hard<em>timeout for the new flow, to enable a learned MAC to
+    eventually expire if no new packets were seen from a given source
+    within a reasonable interval.  Second, one would usually want to
+    limit resource consumption by using the Flow</em>Table table in the
+    Open vSwitch configuration database to specify a maximum number of
+    flows in table 10.</p>
+</blockquote>
+
+<p></blockquote></p>
+
+<p></blockquote></p>
+
+<p>This definitely calls for examples.</p>
+
+<h3>Testing Table 2</h3>
+
+<h3>EXAMPLE 1</h3>
+
+<p>Try the following test command:</p>
+
+<pre><code>ovs-appctl ofproto/trace br0 in_port=1,vlan_tci=20,dl_src=50:00:00:00:00:01 -generate
+</code></pre>
+
+<p>The output shows that "learn" was executed, but it isn't otherwise
+informative, so we won't include it here.</p>
+
+<p>The "-generate" keyword is new.  Ordinarily, "ofproto/trace" has no
+side effects: "output" actions do not actually output packets, "learn"
+actions do not actually modify the flow table, and so on.  With
+"-generate", though, "ofproto/trace" does execute "learn" actions.
+That's important now, because we want to see the effect of the "learn"
+action on table 10.  You can see that by running:</p>
+
+<pre><code>ovs-ofctl dump-flows br0 table=10
+</code></pre>
+
+<p>which (omitting the "duration" and "idle_age" fields, which will vary
+based on how soon you ran this command after the previous one, as well
+as some other uninteresting fields) prints something like:</p>
+
+<pre><code>NXST_FLOW reply (xid=0x4):
+ table=10, vlan_tci=0x0014/0x0fff,dl_dst=50:00:00:00:00:01 actions=load:0x1-&gt;NXM_NX_REG0[0..15]
+</code></pre>
+
+<p>You can see that the packet coming in on VLAN 20 with source MAC
+50:00:00:00:00:01 became a flow that matches VLAN 20 (written in
+hexadecimal) and destination MAC 50:00:00:00:00:01.  The flow loads
+port number 1, the input port for the flow we tested, into register 0.</p>
+
+<h3>EXAMPLE 2</h3>
+
+<p>Here's a second test command:</p>
+
+<pre><code>ovs-appctl ofproto/trace br0 in_port=2,dl_src=50:00:00:00:00:01 -generate
+</code></pre>
+
+<p>The flow that this command tests has the same source MAC and VLAN as
+example 1, although the VLAN comes from an access port VLAN rather
+than an 802.1Q header.  If we again dump the flows for table 10 with:</p>
+
+<pre><code>ovs-ofctl dump-flows br0 table=10
+</code></pre>
+
+<p>then we see that the flow we saw previously has changed to indicate
+that the learned port is port 2, as we would expect:</p>
+
+<pre><code>NXST_FLOW reply (xid=0x4):
+ table=10, vlan_tci=0x0014/0x0fff,dl_dst=50:00:00:00:00:01 actions=load:0x2-&gt;NXM_NX_REG0[0..15]
+</code></pre>
+
+<h2>Implementing Table 3: Look Up Destination Port</h2>
+
+<p>This table figures out what port we should send the packet to based on
+the destination MAC and VLAN.  That is, if we've learned the location
+of the destination (from table 2 processing some previous packet with
+that destination as its source), then we want to send the packet
+there.</p>
+
+<p>We need only one flow to do the lookup:</p>
+
+<pre><code>ovs-ofctl add-flow br0 \
+    "table=3 priority=50 actions=resubmit(,10), resubmit(,4)"
+</code></pre>
+
+<p>The flow's first action resubmits to table 10, the table that the
+"learn" action modifies.  As you saw previously, the learned flows in
+this table write the learned port into register 0.  If the destination
+for our packet hasn't been learned, then there will be no matching
+flow, and so the "resubmit" turns into a no-op.  Because registers are
+initialized to 0, we can use a register 0 value of 0 in our next
+pipeline stage as a signal to flood the packet.</p>
+
+<p>The second action resubmits to table 4, continuing to the next
+pipeline stage.</p>
+
+<p>We can add another flow to skip the learning table lookup for
+multicast and broadcast packets, since those should always be flooded:</p>
+
+<pre><code>ovs-ofctl add-flow br0 \
+    "table=3 priority=99 dl_dst=01:00:00:00:00:00/01:00:00:00:00:00 \
+      actions=resubmit(,4)"
+</code></pre>
+
+<blockquote>
+  <blockquote>
+  <blockquote>
+  <p>We don't strictly need to add this flow, because multicast
+    addresses will never show up in our learning table.  (In turn,
+    that's because we put a flow into table 0 to drop packets that
+    have a multicast source address.)</p>
+</blockquote>
+
+<p></blockquote></p>
+
+<p></blockquote></p>
+
+<h3>Testing Table 3</h3>
+
+<h3>EXAMPLE</h3>
+
+<p>Here's a command that should cause OVS to learn that f0:00:00:00:00:01
+is on p1 in VLAN 20:</p>
+
+<pre><code>ovs-appctl ofproto/trace br0 in_port=1,dl_vlan=20,dl_src=f0:00:00:00:00:01,dl_dst=90:00:00:00:00:01 -generate
+</code></pre>
+
+<p>Here's an excerpt from the output that shows (from the "no match"
+looking up the resubmit to table 10) that the flow's destination was
+unknown:</p>
+
+<pre><code>        Resubmitted flow: unchanged
+        Resubmitted regs: reg0=0x0 reg1=0x0 reg2=0x0 reg3=0x0 reg4=0x0 reg5=0x0 reg6=0x0 reg7=0x0
+        Resubmitted  odp: drop
+        Rule: table=3 cookie=0 priority=50
+        OpenFlow actions=resubmit(,10),resubmit(,4)
+
+            Resubmitted flow: unchanged
+            Resubmitted regs: reg0=0x0 reg1=0x0 reg2=0x0 reg3=0x0 reg4=0x0 reg5=0x0 reg6=0x0 reg7=0x0
+            Resubmitted  odp: drop
+            No match
+</code></pre>
+
+<p>You can verify that the packet's source was learned two ways.  The
+most direct way is to dump the learning table with:</p>
+
+<pre><code>ovs-ofctl dump-flows br0 table=10
+</code></pre>
+
+<p>which ought to show roughly the following, with extraneous details
+removed:</p>
+
+<pre><code>table=10, vlan_tci=0x0014/0x0fff,dl_dst=f0:00:00:00:00:01 actions=load:0x1-&gt;NXM_NX_REG0[0..15]
+</code></pre>
+
+<blockquote>
+  <blockquote>
+  <blockquote>
+  <p>If you tried the examples for the previous step, or if you did
+    some of your own experiments, then you might see additional flows
+    there.  These additional flows are harmless.  If they bother you,
+    then you can remove them with "ovs-ofctl del-flows br0 table=10".</p>
+</blockquote>
+
+<p></blockquote></p>
+
+<p></blockquote></p>
+
+<p>The other way is to inject a packet to take advantage of the learning
+entry.  For example, we can inject a packet on p2 whose destination is
+the MAC address that we just learned on p1:</p>
+
+<pre><code>ovs-appctl ofproto/trace br0 in_port=2,dl_src=90:00:00:00:00:01,dl_dst=f0:00:00:00:00:01 -generate
+</code></pre>
+
+<p>Here's an interesting excerpt from that command's output.  This group
+of lines traces the "resubmit(,10)", showing that the packet matched
+the learned flow for the first MAC we used, loading the OpenFlow port
+number for the learned port p1 into register 0:</p>
+
+<pre><code>            Resubmitted flow: unchanged
+            Resubmitted regs: reg0=0x0 reg1=0x0 reg2=0x0 reg3=0x0 reg4=0x0 reg5=0x0 reg6=0x0 reg7=0x0
+            Resubmitted  odp: drop
+            Rule: table=10 cookie=0 vlan_tci=0x0014/0x0fff,dl_dst=f0:00:00:00:00:01
+            OpenFlow actions=load:0x1-&gt;NXM_NX_REG0[0..15]
+</code></pre>
+
+<p>If you read the commands above carefully, then you might have noticed
+that they simply have the Ethernet source and destination addresses
+exchanged.  That means that if we now rerun the first ovs-appctl
+command above, e.g.:</p>
+
+<pre><code>ovs-appctl ofproto/trace br0 in_port=1,dl_vlan=20,dl_src=f0:00:00:00:00:01,dl_dst=90:00:00:00:00:01 -generate
+</code></pre>
+
+<p>then we see in the output that the destination has now been learned:</p>
+
+<pre><code>            Resubmitted flow: unchanged
+            Resubmitted regs: reg0=0x0 reg1=0x0 reg2=0x0 reg3=0x0 reg4=0x0 reg5=0x0 reg6=0x0 reg7=0x0
+            Resubmitted  odp: drop
+            Rule: table=10 cookie=0 vlan_tci=0x0014/0x0fff,dl_dst=90:00:00:00:00:01
+            OpenFlow actions=load:0x2-&gt;NXM_NX_REG0[0..15]
+</code></pre>
+
+<h2>Implementing Table 4: Output Processing</h2>
+
+<p>At entry to stage 4, we know that register 0 contains either the
+desired output port or is zero if the packet should be flooded.  We
+also know that the packet's VLAN is in its 802.1Q header, even if the
+VLAN was implicit because the packet came in on an access port.</p>
+
+<p>The job of the final pipeline stage is to actually output packets.
+The job is trivial for output to our trunk port p1:</p>
+
+<pre><code>ovs-ofctl add-flow br0 "table=4 reg0=1 actions=1"
+</code></pre>
+
+<p>For output to the access ports, we just have to strip the VLAN header
+before outputting the packet:</p>
+
+<pre><code>ovs-ofctl add-flows br0 - &lt;&lt;'EOF'
+table=4 reg0=2 actions=strip_vlan,2
+table=4 reg0=3 actions=strip_vlan,3
+table=4 reg0=4 actions=strip_vlan,4
+EOF
+</code></pre>
+
+<p>The only slightly tricky part is flooding multicast and broadcast
+packets and unicast packets with unlearned destinations.  For those,
+we need to make sure that we only output the packets to the ports that
+carry our packet's VLAN, and that we include the 802.1Q header in the
+copy output to the trunk port but not in copies output to access
+ports:</p>
+
+<pre><code>ovs-ofctl add-flows br0 - &lt;&lt;'EOF'
+table=4 reg0=0 priority=99 dl_vlan=20 actions=1,strip_vlan,2
+table=4 reg0=0 priority=99 dl_vlan=30 actions=1,strip_vlan,3,4
+table=4 reg0=0 priority=50            actions=1
+EOF
+</code></pre>
+
+<blockquote>
+  <blockquote>
+  <blockquote>
+  <p>Our rules rely on the standard OpenFlow behavior that an output
+    action will not forward a packet back out the port it came in on.
+    That is, if a packet comes in on p1, and we've learned that the
+    packet's destination MAC is also on p1, so that we end up with
+    "actions=1" as our actions, the switch will not forward the packet
+    back out its input port.  The multicast/broadcast/unknown
+    destination cases above also rely on this behavior.</p>
+</blockquote>
+
+<p></blockquote></p>
+
+<p></blockquote></p>
+
+<h3>Testing Table 4</h3>
+
+<h3>EXAMPLE 1: Broadcast, Multicast, and Unknown Destination</h3>
+
+<p>Try tracing a broadcast packet arriving on p1 in VLAN 30:</p>
+
+<pre><code>ovs-appctl ofproto/trace br0 in_port=1,dl_dst=ff:ff:ff:ff:ff:ff,dl_vlan=30
+</code></pre>
+
+<p>The interesting part of the output is the final line, which shows that
+the switch would remove the 802.1Q header and then output the packet to
+p3 and p4, which are access ports for VLAN 30:</p>
+
+<pre><code>Datapath actions: pop_vlan,3,4
+</code></pre>
+
+<p>Similarly, if we trace a broadcast packet arriving on p3:</p>
+
+<pre><code>ovs-appctl ofproto/trace br0 in_port=3,dl_dst=ff:ff:ff:ff:ff:ff
+</code></pre>
+
+<p>then we see that it is output to p1 with an 802.1Q tag and then to p4
+without one:</p>
+
+<pre><code>Datapath actions: push_vlan(vid=30,pcp=0),1,pop_vlan,4
+</code></pre>
+
+<blockquote>
+  <blockquote>
+  <blockquote>
+  <p>Open vSwitch could simplify the datapath actions here to just
+    "4,push_vlan(vid=30,pcp=0),1" but it is not smart enough to do so.</p>
+</blockquote>
+
+<p></blockquote></p>
+
+<p></blockquote></p>
+
+<p>The following are also broadcasts, but the result is to drop the
+packets because the VLAN only belongs to the input port:</p>
+
+<pre><code>ovs-appctl ofproto/trace br0 in_port=1,dl_dst=ff:ff:ff:ff:ff:ff
+ovs-appctl ofproto/trace br0 in_port=1,dl_dst=ff:ff:ff:ff:ff:ff,dl_vlan=55
+</code></pre>
+
+<p>Try some other broadcast cases on your own:</p>
+
+<pre><code>ovs-appctl ofproto/trace br0 in_port=1,dl_dst=ff:ff:ff:ff:ff:ff,dl_vlan=20
+ovs-appctl ofproto/trace br0 in_port=2,dl_dst=ff:ff:ff:ff:ff:ff
+ovs-appctl ofproto/trace br0 in_port=4,dl_dst=ff:ff:ff:ff:ff:ff
+</code></pre>
+
+<p>You can see the same behavior with multicast packets and with unicast
+packets whose destination has not been learned, e.g.:</p>
+
+<pre><code>ovs-appctl ofproto/trace br0 in_port=4,dl_dst=01:00:00:00:00:00
+ovs-appctl ofproto/trace br0 in_port=1,dl_dst=90:12:34:56:78:90,dl_vlan=20
+ovs-appctl ofproto/trace br0 in_port=1,dl_dst=90:12:34:56:78:90,dl_vlan=30
+</code></pre>
+
+<h3>EXAMPLE 2: MAC Learning</h3>
+
+<p>Let's follow the same pattern as we did for table 3.  First learn a
+MAC on port p1 in VLAN 30:</p>
+
+<pre><code>ovs-appctl ofproto/trace br0 in_port=1,dl_vlan=30,dl_src=10:00:00:00:00:01,dl_dst=20:00:00:00:00:01 -generate
+</code></pre>
+
+<p>You can see from the last line of output that the packet's destination
+is unknown, so it gets flooded to both p3 and p4, the other ports in
+VLAN 30:</p>
+
+<pre><code>Datapath actions: pop_vlan,3,4
+</code></pre>
+
+<p>Then reverse the MACs and learn the first flow's destination on port
+p4:</p>
+
+<pre><code>ovs-appctl ofproto/trace br0 in_port=4,dl_src=20:00:00:00:00:01,dl_dst=10:00:00:00:00:01 -generate
+</code></pre>
+
+<p>The last line of output shows that the this packet's destination is
+known to be p1, as learned from our previous command:</p>
+
+<pre><code>Datapath actions: push_vlan(vid=30,pcp=0),1
+</code></pre>
+
+<p>Now, if we rerun our first command:</p>
+
+<pre><code>ovs-appctl ofproto/trace br0 in_port=1,dl_vlan=30,dl_src=10:00:00:00:00:01,dl_dst=20:00:00:00:00:01 -generate
+</code></pre>
+
+<p>we can see that the result is no longer a flood but to the specified
+learned destination port p4:</p>
+
+<pre><code>Datapath actions: pop_vlan,4
+</code></pre>
+
+<h1>Contact </h1>
+
+<p>bugs@openvswitch.org
+http://openvswitch.org/</p>
+</body></html>

@@ -1,0 +1,290 @@
+<html><head>
+  <meta charset="UTF-8"></head>
+  <link rel="stylesheet" type="text/css" href="style.css">
+  <title>OPENFLOW-1.1+.md (Open vSwitch 2.3.90)</title>
+</head><body>
+<h1>OpenFlow 1.1+ support in Open vSwitch</h1>
+
+<p>Open vSwitch support for OpenFlow 1.1 and beyond is a work in
+progress.  This file describes the work still to be done.</p>
+
+<h2>The Plan</h2>
+
+<p>OpenFlow version support is not a build-time option.  A single build
+of Open vSwitch must be able to handle all supported versions of
+OpenFlow.  Ideally, even at runtime it should be able to support all
+protocol versions at the same time on different OpenFlow bridges (and
+perhaps even on the same bridge).</p>
+
+<p>At the same time, it would be a shame to litter the core of the OVS
+code with lots of ugly code concerned with the details of various
+OpenFlow protocol versions.</p>
+
+<p>The primary approach to compatibility is to abstract most of the
+details of the differences from the core code, by adding a protocol
+layer that translates between OF1.x and a slightly higher-level
+abstract representation.  The core of this approach is the many struct
+ofputil_* structures in lib/ofp-util.h.</p>
+
+<p>As a consequence of this approach, OVS cannot use OpenFlow protocol
+definitions that closely resemble those in the OpenFlow specification,
+because openflow.h in different versions of the OpenFlow specification
+defines the same identifier with different values.  Instead,
+openflow-common.h contains definitions that are common to all the
+specifications and separate protocol version-specific headers contain
+protocol-specific definitions renamed so as not to conflict,
+e.g. OFPAT10<em>ENQUEUE and OFPAT11</em>ENQUEUE for the OpenFlow 1.0 and 1.1
+values for OFPAT<em>ENQUEUE.  Generally, in cases of conflict, the
+protocol layer will define a more abstract OFPUTIL</em>* or struct
+ofputil_*.</p>
+
+<p>Here are the current approaches in a few tricky areas:</p>
+
+<ul>
+<li><p>Port numbering.  OpenFlow 1.0 has 16-bit port numbers and later
+OpenFlow versions have 32-bit port numbers.  For now, OVS
+support for later protocol versions requires all port numbers to
+fall into the 16-bit range, translating the reserved OFPP_* port
+numbers.</p></li>
+<li><p>Actions.  OpenFlow 1.0 and later versions have very different
+ideas of actions.  OVS reconciles by translating all the
+versions' actions (and instructions) to and from a common
+internal representation.</p></li>
+</ul>
+
+<h2>OpenFlow 1.1</h2>
+
+<p>The list of remaining work items for OpenFlow 1.1 is below.  It is
+probably incomplete.</p>
+
+<ul>
+<li><p>Match and set double-tagged VLANs (QinQ).  This requires kernel
+work for reasonable performance.
+[optional for OF1.1+]</p></li>
+<li><p>VLANs tagged with 88a8 Ethertype.  This requires kernel work for
+reasonable performance.
+[required for OF1.1+]</p></li>
+</ul>
+
+<h2>OpenFlow 1.2</h2>
+
+<p>OpenFlow 1.2 support requires OpenFlow 1.1 as a prerequisite. All the
+additional work specific to Openflow 1.2 are complete.  (This is based
+on the change log at the end of the OF1.2 spec.  I didn't compare the
+specs carefully yet.)</p>
+
+<h2>OpenFlow 1.3</h2>
+
+<p>OpenFlow 1.3 support requires OpenFlow 1.2 as a prerequisite, plus the
+following additional work.  (This is based on the change log at the
+end of the OF1.3 spec, reusing most of the section titles directly.  I
+didn't compare the specs carefully yet.)</p>
+
+<ul>
+<li><p>Add support for multipart requests.
+Currently we always report OFPBRC<em>MULTIPART</em>BUFFER_OVERFLOW.
+[optional for OF1.3+]</p></li>
+<li><p>IPv6 extension header handling support.  Fully implementing this
+requires kernel support.  This likely will take some careful and
+probably time-consuming design work.  The actual coding, once
+that is all done, is probably 2 or 3 days work.
+[optional for OF1.3+]</p></li>
+<li><p>Per-flow meters.  OpenFlow protocol support is now implemented.
+Support for the special OFPM<em>SLOWPATH and OFPM</em>CONTROLLER meters
+is missing.  Support for the software switch is under review.
+[optional for OF1.3+]</p></li>
+<li><p>Auxiliary connections.  An implementation in generic code might
+be a week's worth of work.  The value of an implementation in
+generic code is questionable, though, since much of the benefit
+of axuiliary connections is supposed to be to take advantage of
+hardware support.  (We could make the kernel module somehow
+send packets across the auxiliary connections directly, for
+some kind of "hardware" support, if we judged it useful enough.)
+[optional for OF1.3+]</p></li>
+<li><p>Provider Backbone Bridge tagging.  I don't plan to implement
+this (but we'd accept an implementation).
+[optional for OF1.3+]</p></li>
+<li><p>On-demand flow counters.  I think this might be a real
+optimization in some cases for the software switch.
+[optional for OF1.3+]</p></li>
+</ul>
+
+<h2>OpenFlow 1.4 &amp; ONF Extensions for 1.3.X Pack1</h2>
+
+<p>The following features are both defined as a set of ONF Extensions
+for 1.3 and integrated in 1.4.
+When defined as an ONF Extension for 1.3, the feature is using the
+Experimenter mechanism with the ONF Experimenter ID.
+When defined integrated in 1.4, the feature use the standard OpenFlow
+structures (for example defined in openflow-1.4.h).
+The two definitions for each feature are independant and can exist in
+parallel in OVS.</p>
+
+<ul>
+<li><p>Flow entry notifications
+This seems to be modelled after OVS's NXST<em>FLOW</em>MONITOR.
+(Simon Horman is working on this.)
+[EXT-187]
+[optional for OF1.4+]</p></li>
+<li><p>Role Status
+Already implemented as a 1.4 feature.
+[EXT-191]
+[required for OF1.4+]</p></li>
+<li><p>Flow entry eviction
+OVS has flow eviction functionality.
+table<em>mod OFPTC</em>EVICTION, flow<em>mod 'importance', and
+table</em>desc ofp<em>table</em>mod<em>prop</em>eviction need to be implemented.
+[EXT-192-e]
+[optional for OF1.4+]</p></li>
+<li><p>Vacancy events
+[EXT-192-v]
+[optional for OF1.4+]</p></li>
+<li><p>Bundle
+Transactional modification.  OpenFlow 1.4 requires to support
+flow<em>mods and port</em>mods in a bundle if bundle is supported.
+(Not related to OVS's 'ofbundle' stuff.)
+[EXT-230]
+[optional for OF1.4+]</p></li>
+<li><p>Table synchronisation
+Probably not so useful to the software switch.
+[EXT-232]
+[optional for OF1.4+]</p></li>
+<li><p>Group and Meter change notifications
+[EXT-235]
+[optional for OF1.4+]</p></li>
+<li><p>Bad flow entry priority error
+Probably not so useful to the software switch.
+[EXT-236]
+[optional for OF1.4+]</p></li>
+<li><p>Set async config error
+[EXT-237]
+[optional for OF1.4+]</p></li>
+<li><p>PBB UCA header field
+See comment on Provider Backbone Bridge in section about OpenFlow 1.3.
+[EXT-256]
+[optional for OF1.4+]</p></li>
+<li><p>Multipart timeout error
+[EXT-264]
+[required for OF1.4+]</p></li>
+</ul>
+
+<h2>OpenFlow 1.4 only</h2>
+
+<p>Those features are those only available in OpenFlow 1.4, other
+OpenFlow 1.4 features are listed in the previous section.</p>
+
+<ul>
+<li><p>More extensible wire protocol
+Many on-wire structures got TLVs.
+Already implemented: port desc properties, port mod properties,
+                     port stats properties, table mod properties,
+                     queue stats, unified property errors.
+Remaining required: set-async, queue desc
+Remaining optional: table desc, table-status
+[EXT-262]
+[required for OF1.4+]</p></li>
+<li><p>More descriptive reasons for packet-in
+Distinguish OFPR<em>APPLY</em>ACTION, OFPR<em>ACTION</em>SET, OFPR<em>GROUP,
+OFPR</em>PACKET<em>OUT.  NO</em>MATCH was renamed to OFPR<em>TABLE</em>MISS.
+[EXT-136]
+[required for OF1.4+]</p></li>
+<li><p>Optical port properties
+[EXT-154]
+[optional for OF1.4+]</p></li>
+</ul>
+
+<h2>OpenFlow 1.5 &amp; ONF Extensions for 1.3.X Pack2</h2>
+
+<p>The following features are both defined as a set of ONF Extensions for
+1.3 and integrated in 1.5. Note that this list is not definitive as
+those are not yet published.
+When defined as an ONF Extension for 1.3, the feature is using the
+Experimenter mechanism with the ONF Experimenter ID.
+When defined integrated in 1.5, the feature use the standard OpenFlow
+structures (for example defined in openflow-1.5.h).
+The two definitions for each feature are independant and can exist in
+parallel in OVS.</p>
+
+<ul>
+<li>Time scheduled bundles
+[EXT-340]
+[optional for OF1.5+]</li>
+</ul>
+
+<h2>OpenFlow 1.5 only</h2>
+
+<p>Those features are those only available in OpenFlow 1.5, other
+OpenFlow 1.5 features are listed in the previous section.
+Note that this list is not definitive as OpenFlow 1.5 is not yet
+published.</p>
+
+<ul>
+<li><p>Egress Tables
+[EXT-306]
+[optional for OF1.5+]</p></li>
+<li><p>Packet Type aware pipeline
+Prototype for OVS was done during specification.
+[EXT-112]
+[optional for OF1.5+]</p></li>
+<li><p>Extensible Flow Entry Statistics
+[EXT-334]
+[required for OF1.5+]</p></li>
+<li><p>Flow Entry Statistics Trigger
+[EXT-335]
+[optional for OF1.5+]</p></li>
+<li><p>Controller connection status
+Prototype for OVS was done during specification.
+[EXT-454]
+[optional for OF1.5+]</p></li>
+<li><p>Meter action
+[EXT-379]
+[required for OF1.5+ if metering is supported]</p></li>
+<li><p>Enable setting all pipeline fields in packet-out
+Prototype for OVS was done during specification.
+[EXT-427]
+[required for OF1.5+]</p></li>
+<li><p>Port properties for pipeline fields
+Prototype for OVS was done during specification.
+[EXT-388]
+[optional for OF1.5+]</p></li>
+<li><p>Port property for recirculation
+Prototype for OVS was done during specification.
+[EXT-399]
+[optional for OF1.5+]</p></li>
+</ul>
+
+<h2>General</h2>
+
+<ul>
+<li>ovs-ofctl(8) often lists as Nicira extensions features that
+later OpenFlow versions support in standard ways.</li>
+</ul>
+
+<h2>How to contribute</h2>
+
+<p>If you plan to contribute code for a feature, please let everyone know
+on ovs-dev before you start work.  This will help avoid duplicating
+work.</p>
+
+<p>Please consider the following:</p>
+
+<ul>
+<li><p>Testing.  Please test your code.</p></li>
+<li><p>Unit tests.  Please consider writing some.  The tests directory
+has many examples that you can use as a starting point.</p></li>
+<li><p>ovs-ofctl.  If you add a feature that is useful for some
+ovs-ofctl command then you should add support for it there.</p></li>
+<li><p>Documentation.  If you add a user-visible feature, then you
+should document it in the appropriate manpage and mention it in
+NEWS as well.</p></li>
+<li><p>Coding style (see the [CodingStyle.md] file at the top of the
+source tree).</p></li>
+<li><p>The patch submission guidelines (see [CONTRIBUTING.md]).  I
+recommend using "git send-email", which automatically follows a
+lot of those guidelines.</p></li>
+</ul>
+
+<h2>Bug Reporting</h2>
+
+<p>Please report problems to bugs@openvswitch.org.</p>
+</body></html>

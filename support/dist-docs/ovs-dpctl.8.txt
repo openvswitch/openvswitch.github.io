@@ -1,0 +1,256 @@
+ovs-dpctl(8)                  Open vSwitch Manual                 ovs-dpctl(8)
+
+
+
+NAME
+       ovs-dpctl - administer Open vSwitch datapaths
+
+SYNOPSIS
+       ovs-dpctl [options] command [switch] [args...]
+
+DESCRIPTION
+       The ovs-dpctl program can create, modify, and delete Open vSwitch data‐
+       paths.  A single machine may host any number of datapaths.
+
+       A newly created datapath is associated with only one network device,  a
+       virtual  network device sometimes called the datapath's ``local port''.
+       A newly created datapath is not, however, associated with  any  of  the
+       host's  other  network  devices.  To intercept and process traffic on a
+       given network device, use the add-if command  to  explicitly  add  that
+       network device to the datapath.
+
+       If ovs-vswitchd(8) is in use, use ovs-vsctl(8) instead of ovs-dpctl.
+
+       Most  ovs-dpctl commands that work with datapaths take an argument that
+       specifies the name of the  datapath.   Datapath  names  take  the  form
+       [type@]name, where name is the network device associated with the data‐
+       path's local port.   If  type  is  given,  it  specifies  the  datapath
+       provider of name, otherwise the default provider system is assumed.
+
+       The following commands manage datapaths.
+
+       add-dp dp [netdev[,option]...]
+              Creates datapath dp, with a local port also named dp.  This will
+              fail if a network device dp already exists.
+
+              If netdevs are specified, ovs-dpctl adds them to the  new  data‐
+              path, just as if add-if was specified.
+
+       del-dp dp
+              Deletes  datapath  dp.   If  dp  is  associated with any network
+              devices, they are automatically removed.
+
+       add-if dp netdev[,option]...
+              Adds each netdev to the set of network devices datapath dp moni‐
+              tors,  where  dp is the name of an existing datapath, and netdev
+              is the name of one of the host's  network  devices,  e.g.  eth0.
+              Once a network device has been added to a datapath, the datapath
+              has complete ownership of the network device's traffic  and  the
+              network device appears silent to the rest of the system.
+
+              A  netdev  may be followed by a comma-separated list of options.
+              The following options are currently supported:
+
+              type=type
+                     Specifies the type of port to add.  The default  type  is
+                     system.
+
+              port_no=port
+                     Requests  a specific port number within the datapath.  If
+                     this option is not specified then one will  be  automati‐
+                     cally assigned.
+
+              key=value
+                     Adds an arbitrary key-value option to the port's configu‐
+                     ration.
+
+              ovs-vswitchd.conf.db(5) documents the available port  types  and
+              options.
+
+       set-if dp port[,option]...
+              Reconfigures  each  port  in  dp as specified.  An option of the
+              form key=value adds the specified key-value option to  the  port
+              or  overrides  an  existing  key's value.  An option of the form
+              key=, that is, without a value, deletes the key-value named key.
+              The  type  and  port number of a port cannot be changed, so type
+              and port_no are only allowed if they match the existing configu‐
+              ration.
+
+       del-if dp netdev...
+              Removes each netdev from the list of network devices datapath dp
+              monitors.
+
+       dump-dps
+              Prints the name of each configured datapath on a separate line.
+
+       [-s | --statistics] show [dp...]
+              Prints a summary of configured datapaths, including their  data‐
+              path  numbers  and  a  list of ports connected to each datapath.
+              (The local port is identified as port 0.)  If -s or --statistics
+              is specified, then packet and byte counters are also printed for
+              each port.
+
+              The datapath numbers consists of flow stats and mega  flow  mask
+              stats.
+
+              The  "lookups"  row  displays three stats related to flow lookup
+              triggered by processing incoming packets in the datapath.  "hit"
+              displays number of packets matches existing flows. "missed" dis‐
+              plays the number of packets not matching any existing  flow  and
+              require  user space processing.  "lost" displays number of pack‐
+              ets destined for user space  process  but  subsequently  dropped
+              before reaching userspace. The sum of "hit" and "miss" equals to
+              the total number of packets datapath processed.
+
+              The "flows" row displays the number of flows in datapath.
+
+              The "masks" row displays the mega flow mask stats. This  row  is
+              omitted  for datapath not implementing mega flow. "hit" displays
+              the total number of masks visited for matching incoming packets.
+              "total" displays number of masks in the datapath. "hit/pkt" dis‐
+              plays the average number of masks visited per packet; the  ratio
+              between "hit" and total number of packets processed by the data‐
+              path".
+
+              If one or more datapaths  are  specified,  information  on  only
+              those  datapaths  are  displayed.  Otherwise, ovs-dpctl displays
+              information about all configured datapaths.
+
+   DATAPATH FLOW TABLE DEBUGGING COMMANDS
+       The following commands are primarily useful for debugging Open vSwitch.
+       The  flow  table entries (both matches and actions) that they work with
+       are not OpenFlow flow entries.  Instead, they are different and consid‐
+       erably simpler flows maintained by the Open vSwitch kernel module.  Use
+       ovs-ofctl(8), instead, to work with OpenFlow flow entries.
+
+       The dp argument to each of these commands is optional when exactly  one
+       datapath exists, in which case that datapath is the default.  When mul‐
+       tiple datapaths exist, then a datapath name is required.
+
+       [-m | --more] dump-flows [dp] [filter=filter]
+              Prints to the console all flow entries in datapath dp's flow ta‐
+              ble.   Without  -m  or  --more, output omits match fields that a
+              flow wildcards entirely; with -m or --more, output includes  all
+              wildcarded fields.
+
+              If  filter=filter  is  specified,  only  displays the flows that
+              match the filter. filter is a flow in the form similiar to  that
+              accepted  by  ovs-ofctl(8)'s  add-flow  command. (This is not an
+              OpenFlow flow: besides  other  differences,  it  never  contains
+              wildcards.)   The  filter  is  also  useful  to match wildcarded
+              fields   in   the   datapath   flow.   As   an   example,   fil‐
+              ter='tcp,tp_src=100'  will  match  the  datapath flow containing
+              'tcp(src=80/0xff00,dst=8080/0xff)'.
+
+       add-flow [dp] flow actions
+
+       [--clear] [--may-create] [-s | --statistics] mod-flow [dp] flow actions
+              Adds or modifies a flow in dp's flow table that, when  a  packet
+              matching flow arrives, causes actions to be executed.
+
+              The  add-flow  command  succeeds  only  if flow does not already
+              exist in dp.  Contrariwise, mod-flow without  --may-create  only
+              modifies  the  actions for an existing flow.  With --may-create,
+              mod-flow will add a new flow or modify an existing one.
+
+              If -s or --statistics is specified, then  mod-flows  prints  the
+              modified  flow's statistics.  A flow's statistics are the number
+              of packets and bytes that have  passed  through  the  flow,  the
+              elapsed  time  since the flow last processed a packet (if ever),
+              and (for TCP flows) the union of the TCP flags processed through
+              the flow.
+
+              With  --clear,  mod-flows  zeros out the flow's statistics.  The
+              statistics printed if -s or --statistics is also  specified  are
+              those from just before clearing the statistics.
+
+       [-s | --statistics] del-flow [dp] flow
+              Deletes  the flow from dp's flow table that matches flow.  If -s
+              or --statistics is specified, then mod-flows prints the  deleted
+              flow's statistics.
+
+       del-flows [dp]
+              Deletes all flow entries from datapath dp's flow table.
+
+OPTIONS
+       -s
+       --statistics
+              Causes  the  show  command to print packet and byte counters for
+              each port within the datapaths that it shows.
+
+       -m
+       --more Increases the verbosity of dump-flows output.
+
+       -t
+       --timeout=secs
+              Limits ovs-dpctl runtime to approximately secs seconds.  If  the
+              timeout expires, ovs-dpctl will exit with a SIGALRM signal.
+
+       -v[spec]
+       --verbose=[spec]
+              Sets  logging  levels.  Without any spec, sets the log level for
+              every module and facility to dbg.  Otherwise, spec is a list  of
+              words  separated  by  spaces or commas or colons, up to one from
+              each category below:
+
+              ·      A valid module name, as displayed by the  vlog/list  com‐
+                     mand on ovs-appctl(8), limits the log level change to the
+                     specified module.
+
+              ·      syslog, console, or file, to limit the log  level  change
+                     to  only to the system log, to the console, or to a file,
+                     respectively.
+
+                     On Windows platform, syslog is accepted as a word and  is
+                     only  useful  along  with the --syslog-target option (the
+                     word has no effect otherwise).
+
+              ·      off, emer, err, warn, info, or dbg, to  control  the  log
+                     level.   Messages of the given severity or higher will be
+                     logged, and messages of lower severity will  be  filtered
+                     out.   off  filters  out all messages.  See ovs-appctl(8)
+                     for a definition of each log level.
+
+              Case is not significant within spec.
+
+              Regardless of the log levels set for file,  logging  to  a  file
+              will  not  take  place  unless --log-file is also specified (see
+              below).
+
+              For compatibility with older versions of OVS, any is accepted as
+              a word but has no effect.
+
+       -v
+       --verbose
+              Sets  the  maximum logging verbosity level, equivalent to --ver‐
+              bose=dbg.
+
+       -vPATTERN:facility:pattern
+       --verbose=PATTERN:facility:pattern
+              Sets  the  log  pattern  for  facility  to  pattern.   Refer  to
+              ovs-appctl(8) for a description of the valid syntax for pattern.
+
+       --log-file[=file]
+              Enables  logging  to  a  file.  If file is specified, then it is
+              used as the exact name for the log file.  The default  log  file
+              name    used    if    file    is   omitted   is   /var/log/open‐
+              vswitch/ovs-dpctl.log.
+
+       --syslog-target=host:port
+              Send syslog messages to UDP port on host,  in  addition  to  the
+              system  syslog.   The host must be a numerical IP address, not a
+              hostname.
+
+       -h
+       --help Prints a brief help message to the console.
+
+       -V
+       --version
+              Prints version information to the console.
+
+SEE ALSO
+       ovs-appctl(8), ovs-vswitchd(8)
+
+
+
+Open vSwitch                        2.3.90                        ovs-dpctl(8)

@@ -1,0 +1,619 @@
+.\" -*- nroff -*-
+.de IQ
+.  br
+.  ns
+.  IP "\\$1"
+..
+.TH ovsdb\-server 1 "2.3.90" "Open vSwitch" "Open vSwitch Manual"
+.\" This program's name:
+.ds PN ovsdb\-server
+.
+.SH NAME
+ovsdb\-server \- Open vSwitch database server
+.
+.SH SYNOPSIS
+\fBovsdb\-server\fR
+[\fIdatabase\fR]\&...
+[\fB\-\-remote=\fIremote\fR]\&...
+[\fB\-\-run=\fIcommand\fR]
+.IP "Daemon options:"
+[\fB\-\-pidfile\fR[\fB=\fIpidfile\fR]]
+[\fB\-\-overwrite\-pidfile\fR]
+[\fB\-\-detach\fR]
+[\fB\-\-no\-chdir\fR]
+.IP "Service options:"
+[\fB\-\-service\fR]
+[\fB\-\-service\-monitor\fR]
+.IP "Logging options:"
+[\fB\-v\fR[\fImodule\fR[\fB:\fIfacility\fR[\fB:\fIlevel\fR]]]]\&...
+.br
+[\fB\-\-verbose[=\fImodule\fR[\fB:\fIfacility\fR[\fB:\fIlevel\fR]]]]\&...
+.br
+[\fB\-\-log\-file\fR[\fB=\fIfile\fR]]
+.IP "Public key infrastructure options:"
+[\fB\-\-private\-key=\fIprivkey.pem\fR]
+.br
+[\fB\-\-certificate=\fIcert.pem\fR]
+.br
+[\fB\-\-ca\-cert=\fIcacert.pem\fR]
+.br
+[\fB\-\-bootstrap\-ca\-cert=\fIcacert.pem]
+.IP "Runtime management options:"
+\fB\-\-unixctl=\fIsocket\fR
+.IP "Common options:"
+[\fB\-h\fR | \fB\-\-help\fR]
+[\fB\-V\fR | \fB\-\-version\fR]
+
+.
+.SH DESCRIPTION
+The \fBovsdb\-server\fR program provides RPC interfaces to one or more
+Open vSwitch databases (OVSDBs).  It supports JSON-RPC client
+connections over active or passive TCP/IP or Unix domain sockets.
+.PP
+Each OVSDB file may be specified on the command line as \fIdatabase\fR.
+If none is specified, the default is \fB/usr/etc/openvswitch/conf.db\fR.  The database
+files must already have been created and initialized using, for
+example, \fBovsdb\-tool create\fR.
+.
+.SH OPTIONS
+.
+.IP "\fB\-\-remote=\fIremote\fR"
+Adds \fIremote\fR as a connection method used by \fBovsdb\-server\fR.
+\fIremote\fR must take one of the following forms:
+.
+.RS
+.IP "\fBpssl:\fIport\fR[\fB:\fIip\fR]"
+Listen on the given SSL \fIport\fR for a connection.  By default,
+connections are not bound to a particular local IP address and
+it listens only on IPv4 (but not IPv6) addresses, but
+specifying \fIip\fR limits connections to those from the given
+\fIip\fR, either IPv4 or IPv6 address.  If \fIip\fR is
+an IPv6 address, then wrap \fIip\fR with square brackets, e.g.:
+\fBpssl:6632:[::1]\fR.  The \fB\-\-private\-key\fR,
+\fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR options are mandatory
+when this form is used.
+.
+.IP "\fBptcp:\fIport\fR[\fB:\fIip\fR]"
+Listen on the given TCP \fIport\fR for a connection.  By default,
+connections are not bound to a particular local IP address and
+it listens only on IPv4 (but not IPv6) addresses, but
+\fIip\fR may be specified to listen only for connections to the given
+\fIip\fR, either IPv4 or IPv6 address.  If \fIip\fR is
+an IPv6 address, then wrap \fIip\fR with square brackets, e.g.:
+\fBptcp:6632:[::1]\fR.
+.
+.IP "\fBpunix:\fIfile\fR"
+On POSIX, listen on the Unix domain server socket named \fIfile\fR for a
+connection.
+.IP
+On Windows, listen on a kernel chosen TCP port on the localhost. The kernel
+chosen TCP port value is written in \fIfile\fR.
+.IP "\fBssl:\fIip\fB:\fIport\fR"
+The specified SSL \fIport\fR on the host at the given \fIip\fR, which
+must be expressed as an IP address (not a DNS name) in IPv4 or IPv6 address
+format.  If \fIip\fR is an IPv6 address, then wrap \fIip\fR with square
+brackets, e.g.: \fBssl:[::1]:6632\fR.
+The \fB\-\-private\-key\fR, \fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR
+options are mandatory when this form is used.
+.
+.IP "\fBtcp:\fIip\fB:\fIport\fR"
+Connect to the given TCP \fIport\fR on \fIip\fR, where \fIip\fR can be IPv4
+or IPv6 address. If \fIip\fR is an IPv6 address, then wrap \fIip\fR with
+square brackets, e.g.: \fBtcp:[::1]:6632\fR.
+.
+.IP "\fBunix:\fIfile\fR"
+On POSIX, connect to the Unix domain server socket named \fIfile\fR.
+.IP
+On Windows, connect to a localhost TCP port whose value is written in
+\fIfile\fR.
+.
+.IP "\fBdb:\fIdb\fB,\fItable\fB,\fIcolumn\fR"
+Reads additional connection methods from \fIcolumn\fR in all of the
+rows in \fItable\fR within \fIdb\fR.  As the contents of \fIcolumn\fR changes,
+\fBovsdb\-server\fR also adds and drops connection methods accordingly.
+.IP
+If \fIcolumn\fR's type is string or set of strings, then the
+connection methods are taken directly from the column.  The connection
+methods in the column must have one of the forms described above.
+.IP
+If \fIcolumn\fR's type is UUID or set of UUIDs and references a table,
+then each UUID is looked up in the referenced table to obtain a row.
+The following columns in the row, if present and of the correct type,
+configure a connection method.  Any additional columns are ignored.
+.RS
+.IP "\fBtarget\fR (string)"
+Connection method, in one of the forms described above.  This column
+is mandatory: if it is missing or empty then no connection method can
+be configured.
+.IP "\fBmax_backoff\fR (integer)"
+Maximum number of milliseconds to wait between connection attempts.
+.IP "\fBinactivity_probe\fR (integer)"
+Maximum number of milliseconds of idle time on connection to
+client before sending an inactivity probe message.
+.RE
+.IP
+It is an error for \fIcolumn\fR to have another type.
+.RE
+.
+.IP
+To connect or listen on multiple connection methods, use multiple
+\fB\-\-remote\fR options.
+.
+.IP "\fB\-\-run=\fIcommand\fR]"
+Ordinarily \fBovsdb\-server\fR runs forever, or until it is told to
+exit (see \fBRUNTIME MANAGEMENT COMMANDS\fR below).  With this option,
+\fBovsdb\-server\fR instead starts a shell subprocess running
+\fIcommand\fR.  When the subprocess terminates, \fBovsdb\-server\fR
+also exits gracefully.  If the subprocess exits normally with exit
+code 0, then \fBovsdb\-server\fR exits with exit code 0 also;
+otherwise, it exits with exit code 1.
+.IP
+This option can be useful where a database server is needed only to
+run a single command, e.g.:
+.B "ovsdb\-server \-\-remote=punix:socket \-\-run='ovsdb\-client dump unix:socket Open_vSwitch'"
+.IP
+This option is not supported on Windows platform.
+.SS "Daemon Options"
+.ds DD \
+\fBovsdb\-server\fR detaches only after it starts listening on all \
+configured remotes.
+The following options are valid on POSIX based platforms.
+.TP
+\fB\-\-pidfile\fR[\fB=\fIpidfile\fR]
+Causes a file (by default, \fB\*(PN.pid\fR) to be created indicating
+the PID of the running process.  If the \fIpidfile\fR argument is not
+specified, or
+if it does not begin with \fB/\fR, then it is created in
+\fB/var/run/openvswitch\fR.
+.IP
+If \fB\-\-pidfile\fR is not specified, no pidfile is created.
+.
+.TP
+\fB\-\-overwrite\-pidfile\fR
+By default, when \fB\-\-pidfile\fR is specified and the specified pidfile 
+already exists and is locked by a running process, \fB\*(PN\fR refuses 
+to start.  Specify \fB\-\-overwrite\-pidfile\fR to cause it to instead 
+overwrite the pidfile.
+.IP
+When \fB\-\-pidfile\fR is not specified, this option has no effect.
+.
+.TP
+\fB\-\-detach\fR
+Causes \fB\*(PN\fR to detach itself from the foreground session and
+run as a background process. \*(DD
+.
+.TP
+\fB\-\-monitor\fR
+Creates an additional process to monitor the \fB\*(PN\fR daemon.  If
+the daemon dies due to a signal that indicates a programming error
+(\fBSIGABRT\fR, \fBSIGALRM\fR, \fBSIGBUS\fR, \fBSIGFPE\fR,
+\fBSIGILL\fR, \fBSIGPIPE\fR, \fBSIGSEGV\fR, \fBSIGXCPU\fR, or
+\fBSIGXFSZ\fR) then the monitor process starts a new copy of it.  If
+the daemon dies or exits for another reason, the monitor process exits.
+.IP
+This option is normally used with \fB\-\-detach\fR, but it also
+functions without it.
+.
+.TP
+\fB\-\-no\-chdir\fR
+By default, when \fB\-\-detach\fR is specified, \fB\*(PN\fR 
+changes its current working directory to the root directory after it 
+detaches.  Otherwise, invoking \fB\*(PN\fR from a carelessly chosen 
+directory would prevent the administrator from unmounting the file 
+system that holds that directory.
+.IP
+Specifying \fB\-\-no\-chdir\fR suppresses this behavior, preventing
+\fB\*(PN\fR from changing its current working directory.  This may be 
+useful for collecting core files, since it is common behavior to write 
+core dumps into the current working directory and the root directory 
+is not a good directory to use.
+.IP
+This option has no effect when \fB\-\-detach\fR is not specified.
+.SS "Service Options"
+The following options are valid only on Windows platform.
+.TP
+\fB\-\-service\fR
+Causes \fB\*(PN\fR to run as a service in the background. The service
+should already have been created through external tools like \fBSC.exe\fR.
+.
+.TP
+\fB\-\-service\-monitor\fR
+Causes the \fB\*(PN\fR service to be automatically restarted by the Windows
+services manager if the service dies or exits for unexpected reasons.
+.IP
+When \fB\-\-service\fR is not specified, this option has no effect.
+.SS "Logging Options"
+.de IQ
+.  br
+.  ns
+.  IP "\\$1"
+..
+.IP "\fB\-v\fR[\fIspec\fR]
+.IQ "\fB\-\-verbose=\fR[\fIspec\fR]
+.
+Sets logging levels.  Without any \fIspec\fR, sets the log level for
+every module and facility to \fBdbg\fR.  Otherwise, \fIspec\fR is a
+list of words separated by spaces or commas or colons, up to one from
+each category below:
+.
+.RS
+.IP \(bu
+A valid module name, as displayed by the \fBvlog/list\fR command on
+\fBovs\-appctl\fR(8), limits the log level change to the specified
+module.
+.
+.IP \(bu
+\fBsyslog\fR, \fBconsole\fR, or \fBfile\fR, to limit the log level
+change to only to the system log, to the console, or to a file,
+respectively.
+.IP
+On Windows platform, \fBsyslog\fR is accepted as a word and is only
+useful along with the \fB\-\-syslog\-target\fR option (the word has no
+effect otherwise).
+.
+.IP \(bu
+\fBoff\fR, \fBemer\fR, \fBerr\fR, \fBwarn\fR, \fBinfo\fR, or
+\fBdbg\fR, to control the log level.  Messages of the given severity
+or higher will be logged, and messages of lower severity will be
+filtered out.  \fBoff\fR filters out all messages.  See
+\fBovs\-appctl\fR(8) for a definition of each log level.
+.RE
+.
+.IP
+Case is not significant within \fIspec\fR.
+.IP
+Regardless of the log levels set for \fBfile\fR, logging to a file
+will not take place unless \fB\-\-log\-file\fR is also specified (see
+below).
+.IP
+For compatibility with older versions of OVS, \fBany\fR is accepted as
+a word but has no effect.
+.
+.IP "\fB\-v\fR"
+.IQ "\fB\-\-verbose\fR"
+Sets the maximum logging verbosity level, equivalent to
+\fB\-\-verbose=dbg\fR.
+.
+.IP "\fB\-vPATTERN:\fIfacility\fB:\fIpattern\fR"
+.IQ "\fB\-\-verbose=PATTERN:\fIfacility\fB:\fIpattern\fR"
+Sets the log pattern for \fIfacility\fR to \fIpattern\fR.  Refer to
+\fBovs\-appctl\fR(8) for a description of the valid syntax for \fIpattern\fR.
+.
+.TP
+\fB\-\-log\-file\fR[\fB=\fIfile\fR]
+Enables logging to a file.  If \fIfile\fR is specified, then it is
+used as the exact name for the log file.  The default log file name
+used if \fIfile\fR is omitted is \fB/var/log/openvswitch/\*(PN.log\fR.
+.
+.IP "\fB\-\-syslog\-target=\fIhost\fB:\fIport\fR"
+Send syslog messages to UDP \fIport\fR on \fIhost\fR, in addition to
+the system syslog.  The \fIhost\fR must be a numerical IP address, not
+a hostname.
+.SS "Public Key Infrastructure Options"
+The options described below for configuring the SSL public key
+infrastructure accept a special syntax for obtaining their
+configuration from the database.  If any of these options is given
+\fBdb:\fIdb\fB,\fItable\fB,\fIcolumn\fR as its argument, then the
+actual file name is read from the specified \fIcolumn\fR in \fItable\fR
+within the \fIdb\fR database.  The \fIcolumn\fR must have type
+string or set of strings.  The first nonempty string in the table is taken
+as the file name.  (This means that ordinarily there should be at most
+one row in \fItable\fR.)
+.de IQ
+.  br
+.  ns
+.  IP "\\$1"
+..
+.IP "\fB\-p\fR \fIprivkey.pem\fR"
+.IQ "\fB\-\-private\-key=\fIprivkey.pem\fR"
+Specifies a PEM file containing the private key used as \fB\*(PN\fR's
+identity for outgoing SSL connections.
+.
+.IP "\fB\-c\fR \fIcert.pem\fR"
+.IQ "\fB\-\-certificate=\fIcert.pem\fR"
+Specifies a PEM file containing a certificate that certifies the
+private key specified on \fB\-p\fR or \fB\-\-private\-key\fR to be
+trustworthy.  The certificate must be signed by the certificate
+authority (CA) that the peer in SSL connections will use to verify it.
+.
+.IP "\fB\-C\fR \fIcacert.pem\fR"
+.IQ "\fB\-\-ca\-cert=\fIcacert.pem\fR"
+Specifies a PEM file containing the CA certificate that \fB\*(PN\fR
+should use to verify certificates presented to it by SSL peers.  (This
+may be the same certificate that SSL peers use to verify the
+certificate specified on \fB\-c\fR or \fB\-\-certificate\fR, or it may
+be a different one, depending on the PKI design in use.)
+.
+.IP "\fB\-C none\fR"
+.IQ "\fB\-\-ca\-cert=none\fR"
+Disables verification of certificates presented by SSL peers.  This
+introduces a security risk, because it means that certificates cannot
+be verified to be those of known trusted hosts.
+.IP "\fB\-\-bootstrap\-ca\-cert=\fIcacert.pem\fR"
+When \fIcacert.pem\fR exists, this option has the same effect as
+\fB\-C\fR or \fB\-\-ca\-cert\fR.  If it does not exist, then
+\fB\*(PN\fR will attempt to obtain the CA certificate from the
+SSL peer on its first SSL connection and save it to the named PEM
+file.  If it is successful, it will immediately drop the connection
+and reconnect, and from then on all SSL connections must be
+authenticated by a certificate signed by the CA certificate thus
+obtained.
+.IP
+\fBThis option exposes the SSL connection to a man-in-the-middle
+attack obtaining the initial CA certificate\fR, but it may be useful
+for bootstrapping.
+.IP
+This option is only useful if the SSL peer sends its CA certificate as
+part of the SSL certificate chain.  The SSL protocol does not require
+the server to send the CA certificate.
+.IP
+This option is mutually exclusive with \fB\-C\fR and
+\fB\-\-ca\-cert\fR.
+.SS "Other Options"
+.IP "\fB\-\-unixctl=\fIsocket\fR"
+Sets the name of the control socket on which \fB\*(PN\fR listens for
+runtime management commands (see \fBRUNTIME MANAGEMENT COMMANDS\fR,
+below).  If \fIsocket\fR does not begin with \fB/\fR, it is
+interpreted as relative to \fB/var/run/openvswitch\fR.  If \fB\-\-unixctl\fR is
+not used at all, the default socket is
+\fB/var/run/openvswitch/\*(PN.\fIpid\fB.ctl\fR, where \fIpid\fR is \fB\*(PN\fR's
+process ID.
+.IP
+On Windows, uses a kernel chosen TCP port on the localhost to listen
+for runtime management commands.  The kernel chosen TCP port value is written
+in a file whose absolute path is pointed by \fIsocket\fR. If \fB\-\-unixctl\fR
+is not used at all, the file is created as \fB\*(PN.ctl\fR in the configured
+\fIOVS_RUNDIR\fR directory.
+.IP
+Specifying \fBnone\fR for \fIsocket\fR disables the control socket
+feature.
+.de IQ
+.  br
+.  ns
+.  IP "\\$1"
+..
+.IP "\fB\-h\fR"
+.IQ "\fB\-\-help\fR"
+Prints a brief help message to the console.
+.
+.IP "\fB\-V\fR"
+.IQ "\fB\-\-version\fR"
+Prints version information to the console.
+.SH "RUNTIME MANAGEMENT COMMANDS"
+\fBovs\-appctl\fR(8) can send commands to a running
+\fBovsdb\-server\fR process.  The currently supported commands are
+described below.
+.SS "OVSDB\-SERVER COMMANDS"
+These commands are specific to \fBovsdb\-server\fR.
+.IP "\fBexit\fR"
+Causes \fBovsdb\-server\fR to gracefully terminate.
+.IP "\fBovsdb\-server/compact\fR [\fIdb\fR]\&..."
+Compacts each database \fIdb\fR in-place.  If no \fIdb\fR is
+specified, compacts every database in-place.  Databases are also
+automatically compacted occasionally.
+.
+.IP "\fBovsdb\-server/reconnect\fR"
+Makes \fBovsdb\-server\fR drop all of the JSON\-RPC
+connections to database clients and reconnect.
+.IP
+This command might be useful for debugging issues with database
+clients.
+.
+.IP "\fBovsdb\-server/add\-remote \fIremote\fR"
+Adds a remote, as if \fB\-\-remote=\fIremote\fR had been specified on
+the \fBovsdb\-server\fR command line.  (If \fIremote\fR is already a
+remote, this command succeeds without changing the configuration.)
+.
+.IP "\fBovsdb\-server/remove\-remote \fIremote\fR"
+Removes the specified \fIremote\fR from the configuration, failing
+with an error if \fIremote\fR is not configured as a remote.  This
+command only works with remotes that were named on \fB\-\-remote\fR or
+\fBovsdb\-server/add\-remote\fR, that is, it will not remove remotes
+added indirectly because they were read from the database by
+configuring a \fBdb:\fIdb\fB,\fItable\fB,\fIcolumn\fR remote.
+(You can remove a database source with \fBovsdb\-server/remove\-remote
+\fBdb:\fIdb\fB,\fItable\fB,\fIcolumn\fR, but not individual
+remotes found indirectly through the database.)
+.
+.IP "\fBovsdb\-server/list\-remotes"
+Outputs a list of the currently configured remotes named on
+\fB\-\-remote\fR or \fBovsdb\-server/add\-remote\fR, that is, it does
+not list remotes added indirectly because they were read from the
+database by configuring a
+\fBdb:\fIdb\fB,\fItable\fB,\fIcolumn\fR remote.
+.
+.IP "\fBovsdb\-server/add\-db \fIdatabase\fR"
+Adds the \fIdatabase\fR to the running \fBovsdb\-server\fR.  The database
+file must already have been created and initialized using, for example,
+\fBovsdb\-tool create\fR.
+.
+.IP "\fBovsdb\-server/remove\-db \fIdatabase\fR"
+Removes \fIdatabase\fR from the running \fBovsdb\-server\fR.  \fIdatabase\fR
+must be a database name as listed by \fBovsdb-server/list\-dbs\fR.
+.IP
+If a remote has been configured that points to the specified
+\fIdatabase\fR (e.g. \fB\-\-remote=db:\fIdatabase\fB,\fR... on the
+command line), then it will be disabled until another database with
+the same name is added again (with \fBovsdb\-server/add\-db\fR).
+.IP
+Any public key infrastructure options specified through this database
+(e.g. \fB\-\-private\-key=db:\fIdatabase,\fR... on the command line)
+will be disabled until another database with the same name is added
+again (with \fBovsdb\-server/add\-db\fR).
+.
+.IP "\fBovsdb\-server/list\-dbs"
+Outputs a list of the currently configured databases added either through
+the command line or through the \fBovsdb\-server/add\-db\fR command.
+.
+.de IQ
+.  br
+.  ns
+.  IP "\\$1"
+..
+.SS "VLOG COMMANDS"
+These commands manage \fB\*(PN\fR's logging settings.
+.IP "\fBvlog/set\fR [\fIspec\fR]"
+Sets logging levels.  Without any \fIspec\fR, sets the log level for
+every module and facility to \fBdbg\fR.  Otherwise, \fIspec\fR is a
+list of words separated by spaces or commas or colons, up to one from
+each category below:
+.
+.RS
+.IP \(bu
+A valid module name, as displayed by the \fBvlog/list\fR command on
+\fBovs\-appctl\fR(8), limits the log level change to the specified
+module.
+.
+.IP \(bu
+\fBsyslog\fR, \fBconsole\fR, or \fBfile\fR, to limit the log level
+change to only to the system log, to the console, or to a file,
+respectively.
+.IP
+On Windows platform, \fBsyslog\fR is accepted as a word and is only
+useful along with the \fB\-\-syslog\-target\fR option (the word has no
+effect otherwise).
+.
+.IP \(bu 
+\fBoff\fR, \fBemer\fR, \fBerr\fR, \fBwarn\fR, \fBinfo\fR, or
+\fBdbg\fR, to control the log level.  Messages of the given severity
+or higher will be logged, and messages of lower severity will be
+filtered out.  \fBoff\fR filters out all messages.  See
+\fBovs\-appctl\fR(8) for a definition of each log level.
+.RE
+.
+.IP
+Case is not significant within \fIspec\fR.
+.IP
+Regardless of the log levels set for \fBfile\fR, logging to a file
+will not take place unless \fB\*(PN\fR was invoked with the
+\fB\-\-log\-file\fR option.
+.IP
+For compatibility with older versions of OVS, \fBany\fR is accepted as
+a word but has no effect.
+.RE
+.IP "\fBvlog/set PATTERN:\fIfacility\fB:\fIpattern\fR"
+Sets the log pattern for \fIfacility\fR to \fIpattern\fR.  Refer to
+\fBovs\-appctl\fR(8) for a description of the valid syntax for \fIpattern\fR.
+.
+.IP "\fBvlog/list\fR"
+Lists the supported logging modules and their current levels.
+.
+.IP "\fBvlog/reopen\fR"
+Causes \fB\*(PN\fR to close and reopen its log file.  (This is useful
+after rotating log files, to cause a new log file to be used.)
+.IP
+This has no effect unless \fB\*(PN\fR was invoked with the
+\fB\-\-log\-file\fR option.
+.
+.IP "\fBvlog/disable\-rate\-limit \fR[\fImodule\fR]..."
+.IQ "\fBvlog/enable\-rate\-limit \fR[\fImodule\fR]..."
+By default, \fB\*(PN\fR limits the rate at which certain messages can
+be logged.  When a message would appear more frequently than the
+limit, it is suppressed.  This saves disk space, makes logs easier to
+read, and speeds up execution, but occasionally troubleshooting
+requires more detail.  Therefore, \fBvlog/disable\-rate\-limit\fR
+allows rate limits to be disabled at the level of an individual log
+module.  Specify one or more module names, as displayed by the
+\fBvlog/list\fR command.  Specifying either no module names at all or
+the keyword \fBany\fR disables rate limits for every log module.
+.
+.IP
+The \fBvlog/enable\-rate\-limit\fR command, whose syntax is the same
+as \fBvlog/disable\-rate\-limit\fR, can be used to re-enable a rate
+limit that was previously disabled.
+.SS "MEMORY COMMANDS"
+These commands report memory usage.
+.
+.IP "\fBmemory/show\fR"
+Displays some basic statistics about \fB\*(PN\fR's memory usage.
+\fB\*(PN\fR also logs this information soon after startup and
+periodically as its memory consumption grows.
+.SS "COVERAGE COMMANDS"
+These commands manage \fB\*(PN\fR's ``coverage counters,'' which count
+the number of times particular events occur during a daemon's runtime.
+In addition to these commands, \fB\*(PN\fR automatically logs coverage
+counter values, at \fBINFO\fR level, when it detects that the daemon's
+main loop takes unusually long to run.
+.PP
+Coverage counters are useful mainly for performance analysis and
+debugging.
+.IP "\fBcoverage/show\fR"
+Displays the averaged per-second rates for the last few seconds, the
+last minute and the last hour, and the total counts of all of the
+coverage counters.
+.SH "SPECIFICATIONS"
+.
+.PP
+\fBovsdb\-server\fR implements the Open vSwitch Database (OVSDB)
+protocol specified in RFC 7047, with the following clarifications:
+.
+.IP "3.1. JSON Usage"
+RFC 4627 says that names within a JSON object should be unique.
+The Open vSwitch JSON parser discards all but the last value
+for a name that is specified more than once.
+.
+.IP
+The definition of <error> allows for implementation extensions.
+Currently \fBovsdb\-server\fR uses the following additional "error"
+strings which might change in later releases):
+.
+.RS
+.IP "\fBsyntax error\fR or \fBunknown column\fR"
+The request could not be parsed as an OVSDB request.  An additional
+"syntax" member, whose value is a string that contains JSON, may
+narrow down the particular syntax that could not be parsed.
+.IP "\fBinternal error\fR"
+The request triggered a bug in \fBovsdb\-server\fR.
+.IP "\fBovsdb error\fR"
+A map or set contains a duplicate key.
+.RE
+.
+.IP "3.2. Schema Format"
+RFC 7047 requires the "version" field in <database-schema>.  Current
+versions of \fBovsdb\-server\fR allow it to be omitted (future
+versions are likely to require it).
+.
+.IP "4. Wire Protocol"
+The original OVSDB specifications included the following reason,
+omitted from RFC 7047, to operate JSON-RPC directly over a stream
+instead of over HTTP:
+.
+.RS
+.IP \(bu
+JSON-RPC is a peer-to-peer protocol, but HTTP is a client-server
+protocol, which is a poor match.  Thus, JSON-RPC over HTTP requires
+the client to periodically poll the server to receive server requests.
+.IP \(bu
+HTTP is more complicated than stream connections and doesn't provide
+any corresponding advantage.
+.IP \(bu
+The JSON-RPC specification for HTTP transport is incomplete.
+.RE
+.
+.IP "4.1.5. Monitor"
+For backward compatibility, \fBovsdb\-server\fR currently permits a
+single <monitor-request> to be used instead of an array; it is treated
+as a single-element array.  Future versions of \fBovsdb\-server\fR
+might remove this compatibility feature.
+.IP
+Because the <json-value> parameter is used to match subsequent update
+notifications (see below) to the request, it must be unique among all
+active monitors.  \fBovsdb\-server\fR rejects attempt to create two
+monitors with the same identifier.
+.
+.IP "5.1. Notation"
+For <condition>, RFC 7047 only allows the use of \fB!=\fR, \fB==\fR,
+\fBincludes\fR, and \fBexcludes\fR operators with set types.  Open
+vSwitch 2.4 and later extend <condition> to allow the use of \fB<\fR,
+\fB<=\fR, \fB>=\fR, and \fB>\fR operators with columns with type ``set
+of 0 or 1 integer'' and ``set of 0 or 1 real''.  These conditions
+evaluate to false when the column is empty, and otherwise as described
+in RFC 7047 for integer and real types.
+.
+.IP "6. IANA Considerations"
+\fBovsdb\-server\fR currently defaults to its historical port number
+6632.  Future versions will adopt IANA-assigned port 6640 as default.
+
+.SH "SEE ALSO"
+.
+.BR ovsdb\-tool (1).

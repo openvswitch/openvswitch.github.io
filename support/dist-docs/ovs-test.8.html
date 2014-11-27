@@ -1,0 +1,167 @@
+<html><head><meta charset="UTF-8"></head><body><pre>
+ovs-test(1)                   Open vSwitch Manual                  ovs-test(1)
+
+
+
+<b>N</b><b>A</b><b>M</b><b>E</b>
+       <b>o</b><b>v</b><b>s</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b>  -  check Linux drivers for performance, vlan and L3 tunneling
+       problems
+
+<b>S</b><b>Y</b><b>N</b><b>O</b><b>P</b><b>S</b><b>I</b><b>S</b>
+       <b>o</b><b>v</b><b>s</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b> <b>-</b><b>s</b> <u>p</u><u>o</u><u>r</u><u>t</u>
+
+       <b>o</b><b>v</b><b>s</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b> <b>-</b><b>c</b> <u>s</u><u>e</u><u>r</u><u>v</u><u>e</u><u>r</u><u>1</u> <u>s</u><u>e</u><u>r</u><u>v</u><u>e</u><u>r</u><u>2</u> [<b>-</b><b>b</b> <u>t</u><u>a</u><u>r</u><u>g</u><u>e</u><u>t</u><u>b</u><u>a</u><u>n</u><u>d</u><u>w</u><u>i</u><u>d</u><u>t</u><u>h</u>] [<b>-</b><b>i</b> <u>t</u><u>e</u><u>s</u><u>t</u><u>i</u><u>n</u><u>t</u><u>e</u><u>r</u><u>v</u><u>a</u><u>l</u>] [<b>-</b><b>d</b>]
+       [<b>-</b><b>l</b> <u>v</u><u>l</u><u>a</u><u>n</u><u>t</u><u>a</u><u>g</u>] [<b>-</b><b>t</b> <u>t</u><u>u</u><u>n</u><u>n</u><u>e</u><u>l</u><u>m</u><u>o</u><u>d</u><u>e</u><u>s</u>]
+
+       Common options:
+              [<b>-</b><b>h</b> | <b>-</b><b>-</b><b>h</b><b>e</b><b>l</b><b>p</b>] [<b>-</b><b>V</b> | <b>-</b><b>-</b><b>v</b><b>e</b><b>r</b><b>s</b><b>i</b><b>o</b><b>n</b>]
+
+
+<b>D</b><b>E</b><b>S</b><b>C</b><b>R</b><b>I</b><b>P</b><b>T</b><b>I</b><b>O</b><b>N</b>
+       The  <b>o</b><b>v</b><b>s</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b>  program may be used to check for problems sending 802.1Q
+       or GRE traffic that Open vSwitch may uncover. These problems, for exam‐
+       ple, can occur when Open vSwitch is used to send 802.1Q traffic through
+       physical interfaces running certain drivers  of  certain  Linux  kernel
+       versions.  To run a test, configure IP addresses on <u>s</u><u>e</u><u>r</u><u>v</u><u>e</u><u>r</u><u>1</u> and <u>s</u><u>e</u><u>r</u><u>v</u><u>e</u><u>r</u><u>2</u>
+       for interfaces you intended to test. These  interfaces  could  also  be
+       already  configured OVS bridges that have a physical interface attached
+       to them. Then, on one of the nodes, run <b>o</b><b>v</b><b>s</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b> in server mode and  on
+       the  other  node  run  it  in  client  mode. The client will connect to
+       <b>o</b><b>v</b><b>s</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b> server and schedule tests between both of them.  The  <b>o</b><b>v</b><b>s</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b>
+       client will perform UDP and TCP tests.
+
+       UDP  tests  can  report  packet loss and achieved bandwidth for various
+       datagram sizes. By default target bandwidth for UDP tests is 1Mbit/s.
+
+       TCP tests report only achieved  bandwidth,  because  kernel  TCP  stack
+       takes  care of flow control and packet loss. TCP tests are essential to
+       detect potential TSO related issues.
+
+       To determine whether Open vSwitch is  encountering  any  problems,  the
+       user  must  compare packet loss and achieved bandwidth in a setup where
+       traffic is being directly sent and in one where it is not.  If  in  the
+       802.1Q  or L3 tunneled tests both <b>o</b><b>v</b><b>s</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b> processes are unable to com‐
+       municate or the achieved bandwidth is much  lower  compared  to  direct
+       setup,  then,  most likely, Open vSwitch has encountered a pre-existing
+       kernel or driver bug.
+
+       Some examples of the types of problems that may be encountered are:
+
+       ·      When NICs use VLAN stripping on receive they must pass a pointer
+              to  a <b>v</b><b>l</b><b>a</b><b>n</b><b>_</b><b>g</b><b>r</b><b>o</b><b>u</b><b>p</b> when reporting the stripped tag to the network‐
+              ing core.  If no <b>v</b><b>l</b><b>a</b><b>n</b><b>_</b><b>g</b><b>r</b><b>o</b><b>u</b><b>p</b> is in use  then  some  drivers  just
+              drop  the  extracted  tag.   Drivers are supposed to only enable
+              stripping if a <b>v</b><b>l</b><b>a</b><b>n</b><b>_</b><b>g</b><b>r</b><b>o</b><b>u</b><b>p</b> is registered but not all of  them  do
+              that.
+
+       ·      On  receive,  some  drivers  handle priority tagged packets spe‐
+              cially and don't pass the tag onto the network stack at all,  so
+              Open vSwitch never has a chance to see it.
+
+       ·      Some  drivers  size  their  receive  buffers  based on whether a
+              <b>v</b><b>l</b><b>a</b><b>n</b><b>_</b><b>g</b><b>r</b><b>o</b><b>u</b><b>p</b> is enabled, meaning that a maximum size packet with a
+              VLAN tag will not fit if no <b>v</b><b>l</b><b>a</b><b>n</b><b>_</b><b>g</b><b>r</b><b>o</b><b>u</b><b>p</b> is configured.
+
+       ·      On  transmit, some drivers expect that VLAN acceleration will be
+              used if it is available, which can only be done if a  <b>v</b><b>l</b><b>a</b><b>n</b><b>_</b><b>g</b><b>r</b><b>o</b><b>u</b><b>p</b>
+              is configured.  In these cases, the driver may fail to parse the
+              packet and correctly setup checksum offloading or TSO.
+
+   <b>C</b><b>l</b><b>i</b><b>e</b><b>n</b><b>t</b> <b>M</b><b>o</b><b>d</b><b>e</b>
+       An <b>o</b><b>v</b><b>s</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b> client will connect to two <b>o</b><b>v</b><b>s</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b> servers  and  will  ask
+       them to exchange test traffic. It is also possible to spawn an <b>o</b><b>v</b><b>s</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b>
+       server automatically from the client.
+
+   <b>S</b><b>e</b><b>r</b><b>v</b><b>e</b><b>r</b> <b>M</b><b>o</b><b>d</b><b>e</b>
+       To conduct tests, two <b>o</b><b>v</b><b>s</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b> servers must be running on two different
+       hosts  where  the  client  can  connect.  The  actual  test  traffic is
+       exchanged only between both <b>o</b><b>v</b><b>s</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b> servers. It  is  recommended  that
+       both  servers have their IP addresses in the same subnet, otherwise one
+       would have to make sure that routing is set up correctly.
+
+<b>O</b><b>P</b><b>T</b><b>I</b><b>O</b><b>N</b><b>S</b>
+       <b>-</b><b>s</b> <u>p</u><u>o</u><u>r</u><u>t</u>
+       <b>-</b><b>-</b><b>s</b><b>e</b><b>r</b><b>v</b><b>e</b><b>r</b> <u>p</u><u>o</u><u>r</u><u>t</u>
+              Run in server mode and wait for the client to establish XML  RPC
+              Control  Connection  on this TCP <u>p</u><u>o</u><u>r</u><u>t</u>. It is recommended to have
+              <b>e</b><b>t</b><b>h</b><b>t</b><b>o</b><b>o</b><b>l</b>(8) installed on the server so  that  it  could  retrieve
+              information about the NIC driver.
+
+       <b>-</b><b>c</b> <u>s</u><u>e</u><u>r</u><u>v</u><u>e</u><u>r</u><u>1</u> <u>s</u><u>e</u><u>r</u><u>v</u><u>e</u><u>r</u><u>2</u>
+       <b>-</b><b>-</b><b>c</b><b>l</b><b>i</b><b>e</b><b>n</b><b>t</b> <u>s</u><u>e</u><u>r</u><u>v</u><u>e</u><u>r</u><u>1</u> <u>s</u><u>e</u><u>r</u><u>v</u><u>e</u><u>r</u><u>2</u>
+              Run  in  client  mode  and  schedule  tests  between <u>s</u><u>e</u><u>r</u><u>v</u><u>e</u><u>r</u><u>1</u> and
+              <u>s</u><u>e</u><u>r</u><u>v</u><u>e</u><u>r</u><u>2</u>, where each <u>s</u><u>e</u><u>r</u><u>v</u><u>e</u><u>r</u> must be given in the following format
+              -  <u>O</u><u>u</u><u>t</u><u>e</u><u>r</u><u>I</u><u>P</u><u>[</u><u>:</u><u>O</u><u>u</u><u>t</u><u>e</u><u>r</u><u>P</u><u>o</u><u>r</u><u>t</u><u>]</u><u>,</u><u>I</u><u>n</u><u>n</u><u>e</u><u>r</u><u>I</u><u>P</u><u>[</u><u>/</u><u>M</u><u>a</u><u>s</u><u>k</u><u>]</u><u>[</u><u>:</u><u>I</u><u>n</u><u>n</u><u>e</u><u>r</u><u>P</u><u>o</u><u>r</u><u>t</u><u>]</u>.  The  <u>O</u><u>u</u><u>t</u><u>e</u><u>r</u><u>I</u><u>P</u>
+              must be already assigned to  the  physical  interface  which  is
+              going  to  be  tested.  This is the IP address where client will
+              try to establish XML RPC connection.  If  <u>O</u><u>u</u><u>t</u><u>e</u><u>r</u><u>I</u><u>P</u>  is  127.0.0.1
+              then  client  will  automatically  spawn  a  local  instance  of
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b> server. <u>O</u><u>u</u><u>t</u><u>e</u><u>r</u><u>P</u><u>o</u><u>r</u><u>t</u> is TCP port where server is listening
+              for  incoming  XML/RPC control connections to schedule tests (by
+              default it is 15531). The  <b>o</b><b>v</b><b>s</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b>  will  automatically  assign
+              <u>I</u><u>n</u><u>n</u><u>e</u><u>r</u><u>I</u><u>P</u><u>[</u><u>/</u><u>M</u><u>a</u><u>s</u><u>k</u><u>]</u> to the interfaces that will be created on the fly
+              for testing purposes. It is important that  <u>I</u><u>n</u><u>n</u><u>e</u><u>r</u><u>I</u><u>P</u><u>[</u><u>/</u><u>M</u><u>a</u><u>s</u><u>k</u><u>]</u>  does
+              not  interfere  with  already  existing  IP  addresses  on  both
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b> servers and client.  <u>I</u><u>n</u><u>n</u><u>e</u><u>r</u><u>P</u><u>o</u><u>r</u><u>t</u> is port  which  will  be
+              used  by server to listen for test traffic that will be encapsu‐
+              lated (by default it is 15532).
+
+       <b>-</b><b>b</b> <u>t</u><u>a</u><u>r</u><u>g</u><u>e</u><u>t</u><u>b</u><u>a</u><u>n</u><u>d</u><u>w</u><u>i</u><u>d</u><u>t</u><u>h</u>
+       <b>-</b><b>-</b><b>b</b><b>a</b><b>n</b><b>d</b><b>w</b><b>i</b><b>d</b><b>t</b><b>h</b> <u>t</u><u>a</u><u>r</u><u>g</u><u>e</u><u>t</u><u>b</u><u>a</u><u>n</u><u>d</u><u>w</u><u>i</u><u>d</u><u>t</u><u>h</u>
+              Target bandwidth for UDP  tests.  The  <u>t</u><u>a</u><u>r</u><u>g</u><u>e</u><u>t</u><u>b</u><u>a</u><u>n</u><u>d</u><u>w</u><u>i</u><u>d</u><u>t</u><u>h</u>  must  be
+              given  in  bits per second. It is possible to use postfix M or K
+              to alter the target bandwidth magnitude.
+
+       <b>-</b><b>i</b> <u>t</u><u>e</u><u>s</u><u>t</u><u>i</u><u>n</u><u>t</u><u>e</u><u>r</u><u>v</u><u>a</u><u>l</u>
+       <b>-</b><b>-</b><b>i</b><b>n</b><b>t</b><b>e</b><b>r</b><b>v</b><b>a</b><b>l</b> <u>t</u><u>e</u><u>s</u><u>t</u><u>i</u><u>n</u><u>t</u><u>e</u><u>r</u><u>v</u><u>a</u><u>l</u>
+              How long each test should run. By default 5 seconds.
+
+       <b>-</b><b>h</b>
+       <b>-</b><b>-</b><b>h</b><b>e</b><b>l</b><b>p</b> Prints a brief help message to the console.
+
+       <b>-</b><b>V</b>
+       <b>-</b><b>-</b><b>v</b><b>e</b><b>r</b><b>s</b><b>i</b><b>o</b><b>n</b>
+              Prints version information to the console.
+
+<b>T</b><b>e</b><b>s</b><b>t</b> <b>M</b><b>o</b><b>d</b><b>e</b><b>s</b>
+       The following test modes are supported by <b>o</b><b>v</b><b>s</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b>. It is  possible  to
+       combine multiple of them in a single <b>o</b><b>v</b><b>s</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b> invocation.
+
+       <b>-</b><b>d</b>
+       <b>-</b><b>-</b><b>d</b><b>i</b><b>r</b><b>e</b><b>c</b><b>t</b>
+              Perform direct tests between both <u>O</u><u>u</u><u>t</u><u>e</u><u>r</u><u>I</u><u>P</u> addresses. These tests
+              could be used as a reference to compare 802.1Q or  L3  tunneling
+              test results.
+
+       <b>-</b><b>l</b> <u>v</u><u>l</u><u>a</u><u>n</u><u>t</u><u>a</u><u>g</u>
+       <b>-</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>-</b><b>t</b><b>a</b><b>g</b> <u>v</u><u>l</u><u>a</u><u>n</u><u>t</u><u>a</u><u>g</u>
+              Perform 802.1Q tests between both servers. These tests will cre‐
+              ate a temporary OVS bridge, if  necessary,  and  attach  a  VLAN
+              tagged port to it for testing purposes.
+
+       <b>-</b><b>t</b> <u>t</u><u>u</u><u>n</u><u>n</u><u>e</u><u>l</u><u>m</u><u>o</u><u>d</u><u>e</u><u>s</u>
+       <b>-</b><b>-</b><b>t</b><b>u</b><b>n</b><b>n</b><b>e</b><b>l</b><b>-</b><b>m</b><b>o</b><b>d</b><b>e</b><b>s</b> <u>t</u><u>u</u><u>n</u><u>n</u><u>e</u><u>l</u><u>m</u><u>o</u><u>d</u><u>e</u><u>s</u>
+              Perform  L3 tunneling tests. The given argument is a comma sepa‐
+              rated string that specifies all the L3 tunnel modes that  should
+              be tested (e.g. gre). The L3 tunnels are terminated on interface
+              that has the <u>O</u><u>u</u><u>t</u><u>e</u><u>r</u><u>I</u><u>P</u> address assigned.
+
+<b>E</b><b>X</b><b>A</b><b>M</b><b>P</b><b>L</b><b>E</b><b>S</b>
+       On host 1.2.3.4 start <b>o</b><b>v</b><b>s</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b> in server mode:
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b> <b>-</b><b>s</b> <b>1</b><b>5</b><b>5</b><b>3</b><b>1</b>
+
+       On host 1.2.3.5 start <b>o</b><b>v</b><b>s</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b> in client mode and do direct,  VLAN  and
+       GRE tests between both nodes:
+
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b> <b>-</b><b>c</b> <b>1</b><b>2</b><b>7</b><b>.</b><b>0</b><b>.</b><b>0</b><b>.</b><b>1</b><b>,</b><b>1</b><b>.</b><b>1</b><b>.</b><b>1</b><b>.</b><b>1</b><b>/</b><b>3</b><b>0</b> <b>1</b><b>.</b><b>2</b><b>.</b><b>3</b><b>.</b><b>4</b><b>,</b><b>1</b><b>.</b><b>1</b><b>.</b><b>1</b><b>.</b><b>2</b><b>/</b><b>3</b><b>0</b> <b>-</b><b>d</b> <b>-</b><b>l</b> <b>1</b><b>2</b><b>3</b> <b>-</b><b>t</b>
+              <b>g</b><b>r</b><b>e</b>
+
+<b>S</b><b>E</b><b>E</b> <b>A</b><b>L</b><b>S</b><b>O</b>
+       <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>d</b>(8),  <b>o</b><b>v</b><b>s</b><b>-</b><b>o</b><b>f</b><b>c</b><b>t</b><b>l</b>(8),  <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b>(8),  <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>-</b><b>t</b><b>e</b><b>s</b><b>t</b>(8),  <b>e</b><b>t</b><b>h</b><b>‐</b>
+       <b>t</b><b>o</b><b>o</b><b>l</b>(8), <b>u</b><b>n</b><b>a</b><b>m</b><b>e</b>(1)
+
+
+
+Open vSwitch                        2.3.90                         ovs-test(1)
+</pre></body></html>

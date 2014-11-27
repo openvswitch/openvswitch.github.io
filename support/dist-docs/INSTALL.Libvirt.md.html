@@ -1,0 +1,76 @@
+<html><head>
+  <meta charset="UTF-8"></head>
+  <link rel="stylesheet" type="text/css" href="style.css">
+  <title>INSTALL.Libvirt.md (Open vSwitch 2.3.90)</title>
+</head><body>
+<h1>How to Use Open vSwitch with Libvirt</h1>
+
+<p>This document describes how to use Open vSwitch with Libvirt 0.9.11 or
+later. This document assumes that you followed [INSTALL.md] or installed
+Open vSwitch from distribution packaging such as a .deb or .rpm.  The Open
+vSwitch support is included by default in Libvirt 0.9.11. Consult
+www.libvirt.org for instructions on how to build the latest Libvirt, if your
+Linux distribution by default comes with an older Libvirt release.</p>
+
+<h2>Limitations</h2>
+
+<p>Currently there is no Open vSwitch support for networks that are managed
+by libvirt (e.g. NAT). As of now, only bridged networks are supported (those
+where the user has to manually create the bridge).</p>
+
+<h2>Setup</h2>
+
+<p>First, create the Open vSwitch bridge by using the ovs-vsctl utility (this
+must be done with administrative privileges):</p>
+
+<pre><code>% ovs-vsctl add-br ovsbr
+</code></pre>
+
+<p>Once that is done, create a VM, if necessary, and edit its Domain XML file:</p>
+
+<pre><code>% virsh edit &lt;vm&gt;
+</code></pre>
+
+<p>Lookup in the Domain XML file the <code>&lt;interface&gt;</code> section. There should be one
+such XML section for each interface the VM has.</p>
+
+<p><code>
+ &lt;interface type='network'&gt;
+  &lt;mac address='52:54:00:71:b1:b6'/&gt;
+  &lt;source network='default'/&gt;
+  &lt;address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/&gt;
+ &lt;/interface&gt;
+</code></p>
+
+<p>And change it to something like this:</p>
+
+<p><code>
+ &lt;interface type='bridge'&gt;
+  &lt;mac address='52:54:00:71:b1:b6'/&gt;
+  &lt;source bridge='ovsbr'/&gt;
+  &lt;virtualport type='openvswitch'/&gt;
+  &lt;address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/&gt;
+ &lt;/interface&gt;
+</code></p>
+
+<p>The interface type must be set to "bridge". The <code>&lt;source&gt;</code> XML element
+specifies to which bridge this interface will be attached to. The
+<code>&lt;virtualport&gt;</code> element indicates that the bridge in <code>&lt;source&gt;</code> element is an
+Open vSwitch bridge.</p>
+
+<p>Then (re)start the VM and verify if the guest's vnet interface is attached to
+the ovsbr bridge.</p>
+
+<pre><code>% ovs-vsctl show
+</code></pre>
+
+<h2>Troubleshooting</h2>
+
+<p>If the VM does not want to start, then try to run the libvirtd process either
+from the terminal, so that all errors are printed in console, or inspect
+Libvirt/Open vSwitch log files for possible root cause.</p>
+
+<h2>Bug Reporting</h2>
+
+<p>Please report problems to bugs@openvswitch.org.</p>
+</body></html>

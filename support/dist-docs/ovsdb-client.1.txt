@@ -1,0 +1,431 @@
+ovsdb-client(1)               Open vSwitch Manual              ovsdb-client(1)
+
+
+
+NAME
+       ovsdb-client - command-line interface to ovsdb-server(1)
+
+SYNOPSIS
+       ovsdb-client [options] list-dbs [server]
+       ovsdb-client [options] get-schema [server] [database]
+       ovsdb-client [options] get-schema-version [server] [database]
+       ovsdb-client [options] list-tables [server] [database]
+       ovsdb-client [options] list-columns [server] [database] [table]
+       ovsdb-client [options] transact [server] transaction
+       ovsdb-client [options] dump [server] [database]
+       ovsdb-client  [options] monitor [server] [database] table [column[,col‐
+       umn]...]...
+       ovsdb-client [options] monitor [server] [database] ALL
+       ovsdb-client help
+
+       Output formatting options:
+              [--format=format]  [--data=format]   [--no-heading]   [--pretty]
+              [--bare] [--no-heading] [--timestamp]
+
+       Daemon options:
+              [--pidfile[=pidfile]]      [--overwrite-pidfile]      [--detach]
+              [--no-chdir]
+
+       Logging options:
+              [-v[module[:facility[:level]]]]...
+              [--verbose[=module[:facility[:level]]]]...
+              [--log-file[=file]]
+
+       Public key infrastructure options:
+              [--private-key=privkey.pem]
+              [--certificate=cert.pem]
+              [--ca-cert=cacert.pem]
+              [--bootstrap-ca-cert=cacert.pem]
+
+       Common options:
+              [-h | --help] [-V | --version]
+
+
+DESCRIPTION
+       The ovsdb-client program is a command-line client for interacting  with
+       a  running  ovsdb-server  process.   Each  command connects to an OVSDB
+       server, which is unix:/var/run/openvswitch/db.sock by default,  or  may
+       be specified as server in one of the following forms:
+
+              ssl:ip:port
+                     The specified SSL port on the host at the given ip, which
+                     must be expressed as an IP address (not a  DNS  name)  in
+                     IPv4  or  IPv6 address format.  If ip is an IPv6 address,
+                     then wrap ip with square brackets, e.g.:  ssl:[::1]:6632.
+                     The  --private-key,  --certificate, and --ca-cert options
+                     are mandatory when this form is used.
+
+              tcp:ip:port
+                     Connect to the given TCP port on ip, where ip can be IPv4
+                     or  IPv6  address. If ip is an IPv6 address, then wrap ip
+                     with square brackets, e.g.: tcp:[::1]:6632.
+
+              unix:file
+                     On POSIX, connect to the Unix domain server socket  named
+                     file.
+
+                     On  Windows,  connect to a localhost TCP port whose value
+                     is written in file.
+
+              pssl:port[:ip]
+                     Listen on the  given  SSL  port  for  a  connection.   By
+                     default,  connections are not bound to a particular local
+                     IP address and it listens only on  IPv4  (but  not  IPv6)
+                     addresses,  but specifying ip limits connections to those
+                     from the given ip, either IPv4 or IPv6 address.  If ip is
+                     an IPv6 address, then wrap ip with square brackets, e.g.:
+                     pssl:6632:[::1].  The --private-key,  --certificate,  and
+                     --ca-cert options are mandatory when this form is used.
+
+              ptcp:port[:ip]
+                     Listen  on  the  given  TCP  port  for  a connection.  By
+                     default, connections are not bound to a particular  local
+                     IP  address  and  it  listens only on IPv4 (but not IPv6)
+                     addresses, but ip may be specified  to  listen  only  for
+                     connections to the given ip, either IPv4 or IPv6 address.
+                     If ip is an IPv6 address, then wrap ip with square brack‐
+                     ets, e.g.: ptcp:6632:[::1].
+
+              punix:file
+                     On  POSIX,  listen on the Unix domain server socket named
+                     file for a connection.
+
+                     On Windows, listen on a kernel chosen  TCP  port  on  the
+                     localhost. The kernel chosen TCP port value is written in
+                     file.
+
+       The default database is Open_vSwitch.
+
+   Commands
+       The following commands are implemented:
+
+       list-dbs [server]
+              Connects to server, retrieves the list of known  databases,  and
+              prints  them  one  per  line.  These database names are the ones
+              that may be used for database in the following commands.
+
+       get-schema [server] [database]
+              Connects to server,  retrieves  the  schema  for  database,  and
+              prints it in JSON format.
+
+       get-schema-version [server] [database]
+              Connects  to  server,  retrieves  the  schema  for database, and
+              prints its version number on stdout.  A  schema  version  number
+              has the form x.y.z.  See ovs-vswitchd.conf.db(5) for details.
+
+              Schema  version  numbers  and  Open  vSwitch version numbers are
+              independent.
+
+              If database was created before schema versioning was introduced,
+              then  it  will  not  have a version number and this command will
+              print a blank line.
+
+       list-tables [server] [database]
+              Connects to server,  retrieves  the  schema  for  database,  and
+              prints  a  table listing the name of each table within the data‐
+              base.
+
+       list-columns [server] [database] table
+              Connects to server,  retrieves  the  schema  for  database,  and
+              prints a table listing the name and type of each column.  If ta‐
+              ble is specified, only columns in that table are listed;  other‐
+              wise, the tables include columns in all tables.
+
+       transact [server] transaction
+              Connects  to  server,  sends it the specified transaction, which
+              must be a JSON array containing one or more valid  OVSDB  opera‐
+              tions, and prints the received reply on stdout.
+
+       dump [server] [database]
+              Connects  to  server, retrieves all of the data in database, and
+              prints it on stdout as a series of tables.
+
+       monitor [server] [database] table [column[,column]...]...
+              Connects to server and monitors the contents of table  in  data‐
+              base.   By  default,  the initial contents of table are printed,
+              followed by each change as it occurs.  If at least one column is
+              specified, only those columns are monitored.  The following col‐
+              umn names have special meanings:
+
+              !initial
+                     Do not print the initial contents of the  specified  col‐
+                     umns.
+
+              !insert
+                     Do not print newly inserted rows.
+
+              !delete
+                     Do not print deleted rows.
+
+              !modify
+                     Do not print modifications to existing rows.
+
+              Multiple  [column[,column]...]  groups may be specified as sepa‐
+              rate arguments, e.g. to apply different reporting parameters  to
+              each  group.   Whether multiple groups or only a single group is
+              specified, any given column may only be mentioned  once  on  the
+              command line.
+
+              If  --detach  is  used  with monitor, then ovsdb-client detaches
+              after it has successfully received and printed the initial  con‐
+              tents of table.
+
+       monitor [server] [database] ALL
+              Connects  to  server  and monitors the contents of all tables in
+              database.  Prints initial values and all kinds of changes to all
+              columns   in   the   database.    The   --detach  option  causes
+              ovsdb-client to detach after it successfully receives and prints
+              the initial database contents.
+
+OPTIONS
+   Output Formatting Options
+       Much  of  the  output  from ovsdb-client is in the form of tables.  The
+       following options controlling output formatting:
+
+       -f format
+       --format=format
+              Sets the type of table formatting.  The following types of  for‐
+              mat are available:
+
+              table (default)
+                     2-D text tables with aligned columns.
+
+              list   A  list  with one column per line and rows separated by a
+                     blank line.
+
+              html   HTML tables.
+
+              csv    Comma-separated values as defined in RFC 4180.
+
+              json   JSON format as defined in RFC  4627.   The  output  is  a
+                     sequence  of  JSON  objects, each of which corresponds to
+                     one table.  Each JSON object has  the  following  members
+                     with the noted values:
+
+                     caption
+                            The  table's  caption.   This member is omitted if
+                            the table has no caption.
+
+                     headings
+                            An array with one element per table column.   Each
+                            array element is a string giving the corresponding
+                            column's heading.
+
+                     data   An array with one element  per  table  row.   Each
+                            element  is also an array with one element per ta‐
+                            ble column.  The  elements  of  this  second-level
+                            array  are  the  cells  that constitute the table.
+                            Cells that represent OVSDB data or data types  are
+                            expressed  in  the  format  described in the OVSDB
+                            specification; other cells are simply expressed as
+                            text strings.
+
+       -d format
+       --data=format
+              Sets the formatting for cells within output tables.  The follow‐
+              ing types of format are available:
+
+              string (default)
+                     The simple format described in the Database  Values  sec‐
+                     tion of ovs-vsctl(8).
+
+              bare   The  simple  format with punctuation stripped off: [] and
+                     {} are omitted around  sets,  maps,  and  empty  columns,
+                     items  within  sets  and  maps  are  space-separated, and
+                     strings are never quoted.  This format may be easier  for
+                     scripts to parse.
+
+              json   JSON.
+
+              The  json  output  format  always  outputs cells in JSON format,
+              ignoring this option.
+
+       --no-heading
+              This option suppresses the heading row that otherwise appears in
+              the first row of table output.
+
+       --pretty
+              By  default, JSON in output is printed as compactly as possible.
+              This option causes JSON in output to be printed in a more  read‐
+              able  fashion.   Members  of  objects and elements of arrays are
+              printed one per line, with indentation.
+
+              This option does not affect JSON  in  tables,  which  is  always
+              printed compactly.
+
+       --bare Equivalent to --format=list --data=bare --no-headings.
+
+       --timestamp
+              For  the monitor command, adds a timestamp to each table update.
+              Most output formats add the timestamp on a line of its own  just
+              above the table.  The JSON output format puts the timestamp in a
+              member of the top-level JSON object named time.
+
+   Daemon Options
+       The daemon options apply only to the monitor command.  With  any  other
+       command, they have no effect.  The following options are valid on POSIX
+       based platforms.
+
+       --pidfile[=pidfile]
+              Causes a file (by default, ovsdb-client.pid) to be created indi‐
+              cating  the PID of the running process.  If the pidfile argument
+              is not specified, or if it does not begin with  /,  then  it  is
+              created in /var/run/openvswitch.
+
+              If --pidfile is not specified, no pidfile is created.
+
+       --overwrite-pidfile
+              By  default,  when --pidfile is specified and the specified pid‐
+              file  already  exists  and  is  locked  by  a  running  process,
+              ovsdb-client  refuses  to start.  Specify --overwrite-pidfile to
+              cause it to instead overwrite the pidfile.
+
+              When --pidfile is not specified, this option has no effect.
+
+       --detach
+              Causes ovsdb-client to detach itself from the foreground session
+              and run as a background process.
+
+       --monitor
+              Creates  an  additional process to monitor the ovsdb-client dae‐
+              mon.  If the daemon dies due to a signal that indicates  a  pro‐
+              gramming  error  (SIGABRT, SIGALRM, SIGBUS, SIGFPE, SIGILL, SIG‐
+              PIPE, SIGSEGV, SIGXCPU, or SIGXFSZ)  then  the  monitor  process
+              starts  a  new  copy  of  it.   If  the daemon dies or exits for
+              another reason, the monitor process exits.
+
+              This option is normally used with --detach, but  it  also  func‐
+              tions without it.
+
+       --no-chdir
+              By default, when --detach is specified, ovsdb-client changes its
+              current  working  directory  to  the  root  directory  after  it
+              detaches.   Otherwise,  invoking  ovsdb-client from a carelessly
+              chosen directory would prevent the administrator from unmounting
+              the file system that holds that directory.
+
+              Specifying   --no-chdir  suppresses  this  behavior,  preventing
+              ovsdb-client from changing its current working directory.   This
+              may  be  useful  for  collecting  core files, since it is common
+              behavior to write core dumps into the current working  directory
+              and the root directory is not a good directory to use.
+
+              This option has no effect when --detach is not specified.
+
+   Logging Options
+       -v[spec]
+       --verbose=[spec]
+              Sets  logging  levels.  Without any spec, sets the log level for
+              every module and facility to dbg.  Otherwise, spec is a list  of
+              words  separated  by  spaces or commas or colons, up to one from
+              each category below:
+
+              ·      A valid module name, as displayed by the  vlog/list  com‐
+                     mand on ovs-appctl(8), limits the log level change to the
+                     specified module.
+
+              ·      syslog, console, or file, to limit the log  level  change
+                     to  only to the system log, to the console, or to a file,
+                     respectively.
+
+                     On Windows platform, syslog is accepted as a word and  is
+                     only  useful  along  with the --syslog-target option (the
+                     word has no effect otherwise).
+
+              ·      off, emer, err, warn, info, or dbg, to  control  the  log
+                     level.   Messages of the given severity or higher will be
+                     logged, and messages of lower severity will  be  filtered
+                     out.   off  filters  out all messages.  See ovs-appctl(8)
+                     for a definition of each log level.
+
+              Case is not significant within spec.
+
+              Regardless of the log levels set for file,  logging  to  a  file
+              will  not  take  place  unless --log-file is also specified (see
+              below).
+
+              For compatibility with older versions of OVS, any is accepted as
+              a word but has no effect.
+
+       -v
+       --verbose
+              Sets  the  maximum logging verbosity level, equivalent to --ver‐
+              bose=dbg.
+
+       -vPATTERN:facility:pattern
+       --verbose=PATTERN:facility:pattern
+              Sets  the  log  pattern  for  facility  to  pattern.   Refer  to
+              ovs-appctl(8) for a description of the valid syntax for pattern.
+
+       --log-file[=file]
+              Enables  logging  to  a  file.  If file is specified, then it is
+              used as the exact name for the log file.  The default  log  file
+              name    used    if    file    is   omitted   is   /var/log/open‐
+              vswitch/ovsdb-client.log.
+
+       --syslog-target=host:port
+              Send syslog messages to UDP port on host,  in  addition  to  the
+              system  syslog.   The host must be a numerical IP address, not a
+              hostname.
+
+   Public Key Infrastructure Options
+       -p privkey.pem
+       --private-key=privkey.pem
+              Specifies  a  PEM  file  containing  the  private  key  used  as
+              ovsdb-client's identity for outgoing SSL connections.
+
+       -c cert.pem
+       --certificate=cert.pem
+              Specifies a PEM file containing a certificate that certifies the
+              private key specified on -p or --private-key to be  trustworthy.
+              The certificate must be signed by the certificate authority (CA)
+              that the peer in SSL connections will use to verify it.
+
+       -C cacert.pem
+       --ca-cert=cacert.pem
+              Specifies  a  PEM  file  containing  the  CA  certificate   that
+              ovsdb-client  should  use to verify certificates presented to it
+              by SSL peers.  (This may be the same certificate that SSL  peers
+              use  to verify the certificate specified on -c or --certificate,
+              or it may be a different one, depending on  the  PKI  design  in
+              use.)
+
+       -C none
+       --ca-cert=none
+              Disables  verification  of  certificates presented by SSL peers.
+              This introduces a security risk, because it means that  certifi‐
+              cates cannot be verified to be those of known trusted hosts.
+
+       --bootstrap-ca-cert=cacert.pem
+              When cacert.pem exists, this option has the same effect as -C or
+              --ca-cert.  If it does not exist, then ovsdb-client will attempt
+              to  obtain the CA certificate from the SSL peer on its first SSL
+              connection and save it to the named PEM file.  If it is success‐
+              ful,  it will immediately drop the connection and reconnect, and
+              from then on all SSL connections must be authenticated by a cer‐
+              tificate signed by the CA certificate thus obtained.
+
+              This  option  exposes  the SSL connection to a man-in-the-middle
+              attack obtaining the initial CA certificate, but it may be  use‐
+              ful for bootstrapping.
+
+              This option is only useful if the SSL peer sends its CA certifi‐
+              cate as part of the SSL certificate  chain.   The  SSL  protocol
+              does not require the server to send the CA certificate.
+
+              This option is mutually exclusive with -C and --ca-cert.
+
+   Other Options
+       -h
+       --help Prints a brief help message to the console.
+
+       -V
+       --version
+              Prints version information to the console.
+
+SEE ALSO
+       ovsdb-server(1), ovsdb-client(1), and the OVSDB specification.
+
+
+
+Open vSwitch                        2.3.90                     ovsdb-client(1)

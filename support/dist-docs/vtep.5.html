@@ -1,0 +1,901 @@
+<html><head><meta charset="UTF-8"></head><body><pre>
+vtep(5)                       Open vSwitch Manual                      vtep(5)
+
+
+
+<b>N</b><b>A</b><b>M</b><b>E</b>
+       hardware_vtep - hardware_vtep database schema
+
+       This schema specifies relations that a VTEP can use to integrate physi‐
+       cal ports into logical switches maintained by a network  virtualization
+       controller such as NSX.
+
+       Glossary:
+
+              VTEP   VXLAN Tunnel End Point, an entity which originates and/or
+                     terminates VXLAN tunnels.
+
+              HSC    Hardware Switch Controller.
+
+              NVC    Network Virtualization Controller, e.g. NSX.
+
+              VRF    Virtual Routing and Forwarding instance.
+
+<b>T</b><b>A</b><b>B</b><b>L</b><b>E</b> <b>S</b><b>U</b><b>M</b><b>M</b><b>A</b><b>R</b><b>Y</b>
+       The following list summarizes the purpose of each of the tables in  the
+       <b>h</b><b>a</b><b>r</b><b>d</b><b>w</b><b>a</b><b>r</b><b>e</b><b>_</b><b>v</b><b>t</b><b>e</b><b>p</b>  database.   Each  table is described in more detail on a
+       later page.
+
+       Table     Purpose
+       <b>G</b><b>l</b><b>o</b><b>b</b><b>a</b><b>l</b>    Top-level configuration.
+       <b>M</b><b>a</b><b>n</b><b>a</b><b>g</b><b>e</b><b>r</b>   OVSDB management connection.
+       <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>
+                 A physical switch.
+       <b>T</b><b>u</b><b>n</b><b>n</b><b>e</b><b>l</b>    A tunnel created by a physical switch.
+       <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>P</b><b>o</b><b>r</b><b>t</b>
+                 A port within a physical switch.
+       <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>B</b><b>i</b><b>n</b><b>d</b><b>i</b><b>n</b><b>g</b><b>_</b><b>S</b><b>t</b><b>a</b><b>t</b><b>s</b>
+                 Statistics for a VLAN on a physical port bound to  a  logical
+                 network.
+       <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>
+                 A layer-2 domain.
+       <b>U</b><b>c</b><b>a</b><b>s</b><b>t</b><b>_</b><b>M</b><b>a</b><b>c</b><b>s</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>l</b>
+                 Unicast MACs (local)
+       <b>U</b><b>c</b><b>a</b><b>s</b><b>t</b><b>_</b><b>M</b><b>a</b><b>c</b><b>s</b><b>_</b><b>R</b><b>e</b><b>m</b><b>o</b><b>t</b><b>e</b>
+                 Unicast MACs (remote)
+       <b>M</b><b>c</b><b>a</b><b>s</b><b>t</b><b>_</b><b>M</b><b>a</b><b>c</b><b>s</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>l</b>
+                 Multicast MACs (local)
+       <b>M</b><b>c</b><b>a</b><b>s</b><b>t</b><b>_</b><b>M</b><b>a</b><b>c</b><b>s</b><b>_</b><b>R</b><b>e</b><b>m</b><b>o</b><b>t</b><b>e</b>
+                 Multicast MACs (remote)
+       <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>R</b><b>o</b><b>u</b><b>t</b><b>e</b><b>r</b>
+                 A logical L3 router.
+       <b>A</b><b>r</b><b>p</b><b>_</b><b>S</b><b>o</b><b>u</b><b>r</b><b>c</b><b>e</b><b>s</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>l</b>
+                 ARP source addresses for logical routers
+       <b>A</b><b>r</b><b>p</b><b>_</b><b>S</b><b>o</b><b>u</b><b>r</b><b>c</b><b>e</b><b>s</b><b>_</b><b>R</b><b>e</b><b>m</b><b>o</b><b>t</b><b>e</b>
+                 ARP source addresses for logical routers
+       <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b><b>_</b><b>S</b><b>e</b><b>t</b>
+                 Physical_Locator_Set configuration.
+       <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b>
+                 Physical_Locator configuration.
+
+<b>G</b><b>l</b><b>o</b><b>b</b><b>a</b><b>l</b> <b>T</b><b>A</b><b>B</b><b>L</b><b>E</b>
+       Top-level configuration for a hardware VTEP.  There must be exactly one
+       record in the <b>G</b><b>l</b><b>o</b><b>b</b><b>a</b><b>l</b> table.
+
+   <b>S</b><b>u</b><b>m</b><b>m</b><b>a</b><b>r</b><b>y</b><b>:</b>
+       <b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>e</b><b>s</b>                      set of <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>s
+       <u>D</u><u>a</u><u>t</u><u>a</u><u>b</u><u>a</u><u>s</u><u>e</u> <u>C</u><u>o</u><u>n</u><u>f</u><u>i</u><u>g</u><u>u</u><u>r</u><u>a</u><u>t</u><u>i</u><u>o</u><u>n</u><u>:</u>
+         <b>m</b><b>a</b><b>n</b><b>a</b><b>g</b><b>e</b><b>r</b><b>s</b>                    set of <b>M</b><b>a</b><b>n</b><b>a</b><b>g</b><b>e</b><b>r</b>s
+
+   <b>D</b><b>e</b><b>t</b><b>a</b><b>i</b><b>l</b><b>s</b><b>:</b>
+       <b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>e</b><b>s</b>: set of <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>s
+              The physical switches managed by the VTEP.
+
+     <u>D</u><u>a</u><u>t</u><u>a</u><u>b</u><u>a</u><u>s</u><u>e</u> <u>C</u><u>o</u><u>n</u><u>f</u><u>i</u><u>g</u><u>u</u><u>r</u><u>a</u><u>t</u><u>i</u><u>o</u><u>n</u><u>:</u>
+       These columns primarily configure the database  server  (<b>o</b><b>v</b><b>s</b><b>d</b><b>b</b><b>-</b><b>s</b><b>e</b><b>r</b><b>v</b><b>e</b><b>r</b>),
+       not the hardware VTEP itself.
+
+       <b>m</b><b>a</b><b>n</b><b>a</b><b>g</b><b>e</b><b>r</b><b>s</b>: set of <b>M</b><b>a</b><b>n</b><b>a</b><b>g</b><b>e</b><b>r</b>s
+              Database  clients to which the database server should connect or
+              to which it should listen, along with options for how these con‐
+              nection  should  be  configured.  See the <b>M</b><b>a</b><b>n</b><b>a</b><b>g</b><b>e</b><b>r</b> table for more
+              information.
+
+<b>M</b><b>a</b><b>n</b><b>a</b><b>g</b><b>e</b><b>r</b> <b>T</b><b>A</b><b>B</b><b>L</b><b>E</b>
+       Configuration for a database connection to  an  Open  vSwitch  Database
+       (OVSDB) client.
+
+       The  database  server  can  initiate and maintain active connections to
+       remote clients.  It can also listen for database connections.
+
+   <b>S</b><b>u</b><b>m</b><b>m</b><b>a</b><b>r</b><b>y</b><b>:</b>
+       <u>C</u><u>o</u><u>r</u><u>e</u> <u>F</u><u>e</u><u>a</u><u>t</u><u>u</u><u>r</u><u>e</u><u>s</u><u>:</u>
+         <b>t</b><b>a</b><b>r</b><b>g</b><b>e</b><b>t</b>                      string (must be unique within table)
+       <u>C</u><u>l</u><u>i</u><u>e</u><u>n</u><u>t</u> <u>F</u><u>a</u><u>i</u><u>l</u><u>u</u><u>r</u><u>e</u> <u>D</u><u>e</u><u>t</u><u>e</u><u>c</u><u>t</u><u>i</u><u>o</u><u>n</u> <u>a</u><u>n</u><u>d</u> <u>H</u><u>a</u><u>n</u><u>d</u><u>l</u><u>i</u><u>n</u><u>g</u><u>:</u>
+         <b>m</b><b>a</b><b>x</b><b>_</b><b>b</b><b>a</b><b>c</b><b>k</b><b>o</b><b>f</b><b>f</b>                 optional integer, at least 1,000
+         <b>i</b><b>n</b><b>a</b><b>c</b><b>t</b><b>i</b><b>v</b><b>i</b><b>t</b><b>y</b><b>_</b><b>p</b><b>r</b><b>o</b><b>b</b><b>e</b>            optional integer
+       <u>S</u><u>t</u><u>a</u><u>t</u><u>u</u><u>s</u><u>:</u>
+         <b>i</b><b>s</b><b>_</b><b>c</b><b>o</b><b>n</b><b>n</b><b>e</b><b>c</b><b>t</b><b>e</b><b>d</b>                boolean
+         <b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>l</b><b>a</b><b>s</b><b>t</b><b>_</b><b>e</b><b>r</b><b>r</b><b>o</b><b>r</b>         optional string
+         <b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>s</b><b>t</b><b>a</b><b>t</b><b>e</b>              optional string,  one  of  <b>A</b><b>C</b><b>T</b><b>I</b><b>V</b><b>E</b>,  <b>V</b><b>O</b><b>I</b><b>D</b>,
+                                     <b>C</b><b>O</b><b>N</b><b>N</b><b>E</b><b>C</b><b>T</b><b>I</b><b>N</b><b>G</b>, <b>I</b><b>D</b><b>L</b><b>E</b>, or <b>B</b><b>A</b><b>C</b><b>K</b><b>O</b><b>F</b><b>F</b>
+         <b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>s</b><b>e</b><b>c</b><b>_</b><b>s</b><b>i</b><b>n</b><b>c</b><b>e</b><b>_</b><b>c</b><b>o</b><b>n</b><b>n</b><b>e</b><b>c</b><b>t</b>  optional  string,  containing an integer,
+                                     at least 0
+         <b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>s</b><b>e</b><b>c</b><b>_</b><b>s</b><b>i</b><b>n</b><b>c</b><b>e</b><b>_</b><b>d</b><b>i</b><b>s</b><b>c</b><b>o</b><b>n</b><b>n</b><b>e</b><b>c</b><b>t</b>
+                                     optional string, containing  an  integer,
+                                     at least 0
+         <b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>l</b><b>o</b><b>c</b><b>k</b><b>s</b><b>_</b><b>h</b><b>e</b><b>l</b><b>d</b>         optional string
+         <b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>l</b><b>o</b><b>c</b><b>k</b><b>s</b><b>_</b><b>w</b><b>a</b><b>i</b><b>t</b><b>i</b><b>n</b><b>g</b>      optional string
+         <b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>l</b><b>o</b><b>c</b><b>k</b><b>s</b><b>_</b><b>l</b><b>o</b><b>s</b><b>t</b>         optional string
+         <b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>n</b><b>_</b><b>c</b><b>o</b><b>n</b><b>n</b><b>e</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>      optional  string,  containing an integer,
+                                     at least 2
+       <u>C</u><u>o</u><u>n</u><u>n</u><u>e</u><u>c</u><u>t</u><u>i</u><u>o</u><u>n</u> <u>P</u><u>a</u><u>r</u><u>a</u><u>m</u><u>e</u><u>t</u><u>e</u><u>r</u><u>s</u><u>:</u>
+         <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b> <b>:</b> <b>d</b><b>s</b><b>c</b><b>p</b>         optional string, containing an integer
+
+   <b>D</b><b>e</b><b>t</b><b>a</b><b>i</b><b>l</b><b>s</b><b>:</b>
+     <u>C</u><u>o</u><u>r</u><u>e</u> <u>F</u><u>e</u><u>a</u><u>t</u><u>u</u><u>r</u><u>e</u><u>s</u><u>:</u>
+
+       <b>t</b><b>a</b><b>r</b><b>g</b><b>e</b><b>t</b>: string (must be unique within table)
+              Connection method for managers.
+
+              The following connection methods are currently supported:
+
+              <b>s</b><b>s</b><b>l</b><b>:</b><u>i</u><u>p</u>[<b>:</b><u>p</u><u>o</u><u>r</u><u>t</u>]
+                     The specified SSL <u>p</u><u>o</u><u>r</u><u>t</u> (default: 6632) on the host at the
+                     given <u>i</u><u>p</u>, which must be expressed as an IP address (not a
+                     DNS name).
+
+                     SSL key and certificate configuration happens outside the
+                     database.
+
+              <b>t</b><b>c</b><b>p</b><b>:</b><u>i</u><u>p</u>[<b>:</b><u>p</u><u>o</u><u>r</u><u>t</u>]
+                     The specified TCP <u>p</u><u>o</u><u>r</u><u>t</u> (default: 6632) on the host at the
+                     given <u>i</u><u>p</u>, which must be expressed as an IP address (not a
+                     DNS name).
+
+              <b>p</b><b>s</b><b>s</b><b>l</b><b>:</b>[<u>p</u><u>o</u><u>r</u><u>t</u>][<b>:</b><u>i</u><u>p</u>]
+                     Listens  for  SSL  connections  on the specified TCP <u>p</u><u>o</u><u>r</u><u>t</u>
+                     (default: 6632).  If <u>i</u><u>p</u>, which must be expressed as an IP
+                     address  (not a DNS name), is specified, then connections
+                     are restricted to the specified local IP address.
+
+              <b>p</b><b>t</b><b>c</b><b>p</b><b>:</b>[<u>p</u><u>o</u><u>r</u><u>t</u>][<b>:</b><u>i</u><u>p</u>]
+                     Listens  for  connections  on  the  specified  TCP   <u>p</u><u>o</u><u>r</u><u>t</u>
+                     (default: 6632).  If <u>i</u><u>p</u>, which must be expressed as an IP
+                     address (not a DNS name), is specified, then  connections
+                     are restricted to the specified local IP address.
+
+     <u>C</u><u>l</u><u>i</u><u>e</u><u>n</u><u>t</u> <u>F</u><u>a</u><u>i</u><u>l</u><u>u</u><u>r</u><u>e</u> <u>D</u><u>e</u><u>t</u><u>e</u><u>c</u><u>t</u><u>i</u><u>o</u><u>n</u> <u>a</u><u>n</u><u>d</u> <u>H</u><u>a</u><u>n</u><u>d</u><u>l</u><u>i</u><u>n</u><u>g</u><u>:</u>
+
+       <b>m</b><b>a</b><b>x</b><b>_</b><b>b</b><b>a</b><b>c</b><b>k</b><b>o</b><b>f</b><b>f</b>: optional integer, at least 1,000
+              Maximum  number  of  milliseconds  to  wait  between  connection
+              attempts.  Default is implementation-specific.
+
+       <b>i</b><b>n</b><b>a</b><b>c</b><b>t</b><b>i</b><b>v</b><b>i</b><b>t</b><b>y</b><b>_</b><b>p</b><b>r</b><b>o</b><b>b</b><b>e</b>: optional integer
+              Maximum number of milliseconds of idle time on connection to the
+              client  before sending an inactivity probe message.  If the Open
+              vSwitch database does not communicate with the  client  for  the
+              specified  number  of  seconds,  it  will  send  a  probe.  If a
+              response is not received for the same additional amount of time,
+              the  database  server assumes the connection has been broken and
+              attempts to reconnect.  Default is  implementation-specific.   A
+              value of 0 disables inactivity probes.
+
+     <u>S</u><u>t</u><u>a</u><u>t</u><u>u</u><u>s</u><u>:</u>
+
+       <b>i</b><b>s</b><b>_</b><b>c</b><b>o</b><b>n</b><b>n</b><b>e</b><b>c</b><b>t</b><b>e</b><b>d</b>: boolean
+              <b>t</b><b>r</b><b>u</b><b>e</b> if currently connected to this manager, <b>f</b><b>a</b><b>l</b><b>s</b><b>e</b> otherwise.
+
+       <b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>l</b><b>a</b><b>s</b><b>t</b><b>_</b><b>e</b><b>r</b><b>r</b><b>o</b><b>r</b>: optional string
+              A human-readable description of the last error on the connection
+              to the manager; i.e. <b>s</b><b>t</b><b>r</b><b>e</b><b>r</b><b>r</b><b>o</b><b>r</b><b>(</b><b>e</b><b>r</b><b>r</b><b>n</b><b>o</b><b>)</b>.  This key will exist  only
+              if an error has occurred.
+
+       <b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>s</b><b>t</b><b>a</b><b>t</b><b>e</b>: optional string, one of <b>A</b><b>C</b><b>T</b><b>I</b><b>V</b><b>E</b>, <b>V</b><b>O</b><b>I</b><b>D</b>, <b>C</b><b>O</b><b>N</b><b>N</b><b>E</b><b>C</b><b>T</b><b>I</b><b>N</b><b>G</b>, <b>I</b><b>D</b><b>L</b><b>E</b>,
+       or <b>B</b><b>A</b><b>C</b><b>K</b><b>O</b><b>F</b><b>F</b>
+              The state of the connection to the manager:
+
+              <b>V</b><b>O</b><b>I</b><b>D</b>   Connection is disabled.
+
+              <b>B</b><b>A</b><b>C</b><b>K</b><b>O</b><b>F</b><b>F</b>
+                     Attempting to reconnect at an increasing period.
+
+              <b>C</b><b>O</b><b>N</b><b>N</b><b>E</b><b>C</b><b>T</b><b>I</b><b>N</b><b>G</b>
+                     Attempting to connect.
+
+              <b>A</b><b>C</b><b>T</b><b>I</b><b>V</b><b>E</b> Connected, remote host responsive.
+
+              <b>I</b><b>D</b><b>L</b><b>E</b>   Connection is idle.  Waiting for response to keep-alive.
+
+              These values may change in the future.  They are  provided  only
+              for human consumption.
+
+       <b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b>  <b>:</b> <b>s</b><b>e</b><b>c</b><b>_</b><b>s</b><b>i</b><b>n</b><b>c</b><b>e</b><b>_</b><b>c</b><b>o</b><b>n</b><b>n</b><b>e</b><b>c</b><b>t</b>: optional string, containing an integer, at
+       least 0
+              The amount of time since this  manager  last  successfully  con‐
+              nected  to  the database (in seconds). Value is empty if manager
+              has never successfully connected.
+
+       <b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>s</b><b>e</b><b>c</b><b>_</b><b>s</b><b>i</b><b>n</b><b>c</b><b>e</b><b>_</b><b>d</b><b>i</b><b>s</b><b>c</b><b>o</b><b>n</b><b>n</b><b>e</b><b>c</b><b>t</b>: optional string, containing an  integer,
+       at least 0
+              The amount of time since this manager last disconnected from the
+              database (in seconds). Value is empty if manager has never  dis‐
+              connected.
+
+       <b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>l</b><b>o</b><b>c</b><b>k</b><b>s</b><b>_</b><b>h</b><b>e</b><b>l</b><b>d</b>: optional string
+              Space-separated  list  of the names of OVSDB locks that the con‐
+              nection holds.  Omitted if the  connection  does  not  hold  any
+              locks.
+
+       <b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>l</b><b>o</b><b>c</b><b>k</b><b>s</b><b>_</b><b>w</b><b>a</b><b>i</b><b>t</b><b>i</b><b>n</b><b>g</b>: optional string
+              Space-separated  list  of the names of OVSDB locks that the con‐
+              nection is currently waiting to acquire.  Omitted if the connec‐
+              tion is not waiting for any locks.
+
+       <b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>l</b><b>o</b><b>c</b><b>k</b><b>s</b><b>_</b><b>l</b><b>o</b><b>s</b><b>t</b>: optional string
+              Space-separated  list  of the names of OVSDB locks that the con‐
+              nection has had stolen by another OVSDB client.  Omitted  if  no
+              locks have been stolen from this connection.
+
+       <b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b>  <b>:</b>  <b>n</b><b>_</b><b>c</b><b>o</b><b>n</b><b>n</b><b>e</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>:  optional  string,  containing an integer, at
+       least 2
+              When <b>t</b><b>a</b><b>r</b><b>g</b><b>e</b><b>t</b> specifies  a  connection  method  that  listens  for
+              inbound connections (e.g. <b>p</b><b>t</b><b>c</b><b>p</b><b>:</b> or <b>p</b><b>s</b><b>s</b><b>l</b><b>:</b>) and more than one con‐
+              nection is actually active, the value is the  number  of  active
+              connections.  Otherwise, this key-value pair is omitted.
+
+              When  multiple  connections  are active, status columns and key-
+              value pairs (other than this one) report the status of one arbi‐
+              trarily chosen connection.
+
+     <u>C</u><u>o</u><u>n</u><u>n</u><u>e</u><u>c</u><u>t</u><u>i</u><u>o</u><u>n</u> <u>P</u><u>a</u><u>r</u><u>a</u><u>m</u><u>e</u><u>t</u><u>e</u><u>r</u><u>s</u><u>:</u>
+       Additional  configuration  for a connection between the manager and the
+       database server.
+
+       <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b> <b>:</b> <b>d</b><b>s</b><b>c</b><b>p</b>: optional string, containing an integer
+              The Differentiated Service Code Point (DSCP) is specified  using
+              6 bits in the Type of Service (TOS) field in the IP header. DSCP
+              provides a mechanism to classify the network traffic and provide
+              Quality  of Service (QoS) on IP networks.  The DSCP value speci‐
+              fied here is used when establishing the connection  between  the
+              manager  and  the  database server.  If no value is specified, a
+              default value of 48 is chosen.  Valid DSCP values must be in the
+              range 0 to 63.
+
+<b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b> <b>T</b><b>A</b><b>B</b><b>L</b><b>E</b>
+       A physical switch that implements a VTEP.
+
+   <b>S</b><b>u</b><b>m</b><b>m</b><b>a</b><b>r</b><b>y</b><b>:</b>
+       <b>p</b><b>o</b><b>r</b><b>t</b><b>s</b>                         set of <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>P</b><b>o</b><b>r</b><b>t</b>s
+       <b>t</b><b>u</b><b>n</b><b>n</b><b>e</b><b>l</b><b>s</b>                       set of <b>T</b><b>u</b><b>n</b><b>n</b><b>e</b><b>l</b>s
+       <u>N</u><u>e</u><u>t</u><u>w</u><u>o</u><u>r</u><u>k</u> <u>S</u><u>t</u><u>a</u><u>t</u><u>u</u><u>s</u><u>:</u>
+         <b>m</b><b>a</b><b>n</b><b>a</b><b>g</b><b>e</b><b>m</b><b>e</b><b>n</b><b>t</b><b>_</b><b>i</b><b>p</b><b>s</b>              set of strings
+         <b>t</b><b>u</b><b>n</b><b>n</b><b>e</b><b>l</b><b>_</b><b>i</b><b>p</b><b>s</b>                  set of strings
+       <u>I</u><u>d</u><u>e</u><u>n</u><u>t</u><u>i</u><u>f</u><u>i</u><u>c</u><u>a</u><u>t</u><u>i</u><u>o</u><u>n</u><u>:</u>
+         <b>n</b><b>a</b><b>m</b><b>e</b>                        string (must be unique within table)
+         <b>d</b><b>e</b><b>s</b><b>c</b><b>r</b><b>i</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b>                 string
+       <u>E</u><u>r</u><u>r</u><u>o</u><u>r</u> <u>N</u><u>o</u><u>t</u><u>i</u><u>f</u><u>i</u><u>c</u><u>a</u><u>t</u><u>i</u><u>o</u><u>n</u><u>:</u>
+         <b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>_</b><b>f</b><b>a</b><b>u</b><b>l</b><b>t</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>m</b><b>a</b><b>c</b><b>_</b><b>t</b><b>a</b><b>b</b><b>l</b><b>e</b><b>_</b><b>e</b><b>x</b><b>h</b><b>a</b><b>u</b><b>s</b><b>t</b><b>i</b><b>o</b><b>n</b>
+                                     none
+         <b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>_</b><b>f</b><b>a</b><b>u</b><b>l</b><b>t</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>t</b><b>u</b><b>n</b><b>n</b><b>e</b><b>l</b><b>_</b><b>e</b><b>x</b><b>h</b><b>a</b><b>u</b><b>s</b><b>t</b><b>i</b><b>o</b><b>n</b>
+                                     none
+         <b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>_</b><b>f</b><b>a</b><b>u</b><b>l</b><b>t</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>u</b><b>n</b><b>s</b><b>p</b><b>e</b><b>c</b><b>i</b><b>f</b><b>i</b><b>e</b><b>d</b><b>_</b><b>f</b><b>a</b><b>u</b><b>l</b><b>t</b>
+                                     none
+
+   <b>D</b><b>e</b><b>t</b><b>a</b><b>i</b><b>l</b><b>s</b><b>:</b>
+       <b>p</b><b>o</b><b>r</b><b>t</b><b>s</b>: set of <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>P</b><b>o</b><b>r</b><b>t</b>s
+              The physical ports within the switch.
+
+       <b>t</b><b>u</b><b>n</b><b>n</b><b>e</b><b>l</b><b>s</b>: set of <b>T</b><b>u</b><b>n</b><b>n</b><b>e</b><b>l</b>s
+              Tunnels created by this switch as instructed by the NVC.
+
+     <u>N</u><u>e</u><u>t</u><u>w</u><u>o</u><u>r</u><u>k</u> <u>S</u><u>t</u><u>a</u><u>t</u><u>u</u><u>s</u><u>:</u>
+
+       <b>m</b><b>a</b><b>n</b><b>a</b><b>g</b><b>e</b><b>m</b><b>e</b><b>n</b><b>t</b><b>_</b><b>i</b><b>p</b><b>s</b>: set of strings
+              IPv4  or IPv6 addresses at which the switch may be contacted for
+              management purposes.
+
+       <b>t</b><b>u</b><b>n</b><b>n</b><b>e</b><b>l</b><b>_</b><b>i</b><b>p</b><b>s</b>: set of strings
+              IPv4 or IPv6 addresses on which the switch may originate or ter‐
+              minate tunnels.
+
+              This  column  is  intended  to  allow a <b>M</b><b>a</b><b>n</b><b>a</b><b>g</b><b>e</b><b>r</b> to determine the
+              <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b> that terminates  the  tunnel  represented  by  a
+              <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b>.
+
+     <u>I</u><u>d</u><u>e</u><u>n</u><u>t</u><u>i</u><u>f</u><u>i</u><u>c</u><u>a</u><u>t</u><u>i</u><u>o</u><u>n</u><u>:</u>
+
+       <b>n</b><b>a</b><b>m</b><b>e</b>: string (must be unique within table)
+              Symbolic name for the switch, such as its hostname.
+
+       <b>d</b><b>e</b><b>s</b><b>c</b><b>r</b><b>i</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b>: string
+              An extended description for the switch, such as its switch login
+              banner.
+
+     <u>E</u><u>r</u><u>r</u><u>o</u><u>r</u> <u>N</u><u>o</u><u>t</u><u>i</u><u>f</u><u>i</u><u>c</u><u>a</u><u>t</u><u>i</u><u>o</u><u>n</u><u>:</u>
+       An entry in this column indicates to  the  NVC  that  this  switch  has
+       encountered  a  fault. The switch must clear this column when the fault
+       has been cleared.
+
+       <b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>_</b><b>f</b><b>a</b><b>u</b><b>l</b><b>t</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>m</b><b>a</b><b>c</b><b>_</b><b>t</b><b>a</b><b>b</b><b>l</b><b>e</b><b>_</b><b>e</b><b>x</b><b>h</b><b>a</b><b>u</b><b>s</b><b>t</b><b>i</b><b>o</b><b>n</b>: none
+              Indicates that the switch has been unable to process MAC entries
+              requested by the NVC due to lack of table resources.
+
+       <b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>_</b><b>f</b><b>a</b><b>u</b><b>l</b><b>t</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>t</b><b>u</b><b>n</b><b>n</b><b>e</b><b>l</b><b>_</b><b>e</b><b>x</b><b>h</b><b>a</b><b>u</b><b>s</b><b>t</b><b>i</b><b>o</b><b>n</b>: none
+              Indicates  that  the  switch  has  been unable to create tunnels
+              requested by the NVC due to lack of resources.
+
+       <b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>_</b><b>f</b><b>a</b><b>u</b><b>l</b><b>t</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>u</b><b>n</b><b>s</b><b>p</b><b>e</b><b>c</b><b>i</b><b>f</b><b>i</b><b>e</b><b>d</b><b>_</b><b>f</b><b>a</b><b>u</b><b>l</b><b>t</b>: none
+              Indicates that an error has occurred in the switch but  that  no
+              more specific information is available.
+
+<b>T</b><b>u</b><b>n</b><b>n</b><b>e</b><b>l</b> <b>T</b><b>A</b><b>B</b><b>L</b><b>E</b>
+       A tunnel created by a <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>.
+
+   <b>S</b><b>u</b><b>m</b><b>m</b><b>a</b><b>r</b><b>y</b><b>:</b>
+       <b>l</b><b>o</b><b>c</b><b>a</b><b>l</b>                         <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b>
+       <b>r</b><b>e</b><b>m</b><b>o</b><b>t</b><b>e</b>                        <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b>
+       <u>B</u><u>i</u><u>d</u><u>i</u><u>r</u><u>e</u><u>c</u><u>t</u><u>i</u><u>o</u><u>n</u><u>a</u><u>l</u> <u>F</u><u>o</u><u>r</u><u>w</u><u>a</u><u>r</u><u>d</u><u>i</u><u>n</u><u>g</u> <u>D</u><u>e</u><u>t</u><u>e</u><u>c</u><u>t</u><u>i</u><u>o</u><u>n</u> <u>(</u><u>B</u><u>F</u><u>D</u><u>)</u><u>:</u>
+         <u>B</u><u>F</u><u>D</u> <u>L</u><u>o</u><u>c</u><u>a</u><u>l</u> <u>C</u><u>o</u><u>n</u><u>f</u><u>i</u><u>g</u><u>u</u><u>r</u><u>a</u><u>t</u><u>i</u><u>o</u><u>n</u><u>:</u>
+            <b>b</b><b>f</b><b>d</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>_</b><b>l</b><b>o</b><b>c</b><b>a</b><b>l</b> <b>:</b> <b>b</b><b>f</b><b>d</b><b>_</b><b>d</b><b>s</b><b>t</b><b>_</b><b>m</b><b>a</b><b>c</b>
+                                     optional string
+            <b>b</b><b>f</b><b>d</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>_</b><b>l</b><b>o</b><b>c</b><b>a</b><b>l</b> <b>:</b> <b>b</b><b>f</b><b>d</b><b>_</b><b>d</b><b>s</b><b>t</b><b>_</b><b>i</b><b>p</b>
+                                     optional string
+         <u>B</u><u>F</u><u>D</u> <u>R</u><u>e</u><u>m</u><u>o</u><u>t</u><u>e</u> <u>C</u><u>o</u><u>n</u><u>f</u><u>i</u><u>g</u><u>u</u><u>r</u><u>a</u><u>t</u><u>i</u><u>o</u><u>n</u><u>:</u>
+            <b>b</b><b>f</b><b>d</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>_</b><b>r</b><b>e</b><b>m</b><b>o</b><b>t</b><b>e</b> <b>:</b> <b>b</b><b>f</b><b>d</b><b>_</b><b>d</b><b>s</b><b>t</b><b>_</b><b>m</b><b>a</b><b>c</b>
+                                     optional string
+            <b>b</b><b>f</b><b>d</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>_</b><b>r</b><b>e</b><b>m</b><b>o</b><b>t</b><b>e</b> <b>:</b> <b>b</b><b>f</b><b>d</b><b>_</b><b>d</b><b>s</b><b>t</b><b>_</b><b>i</b><b>p</b>
+                                     optional string
+         <u>B</u><u>F</u><u>D</u> <u>P</u><u>a</u><u>r</u><u>a</u><u>m</u><u>e</u><u>t</u><u>e</u><u>r</u><u>s</u><u>:</u>
+            <b>b</b><b>f</b><b>d</b><b>_</b><b>p</b><b>a</b><b>r</b><b>a</b><b>m</b><b>s</b> <b>:</b> <b>e</b><b>n</b><b>a</b><b>b</b><b>l</b><b>e</b>      optional string, either <b>t</b><b>r</b><b>u</b><b>e</b> or <b>f</b><b>a</b><b>l</b><b>s</b><b>e</b>
+            <b>b</b><b>f</b><b>d</b><b>_</b><b>p</b><b>a</b><b>r</b><b>a</b><b>m</b><b>s</b> <b>:</b> <b>m</b><b>i</b><b>n</b><b>_</b><b>r</b><b>x</b>      optional  string,  containing an integer,
+                                     at least 1
+            <b>b</b><b>f</b><b>d</b><b>_</b><b>p</b><b>a</b><b>r</b><b>a</b><b>m</b><b>s</b> <b>:</b> <b>m</b><b>i</b><b>n</b><b>_</b><b>t</b><b>x</b>      optional string, containing  an  integer,
+                                     at least 1
+            <b>b</b><b>f</b><b>d</b><b>_</b><b>p</b><b>a</b><b>r</b><b>a</b><b>m</b><b>s</b> <b>:</b> <b>d</b><b>e</b><b>c</b><b>a</b><b>y</b><b>_</b><b>m</b><b>i</b><b>n</b><b>_</b><b>r</b><b>x</b>
+                                     optional string, containing an integer
+            <b>b</b><b>f</b><b>d</b><b>_</b><b>p</b><b>a</b><b>r</b><b>a</b><b>m</b><b>s</b> <b>:</b> <b>f</b><b>o</b><b>r</b><b>w</b><b>a</b><b>r</b><b>d</b><b>i</b><b>n</b><b>g</b><b>_</b><b>i</b><b>f</b><b>_</b><b>r</b><b>x</b>
+                                     optional string, either <b>t</b><b>r</b><b>u</b><b>e</b> or <b>f</b><b>a</b><b>l</b><b>s</b><b>e</b>
+            <b>b</b><b>f</b><b>d</b><b>_</b><b>p</b><b>a</b><b>r</b><b>a</b><b>m</b><b>s</b> <b>:</b> <b>c</b><b>p</b><b>a</b><b>t</b><b>h</b><b>_</b><b>d</b><b>o</b><b>w</b><b>n</b>  optional string, either <b>t</b><b>r</b><b>u</b><b>e</b> or <b>f</b><b>a</b><b>l</b><b>s</b><b>e</b>
+            <b>b</b><b>f</b><b>d</b><b>_</b><b>p</b><b>a</b><b>r</b><b>a</b><b>m</b><b>s</b> <b>:</b> <b>c</b><b>h</b><b>e</b><b>c</b><b>k</b><b>_</b><b>t</b><b>n</b><b>l</b><b>_</b><b>k</b><b>e</b><b>y</b>
+                                     optional string, either <b>t</b><b>r</b><b>u</b><b>e</b> or <b>f</b><b>a</b><b>l</b><b>s</b><b>e</b>
+         <u>B</u><u>F</u><u>D</u> <u>S</u><u>t</u><u>a</u><u>t</u><u>u</u><u>s</u><u>:</u>
+            <b>b</b><b>f</b><b>d</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>e</b><b>n</b><b>a</b><b>b</b><b>l</b><b>e</b><b>d</b>     optional string, either <b>t</b><b>r</b><b>u</b><b>e</b> or <b>f</b><b>a</b><b>l</b><b>s</b><b>e</b>
+            <b>b</b><b>f</b><b>d</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>s</b><b>t</b><b>a</b><b>t</b><b>e</b>       optional  string,  one of <b>d</b><b>o</b><b>w</b><b>n</b>, <b>i</b><b>n</b><b>i</b><b>t</b>, <b>u</b><b>p</b>,
+                                     or <b>a</b><b>d</b><b>m</b><b>i</b><b>n</b><b>_</b><b>d</b><b>o</b><b>w</b><b>n</b>
+            <b>b</b><b>f</b><b>d</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>f</b><b>o</b><b>r</b><b>w</b><b>a</b><b>r</b><b>d</b><b>i</b><b>n</b><b>g</b>  optional string, either <b>t</b><b>r</b><b>u</b><b>e</b> or <b>f</b><b>a</b><b>l</b><b>s</b><b>e</b>
+            <b>b</b><b>f</b><b>d</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>d</b><b>i</b><b>a</b><b>g</b><b>n</b><b>o</b><b>s</b><b>t</b><b>i</b><b>c</b>  optional string
+            <b>b</b><b>f</b><b>d</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>r</b><b>e</b><b>m</b><b>o</b><b>t</b><b>e</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>e</b>
+                                     optional string, one of <b>d</b><b>o</b><b>w</b><b>n</b>,  <b>i</b><b>n</b><b>i</b><b>t</b>,  <b>u</b><b>p</b>,
+                                     or <b>a</b><b>d</b><b>m</b><b>i</b><b>n</b><b>_</b><b>d</b><b>o</b><b>w</b><b>n</b>
+            <b>b</b><b>f</b><b>d</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>r</b><b>e</b><b>m</b><b>o</b><b>t</b><b>e</b><b>_</b><b>d</b><b>i</b><b>a</b><b>g</b><b>n</b><b>o</b><b>s</b><b>t</b><b>i</b><b>c</b>
+                                     optional string
+            <b>b</b><b>f</b><b>d</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>i</b><b>n</b><b>f</b><b>o</b>        optional string
+
+   <b>D</b><b>e</b><b>t</b><b>a</b><b>i</b><b>l</b><b>s</b><b>:</b>
+       <b>l</b><b>o</b><b>c</b><b>a</b><b>l</b>: <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b>
+              Tunnel end-point local to the physical switch.
+
+       <b>r</b><b>e</b><b>m</b><b>o</b><b>t</b><b>e</b>: <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b>
+              Tunnel end-point remote to the physical switch.
+
+     <u>B</u><u>i</u><u>d</u><u>i</u><u>r</u><u>e</u><u>c</u><u>t</u><u>i</u><u>o</u><u>n</u><u>a</u><u>l</u> <u>F</u><u>o</u><u>r</u><u>w</u><u>a</u><u>r</u><u>d</u><u>i</u><u>n</u><u>g</u> <u>D</u><u>e</u><u>t</u><u>e</u><u>c</u><u>t</u><u>i</u><u>o</u><u>n</u> <u>(</u><u>B</u><u>F</u><u>D</u><u>)</u><u>:</u>
+       BFD, defined in RFC 5880, allows point to point detection of connectiv‐
+       ity failures by occasional transmission of BFD control messages.  VTEPs
+       are expected to implement BFD.
+
+       BFD  operates  by regularly transmitting BFD control messages at a rate
+       negotiated independently in each direction.   Each  endpoint  specifies
+       the  rate at which it expects to receive control messages, and the rate
+       at which it’s willing to transmit them.  An  endpoint  which  fails  to
+       receive  BFD  control messages for a period of three times the expected
+       reception rate will signal a connectivity fault.  In the case of a uni‐
+       directional  connectivity  issue,  the system not receiving BFD control
+       messages will signal the problem to its peer in the messages it  trans‐
+       mits.
+
+       A  hardware  VTEP  is  expected to use BFD to determine reachability of
+       devices at the end of the tunnels with which it  exchanges  data.  This
+       can enable the VTEP to choose a functioning service node among a set of
+       service nodes providing high availability. It also enables the  NVC  to
+       report the health status of tunnels.
+
+       In  most  cases the BFD peer of a hardware VTEP will be an Open vSwitch
+       instance. The Open vSwitch implementation of BFD aims to comply  faith‐
+       fully  with  the requirements put forth in RFC 5880.  Open vSwitch does
+       not implement the optional Authentication or ``Echo Mode’’ features.
+
+     <u>B</u><u>F</u><u>D</u> <u>L</u><u>o</u><u>c</u><u>a</u><u>l</u> <u>C</u><u>o</u><u>n</u><u>f</u><u>i</u><u>g</u><u>u</u><u>r</u><u>a</u><u>t</u><u>i</u><u>o</u><u>n</u><u>:</u>
+       The HSC writes the key-value pairs in the  <b>b</b><b>f</b><b>d</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>_</b><b>l</b><b>o</b><b>c</b><b>a</b><b>l</b>  column  to
+       specifiy  the  local configurations to be used for BFD sessions on this
+       tunnel.
+
+       <b>b</b><b>f</b><b>d</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>_</b><b>l</b><b>o</b><b>c</b><b>a</b><b>l</b> <b>:</b> <b>b</b><b>f</b><b>d</b><b>_</b><b>d</b><b>s</b><b>t</b><b>_</b><b>m</b><b>a</b><b>c</b>: optional string
+              Set to an Ethernet address in the form <u>x</u><u>x</u>:<u>x</u><u>x</u>:<u>x</u><u>x</u>:<u>x</u><u>x</u>:<u>x</u><u>x</u>:<u>x</u><u>x</u> to  set
+              the  MAC  expected as destination for received BFD packets.  The
+              default is <b>0</b><b>0</b><b>:</b><b>2</b><b>3</b><b>:</b><b>2</b><b>0</b><b>:</b><b>0</b><b>0</b><b>:</b><b>0</b><b>0</b><b>:</b><b>0</b><b>1</b>.
+
+       <b>b</b><b>f</b><b>d</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>_</b><b>l</b><b>o</b><b>c</b><b>a</b><b>l</b> <b>:</b> <b>b</b><b>f</b><b>d</b><b>_</b><b>d</b><b>s</b><b>t</b><b>_</b><b>i</b><b>p</b>: optional string
+              Set to an IPv4 address to set the IP address that is expected as
+              destination   for   received   BFD   packets.   The  default  is
+              <b>1</b><b>6</b><b>9</b><b>.</b><b>2</b><b>5</b><b>4</b><b>.</b><b>1</b><b>.</b><b>0</b>.
+
+     <u>B</u><u>F</u><u>D</u> <u>R</u><u>e</u><u>m</u><u>o</u><u>t</u><u>e</u> <u>C</u><u>o</u><u>n</u><u>f</u><u>i</u><u>g</u><u>u</u><u>r</u><u>a</u><u>t</u><u>i</u><u>o</u><u>n</u><u>:</u>
+       The <b>b</b><b>f</b><b>d</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>_</b><b>r</b><b>e</b><b>m</b><b>o</b><b>t</b><b>e</b> column is the remote counterpart of the  <b>b</b><b>f</b><b>d</b><b>_</b><b>c</b><b>o</b><b>n</b><b>‐</b>
+       <b>f</b><b>i</b><b>g</b><b>_</b><b>l</b><b>o</b><b>c</b><b>a</b><b>l</b> column.  The NVC writes the key-value pairs in this column.
+
+       <b>b</b><b>f</b><b>d</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>_</b><b>r</b><b>e</b><b>m</b><b>o</b><b>t</b><b>e</b> <b>:</b> <b>b</b><b>f</b><b>d</b><b>_</b><b>d</b><b>s</b><b>t</b><b>_</b><b>m</b><b>a</b><b>c</b>: optional string
+              Set  to an Ethernet address in the form <u>x</u><u>x</u>:<u>x</u><u>x</u>:<u>x</u><u>x</u>:<u>x</u><u>x</u>:<u>x</u><u>x</u>:<u>x</u><u>x</u> to set
+              the destination MAC to be used for transmitted BFD packets.  The
+              default is <b>0</b><b>0</b><b>:</b><b>2</b><b>3</b><b>:</b><b>2</b><b>0</b><b>:</b><b>0</b><b>0</b><b>:</b><b>0</b><b>0</b><b>:</b><b>0</b><b>1</b>.
+
+       <b>b</b><b>f</b><b>d</b><b>_</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>_</b><b>r</b><b>e</b><b>m</b><b>o</b><b>t</b><b>e</b> <b>:</b> <b>b</b><b>f</b><b>d</b><b>_</b><b>d</b><b>s</b><b>t</b><b>_</b><b>i</b><b>p</b>: optional string
+              Set to an IPv4 address to set the IP address used as destination
+              for transmitted BFD packets.  The default is <b>1</b><b>6</b><b>9</b><b>.</b><b>2</b><b>5</b><b>4</b><b>.</b><b>1</b><b>.</b><b>1</b>.
+
+     <u>B</u><u>F</u><u>D</u> <u>P</u><u>a</u><u>r</u><u>a</u><u>m</u><u>e</u><u>t</u><u>e</u><u>r</u><u>s</u><u>:</u>
+       The NVC sets up key-value pairs in the <b>b</b><b>f</b><b>d</b><b>_</b><b>p</b><b>a</b><b>r</b><b>a</b><b>m</b><b>s</b> column to enable  and
+       configure BFD.
+
+       <b>b</b><b>f</b><b>d</b><b>_</b><b>p</b><b>a</b><b>r</b><b>a</b><b>m</b><b>s</b> <b>:</b> <b>e</b><b>n</b><b>a</b><b>b</b><b>l</b><b>e</b>: optional string, either <b>t</b><b>r</b><b>u</b><b>e</b> or <b>f</b><b>a</b><b>l</b><b>s</b><b>e</b>
+              True to enable BFD on this tunnel.  The default is False.
+
+       <b>b</b><b>f</b><b>d</b><b>_</b><b>p</b><b>a</b><b>r</b><b>a</b><b>m</b><b>s</b> <b>:</b> <b>m</b><b>i</b><b>n</b><b>_</b><b>r</b><b>x</b>: optional string, containing an integer, at least 1
+              The  shortest  interval, in milliseconds, at which this BFD ses‐
+              sion offers to receive BFD control messages.   The  remote  end‐
+              point may choose to send messages at a slower rate.  Defaults to
+              <b>1</b><b>0</b><b>0</b><b>0</b>.
+
+       <b>b</b><b>f</b><b>d</b><b>_</b><b>p</b><b>a</b><b>r</b><b>a</b><b>m</b><b>s</b> <b>:</b> <b>m</b><b>i</b><b>n</b><b>_</b><b>t</b><b>x</b>: optional string, containing an integer, at least 1
+              The shortest interval, in milliseconds, at which this  BFD  ses‐
+              sion is willing to transmit BFD control messages.  Messages will
+              actually be transmitted at a slower rate if the remote  endpoint
+              is  not willing to receive as quickly as specified.  Defaults to
+              <b>1</b><b>0</b><b>0</b>.
+
+       <b>b</b><b>f</b><b>d</b><b>_</b><b>p</b><b>a</b><b>r</b><b>a</b><b>m</b><b>s</b> <b>:</b> <b>d</b><b>e</b><b>c</b><b>a</b><b>y</b><b>_</b><b>m</b><b>i</b><b>n</b><b>_</b><b>r</b><b>x</b>: optional string, containing an integer
+              An alternate receive interval, in  milliseconds,  that  must  be
+              greater   than  or  equal  to  <b>b</b><b>f</b><b>d</b><b>:</b><b>m</b><b>i</b><b>n</b><b>_</b><b>r</b><b>x</b>.   The  implementation
+              switches from <b>b</b><b>f</b><b>d</b><b>:</b><b>m</b><b>i</b><b>n</b><b>_</b><b>r</b><b>x</b> to <b>b</b><b>f</b><b>d</b><b>:</b><b>d</b><b>e</b><b>c</b><b>a</b><b>y</b><b>_</b><b>m</b><b>i</b><b>n</b><b>_</b><b>r</b><b>x</b> when  there  is  no
+              obvious  incoming  data  traffic at the interface, to reduce the
+              CPU and bandwidth cost of monitoring an  idle  interface.   This
+              feature  may  be disabled by setting a value of 0.  This feature
+              is reset whenever <b>b</b><b>f</b><b>d</b><b>:</b><b>d</b><b>e</b><b>c</b><b>a</b><b>y</b><b>_</b><b>m</b><b>i</b><b>n</b><b>_</b><b>r</b><b>x</b> or <b>b</b><b>f</b><b>d</b><b>:</b><b>m</b><b>i</b><b>n</b><b>_</b><b>r</b><b>x</b> changes.
+
+       <b>b</b><b>f</b><b>d</b><b>_</b><b>p</b><b>a</b><b>r</b><b>a</b><b>m</b><b>s</b> <b>:</b> <b>f</b><b>o</b><b>r</b><b>w</b><b>a</b><b>r</b><b>d</b><b>i</b><b>n</b><b>g</b><b>_</b><b>i</b><b>f</b><b>_</b><b>r</b><b>x</b>: optional string, either <b>t</b><b>r</b><b>u</b><b>e</b> or <b>f</b><b>a</b><b>l</b><b>s</b><b>e</b>
+              True to consider the interface capable of packet I/O as long  as
+              it  continues  to  receive  any  packets (not just BFD packets).
+              This prevents link congestion that causes consecutive  BFD  con‐
+              trol packets to be lost from marking the interface down.
+
+       <b>b</b><b>f</b><b>d</b><b>_</b><b>p</b><b>a</b><b>r</b><b>a</b><b>m</b><b>s</b> <b>:</b> <b>c</b><b>p</b><b>a</b><b>t</b><b>h</b><b>_</b><b>d</b><b>o</b><b>w</b><b>n</b>: optional string, either <b>t</b><b>r</b><b>u</b><b>e</b> or <b>f</b><b>a</b><b>l</b><b>s</b><b>e</b>
+              Set  to  true  to notify the remote endpoint that traffic should
+              not be forwarded to this system for some  reason  other  than  a
+              connectivty failure on the interface being monitored.  The typi‐
+              cal underlying reason is ``concatenated path  down,’’  that  is,
+              that  connectivity beyond the local system is down.  Defaults to
+              false.
+
+       <b>b</b><b>f</b><b>d</b><b>_</b><b>p</b><b>a</b><b>r</b><b>a</b><b>m</b><b>s</b> <b>:</b> <b>c</b><b>h</b><b>e</b><b>c</b><b>k</b><b>_</b><b>t</b><b>n</b><b>l</b><b>_</b><b>k</b><b>e</b><b>y</b>: optional string, either <b>t</b><b>r</b><b>u</b><b>e</b> or <b>f</b><b>a</b><b>l</b><b>s</b><b>e</b>
+              Set to true to make BFD accept only control messages with a tun‐
+              nel  key of zero.  By default, BFD accepts control messages with
+              any tunnel key.
+
+     <u>B</u><u>F</u><u>D</u> <u>S</u><u>t</u><u>a</u><u>t</u><u>u</u><u>s</u><u>:</u>
+       The VTEP sets key-value pairs in the <b>b</b><b>f</b><b>d</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> column  to  report  the
+       status  of  BFD  on  this  tunnel.   When  BFD  is  not  enabled,  with
+       <b>b</b><b>f</b><b>d</b><b>_</b><b>p</b><b>a</b><b>r</b><b>a</b><b>m</b><b>s</b><b>:</b><b>e</b><b>n</b><b>a</b><b>b</b><b>l</b><b>e</b>, the HSC clears all key-value pairs from <b>b</b><b>f</b><b>d</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b>.
+
+       <b>b</b><b>f</b><b>d</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>e</b><b>n</b><b>a</b><b>b</b><b>l</b><b>e</b><b>d</b>: optional string, either <b>t</b><b>r</b><b>u</b><b>e</b> or <b>f</b><b>a</b><b>l</b><b>s</b><b>e</b>
+              Set to true if the BFD session has  been  successfully  enabled.
+              Set  to false if the VTEP cannot support BFD or has insufficient
+              resources to enable BFD on this tunnel. The NVC will disable the
+              BFD  monitoring  on the other side of the tunnel once this value
+              is set to false.
+
+       <b>b</b><b>f</b><b>d</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b>  <b>s</b><b>t</b><b>a</b><b>t</b><b>e</b>:  optional  string,  one  of  <b>d</b><b>o</b><b>w</b><b>n</b>,  <b>i</b><b>n</b><b>i</b><b>t</b>,  <b>u</b><b>p</b>,  or
+       <b>a</b><b>d</b><b>m</b><b>i</b><b>n</b><b>_</b><b>d</b><b>o</b><b>w</b><b>n</b>
+              Reports  the state of the BFD session.  The BFD session is fully
+              healthy and negotiated if <b>U</b><b>P</b>.
+
+       <b>b</b><b>f</b><b>d</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>f</b><b>o</b><b>r</b><b>w</b><b>a</b><b>r</b><b>d</b><b>i</b><b>n</b><b>g</b>: optional string, either <b>t</b><b>r</b><b>u</b><b>e</b> or <b>f</b><b>a</b><b>l</b><b>s</b><b>e</b>
+              Reports whether the BFD session believes this tunnel may be used
+              to  forward  traffic.  Typically this means the local session is
+              signaling <b>U</b><b>P</b>, and the remote system isn’t  signaling  a  problem
+              such as concatenated path down.
+
+       <b>b</b><b>f</b><b>d</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>d</b><b>i</b><b>a</b><b>g</b><b>n</b><b>o</b><b>s</b><b>t</b><b>i</b><b>c</b>: optional string
+              In  case of a problem, set to an error message that reports what
+              the local BFD session thinks is wrong.  The error  messages  are
+              defined in section 4.1 of [RFC 5880].
+
+       <b>b</b><b>f</b><b>d</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b>  <b>:</b>  <b>r</b><b>e</b><b>m</b><b>o</b><b>t</b><b>e</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>e</b>: optional string, one of <b>d</b><b>o</b><b>w</b><b>n</b>, <b>i</b><b>n</b><b>i</b><b>t</b>, <b>u</b><b>p</b>, or
+       <b>a</b><b>d</b><b>m</b><b>i</b><b>n</b><b>_</b><b>d</b><b>o</b><b>w</b><b>n</b>
+              Reports the state of the remote endpoint’s BFD session.
+
+       <b>b</b><b>f</b><b>d</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>r</b><b>e</b><b>m</b><b>o</b><b>t</b><b>e</b><b>_</b><b>d</b><b>i</b><b>a</b><b>g</b><b>n</b><b>o</b><b>s</b><b>t</b><b>i</b><b>c</b>: optional string
+              In case of a problem, set to an error message that reports  what
+              the  remote  endpoint’s  BFD session thinks is wrong.  The error
+              messages are defined in section 4.1 of [RFC 5880].
+
+       <b>b</b><b>f</b><b>d</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>i</b><b>n</b><b>f</b><b>o</b>: optional string
+              A short message providing further information about the BFD sta‐
+              tus (possibly including reasons why BFD could not be enabled).
+
+<b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>P</b><b>o</b><b>r</b><b>t</b> <b>T</b><b>A</b><b>B</b><b>L</b><b>E</b>
+       A port within a <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>.
+
+   <b>S</b><b>u</b><b>m</b><b>m</b><b>a</b><b>r</b><b>y</b><b>:</b>
+       <b>v</b><b>l</b><b>a</b><b>n</b><b>_</b><b>b</b><b>i</b><b>n</b><b>d</b><b>i</b><b>n</b><b>g</b><b>s</b>                 map  of integer-<b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b> pairs, key
+                                     in range 0 to 4,095
+       <b>v</b><b>l</b><b>a</b><b>n</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>s</b>                    map   of    integer-<b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>B</b><b>i</b><b>n</b><b>d</b><b>i</b><b>n</b><b>g</b><b>_</b><b>S</b><b>t</b><b>a</b><b>t</b><b>s</b>
+                                     pairs, key in range 0 to 4,095
+       <u>I</u><u>d</u><u>e</u><u>n</u><u>t</u><u>i</u><u>f</u><u>i</u><u>c</u><u>a</u><u>t</u><u>i</u><u>o</u><u>n</u><u>:</u>
+         <b>n</b><b>a</b><b>m</b><b>e</b>                        string
+         <b>d</b><b>e</b><b>s</b><b>c</b><b>r</b><b>i</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b>                 string
+       <u>E</u><u>r</u><u>r</u><u>o</u><u>r</u> <u>N</u><u>o</u><u>t</u><u>i</u><u>f</u><u>i</u><u>c</u><u>a</u><u>t</u><u>i</u><u>o</u><u>n</u><u>:</u>
+         <b>p</b><b>o</b><b>r</b><b>t</b><b>_</b><b>f</b><b>a</b><b>u</b><b>l</b><b>t</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>i</b><b>n</b><b>v</b><b>a</b><b>l</b><b>i</b><b>d</b><b>_</b><b>v</b><b>l</b><b>a</b><b>n</b><b>_</b><b>m</b><b>a</b><b>p</b>
+                                     none
+         <b>p</b><b>o</b><b>r</b><b>t</b><b>_</b><b>f</b><b>a</b><b>u</b><b>l</b><b>t</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>u</b><b>n</b><b>s</b><b>p</b><b>e</b><b>c</b><b>i</b><b>f</b><b>i</b><b>e</b><b>d</b><b>_</b><b>f</b><b>a</b><b>u</b><b>l</b><b>t</b>
+                                     none
+
+   <b>D</b><b>e</b><b>t</b><b>a</b><b>i</b><b>l</b><b>s</b><b>:</b>
+       <b>v</b><b>l</b><b>a</b><b>n</b><b>_</b><b>b</b><b>i</b><b>n</b><b>d</b><b>i</b><b>n</b><b>g</b><b>s</b>:  map  of integer-<b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b> pairs, key in range 0 to
+       4,095
+              Identifies how VLANs on the physical port are bound  to  logical
+              switches.   If,  for  example, the map contains a (VLAN, logical
+              switch) pair, a packet that arrives on the port in the  VLAN  is
+              considered to belong to the paired logical switch.
+
+       <b>v</b><b>l</b><b>a</b><b>n</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>s</b>:  map of integer-<b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>B</b><b>i</b><b>n</b><b>d</b><b>i</b><b>n</b><b>g</b><b>_</b><b>S</b><b>t</b><b>a</b><b>t</b><b>s</b> pairs, key in range 0
+       to 4,095
+              Statistics for VLANs bound to logical switches on  the  physical
+              port.   An  implementation  that  fully supports such statistics
+              would populate this column with a mapping for every VLAN that is
+              bound in <b>v</b><b>l</b><b>a</b><b>n</b><b>_</b><b>b</b><b>i</b><b>n</b><b>d</b><b>i</b><b>n</b><b>g</b><b>s</b>.  An implementation that does not support
+              such statistics or only partially supports them would not  popu‐
+              late this column or partially populate it, respectively.
+
+     <u>I</u><u>d</u><u>e</u><u>n</u><u>t</u><u>i</u><u>f</u><u>i</u><u>c</u><u>a</u><u>t</u><u>i</u><u>o</u><u>n</u><u>:</u>
+
+       <b>n</b><b>a</b><b>m</b><b>e</b>: string
+              Symbolic  name for the port.  The name ought to be unique within
+              a given <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>, but the  database  is  not  capable  of
+              enforcing this.
+
+       <b>d</b><b>e</b><b>s</b><b>c</b><b>r</b><b>i</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b>: string
+              An extended description for the port.
+
+     <u>E</u><u>r</u><u>r</u><u>o</u><u>r</u> <u>N</u><u>o</u><u>t</u><u>i</u><u>f</u><u>i</u><u>c</u><u>a</u><u>t</u><u>i</u><u>o</u><u>n</u><u>:</u>
+       An entry in this column indicates to the NVC that the physical port has
+       encountered a fault. The switch must clear this column when the  errror
+       has been cleared.
+
+       <b>p</b><b>o</b><b>r</b><b>t</b><b>_</b><b>f</b><b>a</b><b>u</b><b>l</b><b>t</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>i</b><b>n</b><b>v</b><b>a</b><b>l</b><b>i</b><b>d</b><b>_</b><b>v</b><b>l</b><b>a</b><b>n</b><b>_</b><b>m</b><b>a</b><b>p</b>: none
+              Indicates that a VLAN-to-logical-switch mapping requested by the
+              controller could not be instantiated by the switch because of  a
+              conflict with local configuration.
+
+       <b>p</b><b>o</b><b>r</b><b>t</b><b>_</b><b>f</b><b>a</b><b>u</b><b>l</b><b>t</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>u</b><b>s</b> <b>:</b> <b>u</b><b>n</b><b>s</b><b>p</b><b>e</b><b>c</b><b>i</b><b>f</b><b>i</b><b>e</b><b>d</b><b>_</b><b>f</b><b>a</b><b>u</b><b>l</b><b>t</b>: none
+              Indicates  that  an  error  has occurred on the port but that no
+              more specific information is available.
+
+<b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>B</b><b>i</b><b>n</b><b>d</b><b>i</b><b>n</b><b>g</b><b>_</b><b>S</b><b>t</b><b>a</b><b>t</b><b>s</b> <b>T</b><b>A</b><b>B</b><b>L</b><b>E</b>
+       Reports statistics for the <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b> with which a VLAN on a <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>‐</b>
+       <b>c</b><b>a</b><b>l</b><b>_</b><b>P</b><b>o</b><b>r</b><b>t</b> is associated.
+
+   <b>S</b><b>u</b><b>m</b><b>m</b><b>a</b><b>r</b><b>y</b><b>:</b>
+       <u>S</u><u>t</u><u>a</u><u>t</u><u>i</u><u>s</u><u>t</u><u>i</u><u>c</u><u>s</u><u>:</u>
+         <b>p</b><b>a</b><b>c</b><b>k</b><b>e</b><b>t</b><b>s</b><b>_</b><b>f</b><b>r</b><b>o</b><b>m</b><b>_</b><b>l</b><b>o</b><b>c</b><b>a</b><b>l</b>          integer
+         <b>b</b><b>y</b><b>t</b><b>e</b><b>s</b><b>_</b><b>f</b><b>r</b><b>o</b><b>m</b><b>_</b><b>l</b><b>o</b><b>c</b><b>a</b><b>l</b>            integer
+         <b>p</b><b>a</b><b>c</b><b>k</b><b>e</b><b>t</b><b>s</b><b>_</b><b>t</b><b>o</b><b>_</b><b>l</b><b>o</b><b>c</b><b>a</b><b>l</b>            integer
+         <b>b</b><b>y</b><b>t</b><b>e</b><b>s</b><b>_</b><b>t</b><b>o</b><b>_</b><b>l</b><b>o</b><b>c</b><b>a</b><b>l</b>              integer
+
+   <b>D</b><b>e</b><b>t</b><b>a</b><b>i</b><b>l</b><b>s</b><b>:</b>
+     <u>S</u><u>t</u><u>a</u><u>t</u><u>i</u><u>s</u><u>t</u><u>i</u><u>c</u><u>s</u><u>:</u>
+       These statistics count only packets to which the binding applies.
+
+       <b>p</b><b>a</b><b>c</b><b>k</b><b>e</b><b>t</b><b>s</b><b>_</b><b>f</b><b>r</b><b>o</b><b>m</b><b>_</b><b>l</b><b>o</b><b>c</b><b>a</b><b>l</b>: integer
+              Number of packets sent by the <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>.
+
+       <b>b</b><b>y</b><b>t</b><b>e</b><b>s</b><b>_</b><b>f</b><b>r</b><b>o</b><b>m</b><b>_</b><b>l</b><b>o</b><b>c</b><b>a</b><b>l</b>: integer
+              Number of bytes in packets sent by the <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>.
+
+       <b>p</b><b>a</b><b>c</b><b>k</b><b>e</b><b>t</b><b>s</b><b>_</b><b>t</b><b>o</b><b>_</b><b>l</b><b>o</b><b>c</b><b>a</b><b>l</b>: integer
+              Number of packets received by the <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>.
+
+       <b>b</b><b>y</b><b>t</b><b>e</b><b>s</b><b>_</b><b>t</b><b>o</b><b>_</b><b>l</b><b>o</b><b>c</b><b>a</b><b>l</b>: integer
+              Number of bytes in packets received by the <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>.
+
+<b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b> <b>T</b><b>A</b><b>B</b><b>L</b><b>E</b>
+       A  logical  Ethernet switch, whose implementation may span physical and
+       virtual media, possibly crossing L3  domains  via  tunnels;  a  logical
+       layer-2 domain; an Ethernet broadcast domain.
+
+   <b>S</b><b>u</b><b>m</b><b>m</b><b>a</b><b>r</b><b>y</b><b>:</b>
+       <u>P</u><u>e</u><u>r</u> <u>L</u><u>o</u><u>g</u><u>i</u><u>c</u><u>a</u><u>l</u><u>-</u><u>S</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u> <u>T</u><u>u</u><u>n</u><u>n</u><u>e</u><u>l</u> <u>K</u><u>e</u><u>y</u><u>:</u>
+         <b>t</b><b>u</b><b>n</b><b>n</b><b>e</b><b>l</b><b>_</b><b>k</b><b>e</b><b>y</b>                  optional integer
+       <u>I</u><u>d</u><u>e</u><u>n</u><u>t</u><u>i</u><u>f</u><u>i</u><u>c</u><u>a</u><u>t</u><u>i</u><u>o</u><u>n</u><u>:</u>
+         <b>n</b><b>a</b><b>m</b><b>e</b>                        string (must be unique within table)
+         <b>d</b><b>e</b><b>s</b><b>c</b><b>r</b><b>i</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b>                 string
+
+   <b>D</b><b>e</b><b>t</b><b>a</b><b>i</b><b>l</b><b>s</b><b>:</b>
+     <u>P</u><u>e</u><u>r</u> <u>L</u><u>o</u><u>g</u><u>i</u><u>c</u><u>a</u><u>l</u><u>-</u><u>S</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u> <u>T</u><u>u</u><u>n</u><u>n</u><u>e</u><u>l</u> <u>K</u><u>e</u><u>y</u><u>:</u>
+       Tunnel protocols tend to have a field that allows the tunnel to be par‐
+       titioned into sub-tunnels: VXLAN has a VNI, GRE and  STT  have  a  key,
+       CAPWAP  has  a  WSI,  and  so  on.   We call these generically ``tunnel
+       keys.’’  Given that one needs to use a tunnel key at all, there are  at
+       least two reasonable ways to assign their values:
+
+              ·      Per  <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>+<b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b> pair.  That is, each
+                     logical switch may be assigned a different tunnel key  on
+                     every  <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b>.  This model is especially flexi‐
+                     ble.
+
+                     In this model, <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b> carries the  tunnel  key.
+                     Therefore,  one  <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b>  record  will exist for
+                     each logical switch carried at a given IP destination.
+
+              ·      Per <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>.  That  is,  every  tunnel  associated
+                     with  a particular logical switch carries the same tunnel
+                     key, regardless of the <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b> to which the tun‐
+                     nel is addressed.  This model may ease switch implementa‐
+                     tion because it imposes fewer requirements on  the  hard‐
+                     ware datapath.
+
+                     In  this  model,  <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>  carries the tunnel key.
+                     Therefore, one <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b>  record  will  exist  for
+                     each IP destination.
+
+       <b>t</b><b>u</b><b>n</b><b>n</b><b>e</b><b>l</b><b>_</b><b>k</b><b>e</b><b>y</b>: optional integer
+              This  column  is  used only in the tunnel key per <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>
+              model (see above), because only in that model is there a  tunnel
+              key associated with a logical switch.
+
+              For  <b>v</b><b>x</b><b>l</b><b>a</b><b>n</b><b>_</b><b>o</b><b>v</b><b>e</b><b>r</b><b>_</b><b>i</b><b>p</b><b>v</b><b>4</b> encapsulation, this column is the VXLAN VNI
+              that identifies a logical switch.  It must be in the range 0  to
+              16,777,215.
+
+     <u>I</u><u>d</u><u>e</u><u>n</u><u>t</u><u>i</u><u>f</u><u>i</u><u>c</u><u>a</u><u>t</u><u>i</u><u>o</u><u>n</u><u>:</u>
+
+       <b>n</b><b>a</b><b>m</b><b>e</b>: string (must be unique within table)
+              Symbolic name for the logical switch.
+
+       <b>d</b><b>e</b><b>s</b><b>c</b><b>r</b><b>i</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b>: string
+              An  extended  description  for  the  logical switch, such as its
+              switch login banner.
+
+<b>U</b><b>c</b><b>a</b><b>s</b><b>t</b><b>_</b><b>M</b><b>a</b><b>c</b><b>s</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>l</b> <b>T</b><b>A</b><b>B</b><b>L</b><b>E</b>
+       Mapping of unicast MAC addresses to tunnels (physical  locators).  This
+       table is written by the HSC, so it contains the MAC addresses that have
+       been learned on physical ports by a VTEP.
+
+   <b>S</b><b>u</b><b>m</b><b>m</b><b>a</b><b>r</b><b>y</b><b>:</b>
+       <b>M</b><b>A</b><b>C</b>                           string
+       <b>l</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>                <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>
+       <b>l</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b>                       <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b>
+       <b>i</b><b>p</b><b>a</b><b>d</b><b>d</b><b>r</b>                        string
+
+   <b>D</b><b>e</b><b>t</b><b>a</b><b>i</b><b>l</b><b>s</b><b>:</b>
+       <b>M</b><b>A</b><b>C</b>: string
+              A MAC address that has been learned by the VTEP.
+
+       <b>l</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>: <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>
+              The Logical switch to which this mapping applies.
+
+       <b>l</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b>: <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b>
+              The physical locator to be used to reach this  MAC  address.  In
+              this  table,  the  physical locator will be one of the tunnel IP
+              addresses of the appropriate VTEP.
+
+       <b>i</b><b>p</b><b>a</b><b>d</b><b>d</b><b>r</b>: string
+              The IP address to which this MAC corresponds. Optional field for
+              the purpose of ARP supression.
+<b>U</b><b>c</b><b>a</b><b>s</b><b>t</b><b>_</b><b>M</b><b>a</b><b>c</b><b>s</b><b>_</b><b>R</b><b>e</b><b>m</b><b>o</b><b>t</b><b>e</b> <b>T</b><b>A</b><b>B</b><b>L</b><b>E</b>
+       Mapping  of  unicast MAC addresses to tunnels (physical locators). This
+       table is written by the NVC, so it contains the MAC addresses that  the
+       NVC  has  learned.  These  include  VM MAC addresses, in which case the
+       physical locators will be hypervisor IP addresses. The  NVC  will  also
+       report  MACs  that  it  has  learned from other HSCs in the network, in
+       which case the physical locators will be tunnel  IP  addresses  of  the
+       corresponding VTEPs.
+
+   <b>S</b><b>u</b><b>m</b><b>m</b><b>a</b><b>r</b><b>y</b><b>:</b>
+       <b>M</b><b>A</b><b>C</b>                           string
+       <b>l</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>                <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>
+       <b>l</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b>                       <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b>
+       <b>i</b><b>p</b><b>a</b><b>d</b><b>d</b><b>r</b>                        string
+
+   <b>D</b><b>e</b><b>t</b><b>a</b><b>i</b><b>l</b><b>s</b><b>:</b>
+       <b>M</b><b>A</b><b>C</b>: string
+              A MAC address that has been learned by the NVC.
+
+       <b>l</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>: <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>
+              The Logical switch to which this mapping applies.
+
+       <b>l</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b>: <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b>
+              The  physical  locator  to be used to reach this MAC address. In
+              this table, the physical locator will be either a hypervisor  IP
+              address or a tunnel IP addresses of another VTEP.
+
+       <b>i</b><b>p</b><b>a</b><b>d</b><b>d</b><b>r</b>: string
+              The IP address to which this MAC corresponds. Optional field for
+              the purpose of ARP supression.
+<b>M</b><b>c</b><b>a</b><b>s</b><b>t</b><b>_</b><b>M</b><b>a</b><b>c</b><b>s</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>l</b> <b>T</b><b>A</b><b>B</b><b>L</b><b>E</b>
+       Mapping of multicast MAC addresses to tunnels (physical locators). This
+       table is written by the HSC, so it contains the MAC addresses that have
+       been learned on physical ports by a VTEP. These may be learned by  IGMP
+       snooping,  for example. This table also specifies how to handle unknown
+       unicast and broadcast packets.
+
+   <b>S</b><b>u</b><b>m</b><b>m</b><b>a</b><b>r</b><b>y</b><b>:</b>
+       <b>M</b><b>A</b><b>C</b>                           string
+       <b>l</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>                <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>
+       <b>l</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b><b>_</b><b>s</b><b>e</b><b>t</b>                   <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b><b>_</b><b>S</b><b>e</b><b>t</b>
+
+   <b>D</b><b>e</b><b>t</b><b>a</b><b>i</b><b>l</b><b>s</b><b>:</b>
+       <b>M</b><b>A</b><b>C</b>: string
+              A MAC address that has been learned by the VTEP.
+
+              The  keyword  <b>u</b><b>n</b><b>k</b><b>n</b><b>o</b><b>w</b><b>n</b><b>-</b><b>d</b><b>s</b><b>t</b>  is  used  as  a  special   ``Ethernet
+              address’’  that  indicates  the  locations to which packets in a
+              logical switch whose  destination  addresses  do  not  otherwise
+              appear   in   <b>U</b><b>c</b><b>a</b><b>s</b><b>t</b><b>_</b><b>M</b><b>a</b><b>c</b><b>s</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>l</b>   (for   unicast   addresses)  or
+              <b>M</b><b>c</b><b>a</b><b>s</b><b>t</b><b>_</b><b>M</b><b>a</b><b>c</b><b>s</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>l</b> (for multicast addresses) should be sent.
+
+       <b>l</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>: <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>
+              The Logical switch to which this mapping applies.
+
+       <b>l</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b><b>_</b><b>s</b><b>e</b><b>t</b>: <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b><b>_</b><b>S</b><b>e</b><b>t</b>
+              The physical locator set to be used to reach this  MAC  address.
+              In  this  table, the physical locator set will be contain one or
+              more tunnel IP addresses of the appropriate VTEP(s).
+
+<b>M</b><b>c</b><b>a</b><b>s</b><b>t</b><b>_</b><b>M</b><b>a</b><b>c</b><b>s</b><b>_</b><b>R</b><b>e</b><b>m</b><b>o</b><b>t</b><b>e</b> <b>T</b><b>A</b><b>B</b><b>L</b><b>E</b>
+       Mapping of multicast MAC addresses to tunnels (physical locators). This
+       table  is written by the NVC, so it contains the MAC addresses that the
+       NVC has learned. This table also specifies how to handle  unknown  uni‐
+       cast and broadcast packets.
+
+       Multicast packet replication may be handled by a service node, in which
+       case the physical locators will be IP addresses of  service  nodes.  If
+       the  VTEP  supports replication onto multiple tunnels, then this may be
+       used to replicate directly onto VTEP-hyperisor tunnels.
+
+   <b>S</b><b>u</b><b>m</b><b>m</b><b>a</b><b>r</b><b>y</b><b>:</b>
+       <b>M</b><b>A</b><b>C</b>                           string
+       <b>l</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>                <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>
+       <b>l</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b><b>_</b><b>s</b><b>e</b><b>t</b>                   <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b><b>_</b><b>S</b><b>e</b><b>t</b>
+       <b>i</b><b>p</b><b>a</b><b>d</b><b>d</b><b>r</b>                        string
+
+   <b>D</b><b>e</b><b>t</b><b>a</b><b>i</b><b>l</b><b>s</b><b>:</b>
+       <b>M</b><b>A</b><b>C</b>: string
+              A MAC address that has been learned by the NVC.
+
+              The  keyword  <b>u</b><b>n</b><b>k</b><b>n</b><b>o</b><b>w</b><b>n</b><b>-</b><b>d</b><b>s</b><b>t</b>  is  used  as  a  special   ``Ethernet
+              address’’  that  indicates  the  locations to which packets in a
+              logical switch whose  destination  addresses  do  not  otherwise
+              appear   in   <b>U</b><b>c</b><b>a</b><b>s</b><b>t</b><b>_</b><b>M</b><b>a</b><b>c</b><b>s</b><b>_</b><b>R</b><b>e</b><b>m</b><b>o</b><b>t</b><b>e</b>   (for   unicast  addresses)  or
+              <b>M</b><b>c</b><b>a</b><b>s</b><b>t</b><b>_</b><b>M</b><b>a</b><b>c</b><b>s</b><b>_</b><b>R</b><b>e</b><b>m</b><b>o</b><b>t</b><b>e</b> (for multicast addresses) should be sent.
+
+       <b>l</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>: <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>
+              The Logical switch to which this mapping applies.
+
+       <b>l</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b><b>_</b><b>s</b><b>e</b><b>t</b>: <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b><b>_</b><b>S</b><b>e</b><b>t</b>
+              The physical locator set to be used to reach this  MAC  address.
+              In this table, the physical locator set will be either a service
+              node IP address or a set of tunnel IP addresses  of  hypervisors
+              (and potentially other VTEPs).
+
+       <b>i</b><b>p</b><b>a</b><b>d</b><b>d</b><b>r</b>: string
+              The IP address to which this MAC corresponds. Optional field for
+              the purpose of ARP supression.
+<b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>R</b><b>o</b><b>u</b><b>t</b><b>e</b><b>r</b> <b>T</b><b>A</b><b>B</b><b>L</b><b>E</b>
+       A logical router, or VRF. A logical router may be connected to  one  or
+       more  logical switches. Subnet addresses and interface addresses may be
+       configured on the interfaces.
+
+   <b>S</b><b>u</b><b>m</b><b>m</b><b>a</b><b>r</b><b>y</b><b>:</b>
+       <b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>_</b><b>b</b><b>i</b><b>n</b><b>d</b><b>i</b><b>n</b><b>g</b>                map of string-<b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b> pairs
+       <b>s</b><b>t</b><b>a</b><b>t</b><b>i</b><b>c</b><b>_</b><b>r</b><b>o</b><b>u</b><b>t</b><b>e</b><b>s</b>                 map of string-string pairs
+       <u>I</u><u>d</u><u>e</u><u>n</u><u>t</u><u>i</u><u>f</u><u>i</u><u>c</u><u>a</u><u>t</u><u>i</u><u>o</u><u>n</u><u>:</u>
+         <b>n</b><b>a</b><b>m</b><b>e</b>                        string (must be unique within table)
+         <b>d</b><b>e</b><b>s</b><b>c</b><b>r</b><b>i</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b>                 string
+
+   <b>D</b><b>e</b><b>t</b><b>a</b><b>i</b><b>l</b><b>s</b><b>:</b>
+       <b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>_</b><b>b</b><b>i</b><b>n</b><b>d</b><b>i</b><b>n</b><b>g</b>: map of string-<b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b> pairs
+              Maps from an IPv4 or IPv6 address prefix in CIDR notation  to  a
+              logical switch. Multiple prefixes may map to the same switch. By
+              writing a 32-bit (or 128-bit for v6) address with  a  /N  prefix
+              length,  both the router’s interface address and the subnet pre‐
+              fix can be configured. For example, 192.68.1.1/24 creates a  /24
+              subnet  for  the  logical  switch  attached to the interface and
+              assigns the address 192.68.1.1 to the router interface.
+
+       <b>s</b><b>t</b><b>a</b><b>t</b><b>i</b><b>c</b><b>_</b><b>r</b><b>o</b><b>u</b><b>t</b><b>e</b><b>s</b>: map of string-string pairs
+              One or more static routes, mapping IP prefixes to  next  hop  IP
+              addresses.
+
+     <u>I</u><u>d</u><u>e</u><u>n</u><u>t</u><u>i</u><u>f</u><u>i</u><u>c</u><u>a</u><u>t</u><u>i</u><u>o</u><u>n</u><u>:</u>
+
+       <b>n</b><b>a</b><b>m</b><b>e</b>: string (must be unique within table)
+              Symbolic name for the logical router.
+
+       <b>d</b><b>e</b><b>s</b><b>c</b><b>r</b><b>i</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b>: string
+              An extended description for the logical router.
+
+<b>A</b><b>r</b><b>p</b><b>_</b><b>S</b><b>o</b><b>u</b><b>r</b><b>c</b><b>e</b><b>s</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>l</b> <b>T</b><b>A</b><b>B</b><b>L</b><b>E</b>
+       MAC  address  to be used when a VTEP issues ARP requests on behalf of a
+       logical router.
+
+       A distributed logical router is implemented by a  set  of  VTEPs  (both
+       hardware  VTEPs  and  vswitches). In order for a given VTEP to populate
+       the local ARP cache for a logical router, it issues ARP requests with a
+       source  MAC  address  that is unique to the VTEP. A single per-VTEP MAC
+       can be re-used across all logical networks.  This  table  contains  the
+       MACs  that are used by the VTEPs of a given HSC. The table provides the
+       mapping from MAC to physical locator for each VTEP so that  replies  to
+       the  ARP requests can be sent back to the correct VTEP using the appro‐
+       priate physical locator.
+
+   <b>S</b><b>u</b><b>m</b><b>m</b><b>a</b><b>r</b><b>y</b><b>:</b>
+       <b>s</b><b>r</b><b>c</b><b>_</b><b>m</b><b>a</b><b>c</b>                       string
+       <b>l</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b>                       <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b>
+
+   <b>D</b><b>e</b><b>t</b><b>a</b><b>i</b><b>l</b><b>s</b><b>:</b>
+       <b>s</b><b>r</b><b>c</b><b>_</b><b>m</b><b>a</b><b>c</b>: string
+              The source MAC to be used by a given VTEP.
+
+       <b>l</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b>: <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b>
+              The <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b> to use for replies  to  ARP  requests  from
+              this MAC address.
+<b>A</b><b>r</b><b>p</b><b>_</b><b>S</b><b>o</b><b>u</b><b>r</b><b>c</b><b>e</b><b>s</b><b>_</b><b>R</b><b>e</b><b>m</b><b>o</b><b>t</b><b>e</b> <b>T</b><b>A</b><b>B</b><b>L</b><b>E</b>
+       MAC address to be used when a remote VTEP issues ARP requests on behalf
+       of a logical router.
+
+       This table is the remote  counterpart  of  <b>A</b><b>r</b><b>p</b><b>_</b><b>s</b><b>o</b><b>u</b><b>r</b><b>c</b><b>e</b><b>s</b><b>_</b><b>l</b><b>o</b><b>c</b><b>a</b><b>l</b>.  The  NVC
+       writes  this  table  to notify the HSC of the MACs that will be used by
+       remote VTEPs when they issue ARP requests on behalf  of  a  distributed
+       logical router.
+
+   <b>S</b><b>u</b><b>m</b><b>m</b><b>a</b><b>r</b><b>y</b><b>:</b>
+       <b>s</b><b>r</b><b>c</b><b>_</b><b>m</b><b>a</b><b>c</b>                       string
+       <b>l</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b>                       <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b>
+
+   <b>D</b><b>e</b><b>t</b><b>a</b><b>i</b><b>l</b><b>s</b><b>:</b>
+       <b>s</b><b>r</b><b>c</b><b>_</b><b>m</b><b>a</b><b>c</b>: string
+              The source MAC to be used by a given VTEP.
+
+       <b>l</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b>: <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b>
+              The  <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b>  to  use  for replies to ARP requests from
+              this MAC address.
+
+<b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b><b>_</b><b>S</b><b>e</b><b>t</b> <b>T</b><b>A</b><b>B</b><b>L</b><b>E</b>
+       A set of one or more <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b>s.
+
+       This table exists only because OVSDB does not have a way to express the
+       type ``map from string to one or more <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b> records.’’
+
+   <b>S</b><b>u</b><b>m</b><b>m</b><b>a</b><b>r</b><b>y</b><b>:</b>
+       <b>l</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b><b>s</b>                      immutable set of 1 or more <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>‐</b>
+                                     <b>t</b><b>o</b><b>r</b>s
+
+   <b>D</b><b>e</b><b>t</b><b>a</b><b>i</b><b>l</b><b>s</b><b>:</b>
+       <b>l</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b><b>s</b>: immutable set of 1 or more <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b>s
+
+<b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b> <b>T</b><b>A</b><b>B</b><b>L</b><b>E</b>
+       Identifies an endpoint to which logical switch traffic may be  encapsu‐
+       lated and forwarded.
+
+       For  the  <b>v</b><b>x</b><b>l</b><b>a</b><b>n</b><b>_</b><b>o</b><b>v</b><b>e</b><b>r</b><b>_</b><b>i</b><b>p</b><b>v</b><b>4</b> encapsulation, the only encapsulation defined
+       so far, all endpoints associated with a given <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b> must use a
+       common  tunnel  key, which is carried in the <b>t</b><b>u</b><b>n</b><b>n</b><b>e</b><b>l</b><b>_</b><b>k</b><b>e</b><b>y</b> column of <b>L</b><b>o</b><b>g</b><b>i</b><b>‐</b>
+       <b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>.
+
+       For some encapsulations yet to be defined, we  expect  <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b>
+       to  identify  both  an  endpoint and a tunnel key.  When the first such
+       encapsulation is defined, we expect to add a ``tunnel_key’’  column  to
+       <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b> to allow the tunnel key to be defined.
+
+       See the ``Per Logical-Switch Tunnel Key’’ section in the <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>
+       table for further discussion of the model.
+
+   <b>S</b><b>u</b><b>m</b><b>m</b><b>a</b><b>r</b><b>y</b><b>:</b>
+       <b>e</b><b>n</b><b>c</b><b>a</b><b>p</b><b>s</b><b>u</b><b>l</b><b>a</b><b>t</b><b>i</b><b>o</b><b>n</b><b>_</b><b>t</b><b>y</b><b>p</b><b>e</b>            immutable string, must be <b>v</b><b>x</b><b>l</b><b>a</b><b>n</b><b>_</b><b>o</b><b>v</b><b>e</b><b>r</b><b>_</b><b>i</b><b>p</b><b>v</b><b>4</b>
+       <b>d</b><b>s</b><b>t</b><b>_</b><b>i</b><b>p</b>                        immutable string
+
+   <b>D</b><b>e</b><b>t</b><b>a</b><b>i</b><b>l</b><b>s</b><b>:</b>
+       <b>e</b><b>n</b><b>c</b><b>a</b><b>p</b><b>s</b><b>u</b><b>l</b><b>a</b><b>t</b><b>i</b><b>o</b><b>n</b><b>_</b><b>t</b><b>y</b><b>p</b><b>e</b>: immutable string, must be <b>v</b><b>x</b><b>l</b><b>a</b><b>n</b><b>_</b><b>o</b><b>v</b><b>e</b><b>r</b><b>_</b><b>i</b><b>p</b><b>v</b><b>4</b>
+              The type of tunneling encapsulation.
+
+       <b>d</b><b>s</b><b>t</b><b>_</b><b>i</b><b>p</b>: immutable string
+              For <b>v</b><b>x</b><b>l</b><b>a</b><b>n</b><b>_</b><b>o</b><b>v</b><b>e</b><b>r</b><b>_</b><b>i</b><b>p</b><b>v</b><b>4</b> encapsulation, the IPv4 address of the VXLAN
+              tunnel endpoint.
+
+              We  expect  that  this  column  could  be  used for IPv4 or IPv6
+              addresses in encapsulations to be introduced later.
+
+
+
+Open vSwitch 2.3.90             DB Schema 1.3.0                        vtep(5)
+</pre></body></html>

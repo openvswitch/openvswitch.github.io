@@ -1,0 +1,860 @@
+<html><head><meta charset="UTF-8"></head><body><pre>
+vtep-ctl(8)                   Open vSwitch Manual                  vtep-ctl(8)
+
+
+
+<b>N</b><b>A</b><b>M</b><b>E</b>
+       vtep-ctl - utility for querying and configuring a VTEP database
+
+<b>S</b><b>Y</b><b>N</b><b>O</b><b>P</b><b>S</b><b>I</b><b>S</b>
+       <b>v</b><b>t</b><b>e</b><b>p</b><b>-</b><b>c</b><b>t</b><b>l</b>  [<u>o</u><u>p</u><u>t</u><u>i</u><u>o</u><u>n</u><u>s</u>]  <b>-</b><b>-</b>  [<u>o</u><u>p</u><u>t</u><u>i</u><u>o</u><u>n</u><u>s</u>] <u>c</u><u>o</u><u>m</u><u>m</u><u>a</u><u>n</u><u>d</u> [<u>a</u><u>r</u><u>g</u><u>s</u>] [<b>-</b><b>-</b> [<u>o</u><u>p</u><u>t</u><u>i</u><u>o</u><u>n</u><u>s</u>] <u>c</u><u>o</u><u>m</u><u>m</u><u>a</u><u>n</u><u>d</u>
+       [<u>a</u><u>r</u><u>g</u><u>s</u>]]...
+
+<b>D</b><b>E</b><b>S</b><b>C</b><b>R</b><b>I</b><b>P</b><b>T</b><b>I</b><b>O</b><b>N</b>
+       The <b>v</b><b>t</b><b>e</b><b>p</b><b>-</b><b>c</b><b>t</b><b>l</b> program configures a VTEP database.  See <b>v</b><b>t</b><b>e</b><b>p</b>(5) for  com‐
+       prehensive documentation of the database schema.
+
+       <b>v</b><b>t</b><b>e</b><b>p</b><b>-</b><b>c</b><b>t</b><b>l</b> connects to an <b>o</b><b>v</b><b>s</b><b>d</b><b>b</b><b>-</b><b>s</b><b>e</b><b>r</b><b>v</b><b>e</b><b>r</b> process that maintains a VTEP con‐
+       figuration database.  Using this connection, it  queries  and  possibly
+       applies changes to the database, depending on the supplied commands.
+
+       <b>v</b><b>t</b><b>e</b><b>p</b><b>-</b><b>c</b><b>t</b><b>l</b>  can  perform  any  number of commands in a single run, imple‐
+       mented as a single atomic transaction against the database.
+
+       The <b>v</b><b>t</b><b>e</b><b>p</b><b>-</b><b>c</b><b>t</b><b>l</b> command line begins with global options (see <b>O</b><b>P</b><b>T</b><b>I</b><b>O</b><b>N</b><b>S</b> below
+       for details).  The global options are followed by one or more commands.
+       Each command should begin with <b>-</b><b>-</b> by itself as a command-line argument,
+       to  separate  it from the following commands.  (The <b>-</b><b>-</b> before the first
+       command is optional.)  The command itself starts with  command-specific
+       options,  if  any, followed by the command name and any arguments.  See
+       <b>E</b><b>X</b><b>A</b><b>M</b><b>P</b><b>L</b><b>E</b><b>S</b> below for syntax examples.
+
+<b>O</b><b>P</b><b>T</b><b>I</b><b>O</b><b>N</b><b>S</b>
+       The following options affect the behavior <b>v</b><b>t</b><b>e</b><b>p</b><b>-</b><b>c</b><b>t</b><b>l</b> as  a  whole.   Some
+       individual commands also accept their own options, which are given just
+       before the command name.  If the first command on the command line  has
+       options,  then  those options must be separated from the global options
+       by <b>-</b><b>-</b>.
+
+       <b>-</b><b>-</b><b>d</b><b>b</b><b>=</b><u>s</u><u>e</u><u>r</u><u>v</u><u>e</u><u>r</u>
+              Sets <u>s</u><u>e</u><u>r</u><u>v</u><u>e</u><u>r</u> as the database server  that  <b>v</b><b>t</b><b>e</b><b>p</b><b>-</b><b>c</b><b>t</b><b>l</b>  contacts  to
+              query    or    modify    configuration.     The    default    is
+              <b>u</b><b>n</b><b>i</b><b>x</b><b>:</b><b>/</b><b>v</b><b>a</b><b>r</b><b>/</b><b>r</b><b>u</b><b>n</b><b>/</b><b>o</b><b>p</b><b>e</b><b>n</b><b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>/</b><b>d</b><b>b</b><b>.</b><b>s</b><b>o</b><b>c</b><b>k</b>.  <u>s</u><u>e</u><u>r</u><u>v</u><u>e</u><u>r</u> must take one of  the
+              following forms:
+
+              <b>s</b><b>s</b><b>l</b><b>:</b><u>i</u><u>p</u><b>:</b><u>p</u><u>o</u><u>r</u><u>t</u>
+                     The specified SSL <u>p</u><u>o</u><u>r</u><u>t</u> on the host at the given <u>i</u><u>p</u>, which
+                     must be expressed as an IP address (not a  DNS  name)  in
+                     IPv4  or  IPv6 address format.  If <u>i</u><u>p</u> is an IPv6 address,
+                     then wrap <u>i</u><u>p</u> with square brackets, e.g.:  <b>s</b><b>s</b><b>l</b><b>:</b><b>[</b><b>:</b><b>:</b><b>1</b><b>]</b><b>:</b><b>6</b><b>6</b><b>3</b><b>2</b>.
+                     The  <b>-</b><b>-</b><b>p</b><b>r</b><b>i</b><b>v</b><b>a</b><b>t</b><b>e</b><b>-</b><b>k</b><b>e</b><b>y</b>,  <b>-</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b><b>i</b><b>f</b><b>i</b><b>c</b><b>a</b><b>t</b><b>e</b>, and <b>-</b><b>-</b><b>c</b><b>a</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b> options
+                     are mandatory when this form is used.
+
+              <b>t</b><b>c</b><b>p</b><b>:</b><u>i</u><u>p</u><b>:</b><u>p</u><u>o</u><u>r</u><u>t</u>
+                     Connect to the given TCP <u>p</u><u>o</u><u>r</u><u>t</u> on <u>i</u><u>p</u>, where <u>i</u><u>p</u> can be IPv4
+                     or  IPv6  address. If <u>i</u><u>p</u> is an IPv6 address, then wrap <u>i</u><u>p</u>
+                     with square brackets, e.g.: <b>t</b><b>c</b><b>p</b><b>:</b><b>[</b><b>:</b><b>:</b><b>1</b><b>]</b><b>:</b><b>6</b><b>6</b><b>3</b><b>2</b>.
+
+              <b>u</b><b>n</b><b>i</b><b>x</b><b>:</b><u>f</u><u>i</u><u>l</u><u>e</u>
+                     On POSIX, connect to the Unix domain server socket  named
+                     <u>f</u><u>i</u><u>l</u><u>e</u>.
+
+                     On  Windows,  connect to a localhost TCP port whose value
+                     is written in <u>f</u><u>i</u><u>l</u><u>e</u>.
+
+              <b>p</b><b>s</b><b>s</b><b>l</b><b>:</b><u>p</u><u>o</u><u>r</u><u>t</u>[<b>:</b><u>i</u><u>p</u>]
+                     Listen on the  given  SSL  <u>p</u><u>o</u><u>r</u><u>t</u>  for  a  connection.   By
+                     default,  connections are not bound to a particular local
+                     IP address and it listens only on  IPv4  (but  not  IPv6)
+                     addresses,  but specifying <u>i</u><u>p</u> limits connections to those
+                     from the given <u>i</u><u>p</u>, either IPv4 or IPv6 address.  If <u>i</u><u>p</u> is
+                     an IPv6 address, then wrap <u>i</u><u>p</u> with square brackets, e.g.:
+                     <b>p</b><b>s</b><b>s</b><b>l</b><b>:</b><b>6</b><b>6</b><b>3</b><b>2</b><b>:</b><b>[</b><b>:</b><b>:</b><b>1</b><b>]</b>.  The <b>-</b><b>-</b><b>p</b><b>r</b><b>i</b><b>v</b><b>a</b><b>t</b><b>e</b><b>-</b><b>k</b><b>e</b><b>y</b>,  <b>-</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b><b>i</b><b>f</b><b>i</b><b>c</b><b>a</b><b>t</b><b>e</b>,  and
+                     <b>-</b><b>-</b><b>c</b><b>a</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b> options are mandatory when this form is used.
+
+              <b>p</b><b>t</b><b>c</b><b>p</b><b>:</b><u>p</u><u>o</u><u>r</u><u>t</u>[<b>:</b><u>i</u><u>p</u>]
+                     Listen  on  the  given  TCP  <u>p</u><u>o</u><u>r</u><u>t</u>  for  a connection.  By
+                     default, connections are not bound to a particular  local
+                     IP  address  and  it  listens only on IPv4 (but not IPv6)
+                     addresses, but <u>i</u><u>p</u> may be specified  to  listen  only  for
+                     connections to the given <u>i</u><u>p</u>, either IPv4 or IPv6 address.
+                     If <u>i</u><u>p</u> is an IPv6 address, then wrap <u>i</u><u>p</u> with square brack‐
+                     ets, e.g.: <b>p</b><b>t</b><b>c</b><b>p</b><b>:</b><b>6</b><b>6</b><b>3</b><b>2</b><b>:</b><b>[</b><b>:</b><b>:</b><b>1</b><b>]</b>.
+
+              <b>p</b><b>u</b><b>n</b><b>i</b><b>x</b><b>:</b><u>f</u><u>i</u><u>l</u><u>e</u>
+                     On  POSIX,  listen on the Unix domain server socket named
+                     <u>f</u><u>i</u><u>l</u><u>e</u> for a connection.
+
+                     On Windows, listen on a kernel chosen  TCP  port  on  the
+                     localhost. The kernel chosen TCP port value is written in
+                     <u>f</u><u>i</u><u>l</u><u>e</u>.
+
+       <b>-</b><b>-</b><b>n</b><b>o</b><b>-</b><b>s</b><b>y</b><b>s</b><b>l</b><b>o</b><b>g</b>
+              By default, <b>v</b><b>t</b><b>e</b><b>p</b><b>-</b><b>c</b><b>t</b><b>l</b> logs its arguments and the details  of  any
+              changes  that  it makes to the system log.  This option disables
+              this logging.
+
+              This option is equivalent to <b>-</b><b>-</b><b>v</b><b>e</b><b>r</b><b>b</b><b>o</b><b>s</b><b>e</b><b>=</b><b>v</b><b>t</b><b>e</b><b>p</b><b>_</b><b>c</b><b>t</b><b>l</b><b>:</b><b>s</b><b>y</b><b>s</b><b>l</b><b>o</b><b>g</b><b>:</b><b>w</b><b>a</b><b>r</b><b>n</b>.
+
+       <b>-</b><b>-</b><b>o</b><b>n</b><b>e</b><b>l</b><b>i</b><b>n</b><b>e</b>
+              Modifies the output format so that the output for  each  command
+              is  printed  on  a  single line.  New-line characters that would
+              otherwise separate lines are printed as <b>\</b><b>n</b>, and any instances of
+              <b>\</b> that would otherwise appear in the output are doubled.  Prints
+              a blank line for each command that has no output.   This  option
+              does  not  affect the formatting of output from the <b>l</b><b>i</b><b>s</b><b>t</b> or <b>f</b><b>i</b><b>n</b><b>d</b>
+              commands; see <b>T</b><b>a</b><b>b</b><b>l</b><b>e</b> <b>F</b><b>o</b><b>r</b><b>m</b><b>a</b><b>t</b><b>t</b><b>i</b><b>n</b><b>g</b> <b>O</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b> below.
+
+       <b>-</b><b>-</b><b>d</b><b>r</b><b>y</b><b>-</b><b>r</b><b>u</b><b>n</b>
+              Prevents <b>v</b><b>t</b><b>e</b><b>p</b><b>-</b><b>c</b><b>t</b><b>l</b> from actually modifying the database.
+
+       <b>-</b><b>t</b> <u>s</u><u>e</u><u>c</u><u>s</u>
+       <b>-</b><b>-</b><b>t</b><b>i</b><b>m</b><b>e</b><b>o</b><b>u</b><b>t</b><b>=</b><u>s</u><u>e</u><u>c</u><u>s</u>
+              By default, or with a <u>s</u><u>e</u><u>c</u><u>s</u> of <b>0</b>, <b>v</b><b>t</b><b>e</b><b>p</b><b>-</b><b>c</b><b>t</b><b>l</b> waits  forever  for  a
+              response  from  the  database.   This  option  limits runtime to
+              approximately <u>s</u><u>e</u><u>c</u><u>s</u> seconds.  If the  timeout  expires,  <b>v</b><b>t</b><b>e</b><b>p</b><b>-</b><b>c</b><b>t</b><b>l</b>
+              will exit with a <b>S</b><b>I</b><b>G</b><b>A</b><b>L</b><b>R</b><b>M</b> signal.  (A timeout would normally hap‐
+              pen only if the database cannot be contacted, or if  the  system
+              is overloaded.)
+
+   <b>T</b><b>a</b><b>b</b><b>l</b><b>e</b> <b>F</b><b>o</b><b>r</b><b>m</b><b>a</b><b>t</b><b>t</b><b>i</b><b>n</b><b>g</b> <b>O</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>
+       These  options control the format of output from the <b>l</b><b>i</b><b>s</b><b>t</b> and <b>f</b><b>i</b><b>n</b><b>d</b> com‐
+       mands.
+
+       <b>-</b><b>f</b> <u>f</u><u>o</u><u>r</u><u>m</u><u>a</u><u>t</u>
+       <b>-</b><b>-</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>t</b><b>=</b><u>f</u><u>o</u><u>r</u><u>m</u><u>a</u><u>t</u>
+              Sets the type of table formatting.  The following types of  <u>f</u><u>o</u><u>r</u><u>‐</u>
+              <u>m</u><u>a</u><u>t</u> are available:
+
+              <b>t</b><b>a</b><b>b</b><b>l</b><b>e</b> (default)
+                     2-D text tables with aligned columns.
+
+              <b>l</b><b>i</b><b>s</b><b>t</b>   A  list  with one column per line and rows separated by a
+                     blank line.
+
+              <b>h</b><b>t</b><b>m</b><b>l</b>   HTML tables.
+
+              <b>c</b><b>s</b><b>v</b>    Comma-separated values as defined in RFC 4180.
+
+              <b>j</b><b>s</b><b>o</b><b>n</b>   JSON format as defined in RFC  4627.   The  output  is  a
+                     sequence  of  JSON  objects, each of which corresponds to
+                     one table.  Each JSON object has  the  following  members
+                     with the noted values:
+
+                     <b>c</b><b>a</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b>
+                            The  table's  caption.   This member is omitted if
+                            the table has no caption.
+
+                     <b>h</b><b>e</b><b>a</b><b>d</b><b>i</b><b>n</b><b>g</b><b>s</b>
+                            An array with one element per table column.   Each
+                            array element is a string giving the corresponding
+                            column's heading.
+
+                     <b>d</b><b>a</b><b>t</b><b>a</b>   An array with one element  per  table  row.   Each
+                            element  is also an array with one element per ta‐
+                            ble column.  The  elements  of  this  second-level
+                            array  are  the  cells  that constitute the table.
+                            Cells that represent OVSDB data or data types  are
+                            expressed  in  the  format  described in the OVSDB
+                            specification; other cells are simply expressed as
+                            text strings.
+
+       <b>-</b><b>d</b> <u>f</u><u>o</u><u>r</u><u>m</u><u>a</u><u>t</u>
+       <b>-</b><b>-</b><b>d</b><b>a</b><b>t</b><b>a</b><b>=</b><u>f</u><u>o</u><u>r</u><u>m</u><u>a</u><u>t</u>
+              Sets the formatting for cells within output tables.  The follow‐
+              ing types of <u>f</u><u>o</u><u>r</u><u>m</u><u>a</u><u>t</u> are available:
+
+              <b>s</b><b>t</b><b>r</b><b>i</b><b>n</b><b>g</b> (default)
+                     The simple format described in the <b>D</b><b>a</b><b>t</b><b>a</b><b>b</b><b>a</b><b>s</b><b>e</b>  <b>V</b><b>a</b><b>l</b><b>u</b><b>e</b><b>s</b>  sec‐
+                     tion of <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b>(8).
+
+              <b>b</b><b>a</b><b>r</b><b>e</b>   The  simple  format with punctuation stripped off: <b>[</b><b>]</b> and
+                     <b>{</b><b>}</b> are omitted around  sets,  maps,  and  empty  columns,
+                     items  within  sets  and  maps  are  space-separated, and
+                     strings are never quoted.  This format may be easier  for
+                     scripts to parse.
+
+              <b>j</b><b>s</b><b>o</b><b>n</b>   JSON.
+
+              The  <b>j</b><b>s</b><b>o</b><b>n</b>  output  format  always  outputs cells in JSON format,
+              ignoring this option.
+
+       <b>-</b><b>-</b><b>n</b><b>o</b><b>-</b><b>h</b><b>e</b><b>a</b><b>d</b><b>i</b><b>n</b><b>g</b>
+              This option suppresses the heading row that otherwise appears in
+              the first row of table output.
+
+       <b>-</b><b>-</b><b>p</b><b>r</b><b>e</b><b>t</b><b>t</b><b>y</b>
+              By  default, JSON in output is printed as compactly as possible.
+              This option causes JSON in output to be printed in a more  read‐
+              able  fashion.   Members  of  objects and elements of arrays are
+              printed one per line, with indentation.
+
+              This option does not affect JSON  in  tables,  which  is  always
+              printed compactly.
+
+       <b>-</b><b>-</b><b>b</b><b>a</b><b>r</b><b>e</b> Equivalent to <b>-</b><b>-</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>t</b><b>=</b><b>l</b><b>i</b><b>s</b><b>t</b> <b>-</b><b>-</b><b>d</b><b>a</b><b>t</b><b>a</b><b>=</b><b>b</b><b>a</b><b>r</b><b>e</b> <b>-</b><b>-</b><b>n</b><b>o</b><b>-</b><b>h</b><b>e</b><b>a</b><b>d</b><b>i</b><b>n</b><b>g</b><b>s</b>.
+
+   <b>P</b><b>u</b><b>b</b><b>l</b><b>i</b><b>c</b> <b>K</b><b>e</b><b>y</b> <b>I</b><b>n</b><b>f</b><b>r</b><b>a</b><b>s</b><b>t</b><b>r</b><b>u</b><b>c</b><b>t</b><b>u</b><b>r</b><b>e</b> <b>O</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>
+       <b>-</b><b>p</b> <u>p</u><u>r</u><u>i</u><u>v</u><u>k</u><u>e</u><u>y</u><u>.</u><u>p</u><u>e</u><u>m</u>
+       <b>-</b><b>-</b><b>p</b><b>r</b><b>i</b><b>v</b><b>a</b><b>t</b><b>e</b><b>-</b><b>k</b><b>e</b><b>y</b><b>=</b><u>p</u><u>r</u><u>i</u><u>v</u><u>k</u><u>e</u><u>y</u><u>.</u><u>p</u><u>e</u><u>m</u>
+              Specifies  a  PEM  file  containing  the  private  key  used  as
+              <b>v</b><b>t</b><b>e</b><b>p</b><b>-</b><b>c</b><b>t</b><b>l</b>'s identity for outgoing SSL connections.
+
+       <b>-</b><b>c</b> <u>c</u><u>e</u><u>r</u><u>t</u><u>.</u><u>p</u><u>e</u><u>m</u>
+       <b>-</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b><b>i</b><b>f</b><b>i</b><b>c</b><b>a</b><b>t</b><b>e</b><b>=</b><u>c</u><u>e</u><u>r</u><u>t</u><u>.</u><u>p</u><u>e</u><u>m</u>
+              Specifies a PEM file containing a certificate that certifies the
+              private  key specified on <b>-</b><b>p</b> or <b>-</b><b>-</b><b>p</b><b>r</b><b>i</b><b>v</b><b>a</b><b>t</b><b>e</b><b>-</b><b>k</b><b>e</b><b>y</b> to be trustworthy.
+              The certificate must be signed by the certificate authority (CA)
+              that the peer in SSL connections will use to verify it.
+
+       <b>-</b><b>C</b> <u>c</u><u>a</u><u>c</u><u>e</u><u>r</u><u>t</u><u>.</u><u>p</u><u>e</u><u>m</u>
+       <b>-</b><b>-</b><b>c</b><b>a</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b><b>=</b><u>c</u><u>a</u><u>c</u><u>e</u><u>r</u><u>t</u><u>.</u><u>p</u><u>e</u><u>m</u>
+              Specifies a PEM file containing the CA certificate that <b>v</b><b>t</b><b>e</b><b>p</b><b>-</b><b>c</b><b>t</b><b>l</b>
+              should use to verify certificates presented to it by SSL  peers.
+              (This  may  be the same certificate that SSL peers use to verify
+              the certificate specified on <b>-</b><b>c</b> or <b>-</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b><b>i</b><b>f</b><b>i</b><b>c</b><b>a</b><b>t</b><b>e</b>, or it may be a
+              different one, depending on the PKI design in use.)
+
+       <b>-</b><b>C</b> <b>n</b><b>o</b><b>n</b><b>e</b>
+       <b>-</b><b>-</b><b>c</b><b>a</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b><b>=</b><b>n</b><b>o</b><b>n</b><b>e</b>
+              Disables  verification  of  certificates presented by SSL peers.
+              This introduces a security risk, because it means that  certifi‐
+              cates cannot be verified to be those of known trusted hosts.
+
+       <b>-</b><b>-</b><b>b</b><b>o</b><b>o</b><b>t</b><b>s</b><b>t</b><b>r</b><b>a</b><b>p</b><b>-</b><b>c</b><b>a</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b><b>=</b><u>c</u><u>a</u><u>c</u><u>e</u><u>r</u><u>t</u><u>.</u><u>p</u><u>e</u><u>m</u>
+              When <u>c</u><u>a</u><u>c</u><u>e</u><u>r</u><u>t</u><u>.</u><u>p</u><u>e</u><u>m</u> exists, this option has the same effect as <b>-</b><b>C</b> or
+              <b>-</b><b>-</b><b>c</b><b>a</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b>.  If it does not exist, then <b>v</b><b>t</b><b>e</b><b>p</b><b>-</b><b>c</b><b>t</b><b>l</b> will attempt  to
+              obtain  the  CA  certificate  from the SSL peer on its first SSL
+              connection and save it to the named PEM file.  If it is success‐
+              ful,  it will immediately drop the connection and reconnect, and
+              from then on all SSL connections must be authenticated by a cer‐
+              tificate signed by the CA certificate thus obtained.
+
+              <b>T</b><b>h</b><b>i</b><b>s</b>  <b>o</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b>  <b>e</b><b>x</b><b>p</b><b>o</b><b>s</b><b>e</b><b>s</b>  <b>t</b><b>h</b><b>e</b> <b>S</b><b>S</b><b>L</b> <b>c</b><b>o</b><b>n</b><b>n</b><b>e</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b> <b>t</b><b>o</b> <b>a</b> <b>m</b><b>a</b><b>n</b><b>-</b><b>i</b><b>n</b><b>-</b><b>t</b><b>h</b><b>e</b><b>-</b><b>m</b><b>i</b><b>d</b><b>d</b><b>l</b><b>e</b>
+              <b>a</b><b>t</b><b>t</b><b>a</b><b>c</b><b>k</b> <b>o</b><b>b</b><b>t</b><b>a</b><b>i</b><b>n</b><b>i</b><b>n</b><b>g</b> <b>t</b><b>h</b><b>e</b> <b>i</b><b>n</b><b>i</b><b>t</b><b>i</b><b>a</b><b>l</b> <b>C</b><b>A</b> <b>c</b><b>e</b><b>r</b><b>t</b><b>i</b><b>f</b><b>i</b><b>c</b><b>a</b><b>t</b><b>e</b>, but it may be  use‐
+              ful for bootstrapping.
+
+              This option is only useful if the SSL peer sends its CA certifi‐
+              cate as part of the SSL certificate  chain.   The  SSL  protocol
+              does not require the server to send the CA certificate.
+
+              This option is mutually exclusive with <b>-</b><b>C</b> and <b>-</b><b>-</b><b>c</b><b>a</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b>.
+
+       <b>-</b><b>-</b><b>p</b><b>e</b><b>e</b><b>r</b><b>-</b><b>c</b><b>a</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b><b>=</b><u>p</u><u>e</u><u>e</u><u>r</u><u>-</u><u>c</u><u>a</u><u>c</u><u>e</u><u>r</u><u>t</u><u>.</u><u>p</u><u>e</u><u>m</u>
+              Specifies  a  PEM file that contains one or more additional cer‐
+              tificates to send to SSL peers.  <u>p</u><u>e</u><u>e</u><u>r</u><u>-</u><u>c</u><u>a</u><u>c</u><u>e</u><u>r</u><u>t</u><u>.</u><u>p</u><u>e</u><u>m</u> should  be  the
+              CA certificate used to sign <b>v</b><b>t</b><b>e</b><b>p</b><b>-</b><b>c</b><b>t</b><b>l</b>'s own certificate, that is,
+              the certificate specified on <b>-</b><b>c</b> or <b>-</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b><b>i</b><b>f</b><b>i</b><b>c</b><b>a</b><b>t</b><b>e</b>.  If <b>v</b><b>t</b><b>e</b><b>p</b><b>-</b><b>c</b><b>t</b><b>l</b>'s
+              certificate    is    self-signed,    then    <b>-</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b><b>i</b><b>f</b><b>i</b><b>c</b><b>a</b><b>t</b><b>e</b>   and
+              <b>-</b><b>-</b><b>p</b><b>e</b><b>e</b><b>r</b><b>-</b><b>c</b><b>a</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b> should specify the same file.
+
+              This option is not useful in normal operation, because  the  SSL
+              peer  must  already have the CA certificate for the peer to have
+              any confidence in <b>v</b><b>t</b><b>e</b><b>p</b><b>-</b><b>c</b><b>t</b><b>l</b>'s identity.  However, this  offers  a
+              way  for  a  new installation to bootstrap the CA certificate on
+              its first SSL connection.
+
+       <b>-</b><b>v</b>[<u>s</u><u>p</u><u>e</u><u>c</u>]
+       <b>-</b><b>-</b><b>v</b><b>e</b><b>r</b><b>b</b><b>o</b><b>s</b><b>e</b><b>=</b>[<u>s</u><u>p</u><u>e</u><u>c</u>]
+              Sets logging levels.  Without any <u>s</u><u>p</u><u>e</u><u>c</u>, sets the log  level  for
+              every  module and facility to <b>d</b><b>b</b><b>g</b>.  Otherwise, <u>s</u><u>p</u><u>e</u><u>c</u> is a list of
+              words separated by spaces or commas or colons, up  to  one  from
+              each category below:
+
+              ·      A  valid  module name, as displayed by the <b>v</b><b>l</b><b>o</b><b>g</b><b>/</b><b>l</b><b>i</b><b>s</b><b>t</b> com‐
+                     mand on <b>o</b><b>v</b><b>s</b><b>-</b><b>a</b><b>p</b><b>p</b><b>c</b><b>t</b><b>l</b>(8), limits the log level change to the
+                     specified module.
+
+              ·      <b>s</b><b>y</b><b>s</b><b>l</b><b>o</b><b>g</b>,  <b>c</b><b>o</b><b>n</b><b>s</b><b>o</b><b>l</b><b>e</b>,  or <b>f</b><b>i</b><b>l</b><b>e</b>, to limit the log level change
+                     to only to the system log, to the console, or to a  file,
+                     respectively.
+
+                     On  Windows platform, <b>s</b><b>y</b><b>s</b><b>l</b><b>o</b><b>g</b> is accepted as a word and is
+                     only useful along with the  <b>-</b><b>-</b><b>s</b><b>y</b><b>s</b><b>l</b><b>o</b><b>g</b><b>-</b><b>t</b><b>a</b><b>r</b><b>g</b><b>e</b><b>t</b>  option  (the
+                     word has no effect otherwise).
+
+              ·      <b>o</b><b>f</b><b>f</b>,  <b>e</b><b>m</b><b>e</b><b>r</b>,  <b>e</b><b>r</b><b>r</b>,  <b>w</b><b>a</b><b>r</b><b>n</b>, <b>i</b><b>n</b><b>f</b><b>o</b>, or <b>d</b><b>b</b><b>g</b>, to control the log
+                     level.  Messages of the given severity or higher will  be
+                     logged,  and  messages of lower severity will be filtered
+                     out.  <b>o</b><b>f</b><b>f</b> filters out all  messages.   See  <b>o</b><b>v</b><b>s</b><b>-</b><b>a</b><b>p</b><b>p</b><b>c</b><b>t</b><b>l</b>(8)
+                     for a definition of each log level.
+
+              Case is not significant within <u>s</u><u>p</u><u>e</u><u>c</u>.
+
+              Regardless  of  the  log  levels set for <b>f</b><b>i</b><b>l</b><b>e</b>, logging to a file
+              will not take place unless <b>-</b><b>-</b><b>l</b><b>o</b><b>g</b><b>-</b><b>f</b><b>i</b><b>l</b><b>e</b>  is  also  specified  (see
+              below).
+
+              For compatibility with older versions of OVS, <b>a</b><b>n</b><b>y</b> is accepted as
+              a word but has no effect.
+
+       <b>-</b><b>v</b>
+       <b>-</b><b>-</b><b>v</b><b>e</b><b>r</b><b>b</b><b>o</b><b>s</b><b>e</b>
+              Sets the maximum logging verbosity level, equivalent  to  <b>-</b><b>-</b><b>v</b><b>e</b><b>r</b><b>‐</b>
+              <b>b</b><b>o</b><b>s</b><b>e</b><b>=</b><b>d</b><b>b</b><b>g</b>.
+
+       <b>-</b><b>v</b><b>P</b><b>A</b><b>T</b><b>T</b><b>E</b><b>R</b><b>N</b><b>:</b><u>f</u><u>a</u><u>c</u><u>i</u><u>l</u><u>i</u><u>t</u><u>y</u><b>:</b><u>p</u><u>a</u><u>t</u><u>t</u><u>e</u><u>r</u><u>n</u>
+       <b>-</b><b>-</b><b>v</b><b>e</b><b>r</b><b>b</b><b>o</b><b>s</b><b>e</b><b>=</b><b>P</b><b>A</b><b>T</b><b>T</b><b>E</b><b>R</b><b>N</b><b>:</b><u>f</u><u>a</u><u>c</u><u>i</u><u>l</u><u>i</u><u>t</u><u>y</u><b>:</b><u>p</u><u>a</u><u>t</u><u>t</u><u>e</u><u>r</u><u>n</u>
+              Sets  the  log  pattern  for  <u>f</u><u>a</u><u>c</u><u>i</u><u>l</u><u>i</u><u>t</u><u>y</u>  to  <u>p</u><u>a</u><u>t</u><u>t</u><u>e</u><u>r</u><u>n</u>.   Refer  to
+              <b>o</b><b>v</b><b>s</b><b>-</b><b>a</b><b>p</b><b>p</b><b>c</b><b>t</b><b>l</b>(8) for a description of the valid syntax for <u>p</u><u>a</u><u>t</u><u>t</u><u>e</u><u>r</u><u>n</u>.
+
+       <b>-</b><b>-</b><b>l</b><b>o</b><b>g</b><b>-</b><b>f</b><b>i</b><b>l</b><b>e</b>[<b>=</b><u>f</u><u>i</u><u>l</u><u>e</u>]
+              Enables logging to a file.  If <u>f</u><u>i</u><u>l</u><u>e</u> is  specified,  then  it  is
+              used  as  the exact name for the log file.  The default log file
+              name   used   if   <u>f</u><u>i</u><u>l</u><u>e</u>    is    omitted    is    <b>/</b><b>v</b><b>a</b><b>r</b><b>/</b><b>l</b><b>o</b><b>g</b><b>/</b><b>o</b><b>p</b><b>e</b><b>n</b><b>‐</b>
+              <b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>/</b><b>v</b><b>t</b><b>e</b><b>p</b><b>-</b><b>c</b><b>t</b><b>l</b><b>.</b><b>l</b><b>o</b><b>g</b>.
+
+       <b>-</b><b>-</b><b>s</b><b>y</b><b>s</b><b>l</b><b>o</b><b>g</b><b>-</b><b>t</b><b>a</b><b>r</b><b>g</b><b>e</b><b>t</b><b>=</b><u>h</u><u>o</u><u>s</u><u>t</u><b>:</b><u>p</u><u>o</u><u>r</u><u>t</u>
+              Send  syslog  messages  to  UDP <u>p</u><u>o</u><u>r</u><u>t</u> on <u>h</u><u>o</u><u>s</u><u>t</u>, in addition to the
+              system syslog.  The <u>h</u><u>o</u><u>s</u><u>t</u> must be a numerical IP address,  not  a
+              hostname.
+
+       <b>-</b><b>h</b>
+       <b>-</b><b>-</b><b>h</b><b>e</b><b>l</b><b>p</b> Prints a brief help message to the console.
+
+       <b>-</b><b>V</b>
+       <b>-</b><b>-</b><b>v</b><b>e</b><b>r</b><b>s</b><b>i</b><b>o</b><b>n</b>
+              Prints version information to the console.
+
+<b>C</b><b>O</b><b>M</b><b>M</b><b>A</b><b>N</b><b>D</b><b>S</b>
+       The  commands  implemented  by  <b>v</b><b>t</b><b>e</b><b>p</b><b>-</b><b>c</b><b>t</b><b>l</b>  are described in the sections
+       below.
+
+   <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b> <b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b> <b>C</b><b>o</b><b>m</b><b>m</b><b>a</b><b>n</b><b>d</b><b>s</b>
+       These commands examine and manipulate physical switches.
+
+       [<b>-</b><b>-</b><b>m</b><b>a</b><b>y</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b>] <b>a</b><b>d</b><b>d</b><b>-</b><b>p</b><b>s</b> <u>p</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u>
+              Creates a new physical  switch  named  <u>p</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u>.   Initially  the
+              switch will have no ports.
+
+              Without  <b>-</b><b>-</b><b>m</b><b>a</b><b>y</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b>,  attempting to create a switch that exists
+              is an error.  With <b>-</b><b>-</b><b>m</b><b>a</b><b>y</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b>, this  command  does  nothing  if
+              <u>p</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u> already exists.
+
+       [<b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>] <b>d</b><b>e</b><b>l</b><b>-</b><b>p</b><b>s</b> <u>p</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u>
+              Deletes <u>p</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u> and all of its ports.
+
+              Without <b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>, attempting to delete a switch that does not
+              exist is an error.  With <b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>,  attempting  to  delete  a
+              switch that does not exist has no effect.
+
+       <b>l</b><b>i</b><b>s</b><b>t</b><b>-</b><b>p</b><b>s</b>
+              Lists all existing physical switches on standard output, one per
+              line.
+
+       <b>p</b><b>s</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b> <u>p</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u>
+              Tests whether <u>p</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u> exists.  If so,  <b>v</b><b>t</b><b>e</b><b>p</b><b>-</b><b>c</b><b>t</b><b>l</b>  exits  success‐
+              fully  with  exit code 0.  If not, <b>v</b><b>t</b><b>e</b><b>p</b><b>-</b><b>c</b><b>t</b><b>l</b> exits unsuccessfully
+              with exit code 2.
+
+   <b>P</b><b>o</b><b>r</b><b>t</b> <b>C</b><b>o</b><b>m</b><b>m</b><b>a</b><b>n</b><b>d</b><b>s</b>
+       These commands examine and manipulate VTEP physical ports.
+
+       <b>l</b><b>i</b><b>s</b><b>t</b><b>-</b><b>p</b><b>o</b><b>r</b><b>t</b><b>s</b> <u>p</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u>
+              Lists all of the ports within <u>p</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u> on  standard  output,  one
+              per line.
+
+       [<b>-</b><b>-</b><b>m</b><b>a</b><b>y</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b>] <b>a</b><b>d</b><b>d</b><b>-</b><b>p</b><b>o</b><b>r</b><b>t</b> <u>p</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u> <u>p</u><u>o</u><u>r</u><u>t</u>
+              Creates on <u>p</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u> a new port named <u>p</u><u>o</u><u>r</u><u>t</u> from the network device
+              of the same name.
+
+              Without <b>-</b><b>-</b><b>m</b><b>a</b><b>y</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b>, attempting to create a port that exists  is
+              an  error.   With <b>-</b><b>-</b><b>m</b><b>a</b><b>y</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b>, this command does nothing if <u>p</u><u>o</u><u>r</u><u>t</u>
+              already exists on <u>p</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u>.
+
+       [<b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>] <b>d</b><b>e</b><b>l</b><b>-</b><b>p</b><b>o</b><b>r</b><b>t</b> [<u>p</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u>] <u>p</u><u>o</u><u>r</u><u>t</u>
+              Deletes <u>p</u><u>o</u><u>r</u><u>t</u>.  If <u>p</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u> is omitted, <u>p</u><u>o</u><u>r</u><u>t</u> is removed from what‐
+              ever switch contains it; if <u>p</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u> is specified, it must be the
+              switch that contains <u>p</u><u>o</u><u>r</u><u>t</u>.
+
+              Without <b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>, attempting to delete a port that  does  not
+              exist  is  an  error.   With <b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>, attempting to delete a
+              port that does not exist has no effect.
+
+   <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b> <b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b> <b>C</b><b>o</b><b>m</b><b>m</b><b>a</b><b>n</b><b>d</b><b>s</b>
+       These commands examine and manipulate logical switches.
+
+       [<b>-</b><b>-</b><b>m</b><b>a</b><b>y</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b>] <b>a</b><b>d</b><b>d</b><b>-</b><b>l</b><b>s</b> <u>l</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u>
+              Creates a new  logical  switch  named  <u>l</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u>.   Initially  the
+              switch will have no locator bindings.
+
+              Without  <b>-</b><b>-</b><b>m</b><b>a</b><b>y</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b>,  attempting to create a switch that exists
+              is an error.  With <b>-</b><b>-</b><b>m</b><b>a</b><b>y</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b>, this  command  does  nothing  if
+              <u>l</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u> already exists.
+
+       [<b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>] <b>d</b><b>e</b><b>l</b><b>-</b><b>l</b><b>s</b> <u>l</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u>
+              Deletes <u>l</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u>.
+
+              Without <b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>, attempting to delete a switch that does not
+              exist is an error.  With <b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>,  attempting  to  delete  a
+              switch that does not exist has no effect.
+
+       <b>l</b><b>i</b><b>s</b><b>t</b><b>-</b><b>l</b><b>s</b>
+              Lists  all existing logical switches on standard output, one per
+              line.
+
+       <b>l</b><b>s</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b> <u>l</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u>
+              Tests whether <u>l</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u> exists.  If so,  <b>v</b><b>t</b><b>e</b><b>p</b><b>-</b><b>c</b><b>t</b><b>l</b>  exits  success‐
+              fully  with  exit code 0.  If not, <b>v</b><b>t</b><b>e</b><b>p</b><b>-</b><b>c</b><b>t</b><b>l</b> exits unsuccessfully
+              with exit code 2.
+
+       <b>b</b><b>i</b><b>n</b><b>d</b><b>-</b><b>l</b><b>s</b> <u>p</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u> <u>p</u><u>o</u><u>r</u><u>t</u> <u>v</u><u>l</u><u>a</u><u>n</u> <u>l</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u>
+              Bind logical switch <u>l</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u> to the <u>p</u><u>o</u><u>r</u><u>t</u>/<u>v</u><u>l</u><u>a</u><u>n</u> combination on  the
+              physical switch <u>p</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u>.
+
+       <b>u</b><b>n</b><b>b</b><b>i</b><b>n</b><b>d</b><b>-</b><b>l</b><b>s</b> <u>p</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u> <u>p</u><u>o</u><u>r</u><u>t</u> <u>v</u><u>l</u><u>a</u><u>n</u>
+              Remove the logical switch binding from the <u>p</u><u>o</u><u>r</u><u>t</u>/<u>v</u><u>l</u><u>a</u><u>n</u> combination
+              on the physical switch <u>p</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u>.
+
+       <b>l</b><b>i</b><b>s</b><b>t</b><b>-</b><b>b</b><b>i</b><b>n</b><b>d</b><b>i</b><b>n</b><b>g</b><b>s</b> <u>p</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u> <u>p</u><u>o</u><u>r</u><u>t</u>
+              List the logical switch bindings for <u>p</u><u>o</u><u>r</u><u>t</u> on the physical switch
+              <u>p</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u>.
+
+   <b>L</b><b>o</b><b>c</b><b>a</b><b>l</b> <b>M</b><b>A</b><b>C</b> <b>B</b><b>i</b><b>n</b><b>d</b><b>i</b><b>n</b><b>g</b> <b>C</b><b>o</b><b>m</b><b>m</b><b>a</b><b>n</b><b>d</b><b>s</b>
+       These  commands examine and manipulate local MAC bindings for the logi‐
+       cal switch.  The local maps are written by the VTEP to refer to MACs it
+       has learned on its physical ports.
+
+       <b>a</b><b>d</b><b>d</b><b>-</b><b>u</b><b>c</b><b>a</b><b>s</b><b>t</b><b>-</b><b>l</b><b>o</b><b>c</b><b>a</b><b>l</b> <u>l</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u> <u>m</u><u>a</u><u>c</u> [<u>e</u><u>n</u><u>c</u><u>a</u><u>p</u>] <u>i</u><u>p</u>
+              Map the unicast Ethernet address <u>m</u><u>a</u><u>c</u> to the physical location <u>i</u><u>p</u>
+              using encapsulation <u>e</u><u>n</u><u>c</u><u>a</u><u>p</u> on <u>l</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u>.  If <u>e</u><u>n</u><u>c</u><u>a</u><u>p</u>  is  not  speci‐
+              fied,  the default is "vxlan_over_ipv4".  The local mappings are
+              used by the VTEP to refer to MACs learned on its physical ports.
+
+       <b>d</b><b>e</b><b>l</b><b>-</b><b>u</b><b>c</b><b>a</b><b>s</b><b>t</b><b>-</b><b>l</b><b>o</b><b>c</b><b>a</b><b>l</b> <u>l</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u> <u>m</u><u>a</u><u>c</u>
+              Remove the local unicast Ethernet address <u>m</u><u>a</u><u>c</u> map from  <u>l</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u>.
+              The local mappings are used by the VTEP to refer to MACs learned
+              on its physical ports.
+
+       <b>a</b><b>d</b><b>d</b><b>-</b><b>m</b><b>c</b><b>a</b><b>s</b><b>t</b><b>-</b><b>l</b><b>o</b><b>c</b><b>a</b><b>l</b> <u>l</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u> <u>m</u><u>a</u><u>c</u> [<u>e</u><u>n</u><u>c</u><u>a</u><u>p</u>] <u>i</u><u>p</u>
+              Add physical location <u>i</u><u>p</u> using encapsulation <u>e</u><u>n</u><u>c</u><u>a</u><u>p</u> to the  local
+              mac binding table for multicast Ethernet address <u>m</u><u>a</u><u>c</u> on <u>l</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u>.
+              If <u>e</u><u>n</u><u>c</u><u>a</u><u>p</u> is not specified,  the  default  is  "vxlan_over_ipv4".
+              The local mappings are used by the VTEP to refer to MACs learned
+              on its physical ports.
+
+       <b>d</b><b>e</b><b>l</b><b>-</b><b>m</b><b>c</b><b>a</b><b>s</b><b>t</b><b>-</b><b>l</b><b>o</b><b>c</b><b>a</b><b>l</b> <u>l</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u> <u>m</u><u>a</u><u>c</u> [<u>e</u><u>n</u><u>c</u><u>a</u><u>p</u>] <u>i</u><u>p</u>
+              Remove physical location <u>i</u><u>p</u> using encapsulation <u>e</u><u>n</u><u>c</u><u>a</u><u>p</u>  from  the
+              local  mac  binding  table for multicast Ethernet address <u>m</u><u>a</u><u>c</u> on
+              <u>l</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u>.   If  <u>e</u><u>n</u><u>c</u><u>a</u><u>p</u>  is   not   specified,   the   default   is
+              "vxlan_over_ipv4".   The  local mappings are used by the VTEP to
+              refer to MACs learned on its physical ports.
+
+       <b>c</b><b>l</b><b>e</b><b>a</b><b>r</b><b>-</b><b>l</b><b>o</b><b>c</b><b>a</b><b>l</b><b>-</b><b>m</b><b>a</b><b>c</b><b>s</b> <u>l</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u>
+              Clear the local MAC bindings for <u>l</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u>.
+
+       <b>l</b><b>i</b><b>s</b><b>t</b><b>-</b><b>l</b><b>o</b><b>c</b><b>a</b><b>l</b><b>-</b><b>m</b><b>a</b><b>c</b><b>s</b> <u>l</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u>
+              List the local MAC bindings for <u>l</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u>, one per line.
+
+   <b>R</b><b>e</b><b>m</b><b>o</b><b>t</b><b>e</b> <b>M</b><b>A</b><b>C</b> <b>B</b><b>i</b><b>n</b><b>d</b><b>i</b><b>n</b><b>g</b> <b>C</b><b>o</b><b>m</b><b>m</b><b>a</b><b>n</b><b>d</b><b>s</b>
+       These commands examine and manipulate local and remote MAC bindings for
+       the  logical switch.  The remote maps are written by the network virtu‐
+       alization controller to refer to MACs that it has learned.
+
+       <b>a</b><b>d</b><b>d</b><b>-</b><b>u</b><b>c</b><b>a</b><b>s</b><b>t</b><b>-</b><b>r</b><b>e</b><b>m</b><b>o</b><b>t</b><b>e</b> <u>l</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u> <u>m</u><u>a</u><u>c</u> [<u>e</u><u>n</u><u>c</u><u>a</u><u>p</u>] <u>i</u><u>p</u>
+              Map the unicast Ethernet address <u>m</u><u>a</u><u>c</u> to the physical location <u>i</u><u>p</u>
+              using  encapsulation  <u>e</u><u>n</u><u>c</u><u>a</u><u>p</u>  on <u>l</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u>.  If <u>e</u><u>n</u><u>c</u><u>a</u><u>p</u> is not speci‐
+              fied, the default is "vxlan_over_ipv4".  The remote mappings are
+              used  by  the  network  virtualization platform to refer to MACs
+              that it has learned.
+
+       <b>d</b><b>e</b><b>l</b><b>-</b><b>u</b><b>c</b><b>a</b><b>s</b><b>t</b><b>-</b><b>r</b><b>e</b><b>m</b><b>o</b><b>t</b><b>e</b> <u>l</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u> <u>m</u><u>a</u><u>c</u>
+              Remove the remote unicast Ethernet address <u>m</u><u>a</u><u>c</u> map from <u>l</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u>.
+              The remote mappings are used by the network virtualization plat‐
+              form to refer to MACs that it has learned.
+
+       <b>a</b><b>d</b><b>d</b><b>-</b><b>m</b><b>c</b><b>a</b><b>s</b><b>t</b><b>-</b><b>r</b><b>e</b><b>m</b><b>o</b><b>t</b><b>e</b> <u>l</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u> <u>m</u><u>a</u><u>c</u> [<u>e</u><u>n</u><u>c</u><u>a</u><u>p</u>] <u>i</u><u>p</u>
+              Add physical location <u>i</u><u>p</u> using encapsulation <u>e</u><u>n</u><u>c</u><u>a</u><u>p</u> to the remote
+              mac binding table for multicast Ethernet address <u>m</u><u>a</u><u>c</u> on <u>l</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u>.
+              If <u>e</u><u>n</u><u>c</u><u>a</u><u>p</u> is not specified,  the  default  is  "vxlan_over_ipv4".
+              The remote mappings are used by the network virtualization plat‐
+              form to refer to MACs that it has learned.
+
+       <b>d</b><b>e</b><b>l</b><b>-</b><b>m</b><b>c</b><b>a</b><b>s</b><b>t</b><b>-</b><b>r</b><b>e</b><b>m</b><b>o</b><b>t</b><b>e</b> <u>l</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u> <u>m</u><u>a</u><u>c</u> [<u>e</u><u>n</u><u>c</u><u>a</u><u>p</u>] <u>i</u><u>p</u>
+              Remove physical location <u>i</u><u>p</u> using encapsulation <u>e</u><u>n</u><u>c</u><u>a</u><u>p</u>  from  the
+              remote  mac  binding table for multicast Ethernet address <u>m</u><u>a</u><u>c</u> on
+              <u>l</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u>.   If  <u>e</u><u>n</u><u>c</u><u>a</u><u>p</u>  is   not   specified,   the   default   is
+              "vxlan_over_ipv4".   The remote mappings are used by the network
+              virtualization platform to refer to MACs that it has learned.
+
+       <b>c</b><b>l</b><b>e</b><b>a</b><b>r</b><b>-</b><b>r</b><b>e</b><b>m</b><b>o</b><b>t</b><b>e</b><b>-</b><b>m</b><b>a</b><b>c</b><b>s</b> <u>l</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u>
+              Clear the remote MAC bindings for <u>l</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u>.
+
+       <b>l</b><b>i</b><b>s</b><b>t</b><b>-</b><b>r</b><b>e</b><b>m</b><b>o</b><b>t</b><b>e</b><b>-</b><b>m</b><b>a</b><b>c</b><b>s</b> <u>l</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u>
+              List the remote MAC bindings for <u>l</u><u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u>, one per line.
+
+   <b>M</b><b>a</b><b>n</b><b>a</b><b>g</b><b>e</b><b>r</b> <b>C</b><b>o</b><b>n</b><b>n</b><b>e</b><b>c</b><b>t</b><b>i</b><b>v</b><b>i</b><b>t</b><b>y</b>
+       These commands manipulate the <b>m</b><b>a</b><b>n</b><b>a</b><b>g</b><b>e</b><b>r</b><b>s</b> column in the <b>G</b><b>l</b><b>o</b><b>b</b><b>a</b><b>l</b>  table  and
+       rows in the <b>M</b><b>a</b><b>n</b><b>a</b><b>g</b><b>e</b><b>r</b><b>s</b> table.  When <b>o</b><b>v</b><b>s</b><b>d</b><b>b</b><b>-</b><b>s</b><b>e</b><b>r</b><b>v</b><b>e</b><b>r</b> is configured to use the
+       <b>m</b><b>a</b><b>n</b><b>a</b><b>g</b><b>e</b><b>r</b><b>s</b> column for OVSDB connections (as  described  in  <b>I</b><b>N</b><b>S</b><b>T</b><b>A</b><b>L</b><b>L</b><b>.</b><b>L</b><b>i</b><b>n</b><b>u</b><b>x</b>
+       and in the startup scripts provided with Open vSwitch), this allows the
+       administrator to use <b>v</b><b>t</b><b>e</b><b>p</b><b>-</b><b>c</b><b>t</b><b>l</b> to configure database connections.
+
+       <b>g</b><b>e</b><b>t</b><b>-</b><b>m</b><b>a</b><b>n</b><b>a</b><b>g</b><b>e</b><b>r</b>
+              Prints the configured manager(s).
+
+       <b>d</b><b>e</b><b>l</b><b>-</b><b>m</b><b>a</b><b>n</b><b>a</b><b>g</b><b>e</b><b>r</b>
+              Deletes the configured manager(s).
+
+       <b>s</b><b>e</b><b>t</b><b>-</b><b>m</b><b>a</b><b>n</b><b>a</b><b>g</b><b>e</b><b>r</b> <u>t</u><u>a</u><u>r</u><u>g</u><u>e</u><u>t</u>...
+              Sets the configured manager target or targets.  Each <u>t</u><u>a</u><u>r</u><u>g</u><u>e</u><u>t</u>  may
+              use any of the following forms:
+
+              <b>s</b><b>s</b><b>l</b><b>:</b><u>i</u><u>p</u><b>:</b><u>p</u><u>o</u><u>r</u><u>t</u>
+                     The specified SSL <u>p</u><u>o</u><u>r</u><u>t</u> on the host at the given <u>i</u><u>p</u>, which
+                     must be expressed as an IP address (not a  DNS  name)  in
+                     IPv4  or  IPv6 address format.  If <u>i</u><u>p</u> is an IPv6 address,
+                     then wrap <u>i</u><u>p</u> with square brackets, e.g.:  <b>s</b><b>s</b><b>l</b><b>:</b><b>[</b><b>:</b><b>:</b><b>1</b><b>]</b><b>:</b><b>6</b><b>6</b><b>3</b><b>2</b>.
+                     The  <b>-</b><b>-</b><b>p</b><b>r</b><b>i</b><b>v</b><b>a</b><b>t</b><b>e</b><b>-</b><b>k</b><b>e</b><b>y</b>,  <b>-</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b><b>i</b><b>f</b><b>i</b><b>c</b><b>a</b><b>t</b><b>e</b>, and <b>-</b><b>-</b><b>c</b><b>a</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b> options
+                     are mandatory when this form is used.
+
+              <b>t</b><b>c</b><b>p</b><b>:</b><u>i</u><u>p</u><b>:</b><u>p</u><u>o</u><u>r</u><u>t</u>
+                     Connect to the given TCP <u>p</u><u>o</u><u>r</u><u>t</u> on <u>i</u><u>p</u>, where <u>i</u><u>p</u> can be IPv4
+                     or  IPv6  address. If <u>i</u><u>p</u> is an IPv6 address, then wrap <u>i</u><u>p</u>
+                     with square brackets, e.g.: <b>t</b><b>c</b><b>p</b><b>:</b><b>[</b><b>:</b><b>:</b><b>1</b><b>]</b><b>:</b><b>6</b><b>6</b><b>3</b><b>2</b>.
+
+              <b>u</b><b>n</b><b>i</b><b>x</b><b>:</b><u>f</u><u>i</u><u>l</u><u>e</u>
+                     On POSIX, connect to the Unix domain server socket  named
+                     <u>f</u><u>i</u><u>l</u><u>e</u>.
+
+                     On  Windows,  connect to a localhost TCP port whose value
+                     is written in <u>f</u><u>i</u><u>l</u><u>e</u>.
+
+              <b>p</b><b>s</b><b>s</b><b>l</b><b>:</b><u>p</u><u>o</u><u>r</u><u>t</u>[<b>:</b><u>i</u><u>p</u>]
+                     Listen on the  given  SSL  <u>p</u><u>o</u><u>r</u><u>t</u>  for  a  connection.   By
+                     default,  connections are not bound to a particular local
+                     IP address and it listens only on  IPv4  (but  not  IPv6)
+                     addresses,  but specifying <u>i</u><u>p</u> limits connections to those
+                     from the given <u>i</u><u>p</u>, either IPv4 or IPv6 address.  If <u>i</u><u>p</u> is
+                     an IPv6 address, then wrap <u>i</u><u>p</u> with square brackets, e.g.:
+                     <b>p</b><b>s</b><b>s</b><b>l</b><b>:</b><b>6</b><b>6</b><b>3</b><b>2</b><b>:</b><b>[</b><b>:</b><b>:</b><b>1</b><b>]</b>.  The <b>-</b><b>-</b><b>p</b><b>r</b><b>i</b><b>v</b><b>a</b><b>t</b><b>e</b><b>-</b><b>k</b><b>e</b><b>y</b>,  <b>-</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b><b>i</b><b>f</b><b>i</b><b>c</b><b>a</b><b>t</b><b>e</b>,  and
+                     <b>-</b><b>-</b><b>c</b><b>a</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b> options are mandatory when this form is used.
+
+              <b>p</b><b>t</b><b>c</b><b>p</b><b>:</b><u>p</u><u>o</u><u>r</u><u>t</u>[<b>:</b><u>i</u><u>p</u>]
+                     Listen  on  the  given  TCP  <u>p</u><u>o</u><u>r</u><u>t</u>  for  a connection.  By
+                     default, connections are not bound to a particular  local
+                     IP  address  and  it  listens only on IPv4 (but not IPv6)
+                     addresses, but <u>i</u><u>p</u> may be specified  to  listen  only  for
+                     connections to the given <u>i</u><u>p</u>, either IPv4 or IPv6 address.
+                     If <u>i</u><u>p</u> is an IPv6 address, then wrap <u>i</u><u>p</u> with square brack‐
+                     ets, e.g.: <b>p</b><b>t</b><b>c</b><b>p</b><b>:</b><b>6</b><b>6</b><b>3</b><b>2</b><b>:</b><b>[</b><b>:</b><b>:</b><b>1</b><b>]</b>.
+
+              <b>p</b><b>u</b><b>n</b><b>i</b><b>x</b><b>:</b><u>f</u><u>i</u><u>l</u><u>e</u>
+                     On  POSIX,  listen on the Unix domain server socket named
+                     <u>f</u><u>i</u><u>l</u><u>e</u> for a connection.
+
+                     On Windows, listen on a kernel chosen  TCP  port  on  the
+                     localhost. The kernel chosen TCP port value is written in
+                     <u>f</u><u>i</u><u>l</u><u>e</u>.
+
+   <b>D</b><b>a</b><b>t</b><b>a</b><b>b</b><b>a</b><b>s</b><b>e</b> <b>C</b><b>o</b><b>m</b><b>m</b><b>a</b><b>n</b><b>d</b><b>s</b>
+       These commands query and modify the contents of <b>o</b><b>v</b><b>s</b><b>d</b><b>b</b> tables.  They are
+       a slight abstraction of the <b>o</b><b>v</b><b>s</b><b>d</b><b>b</b> interface and as such they operate at
+       a lower level than other <b>v</b><b>t</b><b>e</b><b>p</b><b>-</b><b>c</b><b>t</b><b>l</b> commands.
+
+     <u>I</u><u>d</u><u>e</u><u>n</u><u>t</u><u>i</u><u>f</u><u>y</u><u>i</u><u>n</u><u>g</u> <u>T</u><u>a</u><u>b</u><u>l</u><u>e</u><u>s</u><u>,</u> <u>R</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u><u>s</u><u>,</u> <u>a</u><u>n</u><u>d</u> <u>C</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u><u>s</u>
+
+       Each of these commands has a <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> parameter to identify a table within
+       the  database.   Many of them also take a <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> parameter that identi‐
+       fies a particular record within a table.  The <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> parameter  may  be
+       the  UUID  for a record, and many tables offer additional ways to iden‐
+       tify records.  Some commands also take <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u> parameters that  identify
+       a particular field within the records in a table.
+
+       The following tables are currently defined:
+
+       <b>G</b><b>l</b><b>o</b><b>b</b><b>a</b><b>l</b> Top-level  configuration  for  a hardware VTEP.  This table con‐
+              tains exactly one record, identified  by  specifying  <b>.</b>  as  the
+              record name.
+
+       <b>M</b><b>a</b><b>n</b><b>a</b><b>g</b><b>e</b><b>r</b>
+              Configuration  for  an OVSDB connection.  Records may be identi‐
+              fied by target (e.g. <b>t</b><b>c</b><b>p</b><b>:</b><b>1</b><b>.</b><b>2</b><b>.</b><b>3</b><b>.</b><b>4</b>).
+
+       <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>
+              A physical switch that implements a VTEP.  Records may be  iden‐
+              tified by physical switch name.
+
+       <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>P</b><b>o</b><b>r</b><b>t</b>
+              A port within a physical switch.
+
+       <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>B</b><b>i</b><b>n</b><b>d</b><b>i</b><b>n</b><b>g</b><b>_</b><b>S</b><b>t</b><b>a</b><b>t</b><b>s</b>
+              Reports statistics for the logical switch with which a VLAN on a
+              physical port is associated.
+
+       <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>
+              A logical Ethernet switch.  Records may be identified by logical
+              switch name.
+
+       <b>U</b><b>c</b><b>a</b><b>s</b><b>t</b><b>_</b><b>M</b><b>a</b><b>c</b><b>s</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>l</b>
+              Mapping of locally discovered unicast MAC addresses to tunnels.
+
+       <b>U</b><b>c</b><b>a</b><b>s</b><b>t</b><b>_</b><b>M</b><b>a</b><b>c</b><b>s</b><b>_</b><b>R</b><b>e</b><b>m</b><b>o</b><b>t</b><b>e</b>
+              Mapping of remotely programmed unicast MAC addresses to tunnels.
+
+       <b>M</b><b>c</b><b>a</b><b>s</b><b>t</b><b>_</b><b>M</b><b>a</b><b>c</b><b>s</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>l</b>
+              Mapping  of  locally  discovered multicast MAC addresses to tun‐
+              nels.
+
+       <b>M</b><b>c</b><b>a</b><b>s</b><b>t</b><b>_</b><b>M</b><b>a</b><b>c</b><b>s</b><b>_</b><b>R</b><b>e</b><b>m</b><b>o</b><b>t</b><b>e</b>
+              Mapping of remotely programmed multicast MAC addresses  to  tun‐
+              nels.
+
+       <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b><b>_</b><b>S</b><b>e</b><b>t</b>
+              A set of one or more physical locators.
+
+       <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>L</b><b>o</b><b>c</b><b>a</b><b>t</b><b>o</b><b>r</b>
+              Identifies  an  endpoint  to which logical switch traffic may be
+              encapsulated and forwarded.  Records may be identified by physi‐
+              cal locator name.
+
+       Record names must be specified in full and with correct capitalization.
+       Names of tables and columns are not case-sensitive, and <b>-</b><b>-</b>  and  <b>_</b>  are
+       treated interchangeably.  Unique abbreviations are acceptable, e.g. <b>m</b><b>a</b><b>n</b>
+       or <b>m</b> is sufficient to identify the <b>M</b><b>a</b><b>n</b><b>a</b><b>g</b><b>e</b><b>r</b> table.
+
+     <u>D</u><u>a</u><u>t</u><u>a</u><u>b</u><u>a</u><u>s</u><u>e</u> <u>V</u><u>a</u><u>l</u><u>u</u><u>e</u><u>s</u>
+
+       Each column in the database accepts a fixed type  of  data.   The  cur‐
+       rently defined basic types, and their representations, are:
+
+       integer
+              A decimal integer in the range -2**63 to 2**63-1, inclusive.
+
+       real   A floating-point number.
+
+       Boolean
+              True or false, written <b>t</b><b>r</b><b>u</b><b>e</b> or <b>f</b><b>a</b><b>l</b><b>s</b><b>e</b>, respectively.
+
+       string An  arbitrary  Unicode  string,  except  that null bytes are not
+              allowed.  Quotes are optional for most strings that  begin  with
+              an  English  letter  or  underscore and consist only of letters,
+              underscores, hyphens, and periods.  However, <b>t</b><b>r</b><b>u</b><b>e</b> and <b>f</b><b>a</b><b>l</b><b>s</b><b>e</b>  and
+              strings  that  match  the  syntax  of  UUIDs (see below) must be
+              enclosed in double quotes to distinguish them from  other  basic
+              types.   When  double  quotes  are  used,  the syntax is that of
+              strings in JSON, e.g. backslashes may be used to escape  special
+              characters.   The  empty string must be represented as a pair of
+              double quotes (<b>"</b><b>"</b>).
+
+       UUID   Either a universally unique identifier in the style of RFC 4122,
+              e.g.  <b>f</b><b>8</b><b>1</b><b>d</b><b>4</b><b>f</b><b>a</b><b>e</b><b>-</b><b>7</b><b>d</b><b>e</b><b>c</b><b>-</b><b>1</b><b>1</b><b>d</b><b>0</b><b>-</b><b>a</b><b>7</b><b>6</b><b>5</b><b>-</b><b>0</b><b>0</b><b>a</b><b>0</b><b>c</b><b>9</b><b>1</b><b>e</b><b>6</b><b>b</b><b>f</b><b>6</b>,  or an <b>@</b><u>n</u><u>a</u><u>m</u><u>e</u> defined
+              by a <b>g</b><b>e</b><b>t</b> or <b>c</b><b>r</b><b>e</b><b>a</b><b>t</b><b>e</b> command within the same <b>v</b><b>t</b><b>e</b><b>p</b><b>-</b><b>c</b><b>t</b><b>l</b> invocation.
+
+       Multiple values in a single column may be separated by spaces or a sin‐
+       gle  comma.   When  multiple  values  are  present,  duplicates are not
+       allowed, and order is not important.  Conversely, some database columns
+       can have an empty set of values, represented as <b>[</b><b>]</b>, and square brackets
+       may optionally enclose other non-empty sets or single values as well.
+
+       A few database columns are ``maps'' of key-value pairs, where  the  key
+       and  the  value are each some fixed database type.  These are specified
+       in the form <u>k</u><u>e</u><u>y</u><b>=</b><u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>, where <u>k</u><u>e</u><u>y</u> and <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u> follow the  syntax  for  the
+       column's  key  type  and value type, respectively.  When multiple pairs
+       are present (separated by spaces or a comma), duplicate  keys  are  not
+       allowed,  and  again  the order is not important.  Duplicate values are
+       allowed.  An empty map is represented as <b>{</b><b>}</b>.  Curly braces may  option‐
+       ally  enclose  non-empty  maps  as  well (but use quotes to prevent the
+       shell  from  expanding  <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>-</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>=</b><b>{</b><b>0</b><b>=</b><b>x</b><b>,</b><b>1</b><b>=</b><b>y</b><b>}</b>  into   <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>-</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>=</b><b>0</b><b>=</b><b>x</b>
+       <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>-</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>=</b><b>1</b><b>=</b><b>y</b>, which may not have the desired effect).
+
+     <u>D</u><u>a</u><u>t</u><u>a</u><u>b</u><u>a</u><u>s</u><u>e</u> <u>C</u><u>o</u><u>m</u><u>m</u><u>a</u><u>n</u><u>d</u> <u>S</u><u>y</u><u>n</u><u>t</u><u>a</u><u>x</u>
+
+       [<b>-</b><b>-</b><b>c</b><b>o</b><b>l</b><b>u</b><b>m</b><b>n</b><b>s</b><b>=</b><u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>[<b>,</b><u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>]...] <b>l</b><b>i</b><b>s</b><b>t</b> <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> [<u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u>]...
+              Lists  the  data  in  each  specified <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u>.  If no records are
+              specified, lists all the records in <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u>.
+
+              If <b>-</b><b>-</b><b>c</b><b>o</b><b>l</b><b>u</b><b>m</b><b>n</b><b>s</b>  is  specified,  only  the  requested  columns  are
+              listed,  in  the  specified  order.   Otherwise, all columns are
+              listed, in alphabetical order by column name.
+
+       [<b>-</b><b>-</b><b>c</b><b>o</b><b>l</b><b>u</b><b>m</b><b>n</b><b>s</b><b>=</b><u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>[<b>,</b><u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>]...] <b>f</b><b>i</b><b>n</b><b>d</b> <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> [<u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>[<b>:</b><u>k</u><u>e</u><u>y</u>]<b>=</b><u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>]...
+              Lists the data in each record in <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> whose <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u> equals <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>
+              or,  if  <u>k</u><u>e</u><u>y</u>  is specified, whose <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u> contains a <u>k</u><u>e</u><u>y</u> with the
+              specified <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>.  The following operators may be used where <b>=</b> is
+              written in the syntax summary:
+
+              <b>=</b> <b>!</b><b>=</b> <lt;<lt; >gt;>gt; <lt;<lt;<b>=</b> >gt;>gt;<b>=</b>
+                     Selects  records  in  which <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>[<b>:</b><u>k</u><u>e</u><u>y</u>] equals, does not
+                     equal, is less than, is greater than,  is  less  than  or
+                     equal  to,  or is greater than or equal to <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>, respec‐
+                     tively.
+
+                     Consider <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>[<b>:</b><u>k</u><u>e</u><u>y</u>] and  <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>  as  sets  of  elements.
+                     Identical  sets  are considered equal.  Otherwise, if the
+                     sets have different numbers of  elements,  then  the  set
+                     with  more  elements  is considered to be larger.  Other‐
+                     wise, consider a  element  from  each  set  pairwise,  in
+                     increasing  order  within  each set.  The first pair that
+                     differs determines the result.  (For a column  that  con‐
+                     tains  key-value  pairs, first all the keys are compared,
+                     and values are considered only if the  two  sets  contain
+                     identical keys.)
+
+              <b>{</b><b>=</b><b>}</b> <b>{</b><b>!</b><b>=</b><b>}</b>
+                     Test for set equality or inequality, respectively.
+
+              <b>{</b><lt;<lt;<b>=</b><b>}</b>   Selects  records  in  which  <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>[<b>:</b><u>k</u><u>e</u><u>y</u>]  is a subset of
+                     <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>.  For example, <b>f</b><b>l</b><b>o</b><b>o</b><b>d</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>s</b><b>{</b><lt;<lt;<b>=</b><b>}</b><b>1</b><b>,</b><b>2</b>  selects  records
+                     in  which the <b>f</b><b>l</b><b>o</b><b>o</b><b>d</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>s</b> column is the empty set or con‐
+                     tains 1 or 2 or both.
+
+              <b>{</b><lt;<lt;<b>}</b>    Selects records in which <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>[<b>:</b><u>k</u><u>e</u><u>y</u>] is a proper  subset
+                     of <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>.  For example, <b>f</b><b>l</b><b>o</b><b>o</b><b>d</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>s</b><b>{</b><lt;<lt;<b>}</b><b>1</b><b>,</b><b>2</b> selects records
+                     in which the <b>f</b><b>l</b><b>o</b><b>o</b><b>d</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>s</b> column is the empty set or  con‐
+                     tains 1 or 2 but not both.
+
+              <b>{</b>>gt;>gt;<b>=</b><b>}</b> <b>{</b>>gt;>gt;<b>}</b>
+                     Same as <b>{</b><lt;<lt;<b>=</b><b>}</b> and <b>{</b><lt;<lt;<b>}</b>, respectively, except that the rela‐
+                     tionship is reversed.   For  example,  <b>f</b><b>l</b><b>o</b><b>o</b><b>d</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>s</b><b>{</b>>gt;>gt;<b>=</b><b>}</b><b>1</b><b>,</b><b>2</b>
+                     selects  records in which the <b>f</b><b>l</b><b>o</b><b>o</b><b>d</b><b>-</b><b>v</b><b>l</b><b>a</b><b>n</b><b>s</b> column contains
+                     both 1 and 2.
+
+              For arithmetic operators (<b>=</b> <b>!</b><b>=</b> <lt;<lt; >gt;>gt; <lt;<lt;<b>=</b> >gt;>gt;<b>=</b>), when <u>k</u><u>e</u><u>y</u> is specified
+              but  a  particular  record's  <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>  does  not contain <u>k</u><u>e</u><u>y</u>, the
+              record is always omitted from the results.  Thus, the  condition
+              <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>-</b><b>c</b><b>o</b><b>n</b><b>f</b><b>i</b><b>g</b><b>:</b><b>m</b><b>t</b><b>u</b><b>!</b><b>=</b><b>1</b><b>5</b><b>0</b><b>0</b> matches records that have a <b>m</b><b>t</b><b>u</b> key whose
+              value is not 1500, but not those that lack an <b>m</b><b>t</b><b>u</b> key.
+
+              For the set operators, when <u>k</u><u>e</u><u>y</u> is specified  but  a  particular
+              record's  <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>  does  not  contain <u>k</u><u>e</u><u>y</u>, the comparison is done
+              against  an  empty  set.    Thus,   the   condition   <b>o</b><b>t</b><b>h</b><b>e</b><b>r</b><b>-</b><b>c</b><b>o</b><b>n</b><b>‐</b>
+              <b>f</b><b>i</b><b>g</b><b>:</b><b>m</b><b>t</b><b>u</b><b>{</b><b>!</b><b>=</b><b>}</b><b>1</b><b>5</b><b>0</b><b>0</b>  matches records that have a <b>m</b><b>t</b><b>u</b> key whose value
+              is not 1500 and those that lack an <b>m</b><b>t</b><b>u</b> key.
+
+              Don't forget to escape <lt;<lt; or >gt;>gt; from interpretation by the shell.
+
+              If <b>-</b><b>-</b><b>c</b><b>o</b><b>l</b><b>u</b><b>m</b><b>n</b><b>s</b>  is  specified,  only  the  requested  columns  are
+              listed,  in  the  specified  order.   Otherwise  all columns are
+              listed, in alphabetical order by column name.
+
+              The UUIDs shown for rows created in the same <b>v</b><b>t</b><b>e</b><b>p</b><b>-</b><b>c</b><b>t</b><b>l</b> invocation
+              will be wrong.
+
+       [<b>-</b><b>-</b><b>i</b><b>d</b><b>=</b><b>@</b><u>n</u><u>a</u><u>m</u><u>e</u>] [<b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>] <b>g</b><b>e</b><b>t</b> <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> [<u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>[<b>:</b><u>k</u><u>e</u><u>y</u>]]...
+              Prints the value of each specified <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u> in the given <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> in
+              <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u>.  For map columns, a <u>k</u><u>e</u><u>y</u> may optionally be  specified,  in
+              which  case  the  value  associated  with  <u>k</u><u>e</u><u>y</u>  in the column is
+              printed, instead of the entire map.
+
+              For a map column, without <b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b> it is an error if <u>k</u><u>e</u><u>y</u> does
+              not exist; with it, a blank line is printed.  If <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u> is not a
+              map column or if  <u>k</u><u>e</u><u>y</u>  is  not  specified,  <b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>  has  no
+              effect.
+
+              If  <b>@</b><u>n</u><u>a</u><u>m</u><u>e</u> is specified, then the UUID for <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> may be referred
+              to by that name later in the same <b>v</b><b>t</b><b>e</b><b>p</b><b>-</b><b>c</b><b>t</b><b>l</b>  invocation  in  con‐
+              texts where a UUID is expected.
+
+              Both  <b>-</b><b>-</b><b>i</b><b>d</b> and the <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u> arguments are optional, but usually at
+              least one or the other should be specified.  If both  are  omit‐
+              ted,  then <b>g</b><b>e</b><b>t</b> has no effect except to verify that <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> exists
+              in <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u>.
+
+       <b>s</b><b>e</b><b>t</b> <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>[<b>:</b><u>k</u><u>e</u><u>y</u>]<b>=</b><u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>...
+              Sets the value of each specified <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u> in the given  <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u>  in
+              <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> to <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>.  For map columns, a <u>k</u><u>e</u><u>y</u> may optionally be speci‐
+              fied, in which case the value associated with <u>k</u><u>e</u><u>y</u> in that column
+              is  changed  (or  added,  if none exists), instead of the entire
+              map.
+
+       <b>a</b><b>d</b><b>d</b> <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u> [<u>k</u><u>e</u><u>y</u><b>=</b>]<u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>...
+              Adds the specified value or key-value pair to <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>  in  <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u>
+              in  <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u>.   If <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u> is a map, then <u>k</u><u>e</u><u>y</u> is required, otherwise
+              it is prohibited.  If <u>k</u><u>e</u><u>y</u> already exists in a map  column,  then
+              the  current  <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>  is  not  replaced  (use  the <b>s</b><b>e</b><b>t</b> command to
+              replace an existing value).
+
+       <b>r</b><b>e</b><b>m</b><b>o</b><b>v</b><b>e</b> <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u> <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>...
+       <b>r</b><b>e</b><b>m</b><b>o</b><b>v</b><b>e</b> <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u> <u>k</u><u>e</u><u>y</u>...
+       <b>r</b><b>e</b><b>m</b><b>o</b><b>v</b><b>e</b> <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u> <u>k</u><u>e</u><u>y</u><b>=</b><u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>...
+              Removes the specified values or key-value pairs from  <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>  in
+              <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> in <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u>.  The first form applies to columns that are not
+              maps: each specified <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u> is removed from the column.  The sec‐
+              ond and third forms apply to map columns: if only a <u>k</u><u>e</u><u>y</u> is spec‐
+              ified, then any key-value pair with the given  <u>k</u><u>e</u><u>y</u>  is  removed,
+              regardless  of  its  value;  if  a <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u> is given then a pair is
+              removed only if both key and value match.
+
+              It is not an error if the column does not contain the  specified
+              key or value or pair.
+
+       <b>c</b><b>l</b><b>e</b><b>a</b><b>r</b> <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>...
+              Sets  each  <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>  in <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> in <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> to the empty set or empty
+              map, as appropriate.  This command applies only to columns  that
+              are allowed to be empty.
+
+       [<b>-</b><b>-</b><b>i</b><b>d</b><b>=</b><b>@</b><u>n</u><u>a</u><u>m</u><u>e</u>] <b>c</b><b>r</b><b>e</b><b>a</b><b>t</b><b>e</b> <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>[<b>:</b><u>k</u><u>e</u><u>y</u>]<b>=</b><u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>...
+              Creates  a  new  record  in <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> and sets the initial values of
+              each <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>.  Columns not  explicitly  set  will  receive  their
+              default values.  Outputs the UUID of the new row.
+
+              If  <b>@</b><u>n</u><u>a</u><u>m</u><u>e</u>  is  specified,  then  the UUID for the new row may be
+              referred to by that name elsewhere in the same <b>v</b><b>t</b><b>e</b><b>p</b><b>-</b><b>c</b><b>t</b><b>l</b>  invoca‐
+              tion  in contexts where a UUID is expected.  Such references may
+              precede or follow the <b>c</b><b>r</b><b>e</b><b>a</b><b>t</b><b>e</b> command.
+
+              Records in the Open vSwitch database are significant  only  when
+              they can be reached directly or indirectly from the <b>O</b><b>p</b><b>e</b><b>n</b><b>_</b><b>v</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>
+              table.  Except for records in the <b>Q</b><b>o</b><b>S</b> or <b>Q</b><b>u</b><b>e</b><b>u</b><b>e</b>  tables,  records
+              that are not reachable from the <b>O</b><b>p</b><b>e</b><b>n</b><b>_</b><b>v</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b> table are automati‐
+              cally deleted from the database.  This deletion happens  immedi‐
+              ately, without waiting for additional <b>v</b><b>t</b><b>e</b><b>p</b><b>-</b><b>c</b><b>t</b><b>l</b> commands or other
+              database activity.  Thus, a <b>c</b><b>r</b><b>e</b><b>a</b><b>t</b><b>e</b>  command  must  generally  be
+              accompanied  by  additional  commands  <u>w</u><u>i</u><u>t</u><u>h</u><u>i</u><u>n</u>  <u>t</u><u>h</u><u>e</u> <u>s</u><u>a</u><u>m</u><u>e</u> <b>v</b><b>t</b><b>e</b><b>p</b><b>-</b><b>c</b><b>t</b><b>l</b>
+              <u>i</u><u>n</u><u>v</u><u>o</u><u>c</u><u>a</u><u>t</u><u>i</u><u>o</u><u>n</u> to add a chain of references  to  the  newly  created
+              record  from  the  top-level  <b>O</b><b>p</b><b>e</b><b>n</b><b>_</b><b>v</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b> record.  The <b>E</b><b>X</b><b>A</b><b>M</b><b>P</b><b>L</b><b>E</b><b>S</b>
+              section gives some examples that show how to do this.
+
+       [<b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b>] <b>d</b><b>e</b><b>s</b><b>t</b><b>r</b><b>o</b><b>y</b> <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u>...
+              Deletes each specified <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> from <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u>.  Unless <b>-</b><b>-</b><b>i</b><b>f</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b> is
+              specified, each <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u>s must exist.
+
+       <b>-</b><b>-</b><b>a</b><b>l</b><b>l</b> <b>d</b><b>e</b><b>s</b><b>t</b><b>r</b><b>o</b><b>y</b> <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u>
+              Deletes all records from the <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u>.
+
+              The  <b>d</b><b>e</b><b>s</b><b>t</b><b>r</b><b>o</b><b>y</b>  command  is  only useful for records in the <b>Q</b><b>o</b><b>S</b> or
+              <b>Q</b><b>u</b><b>e</b><b>u</b><b>e</b> tables.  Records in other tables are automatically deleted
+              from   the  database  when  they  become  unreachable  from  the
+              <b>O</b><b>p</b><b>e</b><b>n</b><b>_</b><b>v</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b> table.  This means that deleting the last reference
+              to  a  record is sufficient for deleting the record itself.  For
+              records in these tables, <b>d</b><b>e</b><b>s</b><b>t</b><b>r</b><b>o</b><b>y</b> is silently ignored.   See  the
+              <b>E</b><b>X</b><b>A</b><b>M</b><b>P</b><b>L</b><b>E</b><b>S</b> section below for more information.
+
+       <b>w</b><b>a</b><b>i</b><b>t</b><b>-</b><b>u</b><b>n</b><b>t</b><b>i</b><b>l</b> <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> [<u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>[<b>:</b><u>k</u><u>e</u><u>y</u>]<b>=</b><u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>]...
+              Waits  until  <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u>  contains a record named <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> whose <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>
+              equals <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u> or, if <u>k</u><u>e</u><u>y</u> is specified, whose  <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>  contains  a
+              <u>k</u><u>e</u><u>y</u>  with  the  specified <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>.  Any of the operators <b>!</b><b>=</b>, <lt;<lt;, >gt;>gt;,
+              <lt;<lt;<b>=</b>, or >gt;>gt;<b>=</b> may be substituted for <b>=</b> to test for inequality,  less
+              than,  greater  than,  less than or equal to, or greater than or
+              equal to, respectively.  (Don't forget to escape  <lt;<lt;  or  >gt;>gt;  from
+              interpretation by the shell.)
+
+              If no <u>c</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u>[<b>:</b><u>k</u><u>e</u><u>y</u>]<b>=</b><u>v</u><u>a</u><u>l</u><u>u</u><u>e</u> arguments are given, this command waits
+              only until <u>r</u><u>e</u><u>c</u><u>o</u><u>r</u><u>d</u> exists.  If more than  one  such  argument  is
+              given, the command waits until all of them are satisfied.
+
+              Consider specifying <b>-</b><b>-</b><b>t</b><b>i</b><b>m</b><b>e</b><b>o</b><b>u</b><b>t</b><b>=</b><b>0</b> along with <b>-</b><b>-</b><b>w</b><b>a</b><b>i</b><b>t</b><b>-</b><b>u</b><b>n</b><b>t</b><b>i</b><b>l</b>, to pre‐
+              vent <b>v</b><b>t</b><b>e</b><b>p</b><b>-</b><b>c</b><b>t</b><b>l</b> from terminating after waiting only at most 5 sec‐
+              onds.
+
+       <b>c</b><b>o</b><b>m</b><b>m</b><b>e</b><b>n</b><b>t</b> [<u>a</u><u>r</u><u>g</u>]...
+              This  command  has  no  effect on behavior, but any database log
+              record created by the command will include the command  and  its
+              arguments.
+
+<b>E</b><b>X</b><b>I</b><b>T</b> <b>S</b><b>T</b><b>A</b><b>T</b><b>U</b><b>S</b>
+       0      Successful program execution.
+
+       1      Usage, syntax, or configuration file error.
+
+       2      The  <u>s</u><u>w</u><u>i</u><u>t</u><u>c</u><u>h</u> argument to <b>p</b><b>s</b><b>-</b><b>e</b><b>x</b><b>i</b><b>s</b><b>t</b><b>s</b> specified the name of a physi‐
+              cal switch that does not exist.
+
+<b>S</b><b>E</b><b>E</b> <b>A</b><b>L</b><b>S</b><b>O</b>
+       <b>o</b><b>v</b><b>s</b><b>d</b><b>b</b><b>-</b><b>s</b><b>e</b><b>r</b><b>v</b><b>e</b><b>r</b>(1), <b>v</b><b>t</b><b>e</b><b>p</b>(5).
+
+
+
+Open vSwitch                      March 2013                       vtep-ctl(8)
+</pre></body></html>

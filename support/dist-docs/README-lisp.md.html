@@ -1,0 +1,89 @@
+<html><head>
+  <meta charset="UTF-8"></head>
+  <link rel="stylesheet" type="text/css" href="style.css">
+  <title>README-lisp.md (Open vSwitch 2.3.90)</title>
+</head><body>
+<h1>Using LISP tunneling</h1>
+
+<p>LISP is a layer 3 tunneling mechanism, meaning that encapsulated packets do
+not carry Ethernet headers, and ARP requests shouldn't be sent over the
+tunnel.  Because of this, there are some additional steps required for setting
+up LISP tunnels in Open vSwitch, until support for L3 tunnels will improve.</p>
+
+<p>This guide assumes tunneling between two VMs connected to OVS bridges on
+different hypervisors reachable over IPv4.  Of course, more than one VM may be
+connected to any of the hypervisors, and a hypervisor may communicate with
+several different hypervisors over the same lisp tunneling interface.  A LISP
+"map-cache" can be implemented using flows, see example at the bottom of this
+file.</p>
+
+<p>There are several scenarios:</p>
+
+<p>1) the VMs have IP addresses in the same subnet and the hypervisors are also
+     in a single subnet (although one different from the VM's);
+  2) the VMs have IP addresses in the same subnet but the hypervisors are
+     separated by a router;
+  3) the VMs are in different subnets.</p>
+
+<p>In cases 1) and 3) ARP resolution can work as normal: ARP traffic is
+configured not to go through the LISP tunnel.  For case 1) ARP is able to
+reach the other VM, if both OVS instances default to MAC address learning.
+Case 3) requires the hypervisor be configured as the default router for the
+VMs.</p>
+
+<p>In case 2) the VMs expect ARP replies from each other, but this is not
+possible over a layer 3 tunnel.  One solution is to have static MAC address
+entries preconfigured on the VMs (e.g., <code>arp -f /etc/ethers</code> on startup on
+Unix based VMs), or have the hypervisor do proxy ARP.  In this scenario, the
+eth0 interfaces need not be added to the br0 bridge in the examples below.</p>
+
+<p>On the receiving side, the packet arrives without the original MAC header.
+The LISP tunneling code attaches a header with harcoded source and destination
+MAC address 02:00:00:00:00:00.  This address has all bits set to 0, except the
+locally administered bit, in order to avoid potential collisions with existing
+allocations.  In order for packets to reach their intended destination, the
+destination MAC address needs to be rewritten.  This can be done using the
+flow table.</p>
+
+<p>See below for an example setup, and the associated flow rules to enable LISP
+tunneling.</p>
+
+<pre><code>           +---+                               +---+
+           |VM1|                               |VM2|
+           +---+                               +---+
+             |                                   |
+        +--[tap0]--+                       +--[tap0]---+
+        |          |                       |           |
+    [lisp0] OVS1 [eth0]-----------------[eth0] OVS2 [lisp0]
+        |          |                       |           |
+        +----------+                       +-----------+
+</code></pre>
+
+<p>On each hypervisor, interfaces tap0, eth0, and lisp0 are added to a single
+bridge instance, and become numbered 1, 2, and 3 respectively:</p>
+
+<pre><code>ovs-vsctl add-br br0
+ovs-vsctl add-port br0 tap0
+ovs-vsctl add-port br0 eth0
+ovs-vsctl add-port br0 lisp0 -- set Interface lisp0 type=lisp options:remote_ip=flow options:key=flow
+</code></pre>
+
+<p>The last command sets up flow based tunneling on the lisp0 interface.  From
+the LISP point of view, this is like having the Tunnel Router map cache
+implemented as flow rules.</p>
+
+<p>Flows on br0 should be configured as follows:</p>
+
+<pre><code>priority=3,dl_dst=02:00:00:00:00:00,action=mod_dl_dst:&lt;VMx_MAC&gt;,output:1
+priority=2,in_port=1,dl_type=0x0806,action=NORMAL
+priority=1,in_port=1,dl_type=0x0800,vlan_tci=0,nw_src=&lt;EID_prefix&gt;,action=set_field:&lt;OVSx_IP&gt;-&gt;tun_dst,output:3
+priority=0,action=NORMAL
+</code></pre>
+
+<p>The third rule is like a map cache entry:  the <EID_prefix> specified by the
+nw_src match field is mapped to the RLOC <OVSx_IP>, which is set as the tunnel
+destination for this particular flow.</p>
+
+<p>Optionally, if you want to use Instance ID in a flow, you can add
+"set_tunnel:<IID>" to the action list.</p>
+</body></html>

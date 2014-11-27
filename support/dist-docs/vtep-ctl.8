@@ -1,0 +1,879 @@
+.\" -*- nroff -*-
+.de IQ
+.  br
+.  ns
+.  IP "\\$1"
+..
+.de ST
+.  PP
+.  RS -0.15in
+.  I "\\$1"
+.  RE
+..
+.TH vtep\-ctl 8 "March 2013" "Open vSwitch" "Open vSwitch Manual"
+.\" This program's name:
+.ds PN vtep\-ctl
+.
+.SH NAME
+vtep\-ctl \- utility for querying and configuring a VTEP database
+.
+.SH SYNOPSIS
+\fBvtep\-ctl\fR [\fIoptions\fR] \fB\-\-\fR [\fIoptions\fR] \fIcommand
+\fR[\fIargs\fR] [\fB\-\-\fR [\fIoptions\fR] \fIcommand \fR[\fIargs\fR]]...
+.
+.SH DESCRIPTION
+The \fBvtep\-ctl\fR program configures a VTEP database.
+See \fBvtep\fR(5) for comprehensive documentation of
+the database schema.
+.PP
+\fBvtep\-ctl\fR connects to an \fBovsdb\-server\fR process that
+maintains a VTEP configuration database.  Using this connection, it
+queries and possibly applies changes to the database, depending on the
+supplied commands.
+.PP
+\fBvtep\-ctl\fR can perform any number of commands in a single run,
+implemented as a single atomic transaction against the database.
+.PP
+The \fBvtep\-ctl\fR command line begins with global options (see
+\fBOPTIONS\fR below for details).  The global options are followed by
+one or more commands.  Each command should begin with \fB\-\-\fR by
+itself as a command-line argument, to separate it from the following
+commands.  (The \fB\-\-\fR before the first command is optional.)  The
+command itself starts with command-specific options, if any, followed by
+the command name and any arguments.  See \fBEXAMPLES\fR below for syntax
+examples.
+.
+.SH OPTIONS
+.
+The following options affect the behavior \fBvtep\-ctl\fR as a whole.
+Some individual commands also accept their own options, which are
+given just before the command name.  If the first command on the
+command line has options, then those options must be separated from
+the global options by \fB\-\-\fR.
+.
+.IP "\fB\-\-db=\fIserver\fR"
+Sets \fIserver\fR as the database server that \fBvtep\-ctl\fR
+contacts to query or modify configuration.  The default is
+\fBunix:/var/run/openvswitch/db.sock\fR.  \fIserver\fR must take one of the
+following forms:
+.RS
+.IP "\fBssl:\fIip\fB:\fIport\fR"
+The specified SSL \fIport\fR on the host at the given \fIip\fR, which
+must be expressed as an IP address (not a DNS name) in IPv4 or IPv6 address
+format.  If \fIip\fR is an IPv6 address, then wrap \fIip\fR with square
+brackets, e.g.: \fBssl:[::1]:6632\fR.
+The \fB\-\-private\-key\fR, \fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR
+options are mandatory when this form is used.
+.
+.IP "\fBtcp:\fIip\fB:\fIport\fR"
+Connect to the given TCP \fIport\fR on \fIip\fR, where \fIip\fR can be IPv4
+or IPv6 address. If \fIip\fR is an IPv6 address, then wrap \fIip\fR with
+square brackets, e.g.: \fBtcp:[::1]:6632\fR.
+.
+.IP "\fBunix:\fIfile\fR"
+On POSIX, connect to the Unix domain server socket named \fIfile\fR.
+.IP
+On Windows, connect to a localhost TCP port whose value is written in
+\fIfile\fR.
+.IP "\fBpssl:\fIport\fR[\fB:\fIip\fR]"
+Listen on the given SSL \fIport\fR for a connection.  By default,
+connections are not bound to a particular local IP address and
+it listens only on IPv4 (but not IPv6) addresses, but
+specifying \fIip\fR limits connections to those from the given
+\fIip\fR, either IPv4 or IPv6 address.  If \fIip\fR is
+an IPv6 address, then wrap \fIip\fR with square brackets, e.g.:
+\fBpssl:6632:[::1]\fR.  The \fB\-\-private\-key\fR,
+\fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR options are mandatory
+when this form is used.
+.
+.IP "\fBptcp:\fIport\fR[\fB:\fIip\fR]"
+Listen on the given TCP \fIport\fR for a connection.  By default,
+connections are not bound to a particular local IP address and
+it listens only on IPv4 (but not IPv6) addresses, but
+\fIip\fR may be specified to listen only for connections to the given
+\fIip\fR, either IPv4 or IPv6 address.  If \fIip\fR is
+an IPv6 address, then wrap \fIip\fR with square brackets, e.g.:
+\fBptcp:6632:[::1]\fR.
+.
+.IP "\fBpunix:\fIfile\fR"
+On POSIX, listen on the Unix domain server socket named \fIfile\fR for a
+connection.
+.IP
+On Windows, listen on a kernel chosen TCP port on the localhost. The kernel
+chosen TCP port value is written in \fIfile\fR.
+.RE
+.
+.IP "\fB\-\-no\-syslog\fR"
+By default, \fBvtep\-ctl\fR logs its arguments and the details of any
+changes that it makes to the system log.  This option disables this
+logging.
+.IP
+This option is equivalent to \fB\-\-verbose=vtep_ctl:syslog:warn\fR.
+.
+.IP "\fB\-\-oneline\fR"
+Modifies the output format so that the output for each command is printed
+on a single line.  New-line characters that would otherwise separate
+lines are printed as \fB\\n\fR, and any instances of \fB\\\fR that
+would otherwise appear in the output are doubled.
+Prints a blank line for each command that has no output.
+This option does not affect the formatting of output from the
+\fBlist\fR or \fBfind\fR commands; see \fBTable Formatting Options\fR
+below.
+.
+.IP "\fB\-\-dry\-run\fR"
+Prevents \fBvtep\-ctl\fR from actually modifying the database.
+.
+.IP "\fB\-t \fIsecs\fR"
+.IQ "\fB\-\-timeout=\fIsecs\fR"
+By default, or with a \fIsecs\fR of \fB0\fR, \fBvtep\-ctl\fR waits
+forever for a response from the database.  This option limits runtime
+to approximately \fIsecs\fR seconds.  If the timeout expires,
+\fBvtep\-ctl\fR will exit with a \fBSIGALRM\fR signal.  (A timeout
+would normally happen only if the database cannot be contacted, or if
+the system is overloaded.)
+.
+.SS "Table Formatting Options"
+These options control the format of output from the \fBlist\fR and
+\fBfind\fR commands.
+.IP "\fB\-f \fIformat\fR"
+.IQ "\fB\-\-format=\fIformat\fR"
+Sets the type of table formatting.  The following types of
+\fIformat\fR are available:
+.RS
+.ie '\*(PN'ovs\-vsctl' .IP "\fBtable\fR"
+.el                    .IP "\fBtable\fR (default)"
+2-D text tables with aligned columns.
+.ie '\*(PN'ovs\-vsctl' .IP "\fBlist\fR (default)"
+.el                    .IP "\fBlist\fR"
+A list with one column per line and rows separated by a blank line.
+.IP "\fBhtml\fR"
+HTML tables.
+.IP "\fBcsv\fR"
+Comma-separated values as defined in RFC 4180.
+.IP "\fBjson\fR"
+JSON format as defined in RFC 4627.  The output is a sequence of JSON
+objects, each of which corresponds to one table.  Each JSON object has
+the following members with the noted values:
+.RS
+.IP "\fBcaption\fR"
+The table's caption.  This member is omitted if the table has no
+caption.
+.IP "\fBheadings\fR"
+An array with one element per table column.  Each array element is a
+string giving the corresponding column's heading.
+.IP "\fBdata\fR"
+An array with one element per table row.  Each element is also an
+array with one element per table column.  The elements of this
+second-level array are the cells that constitute the table.  Cells
+that represent OVSDB data or data types are expressed in the format
+described in the OVSDB specification; other cells are simply expressed
+as text strings.
+.RE
+.RE
+.
+.IP "\fB\-d \fIformat\fR"
+.IQ "\fB\-\-data=\fIformat\fR"
+Sets the formatting for cells within output tables.  The following
+types of \fIformat\fR are available:
+.RS
+.IP "\fBstring\fR (default)"
+The simple format described in the \fBDatabase Values\fR
+.ie '\*(PN'ovs\-vsctl' section below.
+.el                    section of \fBovs\-vsctl\fR(8).
+.IP "\fBbare\fR"
+The simple format with punctuation stripped off: \fB[]\fR and \fB{}\fR
+are omitted around sets, maps, and empty columns, items within sets
+and maps are space-separated, and strings are never quoted.  This
+format may be easier for scripts to parse.
+.IP "\fBjson\fR"
+JSON.
+.RE
+.IP
+The \fBjson\fR output format always outputs cells in JSON format,
+ignoring this option.
+.
+.IP "\fB\-\-no\-heading\fR"
+This option suppresses the heading row that otherwise appears in the
+first row of table output.
+.
+.IP "\fB\-\-pretty\fR"
+By default, JSON in output is printed as compactly as possible.  This
+option causes JSON in output to be printed in a more readable
+fashion.  Members of objects and elements of arrays are printed one
+per line, with indentation.
+.IP
+This option does not affect JSON in tables, which is always printed
+compactly.
+.IP "\fB\-\-bare\fR"
+Equivalent to \fB\-\-format=list \-\-data=bare \-\-no\-headings\fR.
+.
+.SS "Public Key Infrastructure Options"
+.de IQ
+.  br
+.  ns
+.  IP "\\$1"
+..
+.IP "\fB\-p\fR \fIprivkey.pem\fR"
+.IQ "\fB\-\-private\-key=\fIprivkey.pem\fR"
+Specifies a PEM file containing the private key used as \fB\*(PN\fR's
+identity for outgoing SSL connections.
+.
+.IP "\fB\-c\fR \fIcert.pem\fR"
+.IQ "\fB\-\-certificate=\fIcert.pem\fR"
+Specifies a PEM file containing a certificate that certifies the
+private key specified on \fB\-p\fR or \fB\-\-private\-key\fR to be
+trustworthy.  The certificate must be signed by the certificate
+authority (CA) that the peer in SSL connections will use to verify it.
+.
+.IP "\fB\-C\fR \fIcacert.pem\fR"
+.IQ "\fB\-\-ca\-cert=\fIcacert.pem\fR"
+Specifies a PEM file containing the CA certificate that \fB\*(PN\fR
+should use to verify certificates presented to it by SSL peers.  (This
+may be the same certificate that SSL peers use to verify the
+certificate specified on \fB\-c\fR or \fB\-\-certificate\fR, or it may
+be a different one, depending on the PKI design in use.)
+.
+.IP "\fB\-C none\fR"
+.IQ "\fB\-\-ca\-cert=none\fR"
+Disables verification of certificates presented by SSL peers.  This
+introduces a security risk, because it means that certificates cannot
+be verified to be those of known trusted hosts.
+.IP "\fB\-\-bootstrap\-ca\-cert=\fIcacert.pem\fR"
+When \fIcacert.pem\fR exists, this option has the same effect as
+\fB\-C\fR or \fB\-\-ca\-cert\fR.  If it does not exist, then
+\fB\*(PN\fR will attempt to obtain the CA certificate from the
+SSL peer on its first SSL connection and save it to the named PEM
+file.  If it is successful, it will immediately drop the connection
+and reconnect, and from then on all SSL connections must be
+authenticated by a certificate signed by the CA certificate thus
+obtained.
+.IP
+\fBThis option exposes the SSL connection to a man-in-the-middle
+attack obtaining the initial CA certificate\fR, but it may be useful
+for bootstrapping.
+.IP
+This option is only useful if the SSL peer sends its CA certificate as
+part of the SSL certificate chain.  The SSL protocol does not require
+the server to send the CA certificate.
+.IP
+This option is mutually exclusive with \fB\-C\fR and
+\fB\-\-ca\-cert\fR.
+.IP "\fB\-\-peer\-ca\-cert=\fIpeer-cacert.pem\fR"
+Specifies a PEM file that contains one or more additional certificates
+to send to SSL peers.  \fIpeer-cacert.pem\fR should be the CA
+certificate used to sign \fB\*(PN\fR's own certificate, that is, the
+certificate specified on \fB\-c\fR or \fB\-\-certificate\fR.  If
+\fB\*(PN\fR's certificate is self-signed, then \fB\-\-certificate\fR
+and \fB\-\-peer\-ca\-cert\fR should specify the same file.
+.IP
+This option is not useful in normal operation, because the SSL peer
+must already have the CA certificate for the peer to have any
+confidence in \fB\*(PN\fR's identity.  However, this offers a way for
+a new installation to bootstrap the CA certificate on its first SSL
+connection.
+.de IQ
+.  br
+.  ns
+.  IP "\\$1"
+..
+.IP "\fB\-v\fR[\fIspec\fR]
+.IQ "\fB\-\-verbose=\fR[\fIspec\fR]
+.
+Sets logging levels.  Without any \fIspec\fR, sets the log level for
+every module and facility to \fBdbg\fR.  Otherwise, \fIspec\fR is a
+list of words separated by spaces or commas or colons, up to one from
+each category below:
+.
+.RS
+.IP \(bu
+A valid module name, as displayed by the \fBvlog/list\fR command on
+\fBovs\-appctl\fR(8), limits the log level change to the specified
+module.
+.
+.IP \(bu
+\fBsyslog\fR, \fBconsole\fR, or \fBfile\fR, to limit the log level
+change to only to the system log, to the console, or to a file,
+respectively.
+.IP
+On Windows platform, \fBsyslog\fR is accepted as a word and is only
+useful along with the \fB\-\-syslog\-target\fR option (the word has no
+effect otherwise).
+.
+.IP \(bu
+\fBoff\fR, \fBemer\fR, \fBerr\fR, \fBwarn\fR, \fBinfo\fR, or
+\fBdbg\fR, to control the log level.  Messages of the given severity
+or higher will be logged, and messages of lower severity will be
+filtered out.  \fBoff\fR filters out all messages.  See
+\fBovs\-appctl\fR(8) for a definition of each log level.
+.RE
+.
+.IP
+Case is not significant within \fIspec\fR.
+.IP
+Regardless of the log levels set for \fBfile\fR, logging to a file
+will not take place unless \fB\-\-log\-file\fR is also specified (see
+below).
+.IP
+For compatibility with older versions of OVS, \fBany\fR is accepted as
+a word but has no effect.
+.
+.IP "\fB\-v\fR"
+.IQ "\fB\-\-verbose\fR"
+Sets the maximum logging verbosity level, equivalent to
+\fB\-\-verbose=dbg\fR.
+.
+.IP "\fB\-vPATTERN:\fIfacility\fB:\fIpattern\fR"
+.IQ "\fB\-\-verbose=PATTERN:\fIfacility\fB:\fIpattern\fR"
+Sets the log pattern for \fIfacility\fR to \fIpattern\fR.  Refer to
+\fBovs\-appctl\fR(8) for a description of the valid syntax for \fIpattern\fR.
+.
+.TP
+\fB\-\-log\-file\fR[\fB=\fIfile\fR]
+Enables logging to a file.  If \fIfile\fR is specified, then it is
+used as the exact name for the log file.  The default log file name
+used if \fIfile\fR is omitted is \fB/var/log/openvswitch/\*(PN.log\fR.
+.
+.IP "\fB\-\-syslog\-target=\fIhost\fB:\fIport\fR"
+Send syslog messages to UDP \fIport\fR on \fIhost\fR, in addition to
+the system syslog.  The \fIhost\fR must be a numerical IP address, not
+a hostname.
+.de IQ
+.  br
+.  ns
+.  IP "\\$1"
+..
+.IP "\fB\-h\fR"
+.IQ "\fB\-\-help\fR"
+Prints a brief help message to the console.
+.
+.IP "\fB\-V\fR"
+.IQ "\fB\-\-version\fR"
+Prints version information to the console.
+.
+.SH COMMANDS
+The commands implemented by \fBvtep\-ctl\fR are described in the
+sections below.
+.
+.SS "Physical Switch Commands"
+These commands examine and manipulate physical switches.
+.
+.IP "[\fB\-\-may\-exist\fR] \fBadd\-ps \fIpswitch\fR"
+Creates a new physical switch named \fIpswitch\fR.  Initially the switch
+will have no ports.
+.IP
+Without \fB\-\-may\-exist\fR, attempting to create a switch that
+exists is an error.  With \fB\-\-may\-exist\fR, this command does
+nothing if \fIpswitch\fR already exists.
+.
+.IP "[\fB\-\-if\-exists\fR] \fBdel\-ps \fIpswitch\fR"
+Deletes \fIpswitch\fR and all of its ports.
+.IP
+Without \fB\-\-if\-exists\fR, attempting to delete a switch that does
+not exist is an error.  With \fB\-\-if\-exists\fR, attempting to
+delete a switch that does not exist has no effect.
+.
+.IP "\fBlist\-ps\fR"
+Lists all existing physical switches on standard output, one per line.
+.
+.IP "\fBps\-exists \fIpswitch\fR"
+Tests whether \fIpswitch\fR exists.  If so, \fBvtep\-ctl\fR exits
+successfully with exit code 0.  If not, \fBvtep\-ctl\fR exits
+unsuccessfully with exit code 2.
+.
+.SS "Port Commands"
+.
+These commands examine and manipulate VTEP physical ports.
+.
+.IP "\fBlist\-ports \fIpswitch\fR"
+Lists all of the ports within \fIpswitch\fR on standard output, one per
+line.
+.
+.IP "[\fB\-\-may\-exist\fR] \fBadd\-port \fIpswitch port\fR"
+Creates on \fIpswitch\fR a new port named \fIport\fR from the network
+device of the same name.
+.IP
+Without \fB\-\-may\-exist\fR, attempting to create a port that exists
+is an error.  With \fB\-\-may\-exist\fR, this command does nothing if
+\fIport\fR already exists on \fIpswitch\fR.
+.
+.IP "[\fB\-\-if\-exists\fR] \fBdel\-port \fR[\fIpswitch\fR] \fIport\fR"
+Deletes \fIport\fR.  If \fIpswitch\fR is omitted, \fIport\fR is removed
+from whatever switch contains it; if \fIpswitch\fR is specified, it
+must be the switch that contains \fIport\fR.
+.IP
+Without \fB\-\-if\-exists\fR, attempting to delete a port that does
+not exist is an error.  With \fB\-\-if\-exists\fR, attempting to
+delete a port that does not exist has no effect.
+.
+.SS "Logical Switch Commands"
+These commands examine and manipulate logical switches.
+.
+.IP "[\fB\-\-may\-exist\fR] \fBadd\-ls \fIlswitch\fR"
+Creates a new logical switch named \fIlswitch\fR.  Initially the switch
+will have no locator bindings.
+.IP
+Without \fB\-\-may\-exist\fR, attempting to create a switch that
+exists is an error.  With \fB\-\-may\-exist\fR, this command does
+nothing if \fIlswitch\fR already exists.
+.
+.IP "[\fB\-\-if\-exists\fR] \fBdel\-ls \fIlswitch\fR"
+Deletes \fIlswitch\fR.
+.IP
+Without \fB\-\-if\-exists\fR, attempting to delete a switch that does
+not exist is an error.  With \fB\-\-if\-exists\fR, attempting to
+delete a switch that does not exist has no effect.
+.
+.IP "\fBlist\-ls\fR"
+Lists all existing logical switches on standard output, one per line.
+.
+.IP "\fBls\-exists \fIlswitch\fR"
+Tests whether \fIlswitch\fR exists.  If so, \fBvtep\-ctl\fR exits
+successfully with exit code 0.  If not, \fBvtep\-ctl\fR exits
+unsuccessfully with exit code 2.
+.
+.IP "\fBbind\-ls \fIpswitch port vlan lswitch\fR"
+Bind logical switch \fIlswitch\fR to the \fIport\fR/\fIvlan\fR
+combination on the physical switch \fIpswitch\fR.
+.
+.IP "\fBunbind\-ls \fIpswitch port vlan\fR"
+Remove the logical switch binding from the \fIport\fR/\fIvlan\fR
+combination on the physical switch \fIpswitch\fR.
+.
+.IP "\fBlist\-bindings \fIpswitch port\fR"
+List the logical switch bindings for \fIport\fR on the physical switch
+\fIpswitch\fR.
+.
+.SS "Local MAC Binding Commands"
+These commands examine and manipulate local MAC bindings for the logical
+switch.  The local maps are written by the VTEP to refer to MACs it has
+learned on its physical ports.
+.
+.IP "\fBadd\-ucast\-local \fIlswitch mac\fR [\fIencap\fR] \fIip\fR"
+Map the unicast Ethernet address \fImac\fR to the physical location
+\fIip\fR using encapsulation \fIencap\fR on \fIlswitch\fR.  If
+\fIencap\fR is not specified, the default is "vxlan_over_ipv4".  The
+local mappings are used by the VTEP to refer to MACs learned on its
+physical ports.
+.
+.IP "\fBdel\-ucast\-local \fIlswitch mac\fR"
+Remove the local unicast Ethernet address \fImac\fR map from
+\fIlswitch\fR.  The local mappings are used by the VTEP to refer to MACs
+learned on its physical ports.
+.
+.IP "\fBadd\-mcast\-local \fIlswitch mac\fR [\fIencap\fR] \fIip\fR"
+Add physical location \fIip\fR using encapsulation \fIencap\fR to the
+local mac binding table for multicast Ethernet address \fImac\fR on
+\fIlswitch\fR.  If \fIencap\fR is not specified, the default is
+"vxlan_over_ipv4".  The local mappings are used by the VTEP to refer to
+MACs learned on its physical ports.
+.
+.IP "\fBdel\-mcast\-local \fIlswitch mac\fR [\fIencap\fR] \fIip\fR"
+Remove physical location \fIip\fR using encapsulation \fIencap\fR from
+the local mac binding table for multicast Ethernet address \fImac\fR on
+\fIlswitch\fR.  If \fIencap\fR is not specified, the default is
+"vxlan_over_ipv4".  The local mappings are used by the VTEP to refer to
+MACs learned on its physical ports.
+.
+.IP "\fBclear\-local\-macs \fIlswitch\fR"
+Clear the local MAC bindings for \fIlswitch\fR.
+.
+.IP "\fBlist\-local\-macs \fIlswitch\fR"
+List the local MAC bindings for \fIlswitch\fR, one per line.
+.
+.SS "Remote MAC Binding Commands"
+These commands examine and manipulate local and remote MAC bindings for
+the logical switch.  The remote maps are written by the network
+virtualization controller to refer to MACs that it has learned.
+.
+.IP "\fBadd\-ucast\-remote \fIlswitch mac\fR [\fIencap\fR] \fIip\fR"
+Map the unicast Ethernet address \fImac\fR to the physical location
+\fIip\fR using encapsulation \fIencap\fR on \fIlswitch\fR.  If
+\fIencap\fR is not specified, the default is "vxlan_over_ipv4".  The
+remote mappings are used by the network virtualization platform to refer
+to MACs that it has learned.
+.
+.IP "\fBdel\-ucast\-remote \fIlswitch mac\fR"
+Remove the remote unicast Ethernet address \fImac\fR map from
+\fIlswitch\fR.  The remote mappings are used by the network
+virtualization platform to refer to MACs that it has learned.
+.
+.IP "\fBadd\-mcast\-remote \fIlswitch mac\fR [\fIencap\fR] \fIip\fR"
+Add physical location \fIip\fR using encapsulation \fIencap\fR to the
+remote mac binding table for multicast Ethernet address \fImac\fR on
+\fIlswitch\fR.  If \fIencap\fR is not specified, the default is
+"vxlan_over_ipv4".  The remote mappings are used by the network
+virtualization platform to refer to MACs that it has learned.
+.
+.IP "\fBdel\-mcast\-remote \fIlswitch mac\fR [\fIencap\fR] \fIip\fR"
+Remove physical location \fIip\fR using encapsulation \fIencap\fR from
+the remote mac binding table for multicast Ethernet address \fImac\fR on
+\fIlswitch\fR.  If \fIencap\fR is not specified, the default is
+"vxlan_over_ipv4".  The remote mappings are used by the network
+virtualization platform to refer to MACs that it has learned.
+.
+.IP "\fBclear\-remote\-macs \fIlswitch\fR"
+Clear the remote MAC bindings for \fIlswitch\fR.
+.
+.IP "\fBlist\-remote\-macs \fIlswitch\fR"
+List the remote MAC bindings for \fIlswitch\fR, one per line.
+.
+.SS "Manager Connectivity"
+.
+These commands manipulate the \fBmanagers\fR column in the \fBGlobal\fR
+table and rows in the \fBManagers\fR table.  When \fBovsdb\-server\fR is
+configured to use the \fBmanagers\fR column for OVSDB connections (as
+described in \fBINSTALL.Linux\fR and in the startup scripts provided
+with Open vSwitch), this allows the administrator to use \fBvtep\-ctl\fR
+to configure database connections.
+.
+.IP "\fBget\-manager\fR"
+Prints the configured manager(s).
+.
+.IP "\fBdel\-manager\fR"
+Deletes the configured manager(s).
+.
+.IP "\fBset\-manager\fR \fItarget\fR\&..."
+Sets the configured manager target or targets.  Each \fItarget\fR may
+use any of the following forms:
+.
+.RS
+.IP "\fBssl:\fIip\fB:\fIport\fR"
+The specified SSL \fIport\fR on the host at the given \fIip\fR, which
+must be expressed as an IP address (not a DNS name) in IPv4 or IPv6 address
+format.  If \fIip\fR is an IPv6 address, then wrap \fIip\fR with square
+brackets, e.g.: \fBssl:[::1]:6632\fR.
+The \fB\-\-private\-key\fR, \fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR
+options are mandatory when this form is used.
+.
+.IP "\fBtcp:\fIip\fB:\fIport\fR"
+Connect to the given TCP \fIport\fR on \fIip\fR, where \fIip\fR can be IPv4
+or IPv6 address. If \fIip\fR is an IPv6 address, then wrap \fIip\fR with
+square brackets, e.g.: \fBtcp:[::1]:6632\fR.
+.
+.IP "\fBunix:\fIfile\fR"
+On POSIX, connect to the Unix domain server socket named \fIfile\fR.
+.IP
+On Windows, connect to a localhost TCP port whose value is written in
+\fIfile\fR.
+.IP "\fBpssl:\fIport\fR[\fB:\fIip\fR]"
+Listen on the given SSL \fIport\fR for a connection.  By default,
+connections are not bound to a particular local IP address and
+it listens only on IPv4 (but not IPv6) addresses, but
+specifying \fIip\fR limits connections to those from the given
+\fIip\fR, either IPv4 or IPv6 address.  If \fIip\fR is
+an IPv6 address, then wrap \fIip\fR with square brackets, e.g.:
+\fBpssl:6632:[::1]\fR.  The \fB\-\-private\-key\fR,
+\fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR options are mandatory
+when this form is used.
+.
+.IP "\fBptcp:\fIport\fR[\fB:\fIip\fR]"
+Listen on the given TCP \fIport\fR for a connection.  By default,
+connections are not bound to a particular local IP address and
+it listens only on IPv4 (but not IPv6) addresses, but
+\fIip\fR may be specified to listen only for connections to the given
+\fIip\fR, either IPv4 or IPv6 address.  If \fIip\fR is
+an IPv6 address, then wrap \fIip\fR with square brackets, e.g.:
+\fBptcp:6632:[::1]\fR.
+.
+.IP "\fBpunix:\fIfile\fR"
+On POSIX, listen on the Unix domain server socket named \fIfile\fR for a
+connection.
+.IP
+On Windows, listen on a kernel chosen TCP port on the localhost. The kernel
+chosen TCP port value is written in \fIfile\fR.
+.RE
+.
+.SS "Database Commands"
+.
+These commands query and modify the contents of \fBovsdb\fR tables.
+They are a slight abstraction of the \fBovsdb\fR interface and as such
+they operate at a lower level than other \fBvtep\-ctl\fR commands.
+.PP
+.ST "Identifying Tables, Records, and Columns"
+.PP
+Each of these commands has a \fItable\fR parameter to identify a table
+within the database.  Many of them also take a \fIrecord\fR parameter
+that identifies a particular record within a table.  The \fIrecord\fR
+parameter may be the UUID for a record, and many tables offer
+additional ways to identify records.  Some commands also take
+\fIcolumn\fR parameters that identify a particular field within the
+records in a table.
+.PP
+The following tables are currently defined:
+.IP "\fBGlobal\fR"
+Top-level configuration for a hardware VTEP.  This table contains
+exactly one record, identified by specifying \fB.\fR as the record name.
+.IP "\fBManager\fR"
+Configuration for an OVSDB connection.  Records may be identified
+by target (e.g. \fBtcp:1.2.3.4\fR).
+.IP "\fBPhysical_Switch\fR"
+A physical switch that implements a VTEP.  Records may be identified by
+physical switch name.
+.IP "\fBPhysical_Port\fR"
+A port within a physical switch.
+.IP "\fBLogical_Binding_Stats\fR"
+Reports statistics for the logical switch with which a VLAN on a
+physical port is associated.
+.IP "\fBLogical_Switch\fR"
+A logical Ethernet switch.  Records may be identified by logical switch
+name.
+.IP "\fBUcast_Macs_Local\fR"
+Mapping of locally discovered unicast MAC addresses to tunnels.
+.IP "\fBUcast_Macs_Remote\fR"
+Mapping of remotely programmed unicast MAC addresses to tunnels.
+.IP "\fBMcast_Macs_Local\fR"
+Mapping of locally discovered multicast MAC addresses to tunnels.
+.IP "\fBMcast_Macs_Remote\fR"
+Mapping of remotely programmed multicast MAC addresses to tunnels.
+.IP "\fBPhysical_Locator_Set\fR"
+A set of one or more physical locators.
+.IP "\fBPhysical_Locator\fR"
+Identifies an endpoint to which logical switch traffic may be
+encapsulated and forwarded.  Records may be identified by physical
+locator name.
+.PP
+Record names must be specified in full and with correct
+capitalization.  Names of tables and columns are not case-sensitive,
+and \fB\-\-\fR and \fB_\fR are treated interchangeably.  Unique
+abbreviations are acceptable, e.g. \fBman\fR or \fBm\fR is sufficient
+to identify the \fBManager\fR table.
+.
+.ST "Database Values"
+.PP
+Each column in the database accepts a fixed type of data.  The
+currently defined basic types, and their representations, are:
+.IP "integer"
+A decimal integer in the range \-2**63 to 2**63\-1, inclusive.
+.IP "real"
+A floating-point number.
+.IP "Boolean"
+True or false, written \fBtrue\fR or \fBfalse\fR, respectively.
+.IP "string"
+An arbitrary Unicode string, except that null bytes are not allowed.
+Quotes are optional for most strings that begin with an English letter
+or underscore and consist only of letters, underscores, hyphens, and
+periods.  However, \fBtrue\fR and \fBfalse\fR and strings that match
+the syntax of UUIDs (see below) must be enclosed in double quotes to
+distinguish them from other basic types.  When double quotes are used,
+the syntax is that of strings in JSON, e.g. backslashes may be used to
+escape special characters.  The empty string must be represented as a
+pair of double quotes (\fB""\fR).
+.IP "UUID"
+Either a universally unique identifier in the style of RFC 4122,
+e.g. \fBf81d4fae\-7dec\-11d0\-a765\-00a0c91e6bf6\fR, or an \fB@\fIname\fR
+defined by a \fBget\fR or \fBcreate\fR command within the same \fBvtep\-ctl\fR
+invocation.
+.PP
+Multiple values in a single column may be separated by spaces or a
+single comma.  When multiple values are present, duplicates are not
+allowed, and order is not important.  Conversely, some database
+columns can have an empty set of values, represented as \fB[]\fR, and
+square brackets may optionally enclose other non-empty sets or single
+values as well.
+.PP
+A few database columns are ``maps'' of key-value pairs, where the key
+and the value are each some fixed database type.  These are specified
+in the form \fIkey\fB=\fIvalue\fR, where \fIkey\fR and \fIvalue\fR
+follow the syntax for the column's key type and value type,
+respectively.  When multiple pairs are present (separated by spaces or
+a comma), duplicate keys are not allowed, and again the order is not
+important.  Duplicate values are allowed.  An empty map is represented
+as \fB{}\fR.  Curly braces may optionally enclose non-empty maps as
+well (but use quotes to prevent the shell from expanding
+\fBother-config={0=x,1=y}\fR into \fBother-config=0=x
+other-config=1=y\fR, which may not have the desired effect).
+.
+.ST "Database Command Syntax"
+.IP "[\fB\-\-columns=\fIcolumn\fR[\fB,\fIcolumn\fR]...] \fBlist \fItable \fR[\fIrecord\fR]..."
+Lists the data in each specified \fIrecord\fR.  If no
+records are specified, lists all the records in \fItable\fR.
+.IP
+If \fB\-\-columns\fR is specified, only the requested columns are
+listed, in the specified order.  Otherwise, all columns are listed, in
+alphabetical order by column name.
+.
+.IP "[\fB\-\-columns=\fIcolumn\fR[\fB,\fIcolumn\fR]...] \fBfind \fItable \fR[\fIcolumn\fR[\fB:\fIkey\fR]\fB=\fIvalue\fR]..."
+Lists the data in each record in \fItable\fR whose \fIcolumn\fR equals
+\fIvalue\fR or, if \fIkey\fR is specified, whose \fIcolumn\fR contains
+a \fIkey\fR with the specified \fIvalue\fR.  The following operators
+may be used where \fB=\fR is written in the syntax summary:
+.RS
+.IP "\fB= != < > <= >=\fR"
+Selects records in which \fIcolumn\fR[\fB:\fIkey\fR] equals, does not
+equal, is less than, is greater than, is less than or equal to, or is
+greater than or equal to \fIvalue\fR, respectively.
+.IP
+Consider \fIcolumn\fR[\fB:\fIkey\fR] and \fIvalue\fR as sets of
+elements.  Identical sets are considered equal.  Otherwise, if the
+sets have different numbers of elements, then the set with more
+elements is considered to be larger.  Otherwise, consider a element
+from each set pairwise, in increasing order within each set.  The
+first pair that differs determines the result.  (For a column that
+contains key-value pairs, first all the keys are compared, and values
+are considered only if the two sets contain identical keys.)
+.IP "\fB{=} {!=}\fR"
+Test for set equality or inequality, respectively.
+.IP "\fB{<=}\fR"
+Selects records in which \fIcolumn\fR[\fB:\fIkey\fR] is a subset of
+\fIvalue\fR.  For example, \fBflood-vlans{<=}1,2\fR selects records in
+which the \fBflood-vlans\fR column is the empty set or contains 1 or 2
+or both.
+.IP "\fB{<}\fR"
+Selects records in which \fIcolumn\fR[\fB:\fIkey\fR] is a proper
+subset of \fIvalue\fR.  For example, \fBflood-vlans{<}1,2\fR selects
+records in which the \fBflood-vlans\fR column is the empty set or
+contains 1 or 2 but not both.
+.IP "\fB{>=} {>}\fR"
+Same as \fB{<=}\fR and \fB{<}\fR, respectively, except that the
+relationship is reversed.  For example, \fBflood-vlans{>=}1,2\fR
+selects records in which the \fBflood-vlans\fR column contains both 1
+and 2.
+.RE
+.IP
+For arithmetic operators (\fB= != < > <= >=\fR), when \fIkey\fR is
+specified but a particular record's \fIcolumn\fR does not contain
+\fIkey\fR, the record is always omitted from the results.  Thus, the
+condition \fBother-config:mtu!=1500\fR matches records that have a
+\fBmtu\fR key whose value is not 1500, but not those that lack an
+\fBmtu\fR key.
+.IP
+For the set operators, when \fIkey\fR is specified but a particular
+record's \fIcolumn\fR does not contain \fIkey\fR, the comparison is
+done against an empty set.  Thus, the condition
+\fBother-config:mtu{!=}1500\fR matches records that have a \fBmtu\fR
+key whose value is not 1500 and those that lack an \fBmtu\fR key.
+.IP
+Don't forget to escape \fB<\fR or \fB>\fR from interpretation by the
+shell.
+.IP
+If \fB\-\-columns\fR is specified, only the requested columns are
+listed, in the specified order.  Otherwise all columns are listed, in
+alphabetical order by column name.
+.IP
+The UUIDs shown for rows created in the same \fBvtep\-ctl\fR
+invocation will be wrong.
+.
+.IP "[\fB\-\-id=@\fIname\fR] [\fB\-\-if\-exists\fR] \fBget \fItable record \fR[\fIcolumn\fR[\fB:\fIkey\fR]]..."
+Prints the value of each specified \fIcolumn\fR in the given
+\fIrecord\fR in \fItable\fR.  For map columns, a \fIkey\fR may
+optionally be specified, in which case the value associated with
+\fIkey\fR in the column is printed, instead of the entire map.
+.IP
+For a map column, without \fB\-\-if\-exists\fR it is an error if
+\fIkey\fR does not exist; with it, a blank line is printed.  If
+\fIcolumn\fR is not a map column or if \fIkey\fR is not specified,
+\fB\-\-if\-exists\fR has no effect.
+.IP
+If \fB@\fIname\fR is specified, then the UUID for \fIrecord\fR may be
+referred to by that name later in the same \fBvtep\-ctl\fR
+invocation in contexts where a UUID is expected.
+.IP
+Both \fB\-\-id\fR and the \fIcolumn\fR arguments are optional, but
+usually at least one or the other should be specified.  If both are
+omitted, then \fBget\fR has no effect except to verify that
+\fIrecord\fR exists in \fItable\fR.
+.
+.IP "\fBset \fItable record column\fR[\fB:\fIkey\fR]\fB=\fIvalue\fR..."
+Sets the value of each specified \fIcolumn\fR in the given
+\fIrecord\fR in \fItable\fR to \fIvalue\fR.  For map columns, a
+\fIkey\fR may optionally be specified, in which case the value
+associated with \fIkey\fR in that column is changed (or added, if none
+exists), instead of the entire map.
+.
+.IP "\fBadd \fItable record column \fR[\fIkey\fB=\fR]\fIvalue\fR..."
+Adds the specified value or key-value pair to \fIcolumn\fR in
+\fIrecord\fR in \fItable\fR.  If \fIcolumn\fR is a map, then \fIkey\fR
+is required, otherwise it is prohibited.  If \fIkey\fR already exists
+in a map column, then the current \fIvalue\fR is not replaced (use the
+\fBset\fR command to replace an existing value).
+.
+.IP "\fBremove \fItable record column \fR\fIvalue\fR..."
+.IQ "\fBremove \fItable record column \fR\fIkey\fR..."
+.IQ "\fBremove \fItable record column \fR\fIkey\fB=\fR\fIvalue\fR..."
+Removes the specified values or key-value pairs from \fIcolumn\fR in
+\fIrecord\fR in \fItable\fR.  The first form applies to columns that
+are not maps: each specified \fIvalue\fR is removed from the column.
+The second and third forms apply to map columns: if only a \fIkey\fR
+is specified, then any key-value pair with the given \fIkey\fR is
+removed, regardless of its value; if a \fIvalue\fR is given then a
+pair is removed only if both key and value match.
+.IP
+It is not an error if the column does not contain the specified key or
+value or pair.
+.
+.IP "\fBclear\fR \fItable record column\fR..."
+Sets each \fIcolumn\fR in \fIrecord\fR in \fItable\fR to the empty set
+or empty map, as appropriate.  This command applies only to columns
+that are allowed to be empty.
+.
+.IP "[\fB\-\-id=@\fIname\fR] \fBcreate\fR \fItable column\fR[\fB:\fIkey\fR]\fB=\fIvalue\fR..."
+Creates a new record in \fItable\fR and sets the initial values of
+each \fIcolumn\fR.  Columns not explicitly set will receive their
+default values.  Outputs the UUID of the new row.
+.IP
+If \fB@\fIname\fR is specified, then the UUID for the new row may be
+referred to by that name elsewhere in the same \fBvtep\-ctl\fR
+invocation in contexts where a UUID is expected.  Such references may
+precede or follow the \fBcreate\fR command.
+.IP
+Records in the Open vSwitch database are significant only when they
+can be reached directly or indirectly from the \fBOpen_vSwitch\fR
+table.  Except for records in the \fBQoS\fR or \fBQueue\fR tables,
+records that are not reachable from the \fBOpen_vSwitch\fR table are
+automatically deleted from the database.  This deletion happens
+immediately, without waiting for additional \fBvtep\-ctl\fR commands
+or other database activity.  Thus, a \fBcreate\fR command must
+generally be accompanied by additional commands \fIwithin the same
+\fBvtep\-ctl\fI invocation\fR to add a chain of references to the
+newly created record from the top-level \fBOpen_vSwitch\fR record.
+The \fBEXAMPLES\fR section gives some examples that show how to do
+this.
+.
+.IP "\fR[\fB\-\-if\-exists\fR] \fBdestroy \fItable record\fR..."
+Deletes each specified \fIrecord\fR from \fItable\fR.  Unless
+\fB\-\-if\-exists\fR is specified, each \fIrecord\fRs must exist.
+.IP "\fB\-\-all destroy \fItable\fR"
+Deletes all records from the \fItable\fR.
+.IP
+The \fBdestroy\fR command is only useful for records in the \fBQoS\fR
+or \fBQueue\fR tables.  Records in other tables are automatically
+deleted from the database when they become unreachable from the
+\fBOpen_vSwitch\fR table.  This means that deleting the last reference
+to a record is sufficient for deleting the record itself.  For records
+in these tables, \fBdestroy\fR is silently ignored.  See the
+\fBEXAMPLES\fR section below for more information.
+.
+.IP "\fBwait\-until \fItable record \fR[\fIcolumn\fR[\fB:\fIkey\fR]\fB=\fIvalue\fR]..."
+Waits until \fItable\fR contains a record named \fIrecord\fR whose
+\fIcolumn\fR equals \fIvalue\fR or, if \fIkey\fR is specified, whose
+\fIcolumn\fR contains a \fIkey\fR with the specified \fIvalue\fR.  Any
+of the operators \fB!=\fR, \fB<\fR, \fB>\fR, \fB<=\fR, or \fB>=\fR may
+be substituted for \fB=\fR to test for inequality, less than, greater
+than, less than or equal to, or greater than or equal to,
+respectively.  (Don't forget to escape \fB<\fR or \fB>\fR from
+interpretation by the shell.)
+.IP
+If no \fIcolumn\fR[\fB:\fIkey\fR]\fB=\fIvalue\fR arguments are given,
+this command waits only until \fIrecord\fR exists.  If more than one
+such argument is given, the command waits until all of them are
+satisfied.
+.IP
+Consider specifying \fB\-\-timeout=0\fR along with
+\fB\-\-wait\-until\fR, to prevent \fBvtep\-ctl\fR from terminating
+after waiting only at most 5 seconds.
+.IP "\fBcomment \fR[\fIarg\fR]..."
+This command has no effect on behavior, but any database log record
+created by the command will include the command and its arguments.
+.PP
+.SH "EXIT STATUS"
+.IP "0"
+Successful program execution.
+.IP "1"
+Usage, syntax, or configuration file error.
+.IP "2"
+The \fIswitch\fR argument to \fBps\-exists\fR specified the name of a
+physical switch that does not exist.
+.SH "SEE ALSO"
+.
+.BR ovsdb\-server (1),
+.BR vtep (5).

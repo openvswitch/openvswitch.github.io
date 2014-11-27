@@ -1,0 +1,242 @@
+.\" -*- nroff -*-
+.de IQ
+.  br
+.  ns
+.  IP "\\$1"
+..
+.\" -*- nroff -*-
+.TH ovsdb\-tool 1 "2.3.90" "Open vSwitch" "Open vSwitch Manual"
+.ds PN ovsdb\-tool
+.
+.SH NAME
+ovsdb\-tool \- Open vSwitch database management utility
+.
+.SH SYNOPSIS
+\fBovsdb\-tool \fR[\fIoptions\fR] \fBcreate \fR[\fIdb\fR [\fIschema\fR]]
+.br
+\fBovsdb\-tool \fR[\fIoptions\fR] \fBcompact \fR[\fIdb\fR [\fItarget\fR]]
+.br
+\fBovsdb\-tool \fR[\fIoptions\fR] \fBconvert \fR[\fIdb\fR [\fIschema
+\fR[\fItarget\fR]]]
+.br
+\fBovsdb\-tool \fR[\fIoptions\fR] \fBneeds\-conversion \fR[\fIdb\fR [\fIschema\fR]]
+.br
+\fBovsdb\-tool \fR[\fIoptions\fR] \fBdb\-version \fR[\fIdb\fR]
+.br
+\fBovsdb\-tool \fR[\fIoptions\fR] \fBschema\-version \fR[\fIschema\fR]
+.br
+\fBovsdb\-tool \fR[\fIoptions\fR] \fBdb\-cksum \fR[\fIdb\fR]
+.br
+\fBovsdb\-tool \fR[\fIoptions\fR] \fBschema\-cksum \fR[\fIschema\fR]
+.br
+\fBovsdb\-tool \fR[\fIoptions\fR] \fBquery \fR[\fIdb\fR] \fItransaction\fR
+.br
+\fBovsdb\-tool \fR[\fIoptions\fR] \fBtransact \fR[\fIdb\fR] \fItransaction\fR
+.br
+\fBovsdb\-tool \fR[\fIoptions\fR] [\fB\-m\fR | \fB\-\-more\fR]... \fBshow\-log \fR[\fIdb\fR]
+.br
+\fBovsdb\-tool help\fR
+.IP "Logging options:"
+[\fB\-v\fR[\fImodule\fR[\fB:\fIfacility\fR[\fB:\fIlevel\fR]]]]\&...
+.br
+[\fB\-\-verbose[=\fImodule\fR[\fB:\fIfacility\fR[\fB:\fIlevel\fR]]]]\&...
+.br
+[\fB\-\-log\-file\fR[\fB=\fIfile\fR]]
+.IP "Common options:"
+[\fB\-h\fR | \fB\-\-help\fR]
+[\fB\-V\fR | \fB\-\-version\fR]
+
+.
+.SH DESCRIPTION
+The \fBovsdb\-tool\fR program is a command-line tool for managing Open
+vSwitch database (OVSDB) files.  It does not interact directly with
+running Open vSwitch database servers (instead, use
+\fBovsdb\-client\fR).
+.
+.SS "Basic Commands"
+.IP "\fBcreate\fI db schema\fR"
+Reads an OVSDB schema from the file named \fIschema\fR and creates a
+new OVSDB database file named \fIdb\fR using that schema.  The new
+database is initially empty.  This command will not overwrite an
+existing \fIdb\fR.
+.IP
+\fIschema\fR must contain an OVSDB schema in JSON format.  Refer to
+the OVSDB specification for details.
+.
+.IP "\fBcompact\fI db \fR[\fItarget\fR]"
+Reads \fIdb\fR and writes a compacted version.  If \fItarget\fR is
+specified, the compacted version is written as a new file named
+\fItarget\fR, which must not already exist.  If \fItarget\fR is
+omitted, then the compacted version of the database replaces \fIdb\fR
+in-place.
+.
+.IP "\fBconvert\fI db schema \fR[\fItarget\fR]"
+Reads \fIdb\fR, translating it into to the schema specified in
+\fIschema\fR, and writes out the new interpretation.  If \fItarget\fR
+is specified, the translated version is written as a new file named
+\fItarget\fR, which must not already exist.  If \fItarget\fR is
+omitted, then the translated version of the database replaces \fIdb\fR
+in-place.
+.IP
+This command can do simple ``upgrades'' and ``downgrades'' on a
+database's schema.  The data in \fIdb\fR must be valid when
+interpreted under \fIschema\fR, with only one exception: data in
+\fIdb\fR for tables and columns that do not exist in \fIschema\fR are
+ignored.  Columns that exist in \fIschema\fR but not in \fIdb\fR are
+set to their default values.  All of \fIschema\fR's constraints apply
+in full.
+.
+.IP "\fBneeds\-conversion\fI db schema\fR"
+Reads the schema embedded in \fIdb\fR and the standalone schema in
+\fIschema\fR and compares them.  If the schemas are the same, prints
+\fBno\fR on stdout; if they differ, print \fByes\fR.
+.
+.IP "\fBdb\-version\fI db\fR"
+.IQ "\fBschema\-version\fI schema\fR"
+Prints the version number in the schema embedded within the database
+\fIdb\fR or in the standalone schema \fIschema\fR on stdout.  A schema
+version number has the form \fIx\fB.\fIy\fB.\fIz\fR.  See
+\fBovs\-vswitchd.conf.db\fR(5) for details.
+.IP
+Schema version numbers and Open vSwitch version numbers are
+independent.
+.IP
+If \fIschema\fR or \fIdb\fR was created before schema versioning was
+introduced, then it will not have a version number and this command
+will print a blank line.
+.
+.IP "\fBdb\-cksum\fI db\fR"
+.IQ "\fBschema\-cksum\fI schema\fR"
+Prints the checksum in the schema embedded within the database
+\fIdb\fR or of the standalone schema \fIschema\fR on stdout.
+.IP
+If \fIschema\fR or \fIdb\fR was created before schema checksums were
+introduced, then it will not have a checksum and this command
+will print a blank line.
+.
+.IP "\fBquery\fI db transaction\fR"
+Opens \fIdb\fR, executes \fItransaction\fR on it, and prints the
+results.  The \fItransaction\fR must be a JSON array in the format of
+the \fBparams\fR array for the JSON-RPC \fBtransact\fR method, as
+described in the OVSDB specification.
+.IP
+The \fIdb\fR is opened for read-only access, so this command may
+safely run concurrently with other database activity, including
+\fBovsdb\-server\fR and other database writers.  The \fItransaction\fR
+may specify database modifications, but these will have no effect on
+\fIdb\fR.
+.
+.IP "\fBtransact\fI db transaction\fR"
+Opens \fIdb\fR, executes \fItransaction\fR on it, prints the results,
+and commits any changes to \fIdb\fR.  The \fItransaction\fR must be a
+JSON array in the format of the \fBparams\fR array for the JSON-RPC
+\fBtransact\fR method, as described in the OVSDB specification.
+.IP
+The \fIdb\fR is opened and locked for read/write access, so this
+command will fail if the database is opened for writing by any other
+process, including \fBovsdb\-server\fR(1).  Use \fBovsdb\-client\fR(1),
+instead, to write to a database that is served by
+\fBovsdb\-server\fR(1).
+.
+.IP "\fBshow\-log\fI db\fR"
+Prints a summary of the records in \fIdb\fR's log, including the time
+and date at which each database change occurred and any associated
+comment.  This may be useful for debugging.
+.IP
+To increase the verbosity of output, add \fB\-m\fR (or \fB\-\-more\fR)
+one or more times to the command line.  With one \fB\-m\fR,
+\fBshow\-log\fR prints a summary of the records added, deleted, or
+modified by each transaction.  With two \fB\-m\fRs, \fBshow\-log\fR
+also prints the values of the columns modified by each change to a
+record.
+.
+.SH OPTIONS
+.SS "Logging Options"
+.de IQ
+.  br
+.  ns
+.  IP "\\$1"
+..
+.IP "\fB\-v\fR[\fIspec\fR]
+.IQ "\fB\-\-verbose=\fR[\fIspec\fR]
+.
+Sets logging levels.  Without any \fIspec\fR, sets the log level for
+every module and facility to \fBdbg\fR.  Otherwise, \fIspec\fR is a
+list of words separated by spaces or commas or colons, up to one from
+each category below:
+.
+.RS
+.IP \(bu
+A valid module name, as displayed by the \fBvlog/list\fR command on
+\fBovs\-appctl\fR(8), limits the log level change to the specified
+module.
+.
+.IP \(bu
+\fBsyslog\fR, \fBconsole\fR, or \fBfile\fR, to limit the log level
+change to only to the system log, to the console, or to a file,
+respectively.
+.IP
+On Windows platform, \fBsyslog\fR is accepted as a word and is only
+useful along with the \fB\-\-syslog\-target\fR option (the word has no
+effect otherwise).
+.
+.IP \(bu
+\fBoff\fR, \fBemer\fR, \fBerr\fR, \fBwarn\fR, \fBinfo\fR, or
+\fBdbg\fR, to control the log level.  Messages of the given severity
+or higher will be logged, and messages of lower severity will be
+filtered out.  \fBoff\fR filters out all messages.  See
+\fBovs\-appctl\fR(8) for a definition of each log level.
+.RE
+.
+.IP
+Case is not significant within \fIspec\fR.
+.IP
+Regardless of the log levels set for \fBfile\fR, logging to a file
+will not take place unless \fB\-\-log\-file\fR is also specified (see
+below).
+.IP
+For compatibility with older versions of OVS, \fBany\fR is accepted as
+a word but has no effect.
+.
+.IP "\fB\-v\fR"
+.IQ "\fB\-\-verbose\fR"
+Sets the maximum logging verbosity level, equivalent to
+\fB\-\-verbose=dbg\fR.
+.
+.IP "\fB\-vPATTERN:\fIfacility\fB:\fIpattern\fR"
+.IQ "\fB\-\-verbose=PATTERN:\fIfacility\fB:\fIpattern\fR"
+Sets the log pattern for \fIfacility\fR to \fIpattern\fR.  Refer to
+\fBovs\-appctl\fR(8) for a description of the valid syntax for \fIpattern\fR.
+.
+.TP
+\fB\-\-log\-file\fR[\fB=\fIfile\fR]
+Enables logging to a file.  If \fIfile\fR is specified, then it is
+used as the exact name for the log file.  The default log file name
+used if \fIfile\fR is omitted is \fB/var/log/openvswitch/\*(PN.log\fR.
+.
+.IP "\fB\-\-syslog\-target=\fIhost\fB:\fIport\fR"
+Send syslog messages to UDP \fIport\fR on \fIhost\fR, in addition to
+the system syslog.  The \fIhost\fR must be a numerical IP address, not
+a hostname.
+.SS "Other Options"
+.de IQ
+.  br
+.  ns
+.  IP "\\$1"
+..
+.IP "\fB\-h\fR"
+.IQ "\fB\-\-help\fR"
+Prints a brief help message to the console.
+.
+.IP "\fB\-V\fR"
+.IQ "\fB\-\-version\fR"
+Prints version information to the console.
+.SH "FILES"
+The default \fIdb\fR is \fB/usr/etc/openvswitch/conf.db\fR.  The
+default \fIschema\fR is \fB/usr/share/openvswitch/vswitch.ovsschema\fR.  The
+\fBhelp\fR command also displays these defaults.
+.SH "SEE ALSO"
+.
+\fBovsdb\-server\fR(1),
+\fBovsdb\-client\fR(1),
+and the OVSDB specification.
