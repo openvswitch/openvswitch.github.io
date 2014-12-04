@@ -1,0 +1,104 @@
+---
+layout: page
+status: publish
+published: true
+title: Connecting VMs Using Tunnels
+author: slowe
+date: 2014-12-04
+categories:
+- Uncategorized
+tags: []
+comments: []
+---
+
+<p>The goal of this configuration cookbook is to allows VMs on two different hosts to communicate over port-based GRE tunnels.</p>
+
+<h2>Environment</h2>
+
+<p>This configuration cookbook assumes an environment configured as described in the sections below.
+
+<h3>Two Physical Networks</h3>
+
+<ul>
+<li>Transport Network: This Ethernet network is for tunnel traffic between hosts running OVS. Depending on the tunneling protocol being used (this cookbook uses GRE), some configuration of the physical switches may be required (for example, it may be necessary to adjust the MTU). Configuration of the physical switching hardware is outside the scope of this cookbook entry.</li>
+<li>Management Network: Strictly speaking this network is not required, but it is a simple way to give the physical host an IP address for remote access since an IP address cannot be assigned directly to a physical interface that is part of an OVS bridge.</li>
+</ul>
+
+<h3>Two Physical Hosts</h3>
+
+<p>The environment assumes the use of two hosts, named Host1 and Host2. Both hosts are hypervisors running Open vSwitch. Each host has two NICs, eth0 and eth1, which are configured as follows:</p>
+
+<ul>
+<li>eth0 is connected to the Transport Network. eth0 has an IP address that is used to communicate with Host2 over the Transport Network.</li>
+<li>eth1 is connected to the Management Network. eth1 has an IP address that is used to reach the physical host for management.</li>
+</ul>
+
+<h3>Four Virtual Machines</h3>
+
+<p>Each host will run two virtual machines (VMs). VM1 and VM2 are running on Host1, while VM3 and VM4 are running on Host2.</p>
+
+<p>Each VM has a single interface that appears as a Linux device (e.g., "tap0") on the physical host. (Note: for Xen/XenServer, VM interfaces appears as Linux devices with names like "vif1.0". Other Linux systems may present these interfaces as "vnet0", "vnet1", etc.) The IP addresses assigned to the network interfaces within these VMs are all assumed to be on the same subnet.</p>
+
+<p>This diagram graphically illustrates the environment assumed by this configuration cookbook:</p>
+
+<p><a href="2host-4vm-2nic-tunnel.png"><img title="2host-4vm-2nic-tunnel" src="2host-4vm-2nic-tunnel.png" alt="" /></a></p>
+
+<h2>Configuration Steps</h2>
+
+<p>Before you begin, you'll want to ensure that you know the IP addresses assigned to eth0 on both Host1 and Host2, as they will be needed during the configuration.</p>
+
+<p>Perform the following configuration on Host1:</p>
+
+<ol>
+<li><p>Create an OVS bridge:</p>
+
+<p><code>ovs-vsctl add-br br0</code></p>
+
+<p>Note that you will <em>not</em> add eth0 to the OVS bridge.</p></li>
+
+<li><p>Start (launch) VM1 and VM2 on Host1. If the VMs are not automatically attached to OVS, add them to the OVS bridge you just created (the commands below assume <code>tap0</code> is for VM1 and <code>tap1</code> is for VM2):</p>
+
+<p><code>ovs-vsctl add-port br0 tap0<br />
+ovs-vsctl add-port br0 tap1</code></p></li>
+
+<li><p>Add a port for the GRE tunnel:</p>
+
+<p><code>ovs-vsctl add-port br0 gre0 -- set interface gre0 type=gre options:remote_ip=<em>&lt;IP address of eth0 on Host2&gt;</em></code></p></li>
+</ol>
+
+<p>Create a mirrored configuration on Host2 using the same basic steps:</p>
+
+<ol>
+<li><p>Create an OVS bridge, but do not add any physical interfaces to the bridge:</p>
+
+<p><code>ovs-vsctl add-br br0</code></p></li>
+
+<li><p>Launch VM3 and VM4 on Host2, adding them to the OVS bridge if needed (again, <code>tap0</code> is assumed to be for VM3 and <code>tap1</code> is assumed to be for VM4):</p>
+
+<p><code>ovs-vsctl add-port br0 tap0<br />
+ovs-vsctl add-port br0 tap1</code></p></li>
+
+<li></p>Create the GRE tunnel on Host2, this time using the IP address for eth0 on Host1 when specifying the <code>remote_ip</code> option:</p>
+
+<p><code>ovs-vsctl add-port br0 gre0 -- set interface gre0 type=gre options:remote_ip=<em>&lt;IP address of eth0 on Host1&gt;</em></code></p></li>
+</ol>
+
+<h2>Testing</h2>
+
+<p>Pings between any of the VMs should work, regardless of whether the VMs are running on the same host or different hosts.</p>
+
+<p>Using <code>ip route show</code> (or equivalent command), the routing table of the operating system running inside the VM should show no knowledge of the IP subnets used by the hosts, only the IP subnet(s) configured within the VM's operating system. To help illustrate this point, it may be preferable to use very different IP subnet assignments within the guest VMs than what is used on the hosts.</p>
+
+<h2>Troubleshooting</h2>
+
+<p>If connectivity between VMs on different hosts isn't working, check the following items:</p>
+
+<ul>
+<li>Make sure that Host1 and Host2 have full network connectivity over eth0 (the NIC attached to the Transport Network). This may necessitate the use of additional IP routes or IP routing rules.</li>
+<li>Make sure that <code>gre0</code> on Host1 points to eth0 on Host2, and that <code>gre0</code> on Host2 points to eth0 on Host1.</li>
+<li>Ensure that all the VMs are assigned IP addresses on the same subnet; there is no IP routing functionality in this configuration.</li>
+</ul>
+
+<h2>Questions/Corrections</h2>
+
+<p>If you have problems with this cookbook entry, please send them to the OVS <a href="http://mail.openvswitch.org/mailman/listinfo/discuss_openvswitch.org">discuss email list</a>.</p>
