@@ -51,14 +51,14 @@ There are following commands that shows internal tables:
 Tunneling related commands:
 ===========================
 Tunnel routing table:
-    These commands are only available on Linux platform.
-
     To Add route:
        ovs-appctl ovs/route/add <IP address>/<prefix length> <output-bridge-name> <gw>
     To see all routes configured:
        ovs-appctl ovs/route/show
     To del route:
        ovs-appctl ovs/route/del <IP address>/<prefix length>
+    To look up and display the route for a destination:
+       ovs-appctl ovs/route/lookup <IP address>
 
 ARP:
     To see arp cache content:

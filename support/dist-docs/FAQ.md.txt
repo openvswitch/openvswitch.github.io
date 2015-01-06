@@ -1182,8 +1182,8 @@ A: By default, Open vSwitch will use the assigned IANA port for VXLAN, which
    manually on a per-VXLAN tunnel basis. An example of this configuration is
    provided below.
 
-   ovs-vsctl add-br br0
-   ovs-vsctl add-port br0 vxlan1 -- set interface vxlan1
+       ovs-vsctl add-br br0
+       ovs-vsctl add-port br0 vxlan1 -- set interface vxlan1
        type=vxlan options:remote_ip=192.168.1.2 options:key=flow
        options:dst_port=8472
 
@@ -1257,14 +1257,16 @@ A: Before version 1.11, Open vSwitch did not support MPLS.  That is,
    packet.  Kernel datapath support is unchanged from earlier
    versions.
 
-   Open vSwitch version 2.3 can match, push, or pop up to 3 MPLS
-   labels.  Looking past MPLS labels into the encapsulated packet will
-   still be unsupported.  Both userspace and kernel datapaths will be
-   supported, but MPLS processing always happens in userspace either
-   way, so kernel datapath performance will be disappointing.
+   Open vSwitch version 2.3 can match, push, or pop a single MPLS
+   label and look past the MPLS label into the encapsulated packet.
+   Both userspace and kernel datapaths will be supported, but MPLS
+   processing always happens in userspace either way, so kernel
+   datapath performance will be disappointing.
 
-   Open vSwitch version 2.4 will have kernel support for MPLS,
-   yielding improved performance.
+   Open vSwitch version 2.4 can match, push, or pop up to 3 MPLS
+   labels and look past the MPLS label into the encapsulated packet.
+   It will have kernel support for MPLS, yielding improved
+   performance.
 
 ### Q: I'm getting "error type 45250 code 0".  What's that?
 
