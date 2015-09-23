@@ -1,7 +1,7 @@
 <html><head>
   <meta charset="UTF-8"></head>
   <link rel="stylesheet" type="text/css" href="style.css">
-  <title>INSTALL.md (Open vSwitch 2.3.90)</title>
+  <title>INSTALL.md (Open vSwitch 2.4.90)</title>
 </head><body>
 <h1>How to Install Open vSwitch on Linux, FreeBSD and NetBSD</h1>
 
@@ -15,6 +15,7 @@ on a specific platform, please see one of these files:</p>
 <li>[INSTALL.RHEL.md]</li>
 <li>[INSTALL.XenServer.md]</li>
 <li>[INSTALL.NetBSD.md]</li>
+<li>[INSTALL.Windows.md]</li>
 <li>[INSTALL.DPDK.md]</li>
 </ul>
 
@@ -32,6 +33,8 @@ you will need the following software:</p>
 <li><p>Clang.  Clang 3.4 and later provide useful static semantic
 analysis and thread-safety checks.  For Ubuntu, there are
 nightly built packages available on clang's website.</p></li>
+<li><p>MSVC 2013.  See [INSTALL.Windows] for additional Windows build
+instructions.</p></li>
 </ul>
 
 <p><p>While OVS may be compatible with other compilers, optimal
@@ -43,7 +46,7 @@ required to establish confidentiality and authenticity in the
 connections from an Open vSwitch to an OpenFlow controller.  If
 libssl is installed, then Open vSwitch will automatically build
 with support for it.</p></li>
-<li><p>Python 2.x, for x >= 4.</p></li>
+<li><p>Python 2.7.</p></li>
 </ul>
 On Linux, you may choose to compile the kernel module that comes with
 the Open vSwitch distribution or to use the kernel module built into
@@ -115,7 +118,6 @@ formats other than plain text, only if you have the following:</p>
 <li><p>"dot" from graphviz (http://www.graphviz.org/).</p></li>
 <li><p>Perl.  Version 5.10.1 is known to work.  Earlier versions should
 also work.</p></li>
-<li><p>Python 2.x, for x >= 4.</p></li>
 </ul>
 
 <p>If you are going to extensively modify Open vSwitch, please consider
@@ -150,45 +152,75 @@ devices, you must also ensure that /dev/net/tun exists.</p>
 
 <h1>Building and Installing Open vSwitch for Linux, FreeBSD or NetBSD</h1>
 
-<p>Once you have installed all the prerequisites listed above in the Base
-Prerequisites section, follow the procedure below to build.</p>
+<p>Once you have installed all the prerequisites listed above in the
+Base Prerequisites section, follow the procedures below to bootstrap,
+to configure and to build the code.</p>
 
-<ol>
-<li><p>If you pulled the sources directly from an Open vSwitch Git tree,
-run boot.sh in the top source directory:</p>
+<h2>Bootstrapping the Sources</h2>
 
-<p><code>% ./boot.sh</code></p></li>
-<li><p>Configure the package by running the configure script.  You can
+<p>This step is not needed if you have downloaded a released tarball.
+If you pulled the sources directly from an Open vSwitch Git tree or
+got a Git tree snapshot, then run boot.sh in the top source directory
+to build the "configure" script.</p>
+
+<pre><code>  `% ./boot.sh`
+</code></pre>
+
+<h2>Configuring the Sources</h2>
+
+<p>Configure the package by running the configure script.  You can
 usually invoke configure without any arguments.  For example:</p>
 
-<p><code>% ./configure</code></p>
+<pre><code>  `% ./configure`
+</code></pre>
 
 <p>By default all files are installed under /usr/local.  If you want
 to install into, e.g., /usr and /var instead of /usr/local and
 /usr/local/var, add options as shown here:</p>
 
-<p><code>% ./configure --prefix=/usr --localstatedir=/var</code></p>
+<pre><code>  `% ./configure --prefix=/usr --localstatedir=/var`
+</code></pre>
 
 <p>By default, static libraries are built and linked against. If you
 want to use shared libraries instead:</p>
 
-<p>% ./configure --enable-shared</p>
+<pre><code>  % ./configure --enable-shared
+</code></pre>
 
 <p>To use a specific C compiler for compiling Open vSwitch user
 programs, also specify it on the configure command line, like so:</p>
 
-<p><code>% ./configure CC=gcc-4.2</code></p>
+<pre><code>  `% ./configure CC=gcc-4.2`
+</code></pre>
 
 <p>To use 'clang' compiler:</p>
 
-<p><code>% ./configure CC=clang</code></p>
+<pre><code>  `% ./configure CC=clang`
+</code></pre>
+
+<p>To supply special flags to the C compiler, specify them as CFLAGS on
+the configure command line.  If you want the default CFLAGS, which
+include "-g" to build debug symbols and "-O2" to enable optimizations,
+you must include them yourself.  For example, to build with the
+default CFLAGS plus "-mssse3", you might run configure as follows:</p>
+
+<pre><code>  `% ./configure CFLAGS="-g -O2 -mssse3"`
+</code></pre>
+
+<p>Note that these CFLAGS are not applied when building the Linux
+kernel module.  Custom CFLAGS for the kernel module are supplied
+using the EXTRA_CFLAGS variable when running make.  So, for example:</p>
+
+<pre><code>  `% make EXTRA_CFLAGS="-Wno-error=date-time"
+</code></pre>
 
 <p>To build the Linux kernel module, so that you can run the
 kernel-based switch, pass the location of the kernel build
 directory on --with-linux.  For example, to build for a running
 instance of Linux:</p>
 
-<p><code>% ./configure --with-linux=/lib/modules/</code>uname -r<code>/build</code></p>
+<pre><code>  `% ./configure --with-linux=/lib/modules/`uname -r`/build`
+</code></pre>
 
 <p>If --with-linux requests building for an unsupported version of
 Linux, then "configure" will fail with an error message.  Please
@@ -200,7 +232,8 @@ specify the kernel architecture string using the KARCH variable
 when invoking the configure script.  For example, to build for MIPS
 with Linux:</p>
 
-<p><code>% ./configure --with-linux=/path/to/linux KARCH=mips</code></p>
+<pre><code>  `% ./configure --with-linux=/path/to/linux KARCH=mips`
+</code></pre>
 
 <p>If you plan to do much Open vSwitch development, you might want to
 add --enable-Werror, which adds the -Werror option to the compiler
@@ -210,7 +243,8 @@ impossible to miss warnings generated by the build.</p>
 <p>To build with gcov code coverage support, add --enable-coverage,
 e.g.:</p>
 
-<p><code>% ./configure --enable-coverage</code></p>
+<pre><code>  `% ./configure --enable-coverage`
+</code></pre>
 
 <p>The configure script accepts a number of other options and honors
 additional environment variables.  For a full list, invoke
@@ -222,8 +256,13 @@ from a single source directory, e.g. to try out both GCC and Clang
 builds, or to build kernel modules for more than one Linux version.
 Here is an example:</p>
 
-<p><code>% mkdir _gcc &amp;&amp; (cd _gcc &amp;&amp; ../configure CC=gcc)</code> <br />
-  <code>% mkdir _clang &amp;&amp; (cd _clang &amp;&amp; ../configure CC=clang)</code></p></li>
+<pre><code>  `% mkdir _gcc &amp;&amp; (cd _gcc &amp;&amp; ../configure CC=gcc)`  
+  `% mkdir _clang &amp;&amp; (cd _clang &amp;&amp; ../configure CC=clang)`
+</code></pre>
+
+<h2>Building the Sources</h2>
+
+<ol>
 <li><p>Run GNU make in the build directory, e.g.:</p>
 
 <p><code>% make</code></p>
@@ -238,8 +277,12 @@ directory, e.g.:</p>
 <p><code>% make -C _gcc</code> <br />
   <code>% make -C _clang</code></p>
 
-<p>For improved warnings if you installed "sparse" (see
-"Prerequisites"), add C=1 to the command line.</p></li>
+<p>For improved warnings if you installed "sparse" (see "Prerequisites"),
+add C=1 to the command line.</p>
+
+<p>Some versions of Clang and ccache are not completely compatible.
+If you see unusual warnings when you use both together, consider
+disabling ccache for use with Clang.</p></li>
 <li><p>Consider running the testsuite.  Refer to "Running the Testsuite"
 below, for instructions.</p></li>
 <li><p>Become root by running "su" or another program.</p></li>
@@ -287,7 +330,8 @@ they differ, then Open vSwitch was built for the wrong kernel.</p></li>
 <li><p>If you decide to report a bug or ask a question related to
 module loading, please include the output from the <code>dmesg</code> and
 <code>modinfo</code> commands mentioned above.</p></li>
-</ul>
+</ul></li>
+</ol>
 
 <p>There is an optional module parameter to openvswitch.ko called
 vlan_tso that enables TCP segmentation offload over VLANs on NICs
@@ -299,7 +343,9 @@ then passing in a value of 1 may improve performance. Modules built for
 Linux kernels 2.6.37 and later, as well as specially patched versions
 of earlier kernels, do not need this and do not have this parameter. If
 you do not understand what this means or do not know if your driver
-will work, do not set this.</p></li>
+will work, do not set this.</p>
+
+<ol>
 <li><p>Initialize the configuration database using ovsdb-tool, e.g.:</p>
 
 <p><code>% mkdir -p /usr/local/etc/openvswitch</code> <br />
@@ -423,7 +469,7 @@ is recommended that these functions be used for other software platforms too.</p
 <h1>Testsuites</h1>
 
 <p>This section describe Open vSwitch's built-in support for various test
-suites.  You must configure and build Open vSwitch (steps 1 through 3
+suites.  You must bootstrap, configure and build Open vSwitch (steps are
 in "Building and Installing Open vSwitch for Linux, FreeBSD or NetBSD"
 above) before you run the tests described here.  You do not need to
 install Open vSwitch or to build or load the kernel module to run
@@ -558,7 +604,11 @@ report, plus any other information needed to reproduce the problem.</p>
 
 <h2>Vagrant</h2>
 
-<p>Requires: Vagrant and a compatible hypervisor</p>
+<p>Requires: Vagrant (version 1.7.0 or later) and a compatible hypervisor</p>
+
+<p>You must bootstrap and configure the sources (steps are in "Building
+and Installing Open vSwitch for Linux, FreeBSD or NetBSD" above) before
+you run the steps described here.</p>
 
 <p>A Vagrantfile is provided allowing to compile and provision the source
 tree as found locally in a virtual machine using the following commands:</p>
@@ -568,11 +618,34 @@ vagrant ssh
 </code></pre>
 
 <p>This will bring up w Fedora 20 VM by default, alternatively the
-<code>Vagrantfile.in</code> can be modified to use a different distribution box as
-base. Also, the VM can be reprovisioned at any time to recompile and
-reinstall OVS:</p>
+<code>Vagrantfile</code> can be modified to use a different distribution box as
+base. Also, the VM can be reprovisioned at any time:</p>
 
 <pre><code>vagrant provision
+</code></pre>
+
+<p>OVS out-of-tree compilation environment can be set up with:</p>
+
+<pre><code>./boot.sh
+vagrant provision --provision-with configure_ovs,build_ovs
+</code></pre>
+
+<p>This will set up an out-of-tree build environment in /home/vagrant/build.
+The source code can be found in /vagrant.  Out-of-tree build is preferred
+to work around limitations of the sync file systems.</p>
+
+<p>To recompile and reinstall OVS using RPM:</p>
+
+<pre><code>./boot.sh
+vagrant provision --provision-with configure_ovs,install_rpm
+</code></pre>
+
+<p>Two provisioners are included to run system tests with the OVS kernel
+module or with a userspace datapath.  This tests are different from
+the self-tests mentioned above.  To run them:</p>
+
+<pre><code>./boot.sh
+vagrant provision --provision-with configure_ovs,test_ovs_kmod,test_ovs_system_userspace
 </code></pre>
 
 <h2>Continuous Integration with Travis-CI</h2>

@@ -1,0 +1,426 @@
+'\" p
+.\" -*- nroff -*-
+.TH "ovn-nb" 5 " DB Schema 1.0.0" "Open vSwitch 2.4.90" "Open vSwitch Manual"
+.fp 5 L CR              \\" Make fixed-width font available as \\fL.
+.de TQ
+.  br
+.  ns
+.  TP "\\$1"
+..
+.de ST
+.  PP
+.  RS -0.15in
+.  I "\\$1"
+.  RE
+..
+.SH NAME
+ovn-nb \- OVN_Northbound database schema
+.PP
+This database is the interface between OVN and the cloud management system
+(CMS), such as OpenStack, running above it\[char46]  The CMS produces almost all of
+the contents of the database\[char46]  The \fBovn\-northd\fR program
+monitors the database contents, transforms it, and stores it into the \fBOVN_Southbound\fR database\[char46]
+.PP
+We generally speak of ``the\(cq\(cq CMS, but one can imagine scenarios in
+which multiple CMSes manage different parts of an OVN deployment\[char46]
+.SS "External IDs"
+.PP
+Each of the tables in this database contains a special column, named
+\fBexternal_ids\fR\[char46]  This column has the same form and purpose each
+place it appears\[char46]
+.RS
+.TP
+\fBexternal_ids\fR: map of string-string pairs
+Key-value pairs for use by the CMS\[char46]  The CMS might use certain pairs, for
+example, to identify entities in its own configuration that correspond to
+those in this database\[char46]
+.RE
+.SH "TABLE SUMMARY"
+.PP
+The following list summarizes the purpose of each of the tables in the
+\fBOVN_Northbound\fR database.  Each table is described in more detail on a later
+page.
+.IP "Table" 1in
+Purpose
+.TQ 1in
+\fBLogical_Switch\fR
+L2 logical switch
+.TQ 1in
+\fBLogical_Port\fR
+L2 logical switch port
+.TQ 1in
+\fBACL\fR
+Access Control List (ACL) rule
+.TQ 1in
+\fBLogical_Router\fR
+L3 logical router
+.TQ 1in
+\fBLogical_Router_Port\fR
+L3 logical router port
+.\" check if in troff mode (TTY)
+.if t \{
+.bp
+.SH "TABLE RELATIONSHIPS"
+.PP
+The following diagram shows the relationship among tables in the
+database.  Each node represents a table.  Tables that are part of the
+``root set'' are shown with double borders.  Each edge leads from the
+table that contains it and points to the table that its value
+represents.  Edges are labeled with their column names, followed by a
+constraint on the number of allowed values: \fB?\fR for zero or one,
+\fB*\fR for zero or more, \fB+\fR for one or more.  Thick lines
+represent strong references; thin lines represent weak references.
+.RS -1in
+.ps -3
+.PS
+linethick = 1;
+linethick = 1;
+box at 4.4583,1.3889 wid 1.3889 height 0.5 "Logical_Port"
+linethick = 1;
+box at 4.4583,0.44444 wid 2.1389 height 0.5 "Logical_Router_Port"
+linethick = 0.5;
+box at 0.83333,0.25 wid 1.6389 height 0.5 "Logical_Router"
+box at 0.83333,0.25 wid 1.58334444444444 height 0.444444444444444
+linethick = 0.5;
+box at 0.83333,1.3889 wid 1.6528 height 0.5 "Logical_Switch"
+box at 0.83333,1.3889 wid 1.59724444444444 height 0.444444444444444
+linethick = 1;
+box at 4.4583,2.1389 wid 0.75 height 0.5 "ACL"
+linethick = 0.5;
+spline -> from 1.656,0.22907 to 1.656,0.22907 to 2.0964,0.22439 to 2.6478,0.22896 to 3.1389,0.26389 to 3.2196,0.26963 to 3.3029,0.27718 to 3.3866,0.28593
+"ports*" at 2.5278,0.38889
+linethick = 1;
+spline -> from 1.6604,1.3889 to 1.6604,1.3889 to 2.2957,1.3889 to 3.1629,1.3889 to 3.7627,1.3889
+"ports*" at 2.5278,1.5139
+linethick = 1;
+spline -> from 1.6607,1.1529 to 1.6607,1.1529 to 1.7471,1.1291 to 1.8336,1.1055 to 1.9167,1.0833 to 2.4134,0.95087 to 2.9669,0.81086 to 3.4302,0.69579
+"router_port?" at 2.5278,1.2083
+linethick = 1;
+spline -> from 1.6651,1.6327 to 1.6651,1.6327 to 1.7498,1.6548 to 1.8347,1.6758 to 1.9167,1.6944 to 2.6788,1.8681 to 3.5829,2.0115 to 4.0813,2.0852
+"acls*" at 2.5278,2.0417
+.ps +3
+.PE
+.RE\}
+.bp
+.SH "Logical_Switch TABLE"
+Each row represents one L2 logical switch\[char46]
+.SS "Summary:
+.TQ 3.00in
+\fBname\fR
+string
+.TQ 3.00in
+\fBports\fR
+set of \fBLogical_Port\fRs
+.TQ 3.00in
+\fBrouter_port\fR
+optional \fBLogical_Router_Port\fR
+.TQ 3.00in
+\fBacls\fR
+set of \fBACL\fRs
+.TQ .25in
+\fICommon Columns:\fR
+.RS .25in
+.TQ 2.75in
+\fBexternal_ids\fR
+map of string-string pairs
+.RE
+.SS "Details:
+.IP "\fBname\fR: string"
+A name for the logical switch\[char46]  This name has no special meaning or purpose
+other than to provide convenience for human interaction with the ovn-nb
+database\[char46]  There is no requirement for the name to be unique\[char46]  The
+logical switch\(cqs UUID should be used as the unique identifier\[char46]
+.IP "\fBports\fR: set of \fBLogical_Port\fRs"
+The logical ports connected to the logical switch\[char46]
+.IP
+It is an error for multiple logical switches to include the same
+logical port\[char46]
+.IP "\fBrouter_port\fR: optional \fBLogical_Router_Port\fR"
+The router port to which this logical switch is connected, or empty if
+this logical switch is not connected to any router\[char46]  A switch may be
+connected to at most one logical router, but this is not a significant
+restriction because logical routers may be connected into arbitrary
+topologies\[char46]
+.IP
+It is an error for multiple logical switches to refer to the same
+router port\[char46]
+.IP "\fBacls\fR: set of \fBACL\fRs"
+Access control rules that apply to packets within the logical switch\[char46]
+.ST "Common Columns:"
+.IP "\fBexternal_ids\fR: map of string-string pairs"
+See \fBExternal IDs\fR at the beginning of this document\[char46]
+.bp
+.SH "Logical_Port TABLE"
+A port within an L2 logical switch\[char46]
+.SS "Summary:
+.TQ 3.00in
+\fBname\fR
+string (must be unique within table)
+.TQ 3.00in
+\fBtype\fR
+string
+.TQ 3.00in
+\fBoptions\fR
+map of string-string pairs
+.TQ 3.00in
+\fBparent_name\fR
+optional string
+.TQ 3.00in
+\fBtag\fR
+optional integer, in range 0 to 4,095
+.TQ 3.00in
+\fBup\fR
+optional boolean
+.TQ 3.00in
+\fBenabled\fR
+optional boolean
+.TQ 3.00in
+\fBmacs\fR
+set of strings
+.TQ 3.00in
+\fBport_security\fR
+set of strings
+.TQ .25in
+\fICommon Columns:\fR
+.RS .25in
+.TQ 2.75in
+\fBexternal_ids\fR
+map of string-string pairs
+.RE
+.SS "Details:
+.IP "\fBname\fR: string (must be unique within table)"
+The logical port name\[char46]
+.IP
+For entities (VMs or containers) that are spawned in the hypervisor,
+the name used here must match those used in the \fBexternal_ids:iface-id\fR in the
+\fBOpen_vSwitch\fR database\(cqs \fBInterface\fR table, because hypervisors use \fBexternal_ids:iface-id\fR as a lookup
+key to identify the network interface of that entity\[char46]
+.IP
+For containers that are spawned inside a VM, the name can be
+any unique identifier\[char46]  In such a case, \fBparent_name\fR
+must be populated\[char46]
+.IP "\fBtype\fR: string"
+Specify a type for this logical port\[char46]  Logical ports can be used to model
+other types of connectivity into an OVN logical switch\[char46]  Leaving this column
+blank maintains the default logical port behavior\[char46]
+.IP
+There are no other logical port types implemented yet\[char46]
+.IP "\fBoptions\fR: map of string-string pairs"
+This column provides key/value settings specific to the logical port
+\fBtype\fR\[char46]
+.IP "\fBparent_name\fR: optional string"
+When \fBname\fR identifies the interface of a container
+spawned inside a tenant VM, this column represents the VM interface
+through which the container interface sends its network traffic\[char46]
+The name used here must match those used in the \fBexternal_ids:iface-id\fR in the
+\fBOpen_vSwitch\fR table, because hypervisors in this case use
+\fBexternal_ids:iface-id\fR as a lookup key to identify the network interface
+of the tenant VM\[char46]
+.IP "\fBtag\fR: optional integer, in range 0 to 4,095"
+When \fBname\fR identifies the interface of a container
+spawned inside a tenant VM, this column identifies the VLAN tag in
+the network traffic associated with that container\(cqs network interface\[char46]
+When there are multiple container interfaces inside a VM, all of
+them send their network traffic through a single VM network interface and
+this value helps OVN identify the correct container interface\[char46]
+.IP "\fBup\fR: optional boolean"
+This column is populated by \fBovn\-northd\fR, rather than by
+the CMS plugin as is most of this database\[char46]  When a logical port is bound
+to a physical location in the OVN Southbound database \fBBinding\fR table, \fBovn\-northd\fR
+sets this column to \fBtrue\fR; otherwise, or if the port
+becomes unbound later, it sets it to \fBfalse\fR\[char46]  This
+allows the CMS to wait for a VM\(cqs (or container\(cqs) networking to
+become active before it allows the VM (or container) to start\[char46]
+.IP "\fBenabled\fR: optional boolean"
+This column is used to administratively set port state\[char46]  If this column is
+empty or is set to \fBtrue\fR, the port is enabled\[char46]  If this column
+is set to \fBfalse\fR, the port is disabled\[char46]  A disabled port has all
+ingress and egress traffic dropped\[char46]
+.IP "\fBmacs\fR: set of strings"
+The logical port\(cqs own Ethernet address or addresses, each in the form
+\fIxx\fR:\fIxx\fR:\fIxx\fR:\fIxx\fR:\fIxx\fR:\fIxx\fR\[char46]
+Like a physical Ethernet NIC, a logical port ordinarily has a single
+fixed Ethernet address\[char46]  The string \fBunknown\fR is also allowed
+to indicate that the logical port has an unknown set of (additional)
+source addresses\[char46]
+.IP "\fBport_security\fR: set of strings"
+A set of L2 (Ethernet) addresses
+from which the logical port is allowed to send packets and to which it
+is allowed to receive packets\[char46]  If this column is empty, all addresses
+are permitted\[char46]  Logical ports are always allowed to receive packets
+addressed to multicast and broadcast addresses\[char46]
+.IP
+Each member of the set is an Ethernet address in the form
+\fIxx\fR:\fIxx\fR:\fIxx\fR:\fIxx\fR:\fIxx\fR:\fIxx\fR\[char46]
+.IP
+This specification will be extended to support L3 port security\[char46]
+.ST "Common Columns:"
+.IP "\fBexternal_ids\fR: map of string-string pairs"
+See \fBExternal IDs\fR at the beginning of this document\[char46]
+.bp
+.SH "ACL TABLE"
+Each row in this table represents one ACL rule for a logical switch
+that points to it through its \fBacls\fR column\[char46]  The \fBaction\fR column for the highest-\fBpriority\fR
+matching row in this table determines a packet\(cqs treatment\[char46]  If no row
+matches, packets are allowed by default\[char46]  (Default-deny treatment is
+possible: add a rule with \fBpriority\fR 1, \fB1\fR as
+\fBmatch\fR, and \fBdeny\fR as \fBaction\fR\[char46])
+.SS "Summary:
+.TQ 3.00in
+\fBpriority\fR
+integer, in range 1 to 65,534
+.TQ 3.00in
+\fBdirection\fR
+string, either \fBto\-lport\fR or \fBfrom\-lport\fR
+.TQ 3.00in
+\fBmatch\fR
+string
+.TQ 3.00in
+\fBaction\fR
+string, one of \fBallow\-related\fR, \fBdrop\fR, \fBallow\fR, or \fBreject\fR
+.TQ 3.00in
+\fBlog\fR
+boolean
+.TQ .25in
+\fICommon Columns:\fR
+.RS .25in
+.TQ 2.75in
+\fBexternal_ids\fR
+map of string-string pairs
+.RE
+.SS "Details:
+.IP "\fBpriority\fR: integer, in range 1 to 65,534"
+The ACL rule\(cqs priority\[char46]  Rules with numerically higher priority
+take precedence over those with lower\[char46]  If two ACL rules with
+the same priority both match, then the one actually applied to a
+packet is undefined\[char46]
+.IP
+Return traffic from an \fBallow\-related\fR flow is always
+allowed and cannot be changed through an ACL\[char46]
+.IP "\fBdirection\fR: string, either \fBto\-lport\fR or \fBfrom\-lport\fR"
+Direction of the traffic to which this rule should apply:
+.RS
+.IP \(bu
+\fBfrom\-lport\fR: Used to implement filters on traffic
+arriving from a logical port\[char46]  These rules are applied to the
+logical switch\(cqs ingress pipeline\[char46]
+.IP \(bu
+\fBto\-lport\fR: Used to implement filters on traffic
+forwarded to a logical port\[char46]  These rules are applied to the
+logical switch\(cqs egress pipeline\[char46]
+.RE
+.IP "\fBmatch\fR: string"
+The packets that the ACL should match, in the same expression
+language used for the \fBmatch\fR column in the OVN Southbound database\(cqs
+\fBLogical_Flow\fR table\[char46]  The
+\fBoutport\fR logical port is only available in the
+\fBto\-lport\fR direction\[char46]
+.IP
+By default all traffic is allowed\[char46]  When writing a more
+restrictive policy, it is important to remember to allow flows
+such as ARP and IPv6 neighbor discovery packets\[char46]
+.IP
+In logical switches connected to logical routers, the special
+port name \fBROUTER\fR refers to the logical router port\[char46]
+.IP "\fBaction\fR: string, one of \fBallow\-related\fR, \fBdrop\fR, \fBallow\fR, or \fBreject\fR"
+The action to take when the ACL rule matches:
+.RS
+.IP \(bu
+\fBallow\fR: Forward the packet\[char46]
+.IP \(bu
+\fBallow\-related\fR: Forward the packet and related traffic
+(e\[char46]g\[char46] inbound replies to an outbound connection)\[char46]
+.IP \(bu
+\fBdrop\fR: Silently drop the packet\[char46]
+.IP \(bu
+\fBreject\fR: Drop the packet, replying with a RST for TCP or
+ICMP unreachable message for other IP-based protocols\[char46]
+\fBNot implemented\-\-currently treated as drop\fR
+.RE
+.IP "\fBlog\fR: boolean"
+If set to \fBtrue\fR, packets that match the ACL will trigger a
+log message on the transport node or nodes that perform ACL processing\[char46]
+Logging may be combined with any \fBaction\fR\[char46]
+.IP
+Logging is not yet implemented\[char46]
+.ST "Common Columns:"
+.IP "\fBexternal_ids\fR: map of string-string pairs"
+See \fBExternal IDs\fR at the beginning of this document\[char46]
+.bp
+.SH "Logical_Router TABLE"
+Each row represents one L3 logical router\[char46]
+.SS "Summary:
+.TQ 3.00in
+\fBname\fR
+string
+.TQ 3.00in
+\fBports\fR
+set of weak reference to \fBLogical_Router_Port\fRs
+.TQ 3.00in
+\fBdefault_gw\fR
+optional string
+.TQ .25in
+\fICommon Columns:\fR
+.RS .25in
+.TQ 2.75in
+\fBexternal_ids\fR
+map of string-string pairs
+.RE
+.SS "Details:
+.IP "\fBname\fR: string"
+A name for the logical router\[char46]  This name has no special meaning or purpose
+other than to provide convenience for human interaction with the ovn-nb
+database\[char46]  There is no requirement for the name to be unique\[char46]  The
+logical router\(cqs UUID should be used as the unique identifier\[char46]
+.IP "\fBports\fR: set of weak reference to \fBLogical_Router_Port\fRs"
+The router\(cqs ports\[char46]  This is a set of weak references, so a \fBLogical_Switch\fR must also refer to any given \fBLogical_Router_Port\fR or it will automatically be deleted\[char46]
+.IP "\fBdefault_gw\fR: optional string"
+IP address to use as default gateway, if any\[char46]
+.ST "Common Columns:"
+.IP "\fBexternal_ids\fR: map of string-string pairs"
+See \fBExternal IDs\fR at the beginning of this document\[char46]
+.bp
+.SH "Logical_Router_Port TABLE"
+A port within an L3 logical router\[char46]
+.PP
+A router port is always attached to a logical switch and to a logical
+router\[char46]  The former attachment, which is enforced by the database schema,
+can be identified by finding the \fBLogical_Switch\fR row whose
+\fBrouter_port\fR column points to the
+router port\[char46]  The latter attachment, which the database schema does not
+enforce, can be identified by finding the \fBLogical_Router\fR
+row whose \fBports\fR column includes
+the router port\[char46]
+.SS "Summary:
+.TQ 3.00in
+\fBname\fR
+string
+.TQ 3.00in
+\fBnetwork\fR
+string
+.TQ 3.00in
+\fBmac\fR
+string
+.TQ .25in
+\fICommon Columns:\fR
+.RS .25in
+.TQ 2.75in
+\fBexternal_ids\fR
+map of string-string pairs
+.RE
+.SS "Details:
+.IP "\fBname\fR: string"
+A name for the logical router port\[char46]  This name has no special meaning or purpose
+other than to provide convenience for human interaction with the ovn-nb
+database\[char46]  There is no requirement for the name to be unique\[char46]  The
+logical router port\(cqs UUID should be used as the unique identifier\[char46]
+.IP "\fBnetwork\fR: string"
+The IP address of the router and the netmask\[char46]  For example,
+\fB192\[char46]168\[char46]0\[char46]1/24\fR indicates that the router\(cqs IP address is
+192\[char46]168\[char46]0\[char46]1 and that packets destined to 192\[char46]168\[char46]0\[char46]\fIx\fR should be
+routed to this port\[char46]
+.IP "\fBmac\fR: string"
+The Ethernet address that belongs to this router port\[char46]
+.ST "Common Columns:"
+.IP "\fBexternal_ids\fR: map of string-string pairs"
+See \fBExternal IDs\fR at the beginning of this document\[char46]

@@ -13,21 +13,21 @@ DESCRIPTION
        on the local machine.
 
        The  database  argument  specifies   how   ovs-vswitchd   connects   to
-       ovsdb-server.   The  default is unix:/var/run/openvswitch/db.sock.  The
+       ovsdb-server.   The default is unix://var/run/openvswitch/db.sock.  The
        following forms are accepted:
 
        ssl:ip:port
               The specified SSL port on the host at the given ip,  which  must
               be  expressed  as an IP address (not a DNS name) in IPv4 or IPv6
               address format.  If ip is an IPv6 address,  then  wrap  ip  with
-              square   brackets,  e.g.:  ssl:[::1]:6632.   The  --private-key,
+              square   brackets,  e.g.:  ssl:[::1]:6640.   The  --private-key,
               --certificate, and --ca-cert options  are  mandatory  when  this
               form is used.
 
        tcp:ip:port
               Connect  to  the  given  TCP port on ip, where ip can be IPv4 or
               IPv6 address. If ip is an IPv6 address, then wrap ip with square
-              brackets, e.g.: tcp:[::1]:6632.
+              brackets, e.g.: tcp:[::1]:6640.
 
        unix:file
               On POSIX, connect to the Unix domain server socket named file.
@@ -41,7 +41,7 @@ DESCRIPTION
               listens only on IPv4 (but not IPv6) addresses, but specifying ip
               limits  connections  to  those from the given ip, either IPv4 or
               IPv6 address.  If ip is an  IPv6  address,  then  wrap  ip  with
-              square  brackets,  e.g.:  pssl:6632:[::1].   The  --private-key,
+              square  brackets,  e.g.:  pssl:6640:[::1].   The  --private-key,
               --certificate, and --ca-cert options  are  mandatory  when  this
               form is used.
 
@@ -51,7 +51,7 @@ DESCRIPTION
               listens  only  on  IPv4  (but not IPv6) addresses, but ip may be
               specified to listen only for connections to the given ip, either
               IPv4  or  IPv6  address.  If ip is an IPv6 address, then wrap ip
-              with square brackets, e.g.: ptcp:6632:[::1].
+              with square brackets, e.g.: ptcp:6640:[::1].
 
        punix:file
               On POSIX, listen on the Unix domain server socket named file for
@@ -121,7 +121,7 @@ OPTIONS
               Causes a file (by default, ovs-vswitchd.pid) to be created indi‐
               cating the PID of the running process.  If the pidfile  argument
               is  not  specified,  or  if it does not begin with /, then it is
-              created in /var/run/openvswitch.
+              created in //var/run/openvswitch.
 
               If --pidfile is not specified, no pidfile is created.
 
@@ -142,7 +142,7 @@ OPTIONS
        --monitor
               Creates an additional process to monitor the  ovs-vswitchd  dae‐
               mon.   If  the daemon dies due to a signal that indicates a pro‐
-              gramming error (SIGABRT, SIGALRM, SIGBUS, SIGFPE,  SIGILL,  SIG�‐
+              gramming error (SIGABRT, SIGALRM, SIGBUS, SIGFPE,  SIGILL,  SIG‐
               PIPE,  SIGSEGV,  SIGXCPU,  or  SIGXFSZ) then the monitor process
               starts a new copy of it.   If  the  daemon  dies  or  exits  for
               another reason, the monitor process exits.
@@ -231,8 +231,8 @@ OPTIONS
        -v[spec]
        --verbose=[spec]
               Sets  logging  levels.  Without any spec, sets the log level for
-              every module and facility to dbg.  Otherwise, spec is a list  of
-              words  separated  by  spaces or commas or colons, up to one from
+              every module and destination to dbg.  Otherwise, spec is a  list
+              of words separated by spaces or commas or colons, up to one from
               each category below:
 
               ·      A valid module name, as displayed by the  vlog/list  com‐
@@ -264,18 +264,28 @@ OPTIONS
 
        -v
        --verbose
-              Sets  the  maximum logging verbosity level, equivalent to --ver�‐
+              Sets  the  maximum logging verbosity level, equivalent to --ver‐
               bose=dbg.
 
-       -vPATTERN:facility:pattern
-       --verbose=PATTERN:facility:pattern
-              Sets  the  log  pattern  for  facility  to  pattern.   Refer  to
+       -vPATTERN:destination:pattern
+       --verbose=PATTERN:destination:pattern
+              Sets the log pattern  for  destination  to  pattern.   Refer  to
               ovs-appctl(8) for a description of the valid syntax for pattern.
+
+       -vFACILITY:facility
+       --verbose=FACILITY:facility
+              Sets  the  RFC5424  facility of the log message. facility can be
+              one of kern, user, mail, daemon, auth, syslog, lpr, news,  uucp,
+              clock,  ftp,  ntp, audit, alert, clock2, local0, local1, local2,
+              local3, local4, local5, local6 or local7. If this option is  not
+              specified,  daemon  is  used as the default for the local system
+              syslog and local0 is used while sending a message to the  target
+              provided via the --syslog-target option.
 
        --log-file[=file]
               Enables  logging  to  a  file.  If file is specified, then it is
               used as the exact name for the log file.  The default  log  file
-              name    used    if    file    is   omitted   is   /var/log/open�‐
+              name    used    if    file   is   omitted   is   //var/log/open‐
               vswitch/ovs-vswitchd.log.
 
        --syslog-target=host:port
@@ -283,20 +293,48 @@ OPTIONS
               system  syslog.   The host must be a numerical IP address, not a
               hostname.
 
+       --syslog-method=method
+              Specify method how syslog messages should be sent to syslog dae‐
+              mon.  Following forms are supported:
+
+              ·      libc,  use  libc  syslog() function.  This is the default
+                     behavior.  Downside of using this options  is  that  libc
+                     adds  fixed prefix to every message before it is actually
+                     sent to the  syslog  daemon  over  /dev/log  UNIX  domain
+                     socket.
+
+              ·      unix:file, use UNIX domain socket directly.  It is possi‐
+                     ble to specify arbitrary message format with this option.
+                     However,  rsyslogd  8.9 and older versions use hard coded
+                     parser function anyway that  limits  UNIX  domain  socket
+                     use.   If  you  want to use arbitrary message format with
+                     older rsyslogd versions, then use UDP socket to localhost
+                     IP address instead.
+
+              ·      udp:ip:port, use UDP socket.  With this method it is pos‐
+                     sible to use arbitrary message  format  also  with  older
+                     rsyslogd.   When  sending syslog messages over UDP socket
+                     extra precaution needs to  be  taken  into  account,  for
+                     example,  syslog  daemon needs to be configured to listen
+                     on the specified  UDP  port,  accidental  iptables  rules
+                     could  be interfering with local syslog traffic and there
+                     are some security considerations that apply to UDP  sock‐
+                     ets, but do not apply to UNIX domain sockets.
+
    Other Options
        --unixctl=socket
-              Sets the name of the control socket on which  ovs-vswitchd  lis‐
-              tens  for  runtime  management  commands (see RUNTIME MANAGEMENT
+              Sets  the  name of the control socket on which ovs-vswitchd lis‐
+              tens for runtime management  commands  (see  RUNTIME  MANAGEMENT
               COMMANDS, below).  If socket does not begin with /, it is inter‐
-              preted as relative to /var/run/openvswitch.  If --unixctl is not
-              used   at   all,   the   default   socket   is    /var/run/open�‐
-              vswitch/ovs-vswitchd.pid.ctl,   where   pid   is  ovs-vswitchd's
+              preted as relative to //var/run/openvswitch.   If  --unixctl  is
+              not   used   at  all,  the  default  socket  is  //var/run/open‐
+              vswitch/ovs-vswitchd.pid.ctl,  where   pid   is   ovs-vswitchd's
               process ID.
 
-              On Windows, uses a kernel chosen TCP port on  the  localhost  to
-              listen  for  runtime management commands.  The kernel chosen TCP
-              port value is written in a file whose absolute path  is  pointed
-              by  socket. If --unixctl is not used at all, the file is created
+              On  Windows,  uses  a kernel chosen TCP port on the localhost to
+              listen for runtime management commands.  The kernel  chosen  TCP
+              port  value  is written in a file whose absolute path is pointed
+              by socket. If --unixctl is not used at all, the file is  created
               as ovs-vswitchd.ctl in the configured OVS_RUNDIR directory.
 
               Specifying none for socket disables the control socket feature.
@@ -321,32 +359,32 @@ RUNTIME MANAGEMENT COMMANDS
               tistics associated with the given interface.
 
        bfd/show [interface]
-              Displays  detailed  information  about  Bidirectional Forwarding
-              Detection configured on interface.  If interface is  not  speci‐
-              fied,  then  displays  detailed information about all interfaces
+              Displays detailed  information  about  Bidirectional  Forwarding
+              Detection  configured  on interface.  If interface is not speci‐
+              fied, then displays detailed information  about  all  interfaces
               with BFD enabled.
 
        bfd/set-forwarding [interface] status
-              Force the fault status of the BFD module on  interface  (or  all
-              interfaces  if  none  is  given)  to  be  status.  status can be
-              "true", "false", or  "normal"  which  reverts  to  the  standard
+              Force  the  fault  status of the BFD module on interface (or all
+              interfaces if none is  given)  to  be  status.   status  can  be
+              "true",  "false",  or  "normal"  which  reverts  to the standard
               behavior.
 
        cfm/show [interface]
-              Displays  detailed  information about Connectivity Fault Manage‐
-              ment configured on interface.  If interface  is  not  specified,
+              Displays detailed information about Connectivity  Fault  Manage‐
+              ment  configured  on  interface.  If interface is not specified,
               then displays detailed information about all interfaces with CFM
               enabled.
 
        cfm/set-fault [interface] status
-              Force the fault status of the CFM module on  interface  (or  all
-              interfaces  if  none  is  given)  to  be  status.  status can be
-              "true", "false", or  "normal"  which  reverts  to  the  standard
+              Force  the  fault  status of the CFM module on interface (or all
+              interfaces if none is  given)  to  be  status.   status  can  be
+              "true",  "false",  or  "normal"  which  reverts  to the standard
               behavior.
 
        stp/tcn [bridge]
-              Forces  a  topology  change event on bridge if it's running STP.
-              This may cause it to send Topology Change Notifications  to  its
+              Forces a topology change event on bridge if  it's  running  STP.
+              This  may  cause it to send Topology Change Notifications to its
               peers and flush its MAC table..  If no bridge is given, forces a
               topology change event on all bridges.
 
@@ -354,44 +392,44 @@ RUNTIME MANAGEMENT COMMANDS
        These commands manage bridges.
 
        fdb/flush [bridge]
-              Flushes bridge MAC  address  learning  table,  or  all  learning
+              Flushes  bridge  MAC  address  learning  table,  or all learning
               tables if no bridge is given.
 
        fdb/show bridge
-              Lists  each  MAC  address/VLAN  pair  learned  by  the specified
-              bridge, along with the port on which it was learned and the  age
+              Lists each  MAC  address/VLAN  pair  learned  by  the  specified
+              bridge,  along with the port on which it was learned and the age
               of the entry, in seconds.
 
        mdb/flush [bridge]
-              Flushes  bridge multicast snooping table, or all snooping tables
+              Flushes bridge multicast snooping table, or all snooping  tables
               if no bridge is given.
 
        mdb/show bridge
-              Lists each multicast group/VLAN pair learned  by  the  specified
-              bridge,  along with the port on which it was learned and the age
+              Lists  each  multicast  group/VLAN pair learned by the specified
+              bridge, along with the port on which it was learned and the  age
               of the entry, in seconds.
 
        bridge/reconnect [bridge]
               Makes bridge drop all of its OpenFlow controller connections and
-              reconnect.   If  bridge  is not specified, then all bridges drop
+              reconnect.  If bridge is not specified, then  all  bridges  drop
               their controller connections and reconnect.
 
-              This command might be useful for debugging  OpenFlow  controller
+              This  command  might be useful for debugging OpenFlow controller
               issues.
 
        bridge/dump-flows bridge
-              Lists  all  flows  in bridge, including those normally hidden to
-              commands such as ovs-ofctl dump-flows.  Flows set up  by  mecha‐
-              nisms  such as in-band control and fail-open are hidden from the
+              Lists all flows in bridge, including those  normally  hidden  to
+              commands  such  as ovs-ofctl dump-flows.  Flows set up by mecha‐
+              nisms such as in-band control and fail-open are hidden from  the
               controller since it is not allowed to modify or override them.
 
    BOND COMMANDS
-       These commands manage bonded ports on an Open  vSwitch's  bridges.   To
-       understand  some  of  these  commands,  it is important to understand a
-       detail of the bonding implementation called ``source  load  balancing''
-       (SLB).   Instead  of  directly  assigning  Ethernet source addresses to
-       slaves, the bonding implementation computes a  function  that  maps  an
-       48-bit  Ethernet  source  addresses into an 8-bit value (a ``MAC hash''
+       These  commands  manage  bonded ports on an Open vSwitch's bridges.  To
+       understand some of these commands, it  is  important  to  understand  a
+       detail  of  the bonding implementation called ``source load balancing''
+       (SLB).  Instead of directly  assigning  Ethernet  source  addresses  to
+       slaves,  the  bonding  implementation  computes a function that maps an
+       48-bit Ethernet source addresses into an 8-bit value  (a  ``MAC  hash''
        value).  All of the Ethernet addresses that map to a single 8-bit value
        are then assigned to a single slave.
 
@@ -399,23 +437,23 @@ RUNTIME MANAGEMENT COMMANDS
               Lists all of the bonds, and their slaves, on each bridge.
 
        bond/show [port]
-              Lists  all of the bond-specific information (updelay, downdelay,
-              time until the next rebalance) about the given bonded  port,  or
-              all  bonded  ports  if no port is given.  Also lists information
+              Lists all of the bond-specific information (updelay,  downdelay,
+              time  until  the next rebalance) about the given bonded port, or
+              all bonded ports if no port is given.   Also  lists  information
               about each slave: whether it is enabled or disabled, the time to
-              completion  of  an  updelay  or downdelay if one is in progress,
-              whether it is the active  slave,  the  hashes  assigned  to  the
-              slave.   Any  LACP information related to this bond may be found
+              completion of an updelay or downdelay if  one  is  in  progress,
+              whether  it  is  the  active  slave,  the hashes assigned to the
+              slave.  Any LACP information related to this bond may  be  found
               using the lacp/show command.
 
        bond/migrate port hash slave
-              Only valid for SLB bonds.  Assigns a given MAC  hash  to  a  new
-              slave.   port  specifies  the bond port, hash the MAC hash to be
-              migrated (as a decimal number between 0 and 255), and slave  the
+              Only  valid  for  SLB  bonds.  Assigns a given MAC hash to a new
+              slave.  port specifies the bond port, hash the MAC  hash  to  be
+              migrated  (as a decimal number between 0 and 255), and slave the
               new slave to be assigned.
 
               The reassignment is not permanent: rebalancing or fail-over will
-              cause the MAC hash to be shifted to a new  slave  in  the  usual
+              cause  the  MAC  hash  to be shifted to a new slave in the usual
               manner.
 
               A MAC hash cannot be migrated to a disabled slave.
@@ -424,7 +462,7 @@ RUNTIME MANAGEMENT COMMANDS
               Sets slave as the active slave on port.  slave must currently be
               enabled.
 
-              The setting is  not  permanent:  a  new  active  slave  will  be
+              The  setting  is  not  permanent:  a  new  active  slave will be
               selected if slave becomes disabled.
 
        bond/enable-slave port slave
@@ -432,7 +470,7 @@ RUNTIME MANAGEMENT COMMANDS
               Enables (or disables) slave on the given bond port, skipping any
               updelay (or downdelay).
 
-              This setting is not permanent: it persists only until  the  car‐
+              This  setting  is not permanent: it persists only until the car‐
               rier status of slave changes.
 
        bond/hash mac [vlan] [basis]
@@ -440,66 +478,66 @@ RUNTIME MANAGEMENT COMMANDS
               basis if specified.
 
        lacp/show [port]
-              Lists all of the LACP related information about the given  port:
+              Lists  all of the LACP related information about the given port:
               active or passive, aggregation key, system id, and system prior‐
-              ity.  Also lists information about each  slave:  whether  it  is
+              ity.   Also  lists  information  about each slave: whether it is
               enabled or disabled, whether it is attached or detached, port id
-              and priority, actor information, and  partner  information.   If
-              port  is not specified, then displays detailed information about
+              and  priority,  actor  information, and partner information.  If
+              port is not specified, then displays detailed information  about
               all interfaces with CFM enabled.
 
    DPCTL DATAPATH DEBUGGING COMMANDS
-       The primary way to configure ovs-vswitchd is through the  Open  vSwitch
-       database,  e.g. using ovs-vsctl(8).  These commands provide a debugging
-       interface for managing datapaths.  They  implement  the  same  features
+       The  primary  way to configure ovs-vswitchd is through the Open vSwitch
+       database, e.g. using ovs-vsctl(8).  These commands provide a  debugging
+       interface  for  managing  datapaths.   They implement the same features
        (and syntax) as ovs-dpctl(8).  Unlike ovs-dpctl(8), these commands work
-       with datapaths that are integrated into ovs-vswitchd (e.g.  the  netdev
+       with  datapaths  that are integrated into ovs-vswitchd (e.g. the netdev
        datapath type).
 
        dpctl/add-dp dp [netdev[,option]...]
               Creates datapath dp, with a local port also named dp.  This will
               fail if a network device dp already exists.
 
-              If netdevs are specified, ovs-vswitchd  adds  them  to  the  new
+              If  netdevs  are  specified,  ovs-vswitchd  adds them to the new
               datapath, just as if add-if was specified.
 
        dpctl/del-dp dp
-              Deletes  datapath  dp.   If  dp  is  associated with any network
+              Deletes datapath dp.  If  dp  is  associated  with  any  network
               devices, they are automatically removed.
 
        dpctl/add-if dp netdev[,option]...
               Adds each netdev to the set of network devices datapath dp moni‐
-              tors,  where  dp is the name of an existing datapath, and netdev
-              is the name of one of the host's  network  devices,  e.g.  eth0.
+              tors, where dp is the name of an existing datapath,  and  netdev
+              is  the  name  of  one of the host's network devices, e.g. eth0.
               Once a network device has been added to a datapath, the datapath
-              has complete ownership of the network device's traffic  and  the
+              has  complete  ownership of the network device's traffic and the
               network device appears silent to the rest of the system.
 
-              A  netdev  may be followed by a comma-separated list of options.
+              A netdev may be followed by a comma-separated list  of  options.
               The following options are currently supported:
 
               type=type
-                     Specifies the type of port to add.  The default  type  is
+                     Specifies  the  type of port to add.  The default type is
                      system.
 
               port_no=port
-                     Requests  a specific port number within the datapath.  If
-                     this option is not specified then one will  be  automati‐
+                     Requests a specific port number within the datapath.   If
+                     this  option  is not specified then one will be automati‐
                      cally assigned.
 
               key=value
                      Adds an arbitrary key-value option to the port's configu‐
                      ration.
 
-              ovs-vswitchd.conf.db(5) documents the available port  types  and
+              ovs-vswitchd.conf.db(5)  documents  the available port types and
               options.
 
        dpctl/set-if dp port[,option]...
-              Reconfigures  each  port  in  dp as specified.  An option of the
-              form key=value adds the specified key-value option to  the  port
-              or  overrides  an  existing  key's value.  An option of the form
+              Reconfigures each port in dp as specified.   An  option  of  the
+              form  key=value  adds the specified key-value option to the port
+              or overrides an existing key's value.  An  option  of  the  form
               key=, that is, without a value, deletes the key-value named key.
-              The  type  and  port number of a port cannot be changed, so type
+              The type and port number of a port cannot be  changed,  so  type
               and port_no are only allowed if they match the existing configu‐
               ration.
 
@@ -511,99 +549,121 @@ RUNTIME MANAGEMENT COMMANDS
               Prints the name of each configured datapath on a separate line.
 
        dpctl/show [-s | --statistics] [dp...]
-              Prints a summary of configured datapaths, including their  data‐
-              path  numbers  and  a  list of ports connected to each datapath.
+              Prints  a summary of configured datapaths, including their data‐
+              path numbers and a list of ports  connected  to  each  datapath.
               (The local port is identified as port 0.)  If -s or --statistics
               is specified, then packet and byte counters are also printed for
               each port.
 
-              The datapath numbers consists of flow stats and mega  flow  mask
+              The  datapath  numbers consists of flow stats and mega flow mask
               stats.
 
-              The  "lookups"  row  displays three stats related to flow lookup
-              triggered by processing incoming packets in the datapath.  "hit"
+              The "lookups" row displays three stats related  to  flow  lookup
+              triggered  by processing incoming packets in the datapath. "hit"
               displays number of packets matches existing flows. "missed" dis‐
-              plays the number of packets not matching any existing  flow  and
-              require  user space processing.  "lost" displays number of pack‐
-              ets destined for user space  process  but  subsequently  dropped
+              plays  the  number of packets not matching any existing flow and
+              require user space processing.  "lost" displays number of  pack‐
+              ets  destined  for  user  space process but subsequently dropped
               before reaching userspace. The sum of "hit" and "miss" equals to
               the total number of packets datapath processed.
 
               The "flows" row displays the number of flows in datapath.
 
-              The "masks" row displays the mega flow mask stats. This  row  is
-              omitted  for datapath not implementing mega flow. "hit" displays
+              The  "masks"  row displays the mega flow mask stats. This row is
+              omitted for datapath not implementing mega flow. "hit"  displays
               the total number of masks visited for matching incoming packets.
               "total" displays number of masks in the datapath. "hit/pkt" dis‐
-              plays the average number of masks visited per packet; the  ratio
+              plays  the average number of masks visited per packet; the ratio
               between "hit" and total number of packets processed by the data‐
               path".
 
-              If one or more datapaths  are  specified,  information  on  only
+              If  one  or  more  datapaths  are specified, information on only
               those datapaths are displayed.  Otherwise, ovs-vswitchd displays
               information about all configured datapaths.
 
    DATAPATH FLOW TABLE DEBUGGING COMMANDS
        The following commands are primarily useful for debugging Open vSwitch.
-       The  flow  table entries (both matches and actions) that they work with
+       The flow table entries (both matches and actions) that they  work  with
        are not OpenFlow flow entries.  Instead, they are different and consid‐
        erably simpler flows maintained by the Open vSwitch kernel module.  Use
        ovs-ofctl(8), instead, to work with OpenFlow flow entries.
 
-       The dp argument to each of these commands is optional when exactly  one
+       The  dp argument to each of these commands is optional when exactly one
        datapath exists, in which case that datapath is the default.  When mul‐
        tiple datapaths exist, then a datapath name is required.
 
        dpctl/dump-flows [-m | --more] [dp] [filter=filter]
               Prints to the console all flow entries in datapath dp's flow ta‐
-              ble.   Without  -m  or  --more, output omits match fields that a
-              flow wildcards entirely; with -m or --more, output includes  all
+              ble.  Without -m or --more, output omits  match  fields  that  a
+              flow  wildcards entirely; with -m or --more, output includes all
               wildcarded fields.
 
-              If  filter=filter  is  specified,  only  displays the flows that
-              match the filter. filter is a flow in the form similiar to  that
-              accepted  by  ovs-ofctl(8)'s  add-flow  command. (This is not an
-              OpenFlow flow: besides  other  differences,  it  never  contains
-              wildcards.)   The  filter  is  also  useful  to match wildcarded
-              fields   in   the   datapath   flow.   As   an   example,   fil�‐
-              ter='tcp,tp_src=100'  will  match  the  datapath flow containing
+              If filter=filter is specified,  only  displays  the  flows  that
+              match  the filter. filter is a flow in the form similiar to that
+              accepted by ovs-ofctl(8)'s add-flow command.  (This  is  not  an
+              OpenFlow  flow:  besides  other  differences,  it never contains
+              wildcards.)  The filter  is  also  useful  to  match  wildcarded
+              fields   in   the   datapath   flow.   As   an   example,   fil‐
+              ter='tcp,tp_src=100' will match  the  datapath  flow  containing
               'tcp(src=80/0xff00,dst=8080/0xff)'.
 
        dpctl/add-flow [dp] flow actions
 
-       dpctl/mod-flow [--clear] [--may-create] [-s | --statistics]  [dp]  flow
+       dpctl/mod-flow  [--clear]  [--may-create] [-s | --statistics] [dp] flow
        actions
-              Adds  or  modifies a flow in dp's flow table that, when a packet
+              Adds or modifies a flow in dp's flow table that, when  a  packet
               matching flow arrives, causes actions to be executed.
 
-              The add-flow command succeeds only  if  flow  does  not  already
-              exist  in  dp.  Contrariwise, mod-flow without --may-create only
-              modifies the actions for an existing flow.   With  --may-create,
+              The  add-flow  command  succeeds  only  if flow does not already
+              exist in dp.  Contrariwise, mod-flow without  --may-create  only
+              modifies  the  actions for an existing flow.  With --may-create,
               mod-flow will add a new flow or modify an existing one.
 
-              If  -s  or  --statistics is specified, then mod-flows prints the
-              modified flow's statistics.  A flow's statistics are the  number
-              of  packets  and  bytes  that  have passed through the flow, the
-              elapsed time since the flow last processed a packet  (if  ever),
+              If -s or --statistics is specified,  then  mod-flow  prints  the
+              modified  flow's statistics.  A flow's statistics are the number
+              of packets and bytes that have  passed  through  the  flow,  the
+              elapsed  time  since the flow last processed a packet (if ever),
               and (for TCP flows) the union of the TCP flags processed through
               the flow.
 
-              With --clear, mod-flows zeros out the  flow's  statistics.   The
-              statistics  printed  if -s or --statistics is also specified are
+              With  --clear,  mod-flow  zeros  out the flow's statistics.  The
+              statistics printed if -s or --statistics is also  specified  are
               those from just before clearing the statistics.
 
        dpctl/del-flow [-s | --statistics] [dp] flow
-              Deletes the flow from dp's flow table that matches flow.  If  -s
-              or  --statistics is specified, then mod-flows prints the deleted
+              Deletes  the flow from dp's flow table that matches flow.  If -s
+              or --statistics is specified, then del-flow prints  the  deleted
               flow's statistics.
 
        dpctl/get-flow [dp] ufid:ufid
-              Fetches the flow from dp's flow  table  with  unique  identifier
-              ufid.   ufid  must  be  specified  as a string of 32 hexadecimal
+              Fetches  the  flow  from  dp's flow table with unique identifier
+              ufid.  ufid must be specified as  a  string  of  32  hexadecimal
               characters.
 
        dpctl/del-flows [dp]
               Deletes all flow entries from datapath dp's flow table.
+
+   DPIF-NETDEV COMMANDS
+       These  commands are used to expose internal information (mostly statis‐
+       tics) about the ``dpif-netdev'' userspace datapath. If  there  is  only
+       one  datapath  (as is often the case, unless dpctl/ commands are used),
+       the dp argument can be omitted.
+
+       dpif-netdev/pmd-stats-show [dp]
+              Shows performance statistics for each pmd thread of the datapath
+              dp.  The special thread ``main'' sums up the statistics of every
+              non pmd thread.  The sum of ``emc hits'',  ``masked  hits''  and
+              ``miss''  is  the  number  of  packets received by the datapath.
+              Cycles are counted using the TSC  or  similar  facilities  (when
+              available  on  the platform).  To reset these counters use dpif-
+              netdev/pmd-stats-clear. The duration of one cycle depends on the
+              measuring infrastructure.
+
+       dpif-netdev/pmd-stats-clear [dp]
+              Resets  to  zero the per pmd thread performance numbers shown by
+              the dpif-netdev/pmd-stats-show command.  It will NOT reset data‐
+              path  or  bridge  statistics, only the values shown by the above
+              command.
 
    DATAPATH DEBUGGING COMMANDS
        These commands query and modify datapaths.  They  are  are  similar  to
@@ -740,6 +800,18 @@ RUNTIME MANAGEMENT COMMANDS
                      pkt_mark
                             Mark of the packet.
 
+                     ct_state
+                            Connection state of the packet.
+
+                     ct_zone
+                            Connection tracking zone for packet.
+
+                     ct_mark
+                            Connection mark of the packet.
+
+                     ct_label
+                            Connection label of the packet.
+
                      tun_id The tunnel ID on which the packet arrived.
 
                      in_port
@@ -775,8 +847,8 @@ RUNTIME MANAGEMENT COMMANDS
 
        vlog/set [spec]
               Sets  logging  levels.  Without any spec, sets the log level for
-              every module and facility to dbg.  Otherwise, spec is a list  of
-              words  separated  by  spaces or commas or colons, up to one from
+              every module and destination to dbg.  Otherwise, spec is a  list
+              of words separated by spaces or commas or colons, up to one from
               each category below:
 
               ·      A valid module name, as displayed by the  vlog/list  com‐
@@ -806,12 +878,15 @@ RUNTIME MANAGEMENT COMMANDS
               For compatibility with older versions of OVS, any is accepted as
               a word but has no effect.
 
-       vlog/set PATTERN:facility:pattern
-              Sets  the  log  pattern  for  facility  to  pattern.   Refer  to
+       vlog/set PATTERN:destination:pattern
+              Sets  the  log  pattern  for  destination  to pattern.  Refer to
               ovs-appctl(8) for a description of the valid syntax for pattern.
 
        vlog/list
               Lists the supported logging modules and their current levels.
+
+       vlog/list-pattern
+              Lists logging patterns used for each destination.
 
        vlog/reopen
               Causes ovs-vswitchd to close and reopen its log file.  (This  is
@@ -909,14 +984,14 @@ LIMITS
        We believe these limits to be accurate as of this writing.  These  lim‐
        its assume the use of the Linux kernel datapath.
 
-       ·      ovs-vswitchd started through ovs-ctl(8) provides a limit of 7500
-              file descriptors.  The limits on the number of bridges and ports
-              is  decided  by  the availability of file descriptors.  With the
-              Linux kernel datapath, creation of a single  bridge  consumes  3
-              file  descriptors  and adding a port consumes 1 file descriptor.
-              Performance will degrade beyond 1,024 ports per  bridge  due  to
-              fixed  hash  table  sizing.   Other platforms may have different
-              limitations.
+       ·      ovs-vswitchd  started  through  ovs-ctl(8)  provides  a limit of
+              65535 file descriptors.  The limits on the number of bridges and
+              ports  is decided by the availability of file descriptors.  With
+              the Linux kernel datapath, creation of a single bridge  consumes
+              three  file  descriptors  and adding a port consumes "n-handler-
+              threads" file descriptors per  bridge  port.   Performance  will
+              degrade  beyond  1,024  ports per bridge due to fixed hash table
+              sizing.  Other platforms may have different limitations.
 
        ·      2,048 MAC learning entries per bridge,  by  default.   (This  is
               configurable  via  other-config:mac-table-size in the Bridge ta‐
@@ -949,4 +1024,4 @@ SEE ALSO
 
 
 
-Open vSwitch                        2.3.90                     ovs-vswitchd(8)
+Open vSwitch                        2.4.90                     ovs-vswitchd(8)

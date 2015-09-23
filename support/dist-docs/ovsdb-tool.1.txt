@@ -20,8 +20,8 @@ SYNOPSIS
        ovsdb-tool help
 
        Logging options:
-              [-v[module[:facility[:level]]]]...
-              [--verbose[=module[:facility[:level]]]]...
+              [-v[module[:destination[:level]]]]...
+              [--verbose[=module[:destination[:level]]]]...
               [--log-file[=file]]
 
        Common options:
@@ -131,8 +131,8 @@ OPTIONS
        -v[spec]
        --verbose=[spec]
               Sets logging levels.  Without any spec, sets the log  level  for
-              every  module and facility to dbg.  Otherwise, spec is a list of
-              words separated by spaces or commas or colons, up  to  one  from
+              every  module and destination to dbg.  Otherwise, spec is a list
+              of words separated by spaces or commas or colons, up to one from
               each category below:
 
               ·      A  valid  module name, as displayed by the vlog/list com‐
@@ -164,24 +164,62 @@ OPTIONS
 
        -v
        --verbose
-              Sets the maximum logging verbosity level, equivalent  to  --ver�‐
+              Sets the maximum logging verbosity level, equivalent  to  --ver‐
               bose=dbg.
 
-       -vPATTERN:facility:pattern
-       --verbose=PATTERN:facility:pattern
-              Sets  the  log  pattern  for  facility  to  pattern.   Refer  to
+       -vPATTERN:destination:pattern
+       --verbose=PATTERN:destination:pattern
+              Sets  the  log  pattern  for  destination  to pattern.  Refer to
               ovs-appctl(8) for a description of the valid syntax for pattern.
+
+       -vFACILITY:facility
+       --verbose=FACILITY:facility
+              Sets the RFC5424 facility of the log message.  facility  can  be
+              one  of kern, user, mail, daemon, auth, syslog, lpr, news, uucp,
+              clock, ftp, ntp, audit, alert, clock2, local0,  local1,  local2,
+              local3,  local4, local5, local6 or local7. If this option is not
+              specified, daemon is used as the default for  the  local  system
+              syslog  and local0 is used while sending a message to the target
+              provided via the --syslog-target option.
 
        --log-file[=file]
               Enables logging to a file.  If file is  specified,  then  it  is
               used  as  the exact name for the log file.  The default log file
-              name   used   if   file    is    omitted    is    /var/log/open�‐
+              name   used   if   file   is    omitted    is    //var/log/open‐
               vswitch/ovsdb-tool.log.
 
        --syslog-target=host:port
               Send  syslog  messages  to  UDP port on host, in addition to the
               system syslog.  The host must be a numerical IP address,  not  a
               hostname.
+
+       --syslog-method=method
+              Specify method how syslog messages should be sent to syslog dae‐
+              mon.  Following forms are supported:
+
+              ·      libc, use libc syslog() function.  This  is  the  default
+                     behavior.   Downside  of  using this options is that libc
+                     adds fixed prefix to every message before it is  actually
+                     sent  to  the  syslog  daemon  over  /dev/log UNIX domain
+                     socket.
+
+              ·      unix:file, use UNIX domain socket directly.  It is possi‐
+                     ble to specify arbitrary message format with this option.
+                     However, rsyslogd 8.9 and older versions use  hard  coded
+                     parser  function  anyway  that  limits UNIX domain socket
+                     use.  If you want to use arbitrary  message  format  with
+                     older rsyslogd versions, then use UDP socket to localhost
+                     IP address instead.
+
+              ·      udp:ip:port, use UDP socket.  With this method it is pos‐
+                     sible  to  use  arbitrary  message format also with older
+                     rsyslogd.  When sending syslog messages over  UDP  socket
+                     extra  precaution  needs  to  be  taken into account, for
+                     example, syslog daemon needs to be configured  to  listen
+                     on  the  specified  UDP  port,  accidental iptables rules
+                     could be interfering with local syslog traffic and  there
+                     are  some security considerations that apply to UDP sock‐
+                     ets, but do not apply to UNIX domain sockets.
 
    Other Options
        -h
@@ -192,13 +230,13 @@ OPTIONS
               Prints version information to the console.
 
 FILES
-       The  default db is /usr/etc/openvswitch/conf.db.  The default schema is
-       /usr/share/openvswitch/vswitch.ovsschema.  The help command  also  dis‐
-       plays these defaults.
+       The default db is //etc/openvswitch/conf.db.   The  default  schema  is
+       //share/openvswitch/vswitch.ovsschema.   The help command also displays
+       these defaults.
 
 SEE ALSO
        ovsdb-server(1), ovsdb-client(1), and the OVSDB specification.
 
 
 
-Open vSwitch                         2.3.1                       ovsdb-tool(1)
+Open vSwitch                        2.4.90                       ovsdb-tool(1)

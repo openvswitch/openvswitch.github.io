@@ -5,7 +5,7 @@
 .  IP "\\$1"
 ..
 .\" -*- nroff -*-
-.TH ovsdb\-tool 1 "2.3.1" "Open vSwitch" "Open vSwitch Manual"
+.TH ovsdb\-tool 1 "2.4.90" "Open vSwitch" "Open vSwitch Manual"
 .ds PN ovsdb\-tool
 .
 .SH NAME
@@ -37,9 +37,9 @@ ovsdb\-tool \- Open vSwitch database management utility
 .br
 \fBovsdb\-tool help\fR
 .IP "Logging options:"
-[\fB\-v\fR[\fImodule\fR[\fB:\fIfacility\fR[\fB:\fIlevel\fR]]]]\&...
+[\fB\-v\fR[\fImodule\fR[\fB:\fIdestination\fR[\fB:\fIlevel\fR]]]]\&...
 .br
-[\fB\-\-verbose[=\fImodule\fR[\fB:\fIfacility\fR[\fB:\fIlevel\fR]]]]\&...
+[\fB\-\-verbose[=\fImodule\fR[\fB:\fIdestination\fR[\fB:\fIlevel\fR]]]]\&...
 .br
 [\fB\-\-log\-file\fR[\fB=\fIfile\fR]]
 .IP "Common options:"
@@ -161,7 +161,7 @@ record.
 .IQ "\fB\-\-verbose=\fR[\fIspec\fR]
 .
 Sets logging levels.  Without any \fIspec\fR, sets the log level for
-every module and facility to \fBdbg\fR.  Otherwise, \fIspec\fR is a
+every module and destination to \fBdbg\fR.  Otherwise, \fIspec\fR is a
 list of words separated by spaces or commas or colons, up to one from
 each category below:
 .
@@ -203,21 +203,59 @@ a word but has no effect.
 Sets the maximum logging verbosity level, equivalent to
 \fB\-\-verbose=dbg\fR.
 .
-.IP "\fB\-vPATTERN:\fIfacility\fB:\fIpattern\fR"
-.IQ "\fB\-\-verbose=PATTERN:\fIfacility\fB:\fIpattern\fR"
-Sets the log pattern for \fIfacility\fR to \fIpattern\fR.  Refer to
+.IP "\fB\-vPATTERN:\fIdestination\fB:\fIpattern\fR"
+.IQ "\fB\-\-verbose=PATTERN:\fIdestination\fB:\fIpattern\fR"
+Sets the log pattern for \fIdestination\fR to \fIpattern\fR.  Refer to
 \fBovs\-appctl\fR(8) for a description of the valid syntax for \fIpattern\fR.
+.
+.IP "\fB\-vFACILITY:\fIfacility\fR"
+.IQ "\fB\-\-verbose=FACILITY:\fIfacility\fR"
+Sets the RFC5424 facility of the log message. \fIfacility\fR can be one of
+\fBkern\fR, \fBuser\fR, \fBmail\fR, \fBdaemon\fR, \fBauth\fR, \fBsyslog\fR,
+\fBlpr\fR, \fBnews\fR, \fBuucp\fR, \fBclock\fR, \fBftp\fR, \fBntp\fR,
+\fBaudit\fR, \fBalert\fR, \fBclock2\fR, \fBlocal0\fR, \fBlocal1\fR,
+\fBlocal2\fR, \fBlocal3\fR, \fBlocal4\fR, \fBlocal5\fR, \fBlocal6\fR or
+\fBlocal7\fR. If this option is not specified, \fBdaemon\fR is used as
+the default for the local system syslog and \fBlocal0\fR is used while sending
+a message to the target provided via the \fB\-\-syslog\-target\fR option.
 .
 .TP
 \fB\-\-log\-file\fR[\fB=\fIfile\fR]
 Enables logging to a file.  If \fIfile\fR is specified, then it is
 used as the exact name for the log file.  The default log file name
-used if \fIfile\fR is omitted is \fB/var/log/openvswitch/\*(PN.log\fR.
+used if \fIfile\fR is omitted is \fB//var/log/openvswitch/\*(PN.log\fR.
 .
 .IP "\fB\-\-syslog\-target=\fIhost\fB:\fIport\fR"
 Send syslog messages to UDP \fIport\fR on \fIhost\fR, in addition to
 the system syslog.  The \fIhost\fR must be a numerical IP address, not
 a hostname.
+.
+.IP "\fB\-\-syslog\-method=\fImethod\fR"
+Specify \fImethod\fR how syslog messages should be sent to syslog daemon.
+Following forms are supported:
+.RS
+.IP \(bu
+\fBlibc\fR, use libc \fBsyslog()\fR function.  This is the default behavior.
+Downside of using this options is that libc adds fixed prefix to every
+message before it is actually sent to the syslog daemon over \fB/dev/log\fR
+UNIX domain socket.
+.IP \(bu
+\fBunix:\fIfile\fR\fR, use UNIX domain socket directly.  It is possible to
+specify arbitrary message format with this option.  However,
+\fBrsyslogd 8.9\fR and older versions use hard coded parser function anyway
+that limits UNIX domain socket use.  If you want to use arbitrary message
+format with older \fBrsyslogd\fR versions, then use UDP socket to localhost
+IP address instead.
+.IP \(bu
+\fBudp:\fIip\fR:\fIport\fR\fR, use UDP socket.  With this method it is
+possible to use arbitrary message format also with older \fBrsyslogd\fR.
+When sending syslog messages over UDP socket extra precaution needs to
+be taken into account, for example, syslog daemon needs to be configured
+to listen on the specified UDP port, accidental iptables rules could be
+interfering with local syslog traffic and there are some security
+considerations that apply to UDP sockets, but do not apply to UNIX domain
+sockets.
+.RE
 .SS "Other Options"
 .de IQ
 .  br
@@ -232,8 +270,8 @@ Prints a brief help message to the console.
 .IQ "\fB\-\-version\fR"
 Prints version information to the console.
 .SH "FILES"
-The default \fIdb\fR is \fB/usr/etc/openvswitch/conf.db\fR.  The
-default \fIschema\fR is \fB/usr/share/openvswitch/vswitch.ovsschema\fR.  The
+The default \fIdb\fR is \fB//etc/openvswitch/conf.db\fR.  The
+default \fIschema\fR is \fB//share/openvswitch/vswitch.ovsschema\fR.  The
 \fBhelp\fR command also displays these defaults.
 .SH "SEE ALSO"
 .

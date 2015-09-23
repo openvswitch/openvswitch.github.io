@@ -1,0 +1,340 @@
+<html><head><meta charset="UTF-8"></head><body><pre>
+ovn-nb(5)                     Open vSwitch Manual                    ovn-nb(5)
+
+
+
+<b>N</b><b>A</b><b>M</b><b>E</b>
+       ovn-nb - OVN_Northbound database schema
+
+       This  database  is  the  interface between OVN and the cloud management
+       system (CMS), such as OpenStack, running above it.   The  CMS  produces
+       almost  all  of  the  contents of the database.  The <b>o</b><b>v</b><b>n</b><b>-</b><b>n</b><b>o</b><b>r</b><b>t</b><b>h</b><b>d</b> program
+       monitors the database contents, transforms it, and stores it  into  the
+       <b>O</b><b>V</b><b>N</b><b>_</b><b>S</b><b>o</b><b>u</b><b>t</b><b>h</b><b>b</b><b>o</b><b>u</b><b>n</b><b>d</b> database.
+
+       We  generally  speak  of  ``the’’ CMS, but one can imagine scenarios in
+       which multiple CMSes manage different parts of an OVN deployment.
+
+   <b>E</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b> <b>I</b><b>D</b><b>s</b>
+       Each of the tables in this database contains a  special  column,  named
+       <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b>.   This column has the same form and purpose each place it
+       appears.
+
+              <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b>: map of string-string pairs
+                     Key-value pairs for use by the CMS.  The  CMS  might  use
+                     certain  pairs,  for example, to identify entities in its
+                     own configuration that correspond to those in this  data‐
+                     base.
+
+<b>T</b><b>A</b><b>B</b><b>L</b><b>E</b> <b>S</b><b>U</b><b>M</b><b>M</b><b>A</b><b>R</b><b>Y</b>
+       The  following list summarizes the purpose of each of the tables in the
+       <b>O</b><b>V</b><b>N</b><b>_</b><b>N</b><b>o</b><b>r</b><b>t</b><b>h</b><b>b</b><b>o</b><b>u</b><b>n</b><b>d</b> database.  Each table is described in more detail  on  a
+       later page.
+
+       Table     Purpose
+       <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>
+                 L2 logical switch
+       <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>P</b><b>o</b><b>r</b><b>t</b>
+                 L2 logical switch port
+       <b>A</b><b>C</b><b>L</b>       Access Control List (ACL) rule
+       <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>R</b><b>o</b><b>u</b><b>t</b><b>e</b><b>r</b>
+                 L3 logical router
+       <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>R</b><b>o</b><b>u</b><b>t</b><b>e</b><b>r</b><b>_</b><b>P</b><b>o</b><b>r</b><b>t</b>
+                 L3 logical router port
+
+<b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b> <b>T</b><b>A</b><b>B</b><b>L</b><b>E</b>
+       Each row represents one L2 logical switch.
+
+   <b>S</b><b>u</b><b>m</b><b>m</b><b>a</b><b>r</b><b>y</b><b>:</b>
+       <b>n</b><b>a</b><b>m</b><b>e</b>                          string
+       <b>p</b><b>o</b><b>r</b><b>t</b><b>s</b>                         set of <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>P</b><b>o</b><b>r</b><b>t</b>s
+       <b>r</b><b>o</b><b>u</b><b>t</b><b>e</b><b>r</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b>                   optional <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>R</b><b>o</b><b>u</b><b>t</b><b>e</b><b>r</b><b>_</b><b>P</b><b>o</b><b>r</b><b>t</b>
+       <b>a</b><b>c</b><b>l</b><b>s</b>                          set of <b>A</b><b>C</b><b>L</b>s
+       <u>C</u><u>o</u><u>m</u><u>m</u><u>o</u><u>n</u> <u>C</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u><u>s</u><u>:</u>
+         <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b>                map of string-string pairs
+
+   <b>D</b><b>e</b><b>t</b><b>a</b><b>i</b><b>l</b><b>s</b><b>:</b>
+       <b>n</b><b>a</b><b>m</b><b>e</b>: string
+              A name for the logical switch.  This name has no special meaning
+              or purpose other than to provide convenience for human  interac‐
+              tion  with the ovn-nb database.  There is no requirement for the
+              name to be unique.  The logical switch’s UUID should be used  as
+              the unique identifier.
+
+       <b>p</b><b>o</b><b>r</b><b>t</b><b>s</b>: set of <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>P</b><b>o</b><b>r</b><b>t</b>s
+              The logical ports connected to the logical switch.
+
+              It is an error for multiple logical switches to include the same
+              logical port.
+
+       <b>r</b><b>o</b><b>u</b><b>t</b><b>e</b><b>r</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b>: optional <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>R</b><b>o</b><b>u</b><b>t</b><b>e</b><b>r</b><b>_</b><b>P</b><b>o</b><b>r</b><b>t</b>
+              The router port to which this logical switch  is  connected,  or
+              empty  if this logical switch is not connected to any router.  A
+              switch may be connected to at most one logical router, but  this
+              is  not a significant restriction because logical routers may be
+              connected into arbitrary topologies.
+
+              It is an error for multiple logical switches  to  refer  to  the
+              same router port.
+
+       <b>a</b><b>c</b><b>l</b><b>s</b>: set of <b>A</b><b>C</b><b>L</b>s
+              Access  control  rules  that apply to packets within the logical
+              switch.
+
+     <u>C</u><u>o</u><u>m</u><u>m</u><u>o</u><u>n</u> <u>C</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u><u>s</u><u>:</u>
+
+       <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b>: map of string-string pairs
+              See <b>E</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b> <b>I</b><b>D</b><b>s</b> at the beginning of this document.
+
+<b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>P</b><b>o</b><b>r</b><b>t</b> <b>T</b><b>A</b><b>B</b><b>L</b><b>E</b>
+       A port within an L2 logical switch.
+
+   <b>S</b><b>u</b><b>m</b><b>m</b><b>a</b><b>r</b><b>y</b><b>:</b>
+       <b>n</b><b>a</b><b>m</b><b>e</b>                          string (must be unique within table)
+       <b>t</b><b>y</b><b>p</b><b>e</b>                          string
+       <b>o</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>                       map of string-string pairs
+       <b>p</b><b>a</b><b>r</b><b>e</b><b>n</b><b>t</b><b>_</b><b>n</b><b>a</b><b>m</b><b>e</b>                   optional string
+       <b>t</b><b>a</b><b>g</b>                           optional integer, in range 0 to 4,095
+       <b>u</b><b>p</b>                            optional boolean
+       <b>e</b><b>n</b><b>a</b><b>b</b><b>l</b><b>e</b><b>d</b>                       optional boolean
+       <b>m</b><b>a</b><b>c</b><b>s</b>                          set of strings
+       <b>p</b><b>o</b><b>r</b><b>t</b><b>_</b><b>s</b><b>e</b><b>c</b><b>u</b><b>r</b><b>i</b><b>t</b><b>y</b>                 set of strings
+       <u>C</u><u>o</u><u>m</u><u>m</u><u>o</u><u>n</u> <u>C</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u><u>s</u><u>:</u>
+         <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b>                map of string-string pairs
+
+   <b>D</b><b>e</b><b>t</b><b>a</b><b>i</b><b>l</b><b>s</b><b>:</b>
+       <b>n</b><b>a</b><b>m</b><b>e</b>: string (must be unique within table)
+              The logical port name.
+
+              For entities (VMs or containers) that are spawned in the  hyper‐
+              visor,  the  name  used here must match those used in the <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>‐</b>
+              <b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b><b>:</b><b>i</b><b>f</b><b>a</b><b>c</b><b>e</b><b>-</b><b>i</b><b>d</b> in the <b>O</b><b>p</b><b>e</b><b>n</b><b>_</b><b>v</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b> database’s <b>I</b><b>n</b><b>t</b><b>e</b><b>r</b><b>f</b><b>a</b><b>c</b><b>e</b> table,
+              because hypervisors use <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b><b>:</b><b>i</b><b>f</b><b>a</b><b>c</b><b>e</b><b>-</b><b>i</b><b>d</b> as a lookup key to
+              identify the network interface of that entity.
+
+              For containers that are spawned inside a VM, the name can be any
+              unique  identifier.   In  such a case, <b>p</b><b>a</b><b>r</b><b>e</b><b>n</b><b>t</b><b>_</b><b>n</b><b>a</b><b>m</b><b>e</b> must be popu‐
+              lated.
+
+       <b>t</b><b>y</b><b>p</b><b>e</b>: string
+              Specify a type for this logical port.  Logical ports can be used
+              to model other types of connectivity into an OVN logical switch.
+              Leaving this column blank maintains  the  default  logical  port
+              behavior.
+
+              There are no other logical port types implemented yet.
+
+       <b>o</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>: map of string-string pairs
+              This  column provides key/value settings specific to the logical
+              port <b>t</b><b>y</b><b>p</b><b>e</b>.
+
+       <b>p</b><b>a</b><b>r</b><b>e</b><b>n</b><b>t</b><b>_</b><b>n</b><b>a</b><b>m</b><b>e</b>: optional string
+              When <b>n</b><b>a</b><b>m</b><b>e</b> identifies the interface of a container spawned inside
+              a  tenant  VM,  this  column represents the VM interface through
+              which the container interface sends its  network  traffic.   The
+              name  used here must match those used in the <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b><b>:</b><b>i</b><b>f</b><b>a</b><b>c</b><b>e</b><b>-</b>
+              <b>i</b><b>d</b> in the <b>O</b><b>p</b><b>e</b><b>n</b><b>_</b><b>v</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b> table, because hypervisors in  this  case
+              use  <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b><b>:</b><b>i</b><b>f</b><b>a</b><b>c</b><b>e</b><b>-</b><b>i</b><b>d</b>  as a lookup key to identify the net‐
+              work interface of the tenant VM.
+
+       <b>t</b><b>a</b><b>g</b>: optional integer, in range 0 to 4,095
+              When <b>n</b><b>a</b><b>m</b><b>e</b> identifies the interface of a container spawned inside
+              a  tenant VM, this column identifies the VLAN tag in the network
+              traffic associated  with  that  container’s  network  interface.
+              When there are multiple container interfaces inside a VM, all of
+              them send their network traffic  through  a  single  VM  network
+              interface  and  this  value  helps OVN identify the correct con‐
+              tainer interface.
+
+       <b>u</b><b>p</b>: optional boolean
+              This column is populated by <b>o</b><b>v</b><b>n</b><b>-</b><b>n</b><b>o</b><b>r</b><b>t</b><b>h</b><b>d</b>, rather than by  the  CMS
+              plugin  as  is  most  of  this database.  When a logical port is
+              bound to a physical location  in  the  OVN  Southbound  database
+              <b>B</b><b>i</b><b>n</b><b>d</b><b>i</b><b>n</b><b>g</b>  table,  <b>o</b><b>v</b><b>n</b><b>-</b><b>n</b><b>o</b><b>r</b><b>t</b><b>h</b><b>d</b> sets this column to <b>t</b><b>r</b><b>u</b><b>e</b>; otherwise,
+              or if the port becomes unbound later, it sets it to <b>f</b><b>a</b><b>l</b><b>s</b><b>e</b>.  This
+              allows the CMS to wait for a VM’s (or container’s) networking to
+              become active before it allows the VM (or container) to start.
+
+       <b>e</b><b>n</b><b>a</b><b>b</b><b>l</b><b>e</b><b>d</b>: optional boolean
+              This column is used to administratively set port state.  If this
+              column is empty or is set to <b>t</b><b>r</b><b>u</b><b>e</b>, the port is enabled.  If this
+              column is set to <b>f</b><b>a</b><b>l</b><b>s</b><b>e</b>, the port is disabled.  A  disabled  port
+              has all ingress and egress traffic dropped.
+
+       <b>m</b><b>a</b><b>c</b><b>s</b>: set of strings
+              The  logical  port’s  own Ethernet address or addresses, each in
+              the form <u>x</u><u>x</u>:<u>x</u><u>x</u>:<u>x</u><u>x</u>:<u>x</u><u>x</u>:<u>x</u><u>x</u>:<u>x</u><u>x</u>.  Like a  physical  Ethernet  NIC,  a
+              logical  port  ordinarily  has  a single fixed Ethernet address.
+              The string <b>u</b><b>n</b><b>k</b><b>n</b><b>o</b><b>w</b><b>n</b> is also allowed to indicate that the  logical
+              port has an unknown set of (additional) source addresses.
+
+       <b>p</b><b>o</b><b>r</b><b>t</b><b>_</b><b>s</b><b>e</b><b>c</b><b>u</b><b>r</b><b>i</b><b>t</b><b>y</b>: set of strings
+              A  set of L2 (Ethernet) addresses from which the logical port is
+              allowed to send packets and to which it is  allowed  to  receive
+              packets.   If this column is empty, all addresses are permitted.
+              Logical ports are always allowed to receive packets addressed to
+              multicast and broadcast addresses.
+
+              Each  member  of  the  set  is  an  Ethernet address in the form
+              <u>x</u><u>x</u>:<u>x</u><u>x</u>:<u>x</u><u>x</u>:<u>x</u><u>x</u>:<u>x</u><u>x</u>:<u>x</u><u>x</u>.
+
+              This specification will be extended to support L3 port security.
+
+     <u>C</u><u>o</u><u>m</u><u>m</u><u>o</u><u>n</u> <u>C</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u><u>s</u><u>:</u>
+
+       <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b>: map of string-string pairs
+              See <b>E</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b> <b>I</b><b>D</b><b>s</b> at the beginning of this document.
+
+<b>A</b><b>C</b><b>L</b> <b>T</b><b>A</b><b>B</b><b>L</b><b>E</b>
+       Each row in this table represents one ACL rule  for  a  logical  switch
+       that  points  to it through its <b>a</b><b>c</b><b>l</b><b>s</b> column.  The <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b> column for the
+       highest-<b>p</b><b>r</b><b>i</b><b>o</b><b>r</b><b>i</b><b>t</b><b>y</b> matching row  in  this  table  determines  a  packet’s
+       treatment.   If  no  row  matches,  packets  are  allowed  by  default.
+       (Default-deny treatment is possible: add a rule with <b>p</b><b>r</b><b>i</b><b>o</b><b>r</b><b>i</b><b>t</b><b>y</b> 1,  <b>1</b>  as
+       <b>m</b><b>a</b><b>t</b><b>c</b><b>h</b>, and <b>d</b><b>e</b><b>n</b><b>y</b> as <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>.)
+
+   <b>S</b><b>u</b><b>m</b><b>m</b><b>a</b><b>r</b><b>y</b><b>:</b>
+       <b>p</b><b>r</b><b>i</b><b>o</b><b>r</b><b>i</b><b>t</b><b>y</b>                      integer, in range 1 to 65,534
+       <b>d</b><b>i</b><b>r</b><b>e</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>                     string, either <b>t</b><b>o</b><b>-</b><b>l</b><b>p</b><b>o</b><b>r</b><b>t</b> or <b>f</b><b>r</b><b>o</b><b>m</b><b>-</b><b>l</b><b>p</b><b>o</b><b>r</b><b>t</b>
+       <b>m</b><b>a</b><b>t</b><b>c</b><b>h</b>                         string
+       <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>                        string,   one   of  <b>a</b><b>l</b><b>l</b><b>o</b><b>w</b><b>-</b><b>r</b><b>e</b><b>l</b><b>a</b><b>t</b><b>e</b><b>d</b>,  <b>d</b><b>r</b><b>o</b><b>p</b>,
+                                     <b>a</b><b>l</b><b>l</b><b>o</b><b>w</b>, or <b>r</b><b>e</b><b>j</b><b>e</b><b>c</b><b>t</b>
+       <b>l</b><b>o</b><b>g</b>                           boolean
+       <u>C</u><u>o</u><u>m</u><u>m</u><u>o</u><u>n</u> <u>C</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u><u>s</u><u>:</u>
+         <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b>                map of string-string pairs
+
+   <b>D</b><b>e</b><b>t</b><b>a</b><b>i</b><b>l</b><b>s</b><b>:</b>
+       <b>p</b><b>r</b><b>i</b><b>o</b><b>r</b><b>i</b><b>t</b><b>y</b>: integer, in range 1 to 65,534
+              The ACL rule’s priority.  Rules with numerically higher priority
+              take  precedence  over  those with lower.  If two ACL rules with
+              the same priority both match, then the one actually applied to a
+              packet is undefined.
+
+              Return  traffic from an <b>a</b><b>l</b><b>l</b><b>o</b><b>w</b><b>-</b><b>r</b><b>e</b><b>l</b><b>a</b><b>t</b><b>e</b><b>d</b> flow is always allowed and
+              cannot be changed through an ACL.
+
+       <b>d</b><b>i</b><b>r</b><b>e</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>: string, either <b>t</b><b>o</b><b>-</b><b>l</b><b>p</b><b>o</b><b>r</b><b>t</b> or <b>f</b><b>r</b><b>o</b><b>m</b><b>-</b><b>l</b><b>p</b><b>o</b><b>r</b><b>t</b>
+              Direction of the traffic to which this rule should apply:
+
+              ·      <b>f</b><b>r</b><b>o</b><b>m</b><b>-</b><b>l</b><b>p</b><b>o</b><b>r</b><b>t</b>: Used to implement filters on traffic arriving
+                     from a logical port.  These rules are applied to the log‐
+                     ical switch’s ingress pipeline.
+
+              ·      <b>t</b><b>o</b><b>-</b><b>l</b><b>p</b><b>o</b><b>r</b><b>t</b>: Used to implement filters on traffic  forwarded
+                     to  a logical port.  These rules are applied to the logi‐
+                     cal switch’s egress pipeline.
+
+       <b>m</b><b>a</b><b>t</b><b>c</b><b>h</b>: string
+              The packets that the ACL should match, in  the  same  expression
+              language  used  for the <b>m</b><b>a</b><b>t</b><b>c</b><b>h</b> column in the OVN Southbound data‐
+              base’s <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>F</b><b>l</b><b>o</b><b>w</b> table.  The <b>o</b><b>u</b><b>t</b><b>p</b><b>o</b><b>r</b><b>t</b>  logical  port  is  only
+              available in the <b>t</b><b>o</b><b>-</b><b>l</b><b>p</b><b>o</b><b>r</b><b>t</b> direction.
+
+              By default all traffic is allowed.  When writing a more restric‐
+              tive policy, it is important to remember to allow flows such  as
+              ARP and IPv6 neighbor discovery packets.
+
+              In  logical  switches  connected to logical routers, the special
+              port name <b>R</b><b>O</b><b>U</b><b>T</b><b>E</b><b>R</b> refers to the logical router port.
+
+       <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>: string, one of <b>a</b><b>l</b><b>l</b><b>o</b><b>w</b><b>-</b><b>r</b><b>e</b><b>l</b><b>a</b><b>t</b><b>e</b><b>d</b>, <b>d</b><b>r</b><b>o</b><b>p</b>, <b>a</b><b>l</b><b>l</b><b>o</b><b>w</b>, or <b>r</b><b>e</b><b>j</b><b>e</b><b>c</b><b>t</b>
+              The action to take when the ACL rule matches:
+
+              ·      <b>a</b><b>l</b><b>l</b><b>o</b><b>w</b>: Forward the packet.
+
+              ·      <b>a</b><b>l</b><b>l</b><b>o</b><b>w</b><b>-</b><b>r</b><b>e</b><b>l</b><b>a</b><b>t</b><b>e</b><b>d</b>: Forward the  packet  and  related  traffic
+                     (e.g. inbound replies to an outbound connection).
+
+              ·      <b>d</b><b>r</b><b>o</b><b>p</b>: Silently drop the packet.
+
+              ·      <b>r</b><b>e</b><b>j</b><b>e</b><b>c</b><b>t</b>:  Drop  the packet, replying with a RST for TCP or
+                     ICMP unreachable message for  other  IP-based  protocols.
+                     <b>N</b><b>o</b><b>t</b> <b>i</b><b>m</b><b>p</b><b>l</b><b>e</b><b>m</b><b>e</b><b>n</b><b>t</b><b>e</b><b>d</b><b>-</b><b>-</b><b>c</b><b>u</b><b>r</b><b>r</b><b>e</b><b>n</b><b>t</b><b>l</b><b>y</b> <b>t</b><b>r</b><b>e</b><b>a</b><b>t</b><b>e</b><b>d</b> <b>a</b><b>s</b> <b>d</b><b>r</b><b>o</b><b>p</b>
+
+       <b>l</b><b>o</b><b>g</b>: boolean
+              If  set  to  <b>t</b><b>r</b><b>u</b><b>e</b>, packets that match the ACL will trigger a log
+              message on the transport node or nodes that perform ACL process‐
+              ing.  Logging may be combined with any <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>.
+
+              Logging is not yet implemented.
+
+     <u>C</u><u>o</u><u>m</u><u>m</u><u>o</u><u>n</u> <u>C</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u><u>s</u><u>:</u>
+
+       <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b>: map of string-string pairs
+              See <b>E</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b> <b>I</b><b>D</b><b>s</b> at the beginning of this document.
+
+<b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>R</b><b>o</b><b>u</b><b>t</b><b>e</b><b>r</b> <b>T</b><b>A</b><b>B</b><b>L</b><b>E</b>
+       Each row represents one L3 logical router.
+
+   <b>S</b><b>u</b><b>m</b><b>m</b><b>a</b><b>r</b><b>y</b><b>:</b>
+       <b>n</b><b>a</b><b>m</b><b>e</b>                          string
+       <b>p</b><b>o</b><b>r</b><b>t</b><b>s</b>                         set    of   weak   reference   to   <b>L</b><b>o</b><b>g</b><b>i</b><b>‐</b>
+                                     <b>c</b><b>a</b><b>l</b><b>_</b><b>R</b><b>o</b><b>u</b><b>t</b><b>e</b><b>r</b><b>_</b><b>P</b><b>o</b><b>r</b><b>t</b>s
+       <b>d</b><b>e</b><b>f</b><b>a</b><b>u</b><b>l</b><b>t</b><b>_</b><b>g</b><b>w</b>                    optional string
+       <u>C</u><u>o</u><u>m</u><u>m</u><u>o</u><u>n</u> <u>C</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u><u>s</u><u>:</u>
+         <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b>                map of string-string pairs
+
+   <b>D</b><b>e</b><b>t</b><b>a</b><b>i</b><b>l</b><b>s</b><b>:</b>
+       <b>n</b><b>a</b><b>m</b><b>e</b>: string
+              A name for the logical router.  This name has no special meaning
+              or  purpose other than to provide convenience for human interac‐
+              tion with the ovn-nb database.  There is no requirement for  the
+              name  to be unique.  The logical router’s UUID should be used as
+              the unique identifier.
+
+       <b>p</b><b>o</b><b>r</b><b>t</b><b>s</b>: set of weak reference to <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>R</b><b>o</b><b>u</b><b>t</b><b>e</b><b>r</b><b>_</b><b>P</b><b>o</b><b>r</b><b>t</b>s
+              The router’s ports.  This is a set of weak references, so a <b>L</b><b>o</b><b>g</b><b>‐</b>
+              <b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>  must also refer to any given <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>R</b><b>o</b><b>u</b><b>t</b><b>e</b><b>r</b><b>_</b><b>P</b><b>o</b><b>r</b><b>t</b> or
+              it will automatically be deleted.
+
+       <b>d</b><b>e</b><b>f</b><b>a</b><b>u</b><b>l</b><b>t</b><b>_</b><b>g</b><b>w</b>: optional string
+              IP address to use as default gateway, if any.
+
+     <u>C</u><u>o</u><u>m</u><u>m</u><u>o</u><u>n</u> <u>C</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u><u>s</u><u>:</u>
+
+       <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b>: map of string-string pairs
+              See <b>E</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b> <b>I</b><b>D</b><b>s</b> at the beginning of this document.
+
+<b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>R</b><b>o</b><b>u</b><b>t</b><b>e</b><b>r</b><b>_</b><b>P</b><b>o</b><b>r</b><b>t</b> <b>T</b><b>A</b><b>B</b><b>L</b><b>E</b>
+       A port within an L3 logical router.
+
+       A router port is always attached to a logical switch and to  a  logical
+       router.   The  former  attachment,  which  is  enforced by the database
+       schema, can be identified  by  finding  the  <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>  row  whose
+       <b>r</b><b>o</b><b>u</b><b>t</b><b>e</b><b>r</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b>  column  points to the router port.  The latter attachment,
+       which the database schema does not enforce, can be identified by  find‐
+       ing the <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>R</b><b>o</b><b>u</b><b>t</b><b>e</b><b>r</b> row whose <b>p</b><b>o</b><b>r</b><b>t</b><b>s</b> column includes the router port.
+
+   <b>S</b><b>u</b><b>m</b><b>m</b><b>a</b><b>r</b><b>y</b><b>:</b>
+       <b>n</b><b>a</b><b>m</b><b>e</b>                          string
+       <b>n</b><b>e</b><b>t</b><b>w</b><b>o</b><b>r</b><b>k</b>                       string
+       <b>m</b><b>a</b><b>c</b>                           string
+       <u>C</u><u>o</u><u>m</u><u>m</u><u>o</u><u>n</u> <u>C</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u><u>s</u><u>:</u>
+         <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b>                map of string-string pairs
+
+   <b>D</b><b>e</b><b>t</b><b>a</b><b>i</b><b>l</b><b>s</b><b>:</b>
+       <b>n</b><b>a</b><b>m</b><b>e</b>: string
+              A  name  for  the logical router port.  This name has no special
+              meaning or purpose other than to provide convenience  for  human
+              interaction  with  the ovn-nb database.  There is no requirement
+              for the name to be  unique.   The  logical  router  port’s  UUID
+              should be used as the unique identifier.
+
+       <b>n</b><b>e</b><b>t</b><b>w</b><b>o</b><b>r</b><b>k</b>: string
+              The  IP  address  of  the  router and the netmask.  For example,
+              <b>1</b><b>9</b><b>2</b><b>.</b><b>1</b><b>6</b><b>8</b><b>.</b><b>0</b><b>.</b><b>1</b><b>/</b><b>2</b><b>4</b>  indicates  that  the  router’s  IP  address   is
+              192.168.0.1  and  that packets destined to 192.168.0.<u>x</u> should be
+              routed to this port.
+
+       <b>m</b><b>a</b><b>c</b>: string
+              The Ethernet address that belongs to this router port.
+
+     <u>C</u><u>o</u><u>m</u><u>m</u><u>o</u><u>n</u> <u>C</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u><u>s</u><u>:</u>
+
+       <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b>: map of string-string pairs
+              See <b>E</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b> <b>I</b><b>D</b><b>s</b> at the beginning of this document.
+
+
+
+Open vSwitch 2.4.90             DB Schema 1.0.0                      ovn-nb(5)
+</pre></body></html>

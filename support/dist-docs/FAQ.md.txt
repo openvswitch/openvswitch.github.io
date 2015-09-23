@@ -110,6 +110,14 @@ A: You can start by joining the mailing lists and helping to answer
 
    http://openvswitch.org/mlists/
 
+### Q: Why can I no longer connect to my OpenFlow controller or OVSDB manager?
+
+A: Starting in OVS 2.4, we switched the default ports to the
+   IANA-specified port numbers for OpenFlow (6633->6653) and OVSDB
+   (6632->6640).  We recommend using these port numbers, but if you
+   cannot, all the programs allow overriding the default port.  See the
+   appropriate man page.
+
 
 Releases
 --------
@@ -122,7 +130,7 @@ A: All official releases have been through a comprehensive testing
    LTS release, we will provide an updated release that includes the
    fix.  Releases that are not LTS may not be fixed and may just be
    supplanted by the next major release.  The current LTS release is
-   1.9.x.
+   2.3.x.
 
 ### Q: What Linux kernel versions does each Open vSwitch release work with?
 
@@ -147,6 +155,7 @@ A: The following table lists the Linux kernel versions against which the
 |    2.0.x     | 2.6.32 to 3.10
 |    2.1.x     | 2.6.32 to 3.11
 |    2.3.x     | 2.6.32 to 3.14
+|    2.4.x     | 2.6.32 to 4.0
 
    Open vSwitch userspace should also work with the Linux kernel module
    built into Linux 3.3 and later.
@@ -163,14 +172,23 @@ A: The following table lists the Linux kernel versions against which the
 
    What should I do?
 
-A: If there is a newer version of Open vSwitch, consider building that
-   one, because it may support the kernel that you are building
-   against.  (To find out, consult the table in the previous answer.)
+A: You have the following options:
 
-   Otherwise, use the Linux kernel module supplied with the kernel
-   that you are using.  All versions of Open vSwitch userspace are
-   compatible with all versions of the Open vSwitch kernel module, so
-   this will also work.  See also the following question.
+   - Use the Linux kernel module supplied with the kernel that you are
+     using.  (See also the following FAQ.)
+
+   - If there is a newer released version of Open vSwitch, consider
+     building that one, because it may support the kernel that you are
+     building against.  (To find out, consult the table in the
+     previous FAQ.)
+
+   - The Open vSwitch "master" branch may support the kernel that you
+     are using, so consider building the kernel module from "master".
+
+  All versions of Open vSwitch userspace are compatible with all
+  versions of the Open vSwitch kernel module, so you do not have to
+  use the kernel module from one source along with the userspace
+  programs from the same source.
 
 ### Q: What features are not available in the Open vSwitch kernel datapath that ships as part of the upstream Linux kernel?
 
@@ -197,7 +215,9 @@ A: Support for tunnels was added to the upstream Linux kernel module
 |:--------:|:-------------:
 | GRE      |    3.11
 | VXLAN    |    3.12
+| Geneve   |    3.18
 | LISP     | <not upstream>
+| STT      | <not upstream>
 
    If you are using a version of the kernel that is older than the one
    listed above, it is still possible to use that tunnel protocol. However,
@@ -205,6 +225,14 @@ A: Support for tunnels was added to the upstream Linux kernel module
    vSwitch distribution rather than the one on your machine. If problems
    persist after doing this, check to make sure that the module that is
    loaded is the one you expect.
+
+### Q: Why are UDP tunnel checksums not computed for VXLAN or Geneve?
+
+A: Generating outer UDP checksums requires kernel support that was not
+   part of the initial implementation of these protocols. If using the
+   upstream Linux Open vSwitch module, you must use kernel 4.0 or
+   newer. The out-of-tree modules from Open vSwitch release 2.4 and later
+   support UDP checksums.
 
 ### Q: What features are not available when using the userspace datapath?
 
@@ -215,8 +243,9 @@ A: Tunnel virtual ports are not supported, as described in the
 
 ### Q: What Linux kernel versions does IPFIX flow monitoring work with?
 
-A: IPFIX flow monitoring requires the Linux kernel module from Open
-   vSwitch version 1.10.90 or later.
+A: IPFIX flow monitoring requires the Linux kernel module from Linux
+   3.10 or later, or the out-of-tree module from Open vSwitch version
+   1.10.90 or later.
 
 ### Q: Should userspace or kernel be upgraded first to minimize downtime?
 
@@ -329,6 +358,25 @@ A: Yes.  How you configure it depends on what you mean by "promiscuous
     mirroring" or "SPAN".  For information on how to configure
     SPAN, see "How do I configure a port as a SPAN port, that is,
     enable mirroring of all traffic to that port?"
+
+### Q: How do I configure a DPDK port as an access port?
+
+A: Firstly, you must have a DPDK-enabled version of Open vSwitch.
+
+   If your version is DPDK-enabled it will support the --dpdk
+   argument on the command line and will display lines with
+   "EAL:..." during startup when --dpdk is supplied.
+
+   Secondly, when adding a DPDK port, unlike a system port, the
+   type for the interface must be specified. For example;
+
+       ovs-vsctl add-br br0
+       ovs-vsctl add-port br0 dpdk0 -- set Interface dpdk0 type=dpdk
+
+   Finally, it is required that DPDK port names begin with 'dpdk'.
+
+   See [INSTALL.DPDK.md] for more information on enabling and using DPDK with
+   Open vSwitch.
 
 ### Q: How do I configure a VLAN as an RSPAN VLAN, that is, enable mirroring of all traffic to that VLAN?
 
@@ -619,6 +667,9 @@ A: More than likely, you've looped your network.  Probably, eth0 and
      documentation on the Port table in ovs-vswitchd.conf.db(5)
      for all the details.
 
+     Configuration for DPDK-enabled interfaces is slightly less
+     straightforward: see [INSTALL.DPDK.md].
+
    - Perhaps you don't actually need eth0 and eth1 to be on the
      same bridge.  For example, if you simply want to be able to
      connect each of them to virtual machines, then you can put
@@ -749,6 +800,146 @@ A: It's an expected behaviour.
        ovs-vsctl del-port br0 p1
        ovs-vsctl add-port br0 p1 -- \
            set interface p1 type=internal
+
+### Q: I want to add thousands of ports to an Open vSwitch bridge, but
+   it takes too long (minutes or hours) to do it with ovs-vsctl.  How
+   can I do it faster?
+
+A: If you add them one at a time with ovs-vsctl, it can take a long
+   time to add thousands of ports to an Open vSwitch bridge.  This is
+   because every invocation of ovs-vsctl first reads the current
+   configuration from OVSDB.  As the number of ports grows, this
+   starts to take an appreciable amount of time, and when it is
+   repeated thousands of times the total time becomes significant.
+
+   The solution is to add the ports in one invocation of ovs-vsctl (or
+   a small number of them).  For example, using bash:
+
+       ovs-vsctl add-br br0
+       cmds=; for i in {1..5000}; do cmds+=" -- add-port br0 p$i"; done
+       ovs-vsctl $cmds
+
+   takes seconds, not minutes or hours, in the OVS sandbox environment.
+
+### Q: I created a bridge named br0.  My bridge shows up in "ovs-vsctl
+    show", but "ovs-ofctl show br0" just prints "br0 is not a bridge
+    or a socket".
+
+A: Open vSwitch wasn't able to create the bridge.  Check the
+   ovs-vswitchd log for details (Debian and Red Hat packaging for Open
+   vSwitch put it in /var/log/openvswitch/ovs-vswitchd.log).
+
+   In general, the Open vSwitch database reflects the desired
+   configuration state.  ovs-vswitchd monitors the database and, when
+   it changes, reconfigures the system to reflect the new desired
+   state.  This normally happens very quickly.  Thus, a discrepancy
+   between the database and the actual state indicates that
+   ovs-vswitchd could not implement the configuration, and so one
+   should check the log to find out why.  (Another possible cause is
+   that ovs-vswitchd is not running.  This will make "ovs-vsctl"
+   commands hang, if they change the configuration, unless one
+   specifies "--no-wait".)
+
+### Q: I have a bridge br0.  I added a new port vif1.0, and it shows
+    up in "ovs-vsctl show", but "ovs-vsctl list port" says that it has
+    OpenFlow port ("ofport") -1, and "ovs-ofctl show br0" doesn't show
+    vif1.0 at all.
+
+A: Open vSwitch wasn't able to create the port.  Check the
+   ovs-vswitchd log for details (Debian and Red Hat packaging for Open
+   vSwitch put it in /var/log/openvswitch/ovs-vswitchd.log).  Please
+   see the previous question for more information.
+
+   You may want to upgrade to Open vSwitch 2.3 (or later), in which
+   ovs-vsctl will immediately report when there is an issue creating a
+   port.
+
+### Q: I created a tap device tap0, configured an IP address on it, and
+    added it to a bridge, like this:
+
+        tunctl -t tap0
+	ifconfig tap0 192.168.0.123
+	ovs-vsctl add-br br0
+	ovs-vsctl add-port br0 tap0
+
+    I expected that I could then use this IP address to contact other
+    hosts on the network, but it doesn't work.  Why not?
+
+A: The short answer is that this is a misuse of a "tap" device.  Use
+   an "internal" device implemented by Open vSwitch, which works
+   differently and is designed for this use.  To solve this problem
+   with an internal device, instead run:
+
+       ovs-vsctl add-br br0
+       ovs-vsctl add-port br0 int0 -- set Interface int0 type=internal
+       ifconfig int0 192.168.0.123
+
+   Even more simply, you can take advantage of the internal port that
+   every bridge has under the name of the bridge:
+
+       ovs-vsctl add-br br0
+       ifconfig br0 192.168.0.123
+
+   In more detail, a "tap" device is an interface between the Linux
+   (or *BSD) network stack and a user program that opens it as a
+   socket.  When the "tap" device transmits a packet, it appears in
+   the socket opened by the userspace program.  Conversely, when the
+   userspace program writes to the "tap" socket, the kernel TCP/IP
+   stack processes the packet as if it had been received by the "tap"
+   device.
+
+   Consider the configuration above.  Given this configuration, if you
+   "ping" an IP address in the 192.168.0.x subnet, the Linux kernel
+   routing stack will transmit an ARP on the tap0 device.  Open
+   vSwitch userspace treats "tap" devices just like any other network
+   device; that is, it doesn't open them as "tap" sockets.  That means
+   that the ARP packet will simply get dropped.
+
+   You might wonder why the Open vSwitch kernel module doesn't
+   intercept the ARP packet and bridge it.  After all, Open vSwitch
+   intercepts packets on other devices.  The answer is that Open
+   vSwitch only intercepts *received* packets, but this is a packet
+   being transmitted.  The same thing happens for all other types of
+   network devices, except for Open vSwitch "internal" ports.  If you,
+   for example, add a physical Ethernet port to an OVS bridge,
+   configure an IP address on a physical Ethernet port, and then issue
+   a "ping" to an address in that subnet, the same thing happens: an
+   ARP gets transmitted on the physical Ethernet port and Open vSwitch
+   never sees it.  (You should not do that, as documented at the
+   beginning of this section.)
+
+   It can make sense to add a "tap" device to an Open vSwitch bridge,
+   if some userspace program (other than Open vSwitch) has opened the
+   tap socket.  This is the case, for example, if the "tap" device was
+   created by KVM (or QEMU) to simulate a virtual NIC.  In such a
+   case, when OVS bridges a packet to the "tap" device, the kernel
+   forwards that packet to KVM in userspace, which passes it along to
+   the VM, and in the other direction, when the VM sends a packet, KVM
+   writes it to the "tap" socket, which causes OVS to receive it and
+   bridge it to the other OVS ports.  Please note that in such a case
+   no IP address is configured on the "tap" device (there is normally
+   an IP address configured in the virtual NIC inside the VM, but this
+   is not visible to the host Linux kernel or to Open vSwitch).
+
+   There is one special case in which Open vSwitch does directly read
+   and write "tap" sockets.  This is an implementation detail of the
+   Open vSwitch userspace switch, which implements its "internal"
+   ports as Linux (or *BSD) "tap" sockets.  In such a userspace
+   switch, OVS receives packets sent on the "tap" device used to
+   implement an "internal" port by reading the associated "tap"
+   socket, and bridges them to the rest of the switch.  In the other
+   direction, OVS transmits packets bridged to the "internal" port by
+   writing them to the "tap" socket, causing them to be processed by
+   the kernel TCP/IP stack as if they had been received on the "tap"
+   device.  Users should not need to be concerned with this
+   implementation detail.
+
+   Open vSwitch has a network device type called "tap".  This is
+   intended only for implementing "internal" ports in the OVS
+   userspace switch and should not be used otherwise.  In particular,
+   users should not configure KVM "tap" devices as type "tap" (use
+   type "system", the default, instead).
+
 
 Quality of Service (QoS)
 ------------------------
@@ -1132,7 +1323,7 @@ A: The configuration for VLANs in the Open vSwitch database (e.g. via
    tags, like this:
 
        ovs-vsctl add-br br0
-       ovs-vsctl set-controller br0 tcp:192.168.0.10:6633
+       ovs-vsctl set-controller br0 tcp:192.168.0.10:6653
        ovs-vsctl add-port br0 eth0
        ovs-vsctl add-port br0 tap0 tag=9
        ovs-vsctl add-port br0 tap1 tag=10
@@ -1162,9 +1353,9 @@ A: VXLAN stands for Virtual eXtensible Local Area Network, and is a means
    to solve the scaling challenges of VLAN networks in a multi-tenant
    environment. VXLAN is an overlay network which transports an L2 network
    over an existing L3 network. For more information on VXLAN, please see
-   the IETF draft available here:
+   RFC 7348:
 
-   http://tools.ietf.org/html/draft-mahalingam-dutt-dcops-vxlan-03
+   http://tools.ietf.org/html/rfc7348
 
 ### Q: How much of the VXLAN protocol does Open vSwitch currently support?
 
@@ -1240,8 +1431,7 @@ A: The following table lists the versions of OpenFlow supported by
    [OPENFLOW-1.1+.md] in the Open vSwitch source tree tracks support for
    OpenFlow 1.1 and later features.  When support for OpenFlow 1.4 and
    1.5 is solidly implemented, Open vSwitch will enable those version
-   by default.  Also, the OpenFlow 1.5 specification is still under
-   development and thus subject to change.
+   by default.
 
 ### Q: Does Open vSwitch support MPLS?
 
@@ -1622,6 +1812,47 @@ A: Reconfiguring your bridge can change your bridge's datapath-id because
 
       ovs-vsctl set bridge br0 other-config:datapath-id=0123456789abcdef
 
+### Q: My controller is getting errors about "buffers".  What's going on?
+
+A: When a switch sends a packet to an OpenFlow controller using a
+   "packet-in" message, it can also keep a copy of that packet in a
+   "buffer", identified by a 32-bit integer "buffer_id".  There are
+   two advantages to buffering.  First, when the controller wants to
+   tell the switch to do something with the buffered packet (with a
+   "packet-out" OpenFlow request), it does not need to send another
+   copy of the packet back across the OpenFlow connection, which
+   reduces the bandwidth cost of the connection and improves latency.
+   This enables the second advantage: the switch can optionally send
+   only the first part of the packet to the controller (assuming that
+   the switch only needs to look at the first few bytes of the
+   packet), further reducing bandwidth and improving latency.
+
+   However, buffering introduces some issues of its own.  First, any
+   switch has limited resources, so if the controller does not use a
+   buffered packet, the switch has to decide how long to keep it
+   buffered.  When many packets are sent to a controller and buffered,
+   Open vSwitch can discard buffered packets that the controller has
+   not used after as little as 5 seconds.  This means that
+   controllers, if they make use of packet buffering, should use the
+   buffered packets promptly.  (This includes sending a "packet-out"
+   with no actions if the controller does not want to do anything with
+   a buffered packet, to clear the packet buffer and effectively
+   "drop" its packet.)
+
+   Second, packet buffers are one-time-use, meaning that a controller
+   cannot use a single packet buffer in two or more "packet-out"
+   commands.  Open vSwitch will respond with an error to the second
+   and subsequent "packet-out"s in such a case.
+
+   Finally, a common error early in controller development is to try
+   to use buffer_id 0 in a "packet-out" message as if 0 represented
+   "no buffered packet".  This is incorrect usage: the buffer_id with
+   this meaning is actually 0xffffffff.
+
+   ovs-vswitchd(8) describes some details of Open vSwitch packet
+   buffering that the OpenFlow specification requires implementations
+   to document.
+
 
 Development
 -----------
@@ -1642,11 +1873,25 @@ A: Add your new message to "enum ofpraw" and "enum ofptype" in
 
 A: Add new members for your field to "struct flow" in lib/flow.h, and
    add new enumerations for your new field to "enum mf_field_id" in
-   lib/meta-flow.h, following the existing pattern.  Then recompile
-   and fix all of the new warnings, implementing new functionality for
-   the new field or header as needed.  (If you configure with
-   --enable-Werror, as described in [INSTALL.md], then it is
-   impossible to miss any warnings.)
+   lib/meta-flow.h, following the existing pattern.  Also, add support
+   to miniflow_extract() in lib/flow.c for extracting your new field
+   from a packet into struct miniflow.  Then recompile and fix all of
+   the new warnings, implementing new functionality for the new field
+   or header as needed.  (If you configure with --enable-Werror, as
+   described in [INSTALL.md], then it is impossible to miss any
+   warnings.)
+
+   If you want kernel datapath support for your new field, you also
+   need to modify the kernel module for the operating systems you are
+   interested in.  This isn't mandatory, since fields understood only
+   by userspace work too (with a performance penalty), so it's
+   reasonable to start development without it.  If you implement
+   kernel module support for Linux, then the Linux kernel "netdev"
+   mailing list is the place to submit that support first; please read
+   up on the Linux kernel development process separately.  The Windows
+   datapath kernel module support, on the other hand, is maintained
+   within the OVS tree, so patches for that can go directly to
+   ovs-dev.
 
 ### Q: How do I add support for a new OpenFlow action?
 
@@ -1672,3 +1917,4 @@ http://openvswitch.org/
 [WHY-OVS.md]:WHY-OVS.md
 [INSTALL.md]:INSTALL.md
 [OPENFLOW-1.1+.md]:OPENFLOW-1.1+.md
+[INSTALL.DPDK.md]:INSTALL.DPDK.md

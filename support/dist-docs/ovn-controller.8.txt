@@ -1,0 +1,88 @@
+ovn-controller(8)             Open vSwitch Manual            ovn-controller(8)
+
+
+
+NAME
+       ovn-controller - Open Virtual Network local controller
+
+SYNOPSIS
+       ovn-controller [options] [ovs-database]
+
+DESCRIPTION
+       ovn-controller is the local controller daemon for OVN, the Open Virtual
+       Network.  It connects up to the OVN Southbound database (see ovn-sb(5))
+       over  the  OVSDB  protocol,  and down to the Open vSwitch database (see
+       ovs-vswitchd.conf.db(5)) over the OVSDB protocol and to ovs-vswitchd(8)
+       via  OpenFlow.   Each hypervisor and software gateway in an OVN deploy‐
+       ment runs its own independent copy of  ovn-controller;  thus,  ovn-con‐
+       troller’s  downward connections are machine-local and do not run over a
+       physical network.
+
+CONFIGURATION
+       ovn-controller retrieves most of its configuration information from the
+       local Open vSwitch’s ovsdb-server instance.  The default is the db.sock
+       in local Open vSwitch’s "run" directory.  ovs-database must take one of
+       the following forms:
+
+              ·      ssl:ip:port
+
+                     The specified SSL port on the host at the given ip, which
+                     must be expressed as an IP address (not a  DNS  name)  in
+                     IPv4  or  IPv6 address format.  If ip is an IPv6 address,
+                     then wrap ip with square brackets, e.g.:  ssl:[::1]:6640.
+                     The  --private-key,  --certificate, and --ca-cert options
+                     are mandatory when this form is used.
+
+              ·      tcp:ip:port
+
+                     Connect to the given TCP port on ip, where ip can be IPv4
+                     or  IPv6  address. If ip is an IPv6 address, then wrap ip
+                     with square brackets, e.g.: tcp:[::1]:6640.
+
+              ·      unix:file
+
+                     On POSIX, connect to the Unix domain server socket  named
+                     file.
+
+                     On  Windows,  connect to a localhost TCP port whose value
+                     is written in file.
+
+       ovn-controller assumes it gets configuration information from the  fol‐
+       lowing keys in the Open_vSwitch table of the local OVS instance:
+
+              ·      external_ids:system-id  specifies the chassis name to use
+                     in the Chassis table.
+
+              ·      external_ids:ovn-bridge specifies the integration  bridge
+                     to  which  logical  ports  are  attached.  The default is
+                     br-int.
+
+              ·      external_ids:ovn-remote specifies the OVN  database  that
+                     this system should connect to for its configuration.
+
+              ·      external_ids:ovn-encap-type  specifies  the encapsulation
+                     type that a chassis should use to connect to  this  node.
+                     Supported  tunnel  types  for  connecting hypervisors are
+                     geneve and stt.  Gateways may use geneve, vxlan, or stt.
+
+              ·      external_ids:ovn-encap-ip specifies the IP address that a
+                     chassis should use to connect to this node using encapsu‐
+                     lation type specified by external_ids:ovn-encap-ip.
+
+       Currently, ovn-controller does not support changing the  chassis  name,
+       integration  bridge,  or OVN database mid-run.  If these values need to
+       change, the daemon must be restarted.  This behavior should be changed.
+
+RUNTIME MANAGEMENT COMMANDS
+       ovs-appctl can send commands to a running ovn-controller process.   The
+       currently supported commands are described below.
+
+              exit   Causes ovn-controller to gracefully terminate.
+
+              ct-zone-list
+                     Lists each local logical port and its connection tracking
+                     zone.
+
+
+
+Open vSwitch 2.4.90             ovn-controller               ovn-controller(8)

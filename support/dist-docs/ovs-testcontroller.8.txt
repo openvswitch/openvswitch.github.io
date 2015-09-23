@@ -21,13 +21,11 @@ DESCRIPTION
               pssl:[port][:ip]
               ptcp:[port][:ip]
                      Listens for OpenFlow connections on  port.   The  default
-                     port  is  6633, but a future version of Open vSwitch will
-                     change the default to the  IANA-defined  port  6653.   By
-                     default,  connections  are allowed from any IPv4 address.
-                     Specify ip as an IPv4 address or a bracketed IPv6 address
-                     (e.g.  ptcp:6633:[::1]).  DNS names may not be used.  For
-                     pssl,  the  --private-key,--certificate,  and   --ca-cert
-                     options are mandatory.
+                     port  is  6653.  By default, connections are allowed from
+                     any IPv4 address.  Specify ip as an  IPv4  address  or  a
+                     bracketed IPv6 address (e.g. ptcp:6653:[::1]).  DNS names
+                     may not be used.  For pssl, the  --private-key,--certifi‐
+                     cate, and --ca-cert options are mandatory.
 
               punix:file
                      Listens  for  OpenFlow  connections  on  the  Unix domain
@@ -38,13 +36,11 @@ DESCRIPTION
                      The specified port on the host at  the  given  ip,  which
                      must  be  expressed  as an IP address (not a DNS name) in
                      IPv4 or IPv6 address  format.   Wrap  IPv6  addresses  in
-                     square  brackets,  e.g.  tcp:[::1]:6633.   For  ssl,  the
+                     square  brackets,  e.g.  tcp:[::1]:6653.   For  ssl,  the
                      --private-key, --certificate, and --ca-cert  options  are
                      mandatory.
 
-                     If  port is not specified, it currently defaults to 6633.
-                     In the future, the default will change to 6653, which  is
-                     the IANA-defined value.
+                     If port is not specified, it defaults to 6653.
 
               unix:file
                      On POSIX, a Unix domain server socket named file.
@@ -174,7 +170,7 @@ OPTIONS
               Specifies   a  PEM  file  containing  the  CA  certificate  that
               ovs-testcontroller should use to verify  certificates  presented
               to  it by SSL peers.  (This may be the same certificate that SSL
-              peers use to verify the certificate specified on  -c  or  --cer�‐
+              peers use to verify the certificate specified on  -c  or  --cer‐
               tificate,  or  it  may  be a different one, depending on the PKI
               design in use.)
 
@@ -189,7 +185,7 @@ OPTIONS
               tificates  to  send to SSL peers.  peer-cacert.pem should be the
               CA certificate used to sign  ovs-testcontroller's  own  certifi‐
               cate, that is, the certificate specified on -c or --certificate.
-              If ovs-testcontroller's certificate is self-signed, then  --cer�‐
+              If ovs-testcontroller's certificate is self-signed, then  --cer‐
               tificate and --peer-ca-cert should specify the same file.
 
               This  option  is not useful in normal operation, because the SSL
@@ -203,14 +199,14 @@ OPTIONS
               Causes a file (by default, ovs-testcontroller.pid) to be created
               indicating the PID of the running process.  If the pidfile argu‐
               ment is not specified, or if it does not begin with /,  then  it
-              is created in /var/run/openvswitch.
+              is created in //var/run/openvswitch.
 
               If --pidfile is not specified, no pidfile is created.
 
        --overwrite-pidfile
               By  default,  when --pidfile is specified and the specified pid‐
               file  already  exists  and  is  locked  by  a  running  process,
-              ovs-testcontroller  refuses  to start.  Specify --overwrite-pid�‐
+              ovs-testcontroller  refuses  to start.  Specify --overwrite-pid‐
               file to cause it to instead overwrite the pidfile.
 
               When --pidfile is not specified, this option has no effect.
@@ -248,8 +244,8 @@ OPTIONS
        -v[spec]
        --verbose=[spec]
               Sets  logging  levels.  Without any spec, sets the log level for
-              every module and facility to dbg.  Otherwise, spec is a list  of
-              words  separated  by  spaces or commas or colons, up to one from
+              every module and destination to dbg.  Otherwise, spec is a  list
+              of words separated by spaces or commas or colons, up to one from
               each category below:
 
               ·      A valid module name, as displayed by the  vlog/list  com‐
@@ -281,18 +277,28 @@ OPTIONS
 
        -v
        --verbose
-              Sets  the  maximum logging verbosity level, equivalent to --ver�‐
+              Sets  the  maximum logging verbosity level, equivalent to --ver‐
               bose=dbg.
 
-       -vPATTERN:facility:pattern
-       --verbose=PATTERN:facility:pattern
-              Sets  the  log  pattern  for  facility  to  pattern.   Refer  to
+       -vPATTERN:destination:pattern
+       --verbose=PATTERN:destination:pattern
+              Sets the log pattern  for  destination  to  pattern.   Refer  to
               ovs-appctl(8) for a description of the valid syntax for pattern.
+
+       -vFACILITY:facility
+       --verbose=FACILITY:facility
+              Sets  the  RFC5424  facility of the log message. facility can be
+              one of kern, user, mail, daemon, auth, syslog, lpr, news,  uucp,
+              clock,  ftp,  ntp, audit, alert, clock2, local0, local1, local2,
+              local3, local4, local5, local6 or local7. If this option is  not
+              specified,  daemon  is  used as the default for the local system
+              syslog and local0 is used while sending a message to the  target
+              provided via the --syslog-target option.
 
        --log-file[=file]
               Enables  logging  to  a  file.  If file is specified, then it is
               used as the exact name for the log file.  The default  log  file
-              name  used  if file is omitted is /var/log/openvswitch/ovs-test�‐
+              name  used if file is omitted is //var/log/openvswitch/ovs-test‐
               controller.log.
 
        --syslog-target=host:port
@@ -300,20 +306,48 @@ OPTIONS
               system  syslog.   The host must be a numerical IP address, not a
               hostname.
 
+       --syslog-method=method
+              Specify method how syslog messages should be sent to syslog dae‐
+              mon.  Following forms are supported:
+
+              ·      libc,  use  libc  syslog() function.  This is the default
+                     behavior.  Downside of using this options  is  that  libc
+                     adds  fixed prefix to every message before it is actually
+                     sent to the  syslog  daemon  over  /dev/log  UNIX  domain
+                     socket.
+
+              ·      unix:file, use UNIX domain socket directly.  It is possi‐
+                     ble to specify arbitrary message format with this option.
+                     However,  rsyslogd  8.9 and older versions use hard coded
+                     parser function anyway that  limits  UNIX  domain  socket
+                     use.   If  you  want to use arbitrary message format with
+                     older rsyslogd versions, then use UDP socket to localhost
+                     IP address instead.
+
+              ·      udp:ip:port, use UDP socket.  With this method it is pos‐
+                     sible to use arbitrary message  format  also  with  older
+                     rsyslogd.   When  sending syslog messages over UDP socket
+                     extra precaution needs to  be  taken  into  account,  for
+                     example,  syslog  daemon needs to be configured to listen
+                     on the specified  UDP  port,  accidental  iptables  rules
+                     could  be interfering with local syslog traffic and there
+                     are some security considerations that apply to UDP  sock‐
+                     ets, but do not apply to UNIX domain sockets.
+
        --unixctl=socket
-              Sets the name of the control socket on which  ovs-testcontroller
-              listens  for runtime management commands (see RUNTIME MANAGEMENT
+              Sets  the name of the control socket on which ovs-testcontroller
+              listens for runtime management commands (see RUNTIME  MANAGEMENT
               COMMANDS, below).  If socket does not begin with /, it is inter‐
-              preted as relative to /var/run/openvswitch.  If --unixctl is not
-              used   at   all,   the   default   socket   is    /var/run/open�‐
-              vswitch/ovs-testcontroller.pid.ctl,  where  pid  is ovs-testcon�‐
+              preted as relative to //var/run/openvswitch.   If  --unixctl  is
+              not   used   at  all,  the  default  socket  is  //var/run/open‐
+              vswitch/ovs-testcontroller.pid.ctl, where  pid  is  ovs-testcon‐
               troller's process ID.
 
-              On Windows, uses a kernel chosen TCP port on  the  localhost  to
-              listen  for  runtime management commands.  The kernel chosen TCP
-              port value is written in a file whose absolute path  is  pointed
-              by  socket. If --unixctl is not used at all, the file is created
-              as ovs-testcontroller.ctl in the  configured  OVS_RUNDIR  direc‐
+              On  Windows,  uses  a kernel chosen TCP port on the localhost to
+              listen for runtime management commands.  The kernel  chosen  TCP
+              port  value  is written in a file whose absolute path is pointed
+              by socket. If --unixctl is not used at all, the file is  created
+              as  ovs-testcontroller.ctl  in  the configured OVS_RUNDIR direc‐
               tory.
 
               Specifying none for socket disables the control socket feature.
@@ -330,13 +364,13 @@ OPTIONS
               Sets the OpenFlow protocol versions that are allowed when estab‐
               lishing an OpenFlow session.
 
-              The following versions are considered to be  ready  for  general
+              The  following  versions  are considered to be ready for general
               use.  These protocol versions are enabled by default:
 
               ·      OpenFlow10, for OpenFlow 1.0.
 
-              Support  for  the  following  protocol  versions is provided for
-              testing and development  purposes.   They  are  not  enabled  by
+              Support for the following  protocol  versions  is  provided  for
+              testing  and  development  purposes.   They  are  not enabled by
               default:
 
               ·      OpenFlow11, for OpenFlow 1.1.
@@ -346,13 +380,10 @@ OPTIONS
               ·      OpenFlow13, for OpenFlow 1.3.
 
 EXAMPLES
-       To  bind  locally to port 6633 (the default) and wait for incoming con‐
+       To bind locally to port 6653 (the default) and wait for  incoming  con‐
        nections from OpenFlow switches:
 
               % ovs-testcontroller ptcp:
-
-       In the future, the default port number will change to  6653,  which  is
-       the IANA-defined value.
 
 BUGS
        Configuring  a  Citrix  XenServer to connect to a particular controller
@@ -365,7 +396,7 @@ BUGS
        set the controller, e.g.:
 
               % ovs-vsctl -t0 --db=pssl: --certificate=cert.pem --ca-cert=none
-              --private-key=privkey.pem   --peer-ca-cert=cacert.pem   set-con�‐
+              --private-key=privkey.pem   --peer-ca-cert=cacert.pem   set-con‐
               troller ssl:ip
 
 SEE ALSO
@@ -373,4 +404,4 @@ SEE ALSO
 
 
 
-Open vSwitch                        2.3.90               ovs-testcontroller(8)
+Open vSwitch                        2.4.90               ovs-testcontroller(8)

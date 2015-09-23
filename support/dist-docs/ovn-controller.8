@@ -1,0 +1,114 @@
+'\" p
+.\" -*- nroff -*-
+.TH "ovn-controller" 8 "ovn-controller" "Open vSwitch 2\[char46]4\[char46]90" "Open vSwitch Manual"
+.fp 5 L CR              \\" Make fixed-width font available as \\fL.
+.de TQ
+.  br
+.  ns
+.  TP "\\$1"
+..
+.de ST
+.  PP
+.  RS -0.15in
+.  I "\\$1"
+.  RE
+..
+.SH "NAME"
+.PP
+ovn-controller \- Open Virtual Network local controller
+.SH "SYNOPSIS"
+.PP
+\fBovn\-controller\fR [\fIoptions\fR] [\fIovs-database\fR]
+.SH "DESCRIPTION"
+.PP
+\fBovn\-controller\fR is the local controller daemon for
+OVN, the Open Virtual Network\[char46]  It connects up to the OVN
+Southbound database (see \fBovn\-sb\fR(5)) over the OVSDB
+protocol, and down to the Open vSwitch database (see
+\fBovs\-vswitchd\[char46]conf\[char46]db\fR(5)) over the OVSDB protocol and
+to \fBovs\-vswitchd\fR(8) via OpenFlow\[char46]  Each hypervisor and
+software gateway in an OVN deployment runs its own independent
+copy of \fBovn\-controller\fR; thus,
+\fBovn\-controller\fR\(cqs downward connections are
+machine-local and do not run over a physical network\[char46]
+.SH "CONFIGURATION"
+.PP
+\fBovn\-controller\fR retrieves most of its configuration
+information from the local Open vSwitch\(cqs ovsdb-server instance\[char46]
+The default is the \fBdb\[char46]sock\fR in local Open vSwitch\(cqs
+\(dqrun\(dq directory\[char46]  \fIovs-database\fR must take one of the
+following forms:
+.RS
+.IP \(bu
+\fBssl:\fIip\fB:\fIport\fB\fR
+.IP
+The specified SSL \fIport\fR on the host at the given
+\fIip\fR, which must be expressed as an IP address (not a DNS
+name) in IPv4 or IPv6 address format\[char46]  If \fIip\fR is an IPv6
+address, then wrap \fIip\fR with square brackets, e\[char46]g\[char46]:
+\fBssl:[::1]:6640\fR\[char46]  The \fB\-\-private\-key\fR,
+\fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR options are
+mandatory when this form is used\[char46]
+.IP \(bu
+\fBtcp:\fIip\fB:\fIport\fB\fR
+.IP
+Connect to the given TCP \fIport\fR on \fIip\fR, where
+\fIip\fR can be IPv4 or IPv6 address\[char46] If \fIip\fR is an
+IPv6 address, then wrap \fIip\fR with square brackets, e\[char46]g\[char46]:
+\fBtcp:[::1]:6640\fR\[char46]
+.IP \(bu
+\fBunix:\fIfile\fB\fR
+.IP
+On POSIX, connect to the Unix domain server socket named
+\fIfile\fR\[char46]
+.IP
+On Windows, connect to a localhost TCP port whose value is written
+in \fIfile\fR\[char46]
+.RE
+.PP
+\fBovn\-controller\fR assumes it gets configuration
+information from the following keys in the \fBOpen_vSwitch\fR
+table of the local OVS instance:
+.RS
+.IP \(bu
+\fBexternal_ids:system\-id\fR specifies the chassis
+name to use in the Chassis table\[char46]
+.IP \(bu
+\fBexternal_ids:ovn\-bridge\fR specifies the
+integration bridge to which logical ports are attached\[char46]
+The default is \fBbr\-int\fR\[char46]
+.IP \(bu
+\fBexternal_ids:ovn\-remote\fR specifies the OVN
+database that this system should connect to for its
+configuration\[char46]
+.IP \(bu
+\fBexternal_ids:ovn\-encap\-type\fR specifies the
+encapsulation type that a chassis should use to connect to
+this node\[char46]  Supported tunnel types for connecting
+hypervisors are \fBgeneve\fR and \fBstt\fR\[char46]
+Gateways may use \fBgeneve\fR, \fBvxlan\fR,
+or \fBstt\fR\[char46]
+.IP \(bu
+\fBexternal_ids:ovn\-encap\-ip\fR specifies the IP
+address that a chassis should use to connect to this node
+using encapsulation type specified by
+\fBexternal_ids:ovn\-encap\-ip\fR\[char46]
+.RE
+.PP
+Currently, \fBovn\-controller\fR does not support changing
+the chassis name, integration bridge, or OVN database mid-run\[char46]
+If these values need to change, the daemon must be restarted\[char46]
+This behavior should be changed\[char46]
+.SH "RUNTIME MANAGEMENT COMMANDS"
+.PP
+\fBovs\-appctl\fR can send commands to a running
+\fBovn\-controller\fR process\[char46]  The currently supported
+commands are described below\[char46]
+.RS
+.TP
+\fBexit\fR
+Causes \fBovn\-controller\fR to gracefully terminate\[char46]
+.TP
+\fBct\-zone\-list\fR
+Lists each local logical port and its connection tracking zone\[char46]
+.RE

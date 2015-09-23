@@ -63,21 +63,21 @@ OPTIONS
        --db=server
               Sets server as the database server that  ovs-vsctl  contacts  to
               query    or    modify    configuration.     The    default    is
-              unix:/var/run/openvswitch/db.sock.  server must take one of  the
+              unix://var/run/openvswitch/db.sock.  server must take one of the
               following forms:
 
               ssl:ip:port
                      The specified SSL port on the host at the given ip, which
                      must be expressed as an IP address (not a  DNS  name)  in
                      IPv4  or  IPv6 address format.  If ip is an IPv6 address,
-                     then wrap ip with square brackets, e.g.:  ssl:[::1]:6632.
+                     then wrap ip with square brackets, e.g.:  ssl:[::1]:6640.
                      The  --private-key,  --certificate, and --ca-cert options
                      are mandatory when this form is used.
 
               tcp:ip:port
                      Connect to the given TCP port on ip, where ip can be IPv4
                      or  IPv6  address. If ip is an IPv6 address, then wrap ip
-                     with square brackets, e.g.: tcp:[::1]:6632.
+                     with square brackets, e.g.: tcp:[::1]:6640.
 
               unix:file
                      On POSIX, connect to the Unix domain server socket  named
@@ -93,7 +93,7 @@ OPTIONS
                      addresses,  but specifying ip limits connections to those
                      from the given ip, either IPv4 or IPv6 address.  If ip is
                      an IPv6 address, then wrap ip with square brackets, e.g.:
-                     pssl:6632:[::1].  The --private-key,  --certificate,  and
+                     pssl:6640:[::1].  The --private-key,  --certificate,  and
                      --ca-cert options are mandatory when this form is used.
 
               ptcp:port[:ip]
@@ -103,7 +103,7 @@ OPTIONS
                      addresses, but ip may be specified  to  listen  only  for
                      connections to the given ip, either IPv4 or IPv6 address.
                      If ip is an IPv6 address, then wrap ip with square brack‐
-                     ets, e.g.: ptcp:6632:[::1].
+                     ets, e.g.: ptcp:6640:[::1].
 
               punix:file
                      On  POSIX,  listen on the Unix domain server socket named
@@ -115,9 +115,9 @@ OPTIONS
 
        --no-wait
               Prevents ovs-vsctl from waiting for ovs-vswitchd to  reconfigure
-              itself  according  to  the  the  modified database.  This option
-              should be  used  if  ovs-vswitchd  is  not  running;  otherwise,
-              ovs-vsctl will not exit until ovs-vswitchd starts.
+              itself  according  to the modified database.  This option should
+              be used if ovs-vswitchd is  not  running;  otherwise,  ovs-vsctl
+              will not exit until ovs-vswitchd starts.
 
               This  option  has  no  effect  if  the commands specified do not
               change the database.
@@ -303,8 +303,8 @@ OPTIONS
        -v[spec]
        --verbose=[spec]
               Sets logging levels.  Without any spec, sets the log  level  for
-              every  module and facility to dbg.  Otherwise, spec is a list of
-              words separated by spaces or commas or colons, up  to  one  from
+              every  module and destination to dbg.  Otherwise, spec is a list
+              of words separated by spaces or commas or colons, up to one from
               each category below:
 
               ·      A  valid  module name, as displayed by the vlog/list com‐
@@ -336,24 +336,62 @@ OPTIONS
 
        -v
        --verbose
-              Sets the maximum logging verbosity level, equivalent  to  --ver�‐
+              Sets the maximum logging verbosity level, equivalent  to  --ver‐
               bose=dbg.
 
-       -vPATTERN:facility:pattern
-       --verbose=PATTERN:facility:pattern
-              Sets  the  log  pattern  for  facility  to  pattern.   Refer  to
+       -vPATTERN:destination:pattern
+       --verbose=PATTERN:destination:pattern
+              Sets  the  log  pattern  for  destination  to pattern.  Refer to
               ovs-appctl(8) for a description of the valid syntax for pattern.
+
+       -vFACILITY:facility
+       --verbose=FACILITY:facility
+              Sets the RFC5424 facility of the log message.  facility  can  be
+              one  of kern, user, mail, daemon, auth, syslog, lpr, news, uucp,
+              clock, ftp, ntp, audit, alert, clock2, local0,  local1,  local2,
+              local3,  local4, local5, local6 or local7. If this option is not
+              specified, daemon is used as the default for  the  local  system
+              syslog  and local0 is used while sending a message to the target
+              provided via the --syslog-target option.
 
        --log-file[=file]
               Enables logging to a file.  If file is  specified,  then  it  is
               used  as  the exact name for the log file.  The default log file
-              name   used   if   file    is    omitted    is    /var/log/open�‐
+              name   used   if   file   is    omitted    is    //var/log/open‐
               vswitch/ovs-vsctl.log.
 
        --syslog-target=host:port
               Send  syslog  messages  to  UDP port on host, in addition to the
               system syslog.  The host must be a numerical IP address,  not  a
               hostname.
+
+       --syslog-method=method
+              Specify method how syslog messages should be sent to syslog dae‐
+              mon.  Following forms are supported:
+
+              ·      libc, use libc syslog() function.  This  is  the  default
+                     behavior.   Downside  of  using this options is that libc
+                     adds fixed prefix to every message before it is  actually
+                     sent  to  the  syslog  daemon  over  /dev/log UNIX domain
+                     socket.
+
+              ·      unix:file, use UNIX domain socket directly.  It is possi‐
+                     ble to specify arbitrary message format with this option.
+                     However, rsyslogd 8.9 and older versions use  hard  coded
+                     parser  function  anyway  that  limits UNIX domain socket
+                     use.  If you want to use arbitrary  message  format  with
+                     older rsyslogd versions, then use UDP socket to localhost
+                     IP address instead.
+
+              ·      udp:ip:port, use UDP socket.  With this method it is pos‐
+                     sible  to  use  arbitrary  message format also with older
+                     rsyslogd.  When sending syslog messages over  UDP  socket
+                     extra  precaution  needs  to  be  taken into account, for
+                     example, syslog daemon needs to be configured  to  listen
+                     on  the  specified  UDP  port,  accidental iptables rules
+                     could be interfering with local syslog traffic and  there
+                     are  some security considerations that apply to UDP sock‐
+                     ets, but do not apply to UNIX domain sockets.
 
        -h
        --help Prints a brief help message to the console.
@@ -363,71 +401,71 @@ OPTIONS
               Prints version information to the console.
 
 COMMANDS
-       The  commands  implemented  by  ovs-vsctl are described in the sections
+       The commands implemented by ovs-vsctl are  described  in  the  sections
        below.
 
    Open vSwitch Commands
        These commands work with an Open vSwitch as a whole.
 
-       init   Initializes the Open vSwitch database, if it is empty.   If  the
-              database  has  already  been  initialized,  this  command has no
+       init   Initializes  the  Open vSwitch database, if it is empty.  If the
+              database has already  been  initialized,  this  command  has  no
               effect.
 
-              Any successful ovs-vsctl command automatically  initializes  the
-              Open  vSwitch database if it is empty.  This command is provided
+              Any  successful  ovs-vsctl command automatically initializes the
+              Open vSwitch database if it is empty.  This command is  provided
               to initialize the database without executing any other command.
 
        show   Prints a brief overview of the database contents.
 
        emer-reset
-              Reset the configuration into a  clean  state.   It  deconfigures
-              OpenFlow  controllers,  OVSDB servers, and SSL, and deletes port
-              mirroring, fail_mode, NetFlow, sFlow, and  IPFIX  configuration.
-              This  command  also removes all other-config keys from all data‐
+              Reset  the  configuration  into  a clean state.  It deconfigures
+              OpenFlow controllers, OVSDB servers, and SSL, and  deletes  port
+              mirroring,  fail_mode,  NetFlow, sFlow, and IPFIX configuration.
+              This command also removes all other-config keys from  all  data‐
               base records, except that other-config:hwaddr is preserved if it
-              is  present  in a Bridge record.  Other networking configuration
+              is present in a Bridge record.  Other  networking  configuration
               is left as-is.
 
    Bridge Commands
        These commands examine and manipulate Open vSwitch bridges.
 
        [--may-exist] add-br bridge
-              Creates a new bridge named bridge.  Initially  the  bridge  will
+              Creates  a  new  bridge named bridge.  Initially the bridge will
               have no ports (other than bridge itself).
-
-              Without  --may-exist,  attempting to create a bridge that exists
-              is an error.  With --may-exist, this  command  does  nothing  if
-              bridge already exists as a real bridge.
-
-       [--may-exist] add-br bridge parent vlan
-              Creates  a ``fake bridge'' named bridge within the existing Open
-              vSwitch bridge parent, which must already  exist  and  must  not
-              itself  be a fake bridge.  The new fake bridge will be on 802.1Q
-              VLAN vlan, which must be an integer between  0  and  4095.   The
-              parent  bridge  must  not  already  have a fake bridge for vlan.
-              Initially bridge will have no ports (other than bridge itself).
 
               Without --may-exist, attempting to create a bridge  that  exists
               is  an  error.   With  --may-exist, this command does nothing if
+              bridge already exists as a real bridge.
+
+       [--may-exist] add-br bridge parent vlan
+              Creates a ``fake bridge'' named bridge within the existing  Open
+              vSwitch  bridge  parent,  which  must already exist and must not
+              itself be a fake bridge.  The new fake bridge will be on  802.1Q
+              VLAN  vlan,  which  must  be an integer between 0 and 4095.  The
+              parent bridge must not already have  a  fake  bridge  for  vlan.
+              Initially bridge will have no ports (other than bridge itself).
+
+              Without  --may-exist,  attempting to create a bridge that exists
+              is an error.  With --may-exist, this  command  does  nothing  if
               bridge already exists as a VLAN bridge under parent for vlan.
 
        [--if-exists] del-br bridge
-              Deletes bridge and all of  its  ports.   If  bridge  is  a  real
-              bridge,  this  command  also  deletes any fake bridges that were
+              Deletes  bridge  and  all  of  its  ports.   If bridge is a real
+              bridge, this command also deletes any  fake  bridges  that  were
               created with bridge as parent, including all of their ports.
 
               Without --if-exists, attempting to delete a bridge that does not
-              exist  is  an  error.   With --if-exists, attempting to delete a
+              exist is an error.  With --if-exists,  attempting  to  delete  a
               bridge that does not exist has no effect.
 
        [--real|--fake] list-br
               Lists all existing real and fake bridges on standard output, one
-              per  line.  With --real or --fake, only bridges of that type are
+              per line.  With --real or --fake, only bridges of that type  are
               returned.
 
        br-exists bridge
-              Tests whether bridge exists as a real or fake  bridge.   If  so,
-              ovs-vsctl   exits  successfully  with  exit  code  0.   If  not,
+              Tests  whether  bridge  exists as a real or fake bridge.  If so,
+              ovs-vsctl  exits  successfully  with  exit  code  0.   If   not,
               ovs-vsctl exits unsuccessfully with exit code 2.
 
        br-to-vlan bridge
@@ -435,40 +473,40 @@ COMMANDS
               decimal integer.  If bridge is a real bridge, prints 0.
 
        br-to-parent bridge
-              If  bridge  is  a  fake  bridge,  prints  the name of its parent
+              If bridge is a fake  bridge,  prints  the  name  of  its  parent
               bridge.  If bridge is a real bridge, print bridge.
 
        br-set-external-id bridge key [value]
               Sets or clears an ``external ID'' value on bridge.  These values
-              are  intended to identify entities external to Open vSwitch with
-              which bridge is associated, e.g. the bridge's  identifier  in  a
-              virtualization  management  platform.  The Open vSwitch database
-              schema specifies well-known key values, but key  and  value  are
+              are intended to identify entities external to Open vSwitch  with
+              which  bridge  is  associated, e.g. the bridge's identifier in a
+              virtualization management platform.  The Open  vSwitch  database
+              schema  specifies  well-known  key values, but key and value are
               otherwise arbitrary strings.
 
-              If  value  is  specified,  then  key is set to value for bridge,
-              overwriting any previous value.  If value is omitted,  then  key
-              is  removed  from  bridge's  set  of  external  IDs  (if  it was
+              If value is specified, then key is  set  to  value  for  bridge,
+              overwriting  any  previous value.  If value is omitted, then key
+              is removed  from  bridge's  set  of  external  IDs  (if  it  was
               present).
 
-              For real bridges, the effect of this command is similar to  that
-              of  a  set  or  remove command in the external-ids column of the
-              Bridge table.  For fake bridges, it actually modifies keys  with
+              For  real bridges, the effect of this command is similar to that
+              of a set or remove command in the  external-ids  column  of  the
+              Bridge  table.  For fake bridges, it actually modifies keys with
               names prefixed by fake-bridge- in the Port table.
 
        br-get-external-id bridge [key]
-              Queries  the  external  IDs on bridge.  If key is specified, the
-              output is the value for that key or the empty string if  key  is
-              unset.   If  key  is  omitted,  the output is key=value, one per
+              Queries the external IDs on bridge.  If key  is  specified,  the
+              output  is  the value for that key or the empty string if key is
+              unset.  If key is omitted, the  output  is  key=value,  one  per
               line, for each key-value pair.
 
-              For real bridges, the effect of this command is similar to  that
+              For  real bridges, the effect of this command is similar to that
               of a get command in the external-ids column of the Bridge table.
-              For fake  bridges,  it  queries  keys  with  names  prefixed  by
+              For  fake  bridges,  it  queries  keys  with  names  prefixed by
               fake-bridge- in the Port table.
 
    Port Commands
-       These  commands  examine and manipulate Open vSwitch ports.  These com‐
+       These commands examine and manipulate Open vSwitch ports.   These  com‐
        mands treat a bonded port as a single entity.
 
        list-ports bridge
@@ -476,82 +514,84 @@ COMMANDS
               line.  The local port bridge is not included in the list.
 
        [--may-exist] add-port bridge port [column[:key]=value]...
-              Creates  on bridge a new port named port from the network device
+              Creates on bridge a new port named port from the network  device
               of the same name.
 
-              Optional arguments set values of column in the Port record  cre‐
-              ated  by the command.  For example, tag=9 would make the port an
-              access port for VLAN 9.  The syntax is the same as that for  the
+              Optional  arguments set values of column in the Port record cre‐
+              ated by the command.  For example, tag=9 would make the port  an
+              access  port for VLAN 9.  The syntax is the same as that for the
               set command (see Database Commands below).
 
-              Without  --may-exist, attempting to create a port that exists is
-              an error.  With --may-exist, this command does nothing  if  port
+              Without --may-exist, attempting to create a port that exists  is
+              an  error.   With --may-exist, this command does nothing if port
               already exists on bridge and is not a bonded port.
 
        [--fake-iface] add-bond bridge port iface... [column[:key]=value]...
-              Creates  on bridge a new port named port that bonds together the
-              network devices given as each iface.  At  least  two  interfaces
-              must be named.
+              Creates on bridge a new port named port that bonds together  the
+              network  devices  given  as each iface.  At least two interfaces
+              must be named.  If the interfaces  are  DPDK  enabled  then  the
+              transaction  will  need  to include operations to explicitly set
+              the interface type to 'dpdk'.
 
-              Optional  arguments set values of column in the Port record cre‐
+              Optional arguments set values of column in the Port record  cre‐
               ated by the command.  The syntax is the same as that for the set
               command (see Database Commands below).
 
-              With  --fake-iface,  a fake interface with the name port is cre‐
-              ated.  This should only be used for  compatibility  with  legacy
+              With --fake-iface, a fake interface with the name port  is  cre‐
+              ated.   This  should  only be used for compatibility with legacy
               software that requires it.
 
-              Without  --may-exist, attempting to create a port that exists is
-              an error.  With --may-exist, this command does nothing  if  port
-              already  exists  on bridge and bonds together exactly the speci‐
+              Without --may-exist, attempting to create a port that exists  is
+              an  error.   With --may-exist, this command does nothing if port
+              already exists on bridge and bonds together exactly  the  speci‐
               fied interfaces.
 
        [--if-exists] del-port [bridge] port
-              Deletes port.  If bridge is omitted, port is removed from  what‐
-              ever  bridge contains it; if bridge is specified, it must be the
+              Deletes  port.  If bridge is omitted, port is removed from what‐
+              ever bridge contains it; if bridge is specified, it must be  the
               real or fake bridge that contains port.
 
-              Without --if-exists, attempting to delete a port that  does  not
-              exist  is  an  error.   With --if-exists, attempting to delete a
+              Without  --if-exists,  attempting to delete a port that does not
+              exist is an error.  With --if-exists,  attempting  to  delete  a
               port that does not exist has no effect.
 
        [--if-exists] --with-iface del-port [bridge] iface
-              Deletes the port named iface or  that  has  an  interface  named
-              iface.   If bridge is omitted, the port is removed from whatever
-              bridge contains it; if bridge is specified, it must be the  real
+              Deletes  the  port  named  iface  or that has an interface named
+              iface.  If bridge is omitted, the port is removed from  whatever
+              bridge  contains it; if bridge is specified, it must be the real
               or fake bridge that contains the port.
 
               Without --if-exists, attempting to delete the port for an inter‐
-              face that  does  not  exist  is  an  error.   With  --if-exists,
-              attempting  to  delete  the  port for an interface that does not
+              face  that  does  not  exist  is  an  error.   With --if-exists,
+              attempting to delete the port for an  interface  that  does  not
               exist has no effect.
 
        port-to-br port
-              Prints the name of the bridge that  contains  port  on  standard
+              Prints  the  name  of  the bridge that contains port on standard
               output.
 
    Interface Commands
-       These  commands  examine  the  interfaces  attached  to an Open vSwitch
-       bridge.  These commands treat a bonded port as a collection of  two  or
+       These commands examine the  interfaces  attached  to  an  Open  vSwitch
+       bridge.   These  commands treat a bonded port as a collection of two or
        more interfaces, rather than as a single port.
 
        list-ifaces bridge
-              Lists  all  of  the interfaces within bridge on standard output,
-              one per line.  The local port bridge  is  not  included  in  the
+              Lists all of the interfaces within bridge  on  standard  output,
+              one  per  line.   The  local  port bridge is not included in the
               list.
 
        iface-to-br iface
-              Prints  the  name  of the bridge that contains iface on standard
+              Prints the name of the bridge that contains  iface  on  standard
               output.
 
    OpenFlow Controller Connectivity
        ovs-vswitchd can perform all configured bridging and switching locally,
-       or  it can be configured to communicate with one or more external Open‐
-       Flow controllers.  The switch is typically configured to connect  to  a
-       primary  controller  that  takes  charge  of the bridge's flow table to
-       implement a network policy.  In addition, the switch can be  configured
+       or it can be configured to communicate with one or more external  Open‐
+       Flow  controllers.   The switch is typically configured to connect to a
+       primary controller that takes charge of  the  bridge's  flow  table  to
+       implement  a network policy.  In addition, the switch can be configured
        to listen to connections from service controllers.  Service controllers
-       are typically used for occasional support and  maintenance,  e.g.  with
+       are  typically  used  for occasional support and maintenance, e.g. with
        ovs-ofctl.
 
        get-controller bridge
@@ -561,21 +601,19 @@ COMMANDS
               Deletes the configured controller target.
 
        set-controller bridge target...
-              Sets  the  configured controller target or targets.  Each target
+              Sets the configured controller target or targets.   Each  target
               may use any of the following forms:
 
               ssl:ip[:port]
               tcp:ip[:port]
-                     The specified port on the host at  the  given  ip,  which
-                     must  be  expressed  as an IP address (not a DNS name) in
-                     IPv4 or IPv6 address  format.   Wrap  IPv6  addresses  in
-                     square  brackets,  e.g.  tcp:[::1]:6633.   For  ssl,  the
-                     --private-key, --certificate, and --ca-cert  options  are
+                     The  specified  port  on  the host at the given ip, which
+                     must be expressed as an IP address (not a  DNS  name)  in
+                     IPv4  or  IPv6  address  format.   Wrap IPv6 addresses in
+                     square  brackets,  e.g.  tcp:[::1]:6653.   For  ssl,  the
+                     --private-key,  --certificate,  and --ca-cert options are
                      mandatory.
 
-                     If  port is not specified, it currently defaults to 6633.
-                     In the future, the default will change to 6653, which  is
-                     the IANA-defined value.
+                     If port is not specified, it defaults to 6653.
 
               unix:file
                      On POSIX, a Unix domain server socket named file.
@@ -584,36 +622,34 @@ COMMANDS
 
               pssl:[port][:ip]
               ptcp:[port][:ip]
-                     Listens  for  OpenFlow  connections on port.  The default
-                     port is 6633, but a future version of Open  vSwitch  will
-                     change  the  default  to  the IANA-defined port 6653.  By
-                     default, connections are allowed from any  IPv4  address.
-                     Specify ip as an IPv4 address or a bracketed IPv6 address
-                     (e.g. ptcp:6633:[::1]).  DNS names may not be used.   For
-                     pssl,   the  --private-key,--certificate,  and  --ca-cert
-                     options are mandatory.
+                     Listens for OpenFlow connections on  port.   The  default
+                     port  is  6653.  By default, connections are allowed from
+                     any IPv4 address.  Specify ip as an  IPv4  address  or  a
+                     bracketed IPv6 address (e.g. ptcp:6653:[::1]).  DNS names
+                     may not be used.  For pssl, the  --private-key,--certifi‐
+                     cate, and --ca-cert options are mandatory.
 
               punix:file
-                     Listens for  OpenFlow  connections  on  the  Unix  domain
+                     Listens  for  OpenFlow  connections  on  the  Unix domain
                      server socket named file.
 
      Controller Failure Settings
 
-       When  a  controller  is  configured, it is, ordinarily, responsible for
-       setting up all flows on the switch.  Thus, if  the  connection  to  the
-       controller  fails,  no  new  network connections can be set up.  If the
-       connection to the controller stays down long  enough,  no  packets  can
+       When a controller is configured, it  is,  ordinarily,  responsible  for
+       setting  up  all  flows  on the switch.  Thus, if the connection to the
+       controller fails, no new network connections can be  set  up.   If  the
+       connection  to  the  controller  stays down long enough, no packets can
        pass through the switch at all.
 
-       If  the  value  is  standalone, or if neither of these settings is set,
+       If the value is standalone, or if neither of  these  settings  is  set,
        ovs-vswitchd will take over responsibility for setting up flows when no
        message has been received from the controller for three times the inac‐
-       tivity probe interval.  In this mode, ovs-vswitchd causes the  datapath
-       to  act  like  an ordinary MAC-learning switch.  ovs-vswitchd will con‐
+       tivity  probe interval.  In this mode, ovs-vswitchd causes the datapath
+       to act like an ordinary MAC-learning switch.   ovs-vswitchd  will  con‐
        tinue to retry connecting to the controller in the background and, when
        the connection succeeds, it discontinues its standalone behavior.
 
-       If  this option is set to secure, ovs-vswitchd will not set up flows on
+       If this option is set to secure, ovs-vswitchd will not set up flows  on
        its own when the controller connection fails.
 
        get-fail-mode bridge
@@ -626,11 +662,11 @@ COMMANDS
               Sets the configured failure mode.
 
    Manager Connectivity
-       These  commands  manipulate   the   manager_options   column   in   the
-       Open_vSwitch  table  and rows in the Managers table.  When ovsdb-server
-       is configured to use the manager_options column for  OVSDB  connections
+       These   commands   manipulate   the   manager_options   column  in  the
+       Open_vSwitch table and rows in the Managers table.   When  ovsdb-server
+       is  configured  to use the manager_options column for OVSDB connections
        (as described in INSTALL.Linux and in the startup scripts provided with
-       Open vSwitch), this allows the administrator to use ovs-vsctl  to  con‐
+       Open  vSwitch),  this allows the administrator to use ovs-vsctl to con‐
        figure database connections.
 
        get-manager
@@ -640,58 +676,58 @@ COMMANDS
               Deletes the configured manager(s).
 
        set-manager target...
-              Sets  the configured manager target or targets.  Each target may
+              Sets the configured manager target or targets.  Each target  may
               use any of the following forms:
 
               ssl:ip:port
                      The specified SSL port on the host at the given ip, which
-                     must  be  expressed  as an IP address (not a DNS name) in
-                     IPv4 or IPv6 address format.  If ip is an  IPv6  address,
-                     then  wrap ip with square brackets, e.g.: ssl:[::1]:6632.
-                     The --private-key, --certificate, and  --ca-cert  options
+                     must be expressed as an IP address (not a  DNS  name)  in
+                     IPv4  or  IPv6 address format.  If ip is an IPv6 address,
+                     then wrap ip with square brackets, e.g.:  ssl:[::1]:6640.
+                     The  --private-key,  --certificate, and --ca-cert options
                      are mandatory when this form is used.
 
               tcp:ip:port
                      Connect to the given TCP port on ip, where ip can be IPv4
-                     or IPv6 address. If ip is an IPv6 address, then  wrap  ip
-                     with square brackets, e.g.: tcp:[::1]:6632.
+                     or  IPv6  address. If ip is an IPv6 address, then wrap ip
+                     with square brackets, e.g.: tcp:[::1]:6640.
 
               unix:file
-                     On  POSIX, connect to the Unix domain server socket named
+                     On POSIX, connect to the Unix domain server socket  named
                      file.
 
-                     On Windows, connect to a localhost TCP port  whose  value
+                     On  Windows,  connect to a localhost TCP port whose value
                      is written in file.
 
               pssl:port[:ip]
-                     Listen  on  the  given  SSL  port  for  a connection.  By
-                     default, connections are not bound to a particular  local
-                     IP  address  and  it  listens only on IPv4 (but not IPv6)
-                     addresses, but specifying ip limits connections to  those
+                     Listen on the  given  SSL  port  for  a  connection.   By
+                     default,  connections are not bound to a particular local
+                     IP address and it listens only on  IPv4  (but  not  IPv6)
+                     addresses,  but specifying ip limits connections to those
                      from the given ip, either IPv4 or IPv6 address.  If ip is
                      an IPv6 address, then wrap ip with square brackets, e.g.:
-                     pssl:6632:[::1].   The  --private-key, --certificate, and
+                     pssl:6640:[::1].  The --private-key,  --certificate,  and
                      --ca-cert options are mandatory when this form is used.
 
               ptcp:port[:ip]
-                     Listen on the  given  TCP  port  for  a  connection.   By
-                     default,  connections are not bound to a particular local
-                     IP address and it listens only on  IPv4  (but  not  IPv6)
-                     addresses,  but  ip  may  be specified to listen only for
+                     Listen  on  the  given  TCP  port  for  a connection.  By
+                     default, connections are not bound to a particular  local
+                     IP  address  and  it  listens only on IPv4 (but not IPv6)
+                     addresses, but ip may be specified  to  listen  only  for
                      connections to the given ip, either IPv4 or IPv6 address.
                      If ip is an IPv6 address, then wrap ip with square brack‐
-                     ets, e.g.: ptcp:6632:[::1].
+                     ets, e.g.: ptcp:6640:[::1].
 
               punix:file
-                     On POSIX, listen on the Unix domain server  socket  named
+                     On  POSIX,  listen on the Unix domain server socket named
                      file for a connection.
 
-                     On  Windows,  listen  on  a kernel chosen TCP port on the
+                     On Windows, listen on a kernel chosen  TCP  port  on  the
                      localhost. The kernel chosen TCP port value is written in
                      file.
 
    SSL Configuration
-       When  ovs-vswitchd  is configured to connect over SSL for management or
+       When ovs-vswitchd is configured to connect over SSL for  management  or
        controller connectivity, the following parameters are required:
 
        private-key
@@ -699,20 +735,20 @@ COMMANDS
               tual switch's identity for SSL connections to the controller.
 
        certificate
-              Specifies  a  PEM  file  containing a certificate, signed by the
-              certificate authority (CA) used by the controller  and  manager,
-              that  certifies  the virtual switch's private key, identifying a
+              Specifies a PEM file containing a  certificate,  signed  by  the
+              certificate  authority  (CA) used by the controller and manager,
+              that certifies the virtual switch's private key,  identifying  a
               trustworthy switch.
 
        ca-cert
-              Specifies a PEM file containing the CA certificate used to  ver‐
-              ify  that  the virtual switch is connected to a trustworthy con‐
+              Specifies  a PEM file containing the CA certificate used to ver‐
+              ify that the virtual switch is connected to a  trustworthy  con‐
               troller.
 
        These files are read only once, at ovs-vswitchd startup time.  If their
        contents change, ovs-vswitchd must be killed and restarted.
 
-       These  SSL  settings  apply  to all SSL connections made by the virtual
+       These SSL settings apply to all SSL connections  made  by  the  virtual
        switch.
 
        get-ssl
@@ -727,22 +763,43 @@ COMMANDS
 
      CA Certificate Bootstrap
 
-       Ordinarily,  all of the files named in the SSL configuration must exist
-       when ovs-vswitchd starts.  However, if the ca-cert file does not  exist
-       and  the --bootstrap option is given, then ovs-vswitchd will attempt to
-       obtain the CA certificate from the controller on its first SSL  connec‐
-       tion  and  save it to the named PEM file.  If it is successful, it will
+       Ordinarily, all of the files named in the SSL configuration must  exist
+       when  ovs-vswitchd starts.  However, if the ca-cert file does not exist
+       and the --bootstrap option is given, then ovs-vswitchd will attempt  to
+       obtain  the CA certificate from the controller on its first SSL connec‐
+       tion and save it to the named PEM file.  If it is successful,  it  will
        immediately drop the connection and reconnect, and from then on all SSL
-       connections  must  be  authenticated  by a certificate signed by the CA
+       connections must be authenticated by a certificate  signed  by  the  CA
        certificate thus obtained.
 
-       This option exposes the SSL connection to  a  man-in-the-middle  attack
-       obtaining  the  initial  CA certificate, but it may be useful for boot‐
+       This  option  exposes  the SSL connection to a man-in-the-middle attack
+       obtaining the initial CA certificate, but it may be  useful  for  boot‐
        strapping.
 
-       This option is only useful if the controller sends its  CA  certificate
-       as  part  of  the  SSL  certificate  chain.   The SSL protocol does not
+       This  option  is only useful if the controller sends its CA certificate
+       as part of the SSL  certificate  chain.   The  SSL  protocol  does  not
        require the controller to send the CA certificate.
+
+   Auto-Attach Commands
+       The  IETF Auto-Attach SPBM draft standard describes a compact method of
+       using IEEE 802.1AB Link Layer Discovery Protocol (LLDP) together with a
+       IEEE  802.1aq  Shortest  Path  Bridging  (SPB) network to automatically
+       attach network devices to individual services in a  SPB  network.   The
+       intent  here  is to allow network applications and devices using OVS to
+       be able to easily take advantage of features offered by industry  stan‐
+       dard  SPB networks. A fundamental element of the Auto-Attach feature is
+       to map traditional VLANs onto SPB I_SIDs.  These  commands  manage  the
+       Auto-Attach I-SID/VLAN mappings.
+
+       add-aa-mapping bridge i-sid vlan
+              Creates a new Auto-Attach mapping on bridge for i-sid and vlan.
+
+       del-aa-mapping bridge i-sid vlan
+              Deletes an Auto-Attach mapping on bridge for i-sid and vlan.
+
+       get-aa-mapping bridge
+              Lists  all of the Auto-Attach mappings within bridge on standard
+              output.
 
    Database Commands
        These commands query and modify the contents of ovsdb tables.  They are
@@ -812,6 +869,9 @@ COMMANDS
        Flow_Sample_Collector_Set
               An IPFIX exporter configuration attached to a  bridge  for  sam‐
               pling packets on a per-flow basis using OpenFlow sample actions.
+
+       AutoAttach
+              Configuration for Auto Attach within a bridge.
 
        Record names must be specified in full and with correct capitalization.
        Names of tables and columns are not case-sensitive, and --  and  _  are
@@ -927,7 +987,7 @@ COMMANDS
 
               For the set operators, when key is specified  but  a  particular
               record's  column  does  not  contain key, the comparison is done
-              against  an  empty  set.    Thus,   the   condition   other-con�‐
+              against  an  empty  set.    Thus,   the   condition   other-con‐
               fig:mtu{!=}1500  matches records that have a mtu key whose value
               is not 1500 and those that lack an mtu key.
 
@@ -1021,17 +1081,20 @@ COMMANDS
               tion  in contexts where a UUID is expected.  Such references may
               precede or follow the create command.
 
-              Records in the Open vSwitch database are significant  only  when
-              they can be reached directly or indirectly from the Open_vSwitch
-              table.  Except for records in the QoS or Queue  tables,  records
-              that are not reachable from the Open_vSwitch table are automati‐
-              cally deleted from the database.  This deletion happens  immedi‐
-              ately,  without  waiting  for  additional  ovs-vsctl commands or
-              other database activity.  Thus, a create command must  generally
-              be  accompanied by additional commands within the same ovs-vsctl
-              invocation to add a chain of references  to  the  newly  created
-              record  from  the  top-level  Open_vSwitch record.  The EXAMPLES
-              section gives some examples that show how to do this.
+              Caution (ovs-vsctl as exmaple)
+                     Records in the Open vSwitch database are significant only
+                     when  they can be reached directly or indirectly from the
+                     Open_vSwitch table.  Except for records  in  the  QoS  or
+                     Queue  tables,  records  that  are not reachable from the
+                     Open_vSwitch table are  automatically  deleted  from  the
+                     database.   This  deletion  happens  immediately, without
+                     waiting for additional ovs-vsctl commands or other  data‐
+                     base  activity.  Thus, a create command must generally be
+                     accompanied  by  additional  commands  within  the   same
+                     ovs-vsctl  invocation to add a chain of references to the
+                     newly created  record  from  the  top-level  Open_vSwitch
+                     record.   The  EXAMPLES  section gives some examples that
+                     show how to do this.
 
        [--if-exists] destroy table record...
               Deletes each specified record from table.  Unless --if-exists is
@@ -1040,42 +1103,45 @@ COMMANDS
        --all destroy table
               Deletes all records from the table.
 
-              The  destroy  command  is  only useful for records in the QoS or
-              Queue tables.  Records in other tables are automatically deleted
-              from   the  database  when  they  become  unreachable  from  the
-              Open_vSwitch table.  This means that deleting the last reference
-              to  a  record is sufficient for deleting the record itself.  For
-              records in these tables, destroy is silently ignored.   See  the
-              EXAMPLES section below for more information.
+              Caution (ovs-vsctl as exmaple)
+                     The destroy command is only useful for records in the QoS
+                     or Queue tables.  Records in other tables  are  automati‐
+                     cally deleted from the database when they become unreach‐
+                     able from the Open_vSwitch table.  This means that delet‐
+                     ing  the  last  reference  to  a record is sufficient for
+                     deleting the record itself.  For records in these tables,
+                     destroy  is  silently  ignored.  See the EXAMPLES section
+                     below for more information.
 
        wait-until table record [column[:key]=value]...
-              Waits  until  table  contains a record named record whose column
-              equals value or, if key is specified, whose  column  contains  a
-              key  with  the  specified value.  Any of the operators !=, <, >,
-              <=, or >= may be substituted for = to test for inequality,  less
-              than,  greater  than,  less than or equal to, or greater than or
-              equal to, respectively.  (Don't forget to escape  <  or  >  from
+              Waits until table contains a record named  record  whose  column
+              equals  value  or,  if key is specified, whose column contains a
+              key with the specified value.  Any of the operators  !=,  <,  >,
+              <=,  or >= may be substituted for = to test for inequality, less
+              than, greater than, less than or equal to, or  greater  than  or
+              equal  to,  respectively.   (Don't  forget to escape < or > from
               interpretation by the shell.)
 
               If no column[:key]=value arguments are given, this command waits
-              only until record exists.  If more than  one  such  argument  is
+              only  until  record  exists.   If more than one such argument is
               given, the command waits until all of them are satisfied.
 
-              Usually wait-until should be placed at the beginning of a set of
-              ovs-vsctl commands.  For example, wait-until bridge br0  --  get
-              bridge  br0  datapath_id  waits until a bridge named br0 is cre‐
-              ated, then prints its datapath_id column, whereas get bridge br0
-              datapath_id  --  wait-until  bridge  br0 will abort if no bridge
-              named br0 exists when ovs-vsctl initially connects to the  data‐
-              base.
+              Caution (ovs-vsctl as exmaple)
+                     Usually wait-until should be placed at the beginning of a
+                     set  of  ovs-vsctl  commands.   For  example,  wait-until
+                     bridge br0 -- get bridge br0 datapath_id  waits  until  a
+                     bridge  named br0 is created, then prints its datapath_id
+                     column, whereas get bridge br0 datapath_id --  wait-until
+                     bridge  br0 will abort if no bridge named br0 exists when
+                     ovs-vsctl initially connects to the database.
 
               Consider specifying --timeout=0 along with --wait-until, to pre‐
-              vent ovs-vsctl from terminating after waiting  only  at  most  5
+              vent  ovs-vsctl  from  terminating  after waiting only at most 5
               seconds.
 
        comment [arg]...
-              This  command  has  no  effect on behavior, but any database log
-              record created by the command will include the command  and  its
+              This command has no effect on behavior,  but  any  database  log
+              record  created  by the command will include the command and its
               arguments.
 
 EXAMPLES
@@ -1096,12 +1162,12 @@ EXAMPLES
 
               ovs-vsctl --if-exists del-br br0
 
-       Set  the  qos  column of the Port record for eth0 to point to a new QoS
+       Set the qos column of the Port record for eth0 to point to  a  new  QoS
        record, which in turn points with its queue 0 to a new Queue record:
 
-              ovs-vsctl -- set port eth0 qos=@newqos  --  --id=@newqos  create
+              ovs-vsctl  --  set  port eth0 qos=@newqos -- --id=@newqos create
               qos         type=linux-htb         other-config:max-rate=1000000
-              queues:0=@newqueue --  --id=@newqueue  create  queue  other-con�‐
+              queues:0=@newqueue  --  --id=@newqueue  create  queue other-con‐
               fig:min-rate=1000000 other-config:max-rate=1000000
 
 CONFIGURATION COOKBOOK
@@ -1109,19 +1175,19 @@ CONFIGURATION COOKBOOK
        Add an ``internal port'' vlan10 to bridge br0 as a VLAN access port for
        VLAN 10, and configure it with an IP address:
 
-              ovs-vsctl add-port br0 vlan10 tag=10  --  set  Interface  vlan10
+              ovs-vsctl  add-port  br0  vlan10  tag=10 -- set Interface vlan10
               type=internal
 
               ifconfig vlan10 192.168.0.123
 
        Add a GRE tunnel port gre0 to remote IP address 1.2.3.4 to bridge br0:
 
-              ovs-vsctl  add-port  br0  gre0  --  set  Interface gre0 type=gre
+              ovs-vsctl add-port br0  gre0  --  set  Interface  gre0  type=gre
               options:remote_ip=1.2.3.4
 
    Port Mirroring
        Mirror all packets received or sent on eth0 or eth1 onto eth2, assuming
-       that  all  of  those  ports  exist on bridge br0 (as a side-effect this
+       that all of those ports exist on bridge  br0  (as  a  side-effect  this
        causes any packets received on eth2 to be ignored):
 
               ovs-vsctl -- set Bridge br0 mirrors=@m \
@@ -1132,10 +1198,10 @@ CONFIGURATION COOKBOOK
 
               -- --id=@eth2 get Port eth2 \
 
-              --   --id=@m    create    Mirror    name=mymirror    select-dst-
+              --    --id=@m    create    Mirror    name=mymirror   select-dst-
               port=@eth0,@eth1 select-src-port=@eth0,@eth1 output-port=@eth2
 
-       Remove  the mirror created above from br0, which also destroys the Mir‐
+       Remove the mirror created above from br0, which also destroys the  Mir‐
        ror record (since it is now unreferenced):
 
               ovs-vsctl -- --id=@rec get Mirror mymirror \
@@ -1154,7 +1220,7 @@ CONFIGURATION COOKBOOK
 
               -- set Port eth1 qos=@newqos \
 
-              --    --id=@newqos    create   QoS   type=linux-htb   other-con�‐
+              --   --id=@newqos   create   QoS    type=linux-htb    other-con‐
               fig:max-rate=1000000000 queues=0=@q0,1=@q1 \
 
               --   --id=@q0   create   Queue   other-config:min-rate=100000000
@@ -1166,16 +1232,16 @@ CONFIGURATION COOKBOOK
 
               ovs-vsctl clear Port eth1 qos
 
-       To  deconfigure  the QoS record from both eth0 and eth1 and then delete
-       the QoS record (which must be done explicitly because unreferenced  QoS
+       To deconfigure the QoS record from both eth0 and eth1 and  then  delete
+       the  QoS record (which must be done explicitly because unreferenced QoS
        records are not automatically destroyed):
 
-              ovs-vsctl  --  destroy  QoS eth0 -- clear Port eth0 qos -- clear
+              ovs-vsctl -- destroy QoS eth0 -- clear Port eth0  qos  --  clear
               Port eth1 qos
 
-       (This command will leave two unreferenced Queue records  in  the  data‐
-       base.   To delete them, use "ovs-vsctl list Queue" to find their UUIDs,
-       then "ovs-vsctl destroy Queue uuid1 uuid2" to destroy each of  them  or
+       (This  command  will  leave two unreferenced Queue records in the data‐
+       base.  To delete them, use "ovs-vsctl list Queue" to find their  UUIDs,
+       then  "ovs-vsctl  destroy Queue uuid1 uuid2" to destroy each of them or
        use "ovs-vsctl -- --all destroy Queue" to delete all records.)
 
    Connectivity Monitoring
@@ -1188,7 +1254,7 @@ CONFIGURATION COOKBOOK
               ovs-vsctl clear Interface eth0 cfm_mpid
 
    NetFlow
-       Configure  bridge  br0 to send NetFlow records to UDP port 5566 on host
+       Configure bridge br0 to send NetFlow records to UDP port 5566  on  host
        192.168.0.34, with an active timeout of 30 seconds:
 
               ovs-vsctl -- set Bridge br0 netflow=@nf \
@@ -1196,7 +1262,7 @@ CONFIGURATION COOKBOOK
               --   --id=@nf   create   NetFlow   targets=\"192.168.0.34:5566\"
               active-timeout=30
 
-       Update  the  NetFlow  configuration  created by the previous command to
+       Update the NetFlow configuration created by  the  previous  command  to
        instead use an active timeout of 60 seconds:
 
               ovs-vsctl set NetFlow br0 active_timeout=60
@@ -1207,11 +1273,11 @@ CONFIGURATION COOKBOOK
               ovs-vsctl clear Bridge br0 netflow
 
    sFlow
-       Configure  bridge  br0 to send sFlow records to a collector on 10.0.0.1
+       Configure bridge br0 to send sFlow records to a collector  on  10.0.0.1
        at port 6343, using eth1´s IP address as the source, with specific sam‐
        pling parameters:
 
-              ovs-vsctl    --    --id=@s    create   sFlow   agent=eth1   tar�‐
+              ovs-vsctl   --   --id=@s   create    sFlow    agent=eth1    tar‐
               get=\"10.0.0.1:6343\" header=128 sampling=64 polling=10 \
 
               -- set Bridge br0 sflow=@s
@@ -1223,22 +1289,22 @@ CONFIGURATION COOKBOOK
 
    IPFIX
        Configure bridge br0 to send one IPFIX flow record per packet sample to
-       UDP port 4739 on host 192.168.0.34, with Observation Domain ID 123  and
-       Observation  Point  ID 456, a flow cache active timeout of 1 minute (60
-       seconds), maximum flow cache size of 13 flows,  and  flows  sampled  on
-       output  port  with  tunnel  info(sampling  on  input and output port is
+       UDP  port 4739 on host 192.168.0.34, with Observation Domain ID 123 and
+       Observation Point ID 456, a flow cache active timeout of 1  minute  (60
+       seconds),  maximum  flow  cache  size of 13 flows, and flows sampled on
+       output port with tunnel info(sampling  on  input  and  output  port  is
        enabled by default if not disabled) :
 
               ovs-vsctl -- set Bridge br0 ipfix=@i \
 
-              --   --id=@i    create    IPFIX    targets=\"192.168.0.34:4739\"
+              --    --id=@i    create    IPFIX   targets=\"192.168.0.34:4739\"
               obs_domain_id=123    obs_point_id=456    cache_active_timeout=60
               cache_max_flows=13 \
 
               other_config:enable-input-sampling=false    other_config:enable-
               tunnel-sampling=true
 
-       Deconfigure  the IPFIX settings from br0, which also destroys the IPFIX
+       Deconfigure the IPFIX settings from br0, which also destroys the  IPFIX
        record (since it is now unreferenced):
 
               ovs-vsctl clear Bridge br0 ipfix
@@ -1267,72 +1333,78 @@ CONFIGURATION COOKBOOK
 
        Set the multicast snooping aging time br0 to 300 seconds:
 
-              ovs-vsctl  set  Bridge  br0   other_config:mcast-snooping-aging-
+              ovs-vsctl   set  Bridge  br0  other_config:mcast-snooping-aging-
               time=300
 
        Set the multicast snooping table size br0 to 2048 entries:
 
-              ovs-vsctl   set  Bridge  br0  other_config:mcast-snooping-table-
+              ovs-vsctl  set  Bridge  br0   other_config:mcast-snooping-table-
               size=2048
 
-       Disable flooding of unregistered multicast packets to all  ports.  When
-       set  to  true, the switch will send unregistered multicast packets only
-       to ports connected to multicast routers. When it is set to  false,  the
-       switch  will send them to all ports. This command disables the flood of
+       Disable  flooding  of unregistered multicast packets to all ports. When
+       set to true, the switch will send unregistered multicast  packets  only
+       to  ports  connected to multicast routers. When it is set to false, the
+       switch will send them to all ports. This command disables the flood  of
        unregistered packets on bridge br0.
 
-              ovs-vsctl set  Bridge  br0  other_config:mcast-snooping-disable-
+              ovs-vsctl  set  Bridge  br0 other_config:mcast-snooping-disable-
               flood-unregistered=true
 
-       Enable flooding of multicast packets on a specific port.
+       Enable flooding of multicast packets (except  Reports)  on  a  specific
+       port.
 
               ovs-vsctl set Port eth1 other_config:mcast-snooping-flood=true
+
+       Enable flooding of Reports on a specific port.
+
+              ovs-vsctl   set   Port  eth1  other_config:mcast-snooping-flood-
+              reports=true
 
        Deconfigure multicasting snooping from above:
 
               ovs-vsctl set Bridge br0 mcast_snooping_enable=false
 
    802.1D-2004 Rapid Spanning Tree Protocol (RSTP)
-       Configure  bridge  br0  to participate in an 802.1D-2004 Rapid Spanning
+       Configure bridge br0 to participate in an  802.1D-2004  Rapid  Spanning
        Tree:
 
               ovs-vsctl set Bridge br0 rstp_enable=true
 
        Set the bridge address of br0 to 00:aa:aa:aa:aa:aa :
 
-              ovs-vsctl      set      Bridge      br0       other_config:rstp-
+              ovs-vsctl       set      Bridge      br0      other_config:rstp-
               address=00:aa:aa:aa:aa:aa
 
-       Set  the  bridge priority of br0 to 0x7000. The value must be specified
-       in decimal notation and should be a multiple of 4096  (if  not,  it  is
-       rounded  down  to  the  nearest multiple of 4096). The default priority
+       Set the bridge priority of br0 to 0x7000. The value must  be  specified
+       in  decimal  notation  and  should be a multiple of 4096 (if not, it is
+       rounded down to the nearest multiple of  4096).  The  default  priority
        value is 0x800 (32768).
 
               ovs-vsctl set Bridge br0 other_config:rstp-priority=28672
 
-       Set the bridge ageing time of br0 to 1000  s.  The  ageing  time  value
+       Set  the  bridge  ageing  time  of br0 to 1000 s. The ageing time value
        should be between 10 s and 1000000 s. The default value is 300 s.
 
               ovs-vsctl set Bridge br0 other_config:rstp-ageing-time=1000
 
-       Set  the  bridge force protocol version of br0 to 0. The force protocol
-       version has two acceptable values: 0 (STP  compatibility  mode)  and  2
+       Set the bridge force protocol version of br0 to 0. The  force  protocol
+       version  has  two  acceptable  values: 0 (STP compatibility mode) and 2
        (normal operation).
 
-              ovs-vsctl  set  Bridge br0 other_config:rstp-force-protocol-ver�‐
+              ovs-vsctl set Bridge  br0  other_config:rstp-force-protocol-ver‐
               sion=0
 
-       Set the bridge max age of br0 to 10 s. The  max  age  value  should  be
+       Set  the  bridge  max  age  of br0 to 10 s. The max age value should be
        between 6 s and 40 s. The default value is 20 s.
 
               ovs-vsctl set Bridge br0 other_config:rstp-max-age=10
 
-       Set  the  bridge  forward  delay  of br0 to 15 s.  This value should be
+       Set the bridge forward delay of br0 to 15  s.   This  value  should  be
        between 4 s and 30 s. The default value is 15 s.
 
               ovs-vsctl set Bridge br0 other_config:rstp-forward-delay=15
 
-       Set the bridge transmit hold count of br0 to 7 s. This value should  be
+       Set  the bridge transmit hold count of br0 to 7 s. This value should be
        between 1 s and 10 s. The default value is 6 s.
 
               ovs-vsctl set Bridge br0 other_config:rstp-transmit-hold-count=7
@@ -1345,8 +1417,8 @@ CONFIGURATION COOKBOOK
 
               ovs-vsctl set Port eth0 other_config:rstp-enable=false
 
-       Set  the  priority  of  port eth0 to 32. The value must be specified in
-       decimal notation and should be a multiple of 16 (if not, it is  rounded
+       Set the priority of port eth0 to 32. The value  must  be  specified  in
+       decimal  notation and should be a multiple of 16 (if not, it is rounded
        down to the nearest multiple of 16). The default priority value is 0x80
        (128).
 
@@ -1369,13 +1441,13 @@ CONFIGURATION COOKBOOK
               ovs-vsctl set Port eth0 other_config:rstp-port-auto-edge=true
 
        Set the admin point to point MAC value of port eth0.  Acceptable values
-       are  0 (not point-to-point), 1 (point-to-point, the default value) or 2
+       are 0 (not point-to-point), 1 (point-to-point, the default value) or  2
        (automatic detection).  The auto-detection mode is not currently imple‐
        mented, and the value 2 has the same effect of 0 (not point-to-point).
 
               ovs-vsctl set Port eth0 other_config:rstp-admin-p2p-mac=1
 
-       Set  the  admin  port  state  value  of port eth0.  true is the default
+       Set the admin port state value of  port  eth0.   true  is  the  default
        value.
 
               ovs-vsctl set Port eth0 other_config:rstp-admin-port-state=false
@@ -1391,13 +1463,13 @@ CONFIGURATION COOKBOOK
    OpenFlow Version
        Configure bridge br0 to support OpenFlow versions 1.0, 1.2, and 1.3:
 
-              ovs-vsctl set bridge  br0  protocols=OpenFlow10,OpenFlow12,Open�‐
+              ovs-vsctl  set  bridge br0 protocols=OpenFlow10,OpenFlow12,Open‐
               Flow13
 
    Flow Table Configuration
        Limit flow table 0 on bridge br0 to a maximum of 100 flows:
 
-              ovs-vsctl  --  --id=@ft  create  Flow_Table flow_limit=100 over�‐
+              ovs-vsctl -- --id=@ft  create  Flow_Table  flow_limit=100  over‐
               flow_policy=refuse -- set Bridge br0 flow_tables=0=@ft
 
 EXIT STATUS
@@ -1405,7 +1477,7 @@ EXIT STATUS
 
        1      Usage, syntax, or configuration file error.
 
-       2      The bridge argument to br-exists specified the name of a  bridge
+       2      The  bridge argument to br-exists specified the name of a bridge
               that does not exist.
 
 SEE ALSO
@@ -1413,4 +1485,4 @@ SEE ALSO
 
 
 
-Open vSwitch                        2.3.90                        ovs-vsctl(8)
+Open vSwitch                        2.4.90                        ovs-vsctl(8)

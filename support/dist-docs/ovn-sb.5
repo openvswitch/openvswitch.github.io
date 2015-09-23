@@ -1,0 +1,950 @@
+'\" p
+.\" -*- nroff -*-
+.TH "ovn-sb" 5 " DB Schema 1.0.0" "Open vSwitch 2.4.90" "Open vSwitch Manual"
+.fp 5 L CR              \\" Make fixed-width font available as \\fL.
+.de TQ
+.  br
+.  ns
+.  TP "\\$1"
+..
+.de ST
+.  PP
+.  RS -0.15in
+.  I "\\$1"
+.  RE
+..
+.SH NAME
+ovn-sb \- OVN_Southbound database schema
+.PP
+This database holds logical and physical configuration and state for the
+Open Virtual Network (OVN) system to support virtual network abstraction\[char46]
+For an introduction to OVN, please see \fBovn\-architecture\fR(7)\[char46]
+.PP
+The OVN Southbound database sits at the center of the OVN
+architecture\[char46]  It is the one component that speaks both southbound
+directly to all the hypervisors and gateways, via
+\fBovn\-controller\fR, and northbound to the Cloud Management
+System, via \fBovn\-northd\fR:
+.SS "Database Structure"
+.PP
+The OVN Southbound database contains three classes of data with
+different properties, as described in the sections below\[char46]
+.ST "Physical Network (PN) data"
+.PP
+PN tables contain information about the chassis nodes in the system\[char46]  This
+contains all the information necessary to wire the overlay, such as IP
+addresses, supported tunnel types, and security keys\[char46]
+.PP
+The amount of PN data is small (O(n) in the number of chassis) and it
+changes infrequently, so it can be replicated to every chassis\[char46]
+.PP
+The \fBChassis\fR table comprises the PN tables\[char46]
+.ST "Logical Network (LN) data"
+.PP
+LN tables contain the topology of logical switches and routers, ACLs,
+firewall rules, and everything needed to describe how packets traverse a
+logical network, represented as logical datapath flows (see Logical
+Datapath Flows, below)\[char46]
+.PP
+LN data may be large (O(n) in the number of logical ports, ACL rules,
+etc\[char46])\[char46]  Thus, to improve scaling, each chassis should receive only data
+related to logical networks in which that chassis participates\[char46]  Past
+experience shows that in the presence of large logical networks, even
+finer-grained partitioning of data, e\[char46]g\[char46] designing logical flows so that
+only the chassis hosting a logical port needs related flows, pays off
+scale-wise\[char46]  (This is not necessary initially but it is worth bearing in
+mind in the design\[char46])
+.PP
+The LN is a slave of the cloud management system running northbound of OVN\[char46]
+That CMS determines the entire OVN logical configuration and therefore the
+LN\(cqs content at any given time is a deterministic function of the CMS\(cqs
+configuration, although that happens indirectly via the
+\fBOVN_Northbound\fR database and \fBovn\-northd\fR\[char46]
+.PP
+LN data is likely to change more quickly than PN data\[char46]  This is especially
+true in a container environment where VMs are created and destroyed (and
+therefore added to and deleted from logical switches) quickly\[char46]
+.PP
+\fBLogical_Flow\fR and \fBMulticast_Group\fR contain LN
+data\[char46]
+.ST "Bindings data"
+.PP
+Bindings data link logical and physical components\[char46]  They show the current
+placement of logical components (such as VMs and VIFs) onto chassis, and
+map logical entities to the values that represent them in tunnel
+encapsulations\[char46]
+.PP
+Bindings change frequently, at least every time a VM powers up or down
+or migrates, and especially quickly in a container environment\[char46]  The
+amount of data per VM (or VIF) is small\[char46]
+.PP
+Each chassis is authoritative about the VMs and VIFs that it hosts at any
+given time and can efficiently flood that state to a central location, so
+the consistency needs are minimal\[char46]
+.PP
+The \fBPort_Binding\fR and \fBDatapath_Binding\fR tables
+contain binding data\[char46]
+.SS "Common Columns"
+.PP
+Some tables contain a special column named \fBexternal_ids\fR\[char46]  This
+column has the same form and purpose each place that it appears, so we
+describe it here to save space later\[char46]
+.RS
+.TP
+\fBexternal_ids\fR: map of string-string pairs
+Key-value pairs for use by the software that manages the OVN Southbound
+database rather than by \fBovn\-controller\fR\[char46]  In particular,
+\fBovn\-northd\fR can use key-value pairs in this column to relate
+entities in the southbound database to higher-level entities (such as
+entities in the OVN Northbound database)\[char46]  Individual key-value pairs in
+this column may be documented in some cases to aid in understanding and
+troubleshooting, but the reader should not mistake such documentation as
+comprehensive\[char46]
+.RE
+.SH "TABLE SUMMARY"
+.PP
+The following list summarizes the purpose of each of the tables in the
+\fBOVN_Southbound\fR database.  Each table is described in more detail on a later
+page.
+.IP "Table" 1in
+Purpose
+.TQ 1in
+\fBChassis\fR
+Physical Network Hypervisor and Gateway Information
+.TQ 1in
+\fBEncap\fR
+Encapsulation Types
+.TQ 1in
+\fBLogical_Flow\fR
+Logical Network Flows
+.TQ 1in
+\fBMulticast_Group\fR
+Logical Port Multicast Groups
+.TQ 1in
+\fBDatapath_Binding\fR
+Physical-Logical Datapath Bindings
+.TQ 1in
+\fBPort_Binding\fR
+Physical-Logical Port Bindings
+.\" check if in troff mode (TTY)
+.if t \{
+.bp
+.SH "TABLE RELATIONSHIPS"
+.PP
+The following diagram shows the relationship among tables in the
+database.  Each node represents a table.  Tables that are part of the
+``root set'' are shown with double borders.  Each edge leads from the
+table that contains it and points to the table that its value
+represents.  Edges are labeled with their column names, followed by a
+constraint on the number of allowed values: \fB?\fR for zero or one,
+\fB*\fR for zero or more, \fB+\fR for one or more.  Thick lines
+represent strong references; thin lines represent weak references.
+.RS -1in
+.ps -3
+.PS
+linethick = 1;
+linethick = 0.5;
+box at 4.585760277,0.782741946 wid 1.199595831 height 0.306285 "Datapath_Binding"
+box at 4.585760277,0.782741946 wid 1.14404027544444 height 0.250729444444444
+linethick = 0.5;
+box at 2.263078608,1.242169446 wid 0.884796108 height 0.306285 "Logical_Flow"
+box at 2.263078608,1.242169446 wid 0.829240552444444 height 0.250729444444444
+linethick = 0.5;
+box at 0.5530159446,0.5955528054 wid 1.097541669 height 0.306285 "Multicast_Group"
+box at 0.5530159446,0.5955528054 wid 1.04198611344444 height 0.250729444444444
+linethick = 0.5;
+box at 2.263078608,0.3233021946 wid 0.884796108 height 0.306285 "Port_Binding"
+box at 2.263078608,0.3233021946 wid 0.829240552444444 height 0.250729444444444
+linethick = 0.5;
+box at 4.585760277,0.1531425 wid 0.5785356108 height 0.306285 "Chassis"
+box at 4.585760277,0.1531425 wid 0.522980055244444 height 0.250729444444444
+linethick = 1;
+box at 6.25311456,0.1531425 wid 0.4934618892 height 0.306285 "Encap"
+linethick = 1;
+spline -> from 2.70817197,1.154143137 to 2.70817197,1.154143137 to 3.070445868,1.082472447 to 3.585188439,0.980663313 to 3.98415528,0.90170304
+"logical_datapath" at 3.343590831,1.191081108
+linethick = 1;
+spline -> from 1.104096168,0.644484897 to 1.104096168,0.644484897 to 1.156470903,0.648405345 to 1.208845638,0.652019508 to 1.259198892,0.655082358 to 2.211010158,0.713460279 to 3.317801634,0.749601909 to 3.984400308,0.767917752
+"datapath" at 2.263078608,0.799771392
+linethick = 0.5;
+spline -> from 1.103483598,0.5079124155 to 1.103483598,0.5079124155 to 1.334912544,0.4710724557 to 1.600584153,0.4287806229 to 1.819149129,0.3939805212
+"ports+" at 1.463368473,0.5445073473
+linethick = 1;
+spline -> from 2.706395517,0.3494773107 to 2.706395517,0.3494773107 to 3.02242038,0.3746233092 to 3.455629884,0.4223363865 to 3.8285625,0.5104729581 to 3.954996948,0.5403541227 to 4.08951732,0.5844591627 to 4.209519783,0.62849682
+"datapath" at 3.343590831,0.5870442081
+linethick = 0.5;
+spline -> from 2.706027975,0.1895475351 to 2.706027975,0.1895475351 to 2.757116313,0.1781659845 to 2.808755964,0.1684261215 to 2.858680419,0.1616510973 to 3.35933388,0.0936558273 to 3.949116276,0.11148774 to 4.293870672,0.1316167902
+"chassis?" at 3.343590831,0.2382223473
+linethick = 1;
+spline -> from 4.876240971,0.1531425 to 4.876240971,0.1531425 to 5.195389941,0.1531425 to 5.702597901,0.1531425 to 6.004227369,0.1531425
+"encaps+" at 5.598215973,0.22971375
+.ps +3
+.PE
+.RE\}
+.bp
+.SH "Chassis TABLE"
+Each row in this table represents a hypervisor or gateway (a chassis) in
+the physical network (PN)\[char46]  Each chassis, via
+\fBovn\-controller\fR, adds and updates its own row, and keeps a
+copy of the remaining rows to determine how to reach other hypervisors\[char46]
+.PP
+When a chassis shuts down gracefully, it should remove its own row\[char46]
+(This is not critical because resources hosted on the chassis are equally
+unreachable regardless of whether the row is present\[char46])  If a chassis
+shuts down permanently without removing its row, some kind of manual or
+automatic cleanup is eventually needed; we can devise a process for that
+as necessary\[char46]
+.SS "Summary:
+.TQ 3.00in
+\fBname\fR
+string (must be unique within table)
+.TQ .25in
+\fIEncapsulation Configuration:\fR
+.RS .25in
+.TQ 2.75in
+\fBencaps\fR
+set of 1 or more \fBEncap\fRs
+.RE
+.TQ .25in
+\fIGateway Configuration:\fR
+.RS .25in
+.TQ 2.75in
+\fBvtep_logical_switches\fR
+set of strings
+.RE
+.SS "Details:
+.IP "\fBname\fR: string (must be unique within table)"
+A chassis name, taken from \fBexternal_ids:system-id\fR in the Open_vSwitch
+database\(cqs \fBOpen_vSwitch\fR table\[char46]  OVN does
+not prescribe a particular format for chassis names\[char46]
+.ST "Encapsulation Configuration:"
+OVN uses encapsulation to transmit logical dataplane packets
+between chassis\[char46]
+.IP "\fBencaps\fR: set of 1 or more \fBEncap\fRs"
+Points to supported encapsulation configurations to transmit
+logical dataplane packets to this chassis\[char46]  Each entry is a \fBEncap\fR record that describes the configuration\[char46]
+.ST "Gateway Configuration:"
+A \fIgateway\fR is a chassis that forwards traffic between the
+OVN-managed part of a logical network and a physical VLAN, extending a
+tunnel-based logical network into a physical network\[char46]  Gateways are
+typically dedicated nodes that do not host VMs\[char46]
+.IP "\fBvtep_logical_switches\fR: set of strings"
+Stores all vtep logical switch names connected by this gateway
+chassis\[char46]
+.bp
+.SH "Encap TABLE"
+The \fBencaps\fR column in the \fBChassis\fR table refers to rows in this table to identify
+how OVN may transmit logical dataplane packets to this chassis\[char46]
+Each chassis, via \fBovn\-controller\fR(8), adds and updates
+its own rows and keeps a copy of the remaining rows to determine
+how to reach other chassis\[char46]
+.SS "Summary:
+.TQ 3.00in
+\fBtype\fR
+string, one of \fBstt\fR, \fBgeneve\fR, or \fBvxlan\fR
+.TQ 3.00in
+\fBoptions\fR
+map of string-string pairs
+.TQ 3.00in
+\fBip\fR
+string
+.SS "Details:
+.IP "\fBtype\fR: string, one of \fBstt\fR, \fBgeneve\fR, or \fBvxlan\fR"
+The encapsulation to use to transmit packets to this chassis\[char46]
+Hypervisors must use either \fBgeneve\fR or
+\fBstt\fR\[char46]  Gateways may use \fBvxlan\fR,
+\fBgeneve\fR, or \fBstt\fR\[char46]
+.IP "\fBoptions\fR: map of string-string pairs"
+Options for configuring the encapsulation, e\[char46]g\[char46] IPsec parameters when
+IPsec support is introduced\[char46]  No options are currently defined\[char46]
+.IP "\fBip\fR: string"
+The IPv4 address of the encapsulation tunnel endpoint\[char46]
+.bp
+.SH "Logical_Flow TABLE"
+Each row in this table represents one logical flow\[char46]
+\fBovn\-northd\fR populates this table with logical flows
+that implement the L2 and L3 topologies specified in the
+\fBOVN_Northbound\fR database\[char46]  Each hypervisor, via
+\fBovn\-controller\fR, translates the logical flows into
+OpenFlow flows specific to its hypervisor and installs them into
+Open vSwitch\[char46]
+.PP
+Logical flows are expressed in an OVN-specific format, described here\[char46]  A
+logical datapath flow is much like an OpenFlow flow, except that the
+flows are written in terms of logical ports and logical datapaths instead
+of physical ports and physical datapaths\[char46]  Translation between logical
+and physical flows helps to ensure isolation between logical datapaths\[char46]
+(The logical flow abstraction also allows the OVN centralized
+components to do less work, since they do not have to separately
+compute and push out physical flows to each chassis\[char46])
+.PP
+The default action when no flow matches is to drop packets\[char46]
+.PP
+\fBLogical Life Cycle of a Packet\fR
+.PP
+This following description focuses on the life cycle of a packet through
+a logical datapath, ignoring physical details of the implementation\[char46]
+Please refer to \fBLife Cycle of a Packet\fR in
+\fBovn\-architecture\fR(7) for the physical information\[char46]
+.PP
+The description here is written as if OVN itself executes these steps,
+but in fact OVN (that is, \fBovn\-controller\fR) programs Open
+vSwitch, via OpenFlow and OVSDB, to execute them on its behalf\[char46]
+.PP
+At a high level, OVN passes each packet through the logical datapath\(cqs
+logical ingress pipeline, which may output the packet to one or more
+logical port or logical multicast groups\[char46]  For each such logical output
+port, OVN passes the packet through the datapath\(cqs logical egress
+pipeline, which may either drop the packet or deliver it to the
+destination\[char46]  Between the two pipelines, outputs to logical multicast
+groups are expanded into logical ports, so that the egress pipeline only
+processes a single logical output port at a time\[char46]  Between the two
+pipelines is also where, when necessary, OVN encapsulates a packet in a
+tunnel (or tunnels) to transmit to remote hypervisors\[char46]
+.PP
+In more detail, to start, OVN searches the \fBLogical_Flow\fR
+table for a row with correct \fBlogical_datapath\fR, a \fBpipeline\fR of \fBingress\fR, a \fBtable_id\fR
+of 0, and a \fBmatch\fR that is true for the packet\[char46]  If none
+is found, OVN drops the packet\[char46]  If OVN finds more than one, it chooses
+the match with the highest \fBpriority\fR\[char46]  Then OVN executes
+each of the actions specified in the row\(cqs \fBactions\fR column,
+in the order specified\[char46]  Some actions, such as those to modify packet
+headers, require no further details\[char46]  The \fBnext\fR and
+\fBoutput\fR actions are special\[char46]
+.PP
+The \fBnext\fR action causes the above process to be repeated
+recursively, except that OVN searches for \fBtable_id\fR of 1
+instead of 0\[char46]  Similarly, any \fBnext\fR action in a row found in
+that table would cause a further search for a \fBtable_id\fR of
+2, and so on\[char46]  When recursive processing completes, flow control returns
+to the action following \fBnext\fR\[char46]
+.PP
+The \fBoutput\fR action also introduces recursion\[char46]  Its effect
+depends on the current value of the \fBoutport\fR field\[char46]  Suppose
+\fBoutport\fR designates a logical port\[char46]  First, OVN compares
+\fBinport\fR to \fBoutport\fR; if they are equal, it treats
+the \fBoutput\fR as a no-op\[char46]  In the common case, where they are
+different, the packet enters the egress pipeline\[char46]  This transition to the
+egress pipeline discards register data, e\[char46]g\[char46] \fBreg0\fR \[char46]\[char46]\[char46]
+\fBreg4\fR and connection tracking state, to achieve
+uniform behavior regardless of whether the egress pipeline is on a
+different hypervisor (because registers aren\(cqt preserve across
+tunnel encapsulation)\[char46]
+.PP
+To execute the egress pipeline, OVN again searches the \fBLogical_Flow\fR table for a row with correct \fBlogical_datapath\fR, a \fBtable_id\fR of 0, a \fBmatch\fR that is true for the packet, but now looking for a \fBpipeline\fR of \fBegress\fR\[char46]  If no matching row is found,
+the output becomes a no-op\[char46]  Otherwise, OVN executes the actions for the
+matching flow (which is chosen from multiple, if necessary, as already
+described)\[char46]
+.PP
+In the \fBegress\fR pipeline, the \fBnext\fR action acts as
+already described, except that it, of course, searches for
+\fBegress\fR flows\[char46]  The \fBoutput\fR action, however, now
+directly outputs the packet to the output port (which is now fixed,
+because \fBoutport\fR is read-only within the egress pipeline)\[char46]
+.PP
+The description earlier assumed that \fBoutport\fR referred to a
+logical port\[char46]  If it instead designates a logical multicast group, then
+the description above still applies, with the addition of fan-out from
+the logical multicast group to each logical port in the group\[char46]  For each
+member of the group, OVN executes the logical pipeline as described, with
+the logical output port replaced by the group member\[char46]
+.PP
+\fBPipeline Stages\fR
+.PP
+\fBovn\-northd\fR is responsible for populating the
+\fBLogical_Flow\fR table, so the stages are an
+implementation detail and subject to change\[char46]  This section
+describes the current logical flow table\[char46]
+.PP
+The ingress pipeline consists of the following stages:
+.RS
+.IP \(bu
+Port Security (Table 0): Validates the source address, drops
+packets with a VLAN tag, and, if configured, verifies that the
+logical port is allowed to send with the source address\[char46]
+.IP \(bu
+L2 Destination Lookup (Table 1): Forwards known unicast
+addresses to the appropriate logical port\[char46]  Unicast packets to
+unknown hosts are forwarded to logical ports configured with the
+special \fBunknown\fR mac address\[char46]  Broadcast, and
+multicast are flooded to all ports in the logical switch\[char46]
+.RE
+.PP
+The egress pipeline consists of the following stages:
+.RS
+.IP \(bu
+ACL (Table 0): Applies any specified access control lists\[char46]
+.IP \(bu
+Port Security (Table 1): If configured, verifies that the
+logical port is allowed to receive packets with the destination
+address\[char46]
+.RE
+.SS "Summary:
+.TQ 3.00in
+\fBlogical_datapath\fR
+\fBDatapath_Binding\fR
+.TQ 3.00in
+\fBpipeline\fR
+string, either \fBingress\fR or \fBegress\fR
+.TQ 3.00in
+\fBtable_id\fR
+integer, in range 0 to 15
+.TQ 3.00in
+\fBpriority\fR
+integer, in range 0 to 65,535
+.TQ 3.00in
+\fBmatch\fR
+string
+.TQ 3.00in
+\fBactions\fR
+string
+.TQ 3.00in
+\fBexternal_ids : stage-name\fR
+optional string
+.TQ .25in
+\fICommon Columns:\fR
+.RS .25in
+.TQ 2.75in
+\fBexternal_ids\fR
+map of string-string pairs
+.RE
+.SS "Details:
+.IP "\fBlogical_datapath\fR: \fBDatapath_Binding\fR"
+The logical datapath to which the logical flow belongs\[char46]
+.IP "\fBpipeline\fR: string, either \fBingress\fR or \fBegress\fR"
+The primary flows used for deciding on a packet\(cqs destination are the
+\fBingress\fR flows\[char46]  The \fBegress\fR flows implement
+ACLs\[char46]  See \fBLogical Life Cycle of a Packet\fR, above, for details\[char46]
+.IP "\fBtable_id\fR: integer, in range 0 to 15"
+The stage in the logical pipeline, analogous to an OpenFlow table number\[char46]
+.IP "\fBpriority\fR: integer, in range 0 to 65,535"
+The flow\(cqs priority\[char46]  Flows with numerically higher priority take
+precedence over those with lower\[char46]  If two logical datapath flows with the
+same priority both match, then the one actually applied to the packet is
+undefined\[char46]
+.IP "\fBmatch\fR: string"
+A matching expression\[char46]  OVN provides a superset of OpenFlow matching
+capabilities, using a syntax similar to Boolean expressions in a
+programming language\[char46]
+.IP
+The most important components of match expression are
+\fIcomparisons\fR between \fIsymbols\fR and
+\fIconstants\fR, e\[char46]g\[char46] \fBip4\[char46]dst == 192\[char46]168\[char46]0\[char46]1\fR,
+\fBip\[char46]proto == 6\fR, \fBarp\[char46]op == 1\fR, \fBeth\[char46]type ==
+0x800\fR\[char46]  The logical AND operator \fB&&\fR and
+logical OR operator \fB||\fR can combine comparisons into a
+larger expression\[char46]
+.IP
+Matching expressions also support parentheses for grouping, the logical
+NOT prefix operator \fB!\fR, and literals \fB0\fR and
+\fB1\fR to express ``false\(cq\(cq or ``true,\(cq\(cq respectively\[char46]  The
+latter is useful by itself as a catch-all expression that matches every
+packet\[char46]
+.IP
+\fBSymbols\fR
+.IP
+\fBType\fR\[char46]  Symbols have \fIinteger\fR or \fIstring\fR
+type\[char46]  Integer symbols have a \fIwidth\fR in bits\[char46]
+.IP
+\fBKinds\fR\[char46]  There are three kinds of symbols:
+.RS
+.IP \(bu
+\fIFields\fR\[char46]  A field symbol represents a packet header or
+metadata field\[char46]  For example, a field
+named \fBvlan\[char46]tci\fR might represent the VLAN TCI field in a
+packet\[char46]
+.IP
+A field symbol can have integer or string type\[char46]  Integer fields can
+be nominal or ordinal (see \fBLevel of Measurement\fR,
+below)\[char46]
+.IP \(bu
+\fISubfields\fR\[char46]  A subfield represents a subset of bits from
+a larger field\[char46]  For example, a field \fBvlan\[char46]vid\fR might
+be defined as an alias for \fBvlan\[char46]tci[0\[char46]\[char46]11]\fR\[char46]  Subfields
+are provided for syntactic convenience, because it is always
+possible to instead refer to a subset of bits from a field
+directly\[char46]
+.IP
+Only ordinal fields (see \fBLevel of Measurement\fR,
+below) may have subfields\[char46]  Subfields are always ordinal\[char46]
+.IP \(bu
+\fIPredicates\fR\[char46]  A predicate is shorthand for a Boolean
+expression\[char46]  Predicates may be used much like 1-bit fields\[char46]  For
+example, \fBip4\fR might expand to \fBeth\[char46]type ==
+0x800\fR\[char46]  Predicates are provided for syntactic convenience,
+because it is always possible to instead specify the underlying
+expression directly\[char46]
+.IP
+A predicate whose expansion refers to any nominal field or
+predicate (see \fBLevel of Measurement\fR, below) is nominal;
+other predicates have Boolean level of measurement\[char46]
+.RE
+.IP
+\fBLevel of Measurement\fR\[char46]  See
+http://en\[char46]wikipedia\[char46]org/wiki/Level_of_measurement for the statistical
+concept on which this classification is based\[char46]  There are three
+levels:
+.RS
+.IP \(bu
+\fIOrdinal\fR\[char46]  In statistics, ordinal values can be ordered
+on a scale\[char46]  OVN considers a field (or subfield) to be ordinal if
+its bits can be examined individually\[char46]  This is true for the
+OpenFlow fields that OpenFlow or Open vSwitch makes ``maskable\[char46]\(cq\(cq
+.IP
+Any use of a nominal field may specify a single bit or a range of
+bits, e\[char46]g\[char46] \fBvlan\[char46]tci[13\[char46]\[char46]15]\fR refers to the PCP field
+within the VLAN TCI, and \fBeth\[char46]dst[40]\fR refers to the
+multicast bit in the Ethernet destination address\[char46]
+.IP
+OVN supports all the usual arithmetic relations (\fB==\fR,
+\fB!=\fR, \fB<\fR, \fB<=\fR,
+\fB>\fR, and \fB>=\fR) on ordinal fields and
+their subfields, because OVN can implement these in OpenFlow and
+Open vSwitch as collections of bitwise tests\[char46]
+.IP \(bu
+\fINominal\fR\[char46]  In statistics, nominal values cannot be
+usefully compared except for equality\[char46]  This is true of OpenFlow
+port numbers, Ethernet types, and IP protocols are examples: all of
+these are just identifiers assigned arbitrarily with no deeper
+meaning\[char46]  In OpenFlow and Open vSwitch, bits in these fields
+generally aren\(cqt individually addressable\[char46]
+.IP
+OVN only supports arithmetic tests for equality on nominal fields,
+because OpenFlow and Open vSwitch provide no way for a flow to
+efficiently implement other comparisons on them\[char46]  (A test for
+inequality can be sort of built out of two flows with different
+priorities, but OVN matching expressions always generate flows with
+a single priority\[char46])
+.IP
+String fields are always nominal\[char46]
+.IP \(bu
+\fIBoolean\fR\[char46]  A nominal field that has only two values, 0
+and 1, is somewhat exceptional, since it is easy to support both
+equality and inequality tests on such a field: either one can be
+implemented as a test for 0 or 1\[char46]
+.IP
+Only predicates (see above) have a Boolean level of measurement\[char46]
+.IP
+This isn\(cqt a standard level of measurement\[char46]
+.RE
+.IP
+\fBPrerequisites\fR\[char46]  Any symbol can have prerequisites, which are
+additional condition implied by the use of the symbol\[char46]  For example,
+For example, \fBicmp4\[char46]type\fR symbol might have prerequisite
+\fBicmp4\fR, which would cause an expression \fBicmp4\[char46]type ==
+0\fR to be interpreted as \fBicmp4\[char46]type == 0 &&
+icmp4\fR, which would in turn expand to \fBicmp4\[char46]type == 0
+&& eth\[char46]type == 0x800 && ip4\[char46]proto == 1\fR (assuming
+\fBicmp4\fR is a predicate defined as suggested under
+\fBTypes\fR above)\[char46]
+.IP
+\fBRelational operators\fR
+.IP
+All of the standard relational operators \fB==\fR,
+\fB!=\fR, \fB<\fR, \fB<=\fR,
+\fB>\fR, and \fB>=\fR are supported\[char46]  Nominal
+fields support only \fB==\fR and \fB!=\fR, and only in a
+positive sense when outer \fB!\fR are taken into account,
+e\[char46]g\[char46] given string field \fBinport\fR, \fBinport ==
+\(dqeth0\(dq\fR and \fB!(inport != \(dqeth0\(dq)\fR are acceptable, but
+not \fBinport != \(dqeth0\(dq\fR\[char46]
+.IP
+The implementation of \fB==\fR (or \fB!=\fR when it is
+negated), is more efficient than that of the other relational
+operators\[char46]
+.IP
+\fBConstants\fR
+.IP
+Integer constants may be expressed in decimal, hexadecimal prefixed by
+\fB0x\fR, or as dotted-quad IPv4 addresses, IPv6 addresses in
+their standard forms, or Ethernet addresses as colon-separated hex
+digits\[char46]  A constant in any of these forms may be followed by a slash
+and a second constant (the mask) in the same form, to form a masked
+constant\[char46]  IPv4 and IPv6 masks may be given as integers, to express
+CIDR prefixes\[char46]
+.IP
+String constants have the same syntax as quoted strings in JSON (thus,
+they are Unicode strings)\[char46]
+.IP
+Some operators support sets of constants written inside curly braces
+\fB{\fR \[char46]\[char46]\[char46] \fB}\fR\[char46]  Commas between elements of a set,
+and after the last elements, are optional\[char46]  With \fB==\fR,
+``\fB\fIfield\fB == { \fIconstant1\fB,
+\fIconstant2\fB,\fR \[char46]\[char46]\[char46] \fB}\fR\(cq\(cq is syntactic sugar
+for ``\fB\fIfield\fB == \fIconstant1\fB ||
+\fIfield\fB == \fIconstant2\fB || \fR\[char46]\[char46]\[char46]\fB\fR\[char46]
+Similarly, ``\fB\fIfield\fB != { \fIconstant1\fB,
+\fIconstant2\fB, \fR\[char46]\[char46]\[char46]\fB }\fR\(cq\(cq is equivalent to
+``\fB\fIfield\fB != \fIconstant1\fB &&
+\fIfield\fB != \fIconstant2\fB &&
+\fR\[char46]\[char46]\[char46]\fB\fR\(cq\(cq\[char46]
+.IP
+\fBMiscellaneous\fR
+.IP
+Comparisons may name the symbol or the constant first,
+e\[char46]g\[char46] \fBtcp\[char46]src == 80\fR and \fB80 == tcp\[char46]src\fR are both
+acceptable\[char46]
+.IP
+Tests for a range may be expressed using a syntax like \fB1024 <=
+tcp\[char46]src <= 49151\fR, which is equivalent to \fB1024 <=
+tcp\[char46]src && tcp\[char46]src <= 49151\fR\[char46]
+.IP
+For a one-bit field or predicate, a mention of its name is equivalent
+to \fB\fIsymobl\fB == 1\fR, e\[char46]g\[char46] \fBvlan\[char46]present\fR
+is equivalent to \fBvlan\[char46]present == 1\fR\[char46]  The same is true for
+one-bit subfields, e\[char46]g\[char46] \fBvlan\[char46]tci[12]\fR\[char46]  There is no
+technical limitation to implementing the same for ordinal fields of all
+widths, but the implementation is expensive enough that the syntax
+parser requires writing an explicit comparison against zero to make
+mistakes less likely, e\[char46]g\[char46] in \fBtcp\[char46]src != 0\fR the comparison
+against 0 is required\[char46]
+.IP
+\fBOperator precedence\fR is as shown below, from highest to lowest\[char46]
+There are two exceptions where parentheses are required even though the
+table would suggest that they are not: \fB&&\fR and
+\fB||\fR require parentheses when used together, and
+\fB!\fR requires parentheses when applied to a relational
+expression\[char46]  Thus, in \fB(eth\[char46]type == 0x800 || eth\[char46]type == 0x86dd)
+&& ip\[char46]proto == 6\fR or \fB!(arp\[char46]op == 1)\fR, the
+parentheses are mandatory\[char46]
+.RS
+.IP \(bu
+\fB()\fR
+.IP \(bu
+\fB==   !=   <   <=   >   >=\fR
+.IP \(bu
+\fB!\fR
+.IP \(bu
+\fB&&   ||\fR
+.RE
+.IP
+\fBComments\fR may be introduced by \fB//\fR, which extends
+to the next new-line\[char46]  Comments within a line may be bracketed by
+\fB/*\fR and \fB*/\fR\[char46]  Multiline comments are not
+supported\[char46]
+.IP
+\fBSymbols\fR
+.IP
+Most of the symbols below have integer type\[char46]  Only \fBinport\fR
+and \fBoutport\fR have string type\[char46]  \fBinport\fR names a
+logical port\[char46]  Thus, its value is a \fBlogical_port\fR name
+from the \fBPort_Binding\fR table\[char46]  \fBoutport\fR may
+name a logical port, as \fBinport\fR, or a logical multicast
+group defined in the \fBMulticast_Group\fR table\[char46]  For both
+symbols, only names within the flow\(cqs logical datapath may be used\[char46]
+.RS
+.IP \(bu
+\fBreg0\fR\[char46]\[char46]\[char46]\fBreg4\fR
+.IP \(bu
+\fBinport\fR \fBoutport\fR
+.IP \(bu
+\fBeth\[char46]src\fR \fBeth\[char46]dst\fR \fBeth\[char46]type\fR
+.IP \(bu
+\fBvlan\[char46]tci\fR \fBvlan\[char46]vid\fR \fBvlan\[char46]pcp\fR \fBvlan\[char46]present\fR
+.IP \(bu
+\fBip\[char46]proto\fR \fBip\[char46]dscp\fR \fBip\[char46]ecn\fR \fBip\[char46]ttl\fR \fBip\[char46]frag\fR
+.IP \(bu
+\fBip4\[char46]src\fR \fBip4\[char46]dst\fR
+.IP \(bu
+\fBip6\[char46]src\fR \fBip6\[char46]dst\fR \fBip6\[char46]label\fR
+.IP \(bu
+\fBarp\[char46]op\fR \fBarp\[char46]spa\fR \fBarp\[char46]tpa\fR \fBarp\[char46]sha\fR \fBarp\[char46]tha\fR
+.IP \(bu
+\fBtcp\[char46]src\fR \fBtcp\[char46]dst\fR \fBtcp\[char46]flags\fR
+.IP \(bu
+\fBudp\[char46]src\fR \fBudp\[char46]dst\fR
+.IP \(bu
+\fBsctp\[char46]src\fR \fBsctp\[char46]dst\fR
+.IP \(bu
+\fBicmp4\[char46]type\fR \fBicmp4\[char46]code\fR
+.IP \(bu
+\fBicmp6\[char46]type\fR \fBicmp6\[char46]code\fR
+.IP \(bu
+\fBnd\[char46]target\fR \fBnd\[char46]sll\fR \fBnd\[char46]tll\fR
+.IP \(bu
+\fBct_state\fR can take the following shortcuts:
+.IP \(bu
+\fB   ct\[char46]new\fR New flow
+.IP \(bu
+\fB   ct\[char46]est\fR Established flow
+.IP \(bu
+\fB   ct\[char46]rel\fR Related flow
+.IP \(bu
+\fB   ct\[char46]rpl\fR Reply flow
+.IP \(bu
+\fB   ct\[char46]inv\fR Connection entry in a bad state
+.RE
+.IP "\fBactions\fR: string"
+Logical datapath actions, to be executed when the logical flow
+represented by this row is the highest-priority match\[char46]
+.IP
+Actions share lexical syntax with the \fBmatch\fR column\[char46]  An
+empty set of actions (or one that contains just white space or
+comments), or a set of actions that consists of just
+\fBdrop;\fR, causes the matched packets to be dropped\[char46]
+Otherwise, the column should contain a sequence of actions, each
+terminated by a semicolon\[char46]
+.IP
+The following actions are defined:
+.RS
+.TP
+\fBoutput;\fR
+In the ingress pipeline, this action executes the
+\fBegress\fR pipeline as a subroutine\[char46]  If
+\fBoutport\fR names a logical port, the egress pipeline
+executes once; if it is a multicast group, the egress pipeline runs
+once for each logical port in the group\[char46]
+.IP
+In the egress pipeline, this action performs the actual
+output to the \fBoutport\fR logical port\[char46]  (In the egress
+pipeline, \fBoutport\fR never names a multicast group\[char46])
+.IP
+Output to the input port is implicitly dropped, that is,
+\fBoutput\fR becomes a no-op if \fBoutport\fR ==
+\fBinport\fR\[char46]
+.TP
+\fBnext;\fR
+Executes the next logical datapath table as a subroutine\[char46]
+.TP
+\fB\fIfield\fB = \fIconstant\fB;\fR
+Sets data or metadata field \fIfield\fR to constant value
+\fIconstant\fR, e\[char46]g\[char46] \fBoutport = \(dqvif0\(dq;\fR to set the
+logical output port\[char46]  To set only a subset of bits in a field,
+specify a subfield for \fIfield\fR or a masked
+\fIconstant\fR, e\[char46]g\[char46] one may use \fBvlan\[char46]pcp[2] = 1;\fR
+or \fBvlan\[char46]pcp = 4/4;\fR to set the most sigificant bit of
+the VLAN PCP\[char46]
+.IP
+Assigning to a field with prerequisites implicitly adds those
+prerequisites to \fBmatch\fR; thus, for example, a flow
+that sets \fBtcp\[char46]dst\fR applies only to TCP flows,
+regardless of whether its \fBmatch\fR mentions any TCP
+field\[char46]
+.IP
+Not all fields are modifiable (e\[char46]g\[char46] \fBeth\[char46]type\fR and
+\fBip\[char46]proto\fR are read-only), and not all modifiable fields
+may be partially modified (e\[char46]g\[char46] \fBip\[char46]ttl\fR must assigned
+as a whole)\[char46]  The \fBoutport\fR field is modifiable in the
+\fBingress\fR pipeline but not in the \fBegress\fR
+pipeline\[char46]
+.TP
+\fBct_next;\fR
+Apply connection tracking to the flow\[char46]  After a call to
+\fBct_next\fR, the \fBct_state\fR field is
+available to match\[char46]  As a side effect, IP fragments will be
+reassembled for matching\[char46]  If a fragmented packet is output,
+then it will be sent with any overlapping fragments squashed\[char46]
+The connection tracking state is scoped by the logical port,
+so overlapping addresses may be used\[char46]  To allow traffic
+related to the matched flow, \fBct_commit\fR must be
+called\[char46]  After this action is used, the next logical datapath
+table will be executed\[char46]
+.TP
+\fBct_commit;\fR
+Commit the flow to the connection tracking entry associated
+with it by a previous call to \fBcommit\fR\[char46]
+.RE
+.IP
+The following actions will likely be useful later, but they have not
+been thought out carefully\[char46]
+.RS
+.TP
+\fB\fIfield1\fB = \fIfield2\fB;\fR
+Extends the assignment action to allow copying between fields\[char46]
+.TP
+\fBlearn\fR
+.TQ .5in
+\fBdec_ttl { \fIaction\fB, \fR\[char46]\[char46]\[char46]\fB } { \fIaction\fB; \fR\[char46]\[char46]\[char46]\fB};\fR
+decrement TTL; execute first set of actions if
+successful, second set if TTL decrement fails
+.TP
+\fBicmp_reply { \fIaction\fB, \fR\[char46]\[char46]\[char46]\fB };\fR
+generate ICMP reply from packet, execute \fIaction\fRs
+.TP
+\fBarp { \fIaction\fB, \fR\[char46]\[char46]\[char46]\fB }\fR
+generate ARP from packet, execute \fIaction\fRs
+.RE
+.IP "\fBexternal_ids : stage-name\fR: optional string"
+Human-readable name for this flow\(cqs stage in the pipeline\[char46]
+.ST "Common Columns:"
+The overall purpose of these columns is described under \fBCommon
+Columns\fR at the beginning of this document\[char46]
+.IP "\fBexternal_ids\fR: map of string-string pairs"
+.bp
+.SH "Multicast_Group TABLE"
+The rows in this table define multicast groups of logical ports\[char46]
+Multicast groups allow a single packet transmitted over a tunnel to a
+hypervisor to be delivered to multiple VMs on that hypervisor, which
+uses bandwidth more efficiently\[char46]
+.PP
+Each row in this table defines a logical multicast group numbered \fBtunnel_key\fR within \fBdatapath\fR, whose logical
+ports are listed in the \fBports\fR column\[char46]
+.SS "Summary:
+.TQ 3.00in
+\fBdatapath\fR
+\fBDatapath_Binding\fR
+.TQ 3.00in
+\fBtunnel_key\fR
+integer, in range 32,768 to 65,535
+.TQ 3.00in
+\fBname\fR
+string
+.TQ 3.00in
+\fBports\fR
+set of 1 or more weak reference to \fBPort_Binding\fRs
+.SS "Details:
+.IP "\fBdatapath\fR: \fBDatapath_Binding\fR"
+The logical datapath in which the multicast group resides\[char46]
+.IP "\fBtunnel_key\fR: integer, in range 32,768 to 65,535"
+The value used to designate this logical egress port in tunnel
+encapsulations\[char46]  An index forces the key to be unique within the \fBdatapath\fR\[char46]  The unusual range ensures that multicast group IDs
+do not overlap with logical port IDs\[char46]
+.IP "\fBname\fR: string"
+The logical multicast group\(cqs name\[char46]  An index forces the name to be
+unique within the \fBdatapath\fR\[char46]  Logical flows in the
+ingress pipeline may output to the group just as for individual logical
+ports, by assigning the group\(cqs name to \fBoutport\fR and
+executing an \fBoutput\fR action\[char46]
+.IP
+Multicast group names and logical port names share a single namespace
+and thus should not overlap (but the database schema cannot enforce
+this)\[char46]  To try to avoid conflicts, \fBovn\-northd\fR uses names
+that begin with \fB_MC_\fR\[char46]
+.IP "\fBports\fR: set of 1 or more weak reference to \fBPort_Binding\fRs"
+The logical ports included in the multicast group\[char46]  All of these ports
+must be in the \fBdatapath\fR logical datapath (but the
+database schema cannot enforce this)\[char46]
+.bp
+.SH "Datapath_Binding TABLE"
+Each row in this table identifies physical bindings of a logical
+datapath\[char46]  A logical datapath implements a logical pipeline among the
+ports in the \fBPort_Binding\fR table associated with it\[char46]  In
+practice, the pipeline in a given logical datapath implements either a
+logical switch or a logical router\[char46]
+.SS "Summary:
+.TQ 3.00in
+\fBtunnel_key\fR
+integer, in range 1 to 16,777,215 (must be unique within table)
+.TQ 3.00in
+\fBexternal_ids : logical-switch\fR
+optional string, containing an uuid
+.TQ .25in
+\fICommon Columns:\fR
+.RS .25in
+.TQ 2.75in
+\fBexternal_ids\fR
+map of string-string pairs
+.RE
+.SS "Details:
+.IP "\fBtunnel_key\fR: integer, in range 1 to 16,777,215 (must be unique within table)"
+The tunnel key value to which the logical datapath is bound\[char46]
+The \fBTunnel Encapsulation\fR section in
+\fBovn\-architecture\fR(7) describes how tunnel keys are
+constructed for each supported encapsulation\[char46]
+.IP "\fBexternal_ids : logical-switch\fR: optional string, containing an uuid"
+Each row in \fBDatapath_Binding\fR is associated with some
+logical datapath\[char46]  \fBovn\-northd\fR uses this key to store the
+UUID of the logical datapath \fBLogical_Switch\fR row in the \fBOVN_Northbound\fR database\[char46]
+.ST "Common Columns:"
+The overall purpose of these columns is described under \fBCommon
+Columns\fR at the beginning of this document\[char46]
+.IP "\fBexternal_ids\fR: map of string-string pairs"
+.bp
+.SH "Port_Binding TABLE"
+Each row in this table identifies the physical location of a logical
+port\[char46]
+.PP
+For every \fBLogical_Port\fR record in \fBOVN_Northbound\fR
+database, \fBovn\-northd\fR creates a record in this table\[char46]
+\fBovn\-northd\fR populates and maintains every column except
+the \fBchassis\fR column, which it leaves empty in new records\[char46]
+.PP
+\fBovn\-controller\fR populates the \fBchassis\fR column
+for the records that identify the logical ports that are located on its
+hypervisor, which \fBovn\-controller\fR in turn finds out by
+monitoring the local hypervisor\(cqs Open_vSwitch database, which
+identifies logical ports via the conventions described in
+\fBIntegrationGuide\[char46]md\fR\[char46]
+.PP
+When a chassis shuts down gracefully, it should clean up the
+\fBchassis\fR column that it previously had populated\[char46]
+(This is not critical because resources hosted on the chassis are equally
+unreachable regardless of whether their rows are present\[char46])  To handle the
+case where a VM is shut down abruptly on one chassis, then brought up
+again on a different one, \fBovn\-controller\fR must overwrite the
+\fBchassis\fR column with new information\[char46]
+.SS "Summary:
+.TQ 3.00in
+\fBdatapath\fR
+\fBDatapath_Binding\fR
+.TQ 3.00in
+\fBlogical_port\fR
+string (must be unique within table)
+.TQ 3.00in
+\fBtype\fR
+string
+.TQ 3.00in
+\fBoptions\fR
+map of string-string pairs
+.TQ 3.00in
+\fBtunnel_key\fR
+integer, in range 1 to 32,767
+.TQ 3.00in
+\fBparent_port\fR
+optional string
+.TQ 3.00in
+\fBtag\fR
+optional integer, in range 0 to 4,095
+.TQ 3.00in
+\fBchassis\fR
+optional weak reference to \fBChassis\fR
+.TQ 3.00in
+\fBmac\fR
+set of strings
+.SS "Details:
+.IP "\fBdatapath\fR: \fBDatapath_Binding\fR"
+The logical datapath to which the logical port belongs\[char46]
+.IP "\fBlogical_port\fR: string (must be unique within table)"
+A logical port, taken from \fBname\fR in the OVN_Northbound database\(cqs
+\fBLogical_Port\fR table\[char46]  OVN does not
+prescribe a particular format for the logical port ID\[char46]
+.IP "\fBtype\fR: string"
+A type for this logical port\[char46]  Logical ports can be used to model
+other types of connectivity into an OVN logical switch\[char46]  Leaving this column
+blank maintains the default logical port behavior\[char46]
+.IP
+There are no other logical port types implemented yet\[char46]
+.IP "\fBoptions\fR: map of string-string pairs"
+This column provides key/value settings specific to the logical port
+\fBtype\fR\[char46]
+.IP "\fBtunnel_key\fR: integer, in range 1 to 32,767"
+A number that represents the logical port in the key (e\[char46]g\[char46] STT key or
+Geneve TLV) field carried within tunnel protocol packets\[char46]
+.IP
+The tunnel ID must be unique within the scope of a logical datapath\[char46]
+.IP "\fBparent_port\fR: optional string"
+For containers created inside a VM, this is taken from
+\fBparent_name\fR
+in the OVN_Northbound database\(cqs \fBLogical_Port\fR table\[char46]  It is left empty if
+\fBlogical_port\fR belongs to a VM or a container created
+in the hypervisor\[char46]
+.IP "\fBtag\fR: optional integer, in range 0 to 4,095"
+When \fBlogical_port\fR identifies the interface of a container
+spawned inside a VM, this column identifies the VLAN tag in
+the network traffic associated with that container\(cqs network interface\[char46]
+It is left empty if \fBlogical_port\fR belongs to a VM or a
+container created in the hypervisor\[char46]
+.IP "\fBchassis\fR: optional weak reference to \fBChassis\fR"
+The physical location of the logical port\[char46]  To successfully identify a
+chassis, this column must be a \fBChassis\fR record\[char46]  This is
+populated by \fBovn\-controller\fR\[char46]
+.IP "\fBmac\fR: set of strings"
+The Ethernet address or addresses used as a source address on the
+logical port, each in the form
+\fIxx\fR:\fIxx\fR:\fIxx\fR:\fIxx\fR:\fIxx\fR:\fIxx\fR\[char46]
+The string \fBunknown\fR is also allowed to indicate that the
+logical port has an unknown set of (additional) source addresses\[char46]
+.IP
+A VM interface would ordinarily have a single Ethernet address\[char46]  A
+gateway port might initially only have \fBunknown\fR, and then
+add MAC addresses to the set as it learns new source addresses\[char46]

@@ -10,7 +10,7 @@
 .  I "\\$1"
 .  RE
 ..
-.TH ovs\-vsctl 8 "2.3.90" "Open vSwitch" "Open vSwitch Manual"
+.TH ovs\-vsctl 8 "2.4.90" "Open vSwitch" "Open vSwitch Manual"
 .\" This program's name:
 .ds PN ovs\-vsctl
 .
@@ -79,21 +79,21 @@ the global options by \fB\-\-\fR.
 .IP "\fB\-\-db=\fIserver\fR"
 Sets \fIserver\fR as the database server that \fBovs\-vsctl\fR
 contacts to query or modify configuration.  The default is
-\fBunix:/var/run/openvswitch/db.sock\fR.  \fIserver\fR must take one of the
+\fBunix://var/run/openvswitch/db.sock\fR.  \fIserver\fR must take one of the
 following forms:
 .RS
 .IP "\fBssl:\fIip\fB:\fIport\fR"
 The specified SSL \fIport\fR on the host at the given \fIip\fR, which
 must be expressed as an IP address (not a DNS name) in IPv4 or IPv6 address
 format.  If \fIip\fR is an IPv6 address, then wrap \fIip\fR with square
-brackets, e.g.: \fBssl:[::1]:6632\fR.
+brackets, e.g.: \fBssl:[::1]:6640\fR.
 The \fB\-\-private\-key\fR, \fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR
 options are mandatory when this form is used.
 .
 .IP "\fBtcp:\fIip\fB:\fIport\fR"
 Connect to the given TCP \fIport\fR on \fIip\fR, where \fIip\fR can be IPv4
 or IPv6 address. If \fIip\fR is an IPv6 address, then wrap \fIip\fR with
-square brackets, e.g.: \fBtcp:[::1]:6632\fR.
+square brackets, e.g.: \fBtcp:[::1]:6640\fR.
 .
 .IP "\fBunix:\fIfile\fR"
 On POSIX, connect to the Unix domain server socket named \fIfile\fR.
@@ -107,7 +107,7 @@ it listens only on IPv4 (but not IPv6) addresses, but
 specifying \fIip\fR limits connections to those from the given
 \fIip\fR, either IPv4 or IPv6 address.  If \fIip\fR is
 an IPv6 address, then wrap \fIip\fR with square brackets, e.g.:
-\fBpssl:6632:[::1]\fR.  The \fB\-\-private\-key\fR,
+\fBpssl:6640:[::1]\fR.  The \fB\-\-private\-key\fR,
 \fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR options are mandatory
 when this form is used.
 .
@@ -118,7 +118,7 @@ it listens only on IPv4 (but not IPv6) addresses, but
 \fIip\fR may be specified to listen only for connections to the given
 \fIip\fR, either IPv4 or IPv6 address.  If \fIip\fR is
 an IPv6 address, then wrap \fIip\fR with square brackets, e.g.:
-\fBptcp:6632:[::1]\fR.
+\fBptcp:6640:[::1]\fR.
 .
 .IP "\fBpunix:\fIfile\fR"
 On POSIX, listen on the Unix domain server socket named \fIfile\fR for a
@@ -130,7 +130,7 @@ chosen TCP port value is written in \fIfile\fR.
 .
 .IP "\fB\-\-no\-wait\fR"
 Prevents \fBovs\-vsctl\fR from waiting for \fBovs\-vswitchd\fR to
-reconfigure itself according to the the modified database.  This
+reconfigure itself according to the modified database.  This
 option should be used if \fBovs\-vswitchd\fR is not running;
 otherwise, \fBovs\-vsctl\fR will not exit until \fBovs\-vswitchd\fR
 starts.
@@ -329,7 +329,7 @@ connection.
 .IQ "\fB\-\-verbose=\fR[\fIspec\fR]
 .
 Sets logging levels.  Without any \fIspec\fR, sets the log level for
-every module and facility to \fBdbg\fR.  Otherwise, \fIspec\fR is a
+every module and destination to \fBdbg\fR.  Otherwise, \fIspec\fR is a
 list of words separated by spaces or commas or colons, up to one from
 each category below:
 .
@@ -371,21 +371,59 @@ a word but has no effect.
 Sets the maximum logging verbosity level, equivalent to
 \fB\-\-verbose=dbg\fR.
 .
-.IP "\fB\-vPATTERN:\fIfacility\fB:\fIpattern\fR"
-.IQ "\fB\-\-verbose=PATTERN:\fIfacility\fB:\fIpattern\fR"
-Sets the log pattern for \fIfacility\fR to \fIpattern\fR.  Refer to
+.IP "\fB\-vPATTERN:\fIdestination\fB:\fIpattern\fR"
+.IQ "\fB\-\-verbose=PATTERN:\fIdestination\fB:\fIpattern\fR"
+Sets the log pattern for \fIdestination\fR to \fIpattern\fR.  Refer to
 \fBovs\-appctl\fR(8) for a description of the valid syntax for \fIpattern\fR.
+.
+.IP "\fB\-vFACILITY:\fIfacility\fR"
+.IQ "\fB\-\-verbose=FACILITY:\fIfacility\fR"
+Sets the RFC5424 facility of the log message. \fIfacility\fR can be one of
+\fBkern\fR, \fBuser\fR, \fBmail\fR, \fBdaemon\fR, \fBauth\fR, \fBsyslog\fR,
+\fBlpr\fR, \fBnews\fR, \fBuucp\fR, \fBclock\fR, \fBftp\fR, \fBntp\fR,
+\fBaudit\fR, \fBalert\fR, \fBclock2\fR, \fBlocal0\fR, \fBlocal1\fR,
+\fBlocal2\fR, \fBlocal3\fR, \fBlocal4\fR, \fBlocal5\fR, \fBlocal6\fR or
+\fBlocal7\fR. If this option is not specified, \fBdaemon\fR is used as
+the default for the local system syslog and \fBlocal0\fR is used while sending
+a message to the target provided via the \fB\-\-syslog\-target\fR option.
 .
 .TP
 \fB\-\-log\-file\fR[\fB=\fIfile\fR]
 Enables logging to a file.  If \fIfile\fR is specified, then it is
 used as the exact name for the log file.  The default log file name
-used if \fIfile\fR is omitted is \fB/var/log/openvswitch/\*(PN.log\fR.
+used if \fIfile\fR is omitted is \fB//var/log/openvswitch/\*(PN.log\fR.
 .
 .IP "\fB\-\-syslog\-target=\fIhost\fB:\fIport\fR"
 Send syslog messages to UDP \fIport\fR on \fIhost\fR, in addition to
 the system syslog.  The \fIhost\fR must be a numerical IP address, not
 a hostname.
+.
+.IP "\fB\-\-syslog\-method=\fImethod\fR"
+Specify \fImethod\fR how syslog messages should be sent to syslog daemon.
+Following forms are supported:
+.RS
+.IP \(bu
+\fBlibc\fR, use libc \fBsyslog()\fR function.  This is the default behavior.
+Downside of using this options is that libc adds fixed prefix to every
+message before it is actually sent to the syslog daemon over \fB/dev/log\fR
+UNIX domain socket.
+.IP \(bu
+\fBunix:\fIfile\fR\fR, use UNIX domain socket directly.  It is possible to
+specify arbitrary message format with this option.  However,
+\fBrsyslogd 8.9\fR and older versions use hard coded parser function anyway
+that limits UNIX domain socket use.  If you want to use arbitrary message
+format with older \fBrsyslogd\fR versions, then use UDP socket to localhost
+IP address instead.
+.IP \(bu
+\fBudp:\fIip\fR:\fIport\fR\fR, use UDP socket.  With this method it is
+possible to use arbitrary message format also with older \fBrsyslogd\fR.
+When sending syslog messages over UDP socket extra precaution needs to
+be taken into account, for example, syslog daemon needs to be configured
+to listen on the specified UDP port, accidental iptables rules could be
+interfering with local syslog traffic and there are some security
+considerations that apply to UDP sockets, but do not apply to UNIX domain
+sockets.
+.RE
 .de IQ
 .  br
 .  ns
@@ -530,7 +568,9 @@ is an error.  With \fB\-\-may\-exist\fR, this command does nothing if
 .IP "[\fB\-\-fake\-iface\fR] \fBadd\-bond \fIbridge port iface\fR\&... [\fIcolumn\fR[\fB:\fIkey\fR]\fR=\fIvalue\fR]\&...\fR"
 Creates on \fIbridge\fR a new port named \fIport\fR that bonds
 together the network devices given as each \fIiface\fR.  At least two
-interfaces must be named.
+interfaces must be named.  If the interfaces are DPDK enabled then
+the transaction will need to include operations to explicitly set the
+interface type to 'dpdk'.
 .IP
 Optional arguments set values of column in the Port record created by
 the command.  The syntax is the same as that for the \fBset\fR command
@@ -611,12 +651,10 @@ use any of the following forms:
 The specified \fIport\fR on the host at the given \fIip\fR, which must
 be expressed as an IP address (not a DNS name) in IPv4 or IPv6 address
 format.  Wrap IPv6 addresses in square brackets,
-e.g. \fBtcp:[::1]:6633\fR.  For \fBssl\fR, the \fB\-\-private\-key\fR,
+e.g. \fBtcp:[::1]:6653\fR.  For \fBssl\fR, the \fB\-\-private\-key\fR,
 \fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR options are mandatory.
 .IP
-If \fIport\fR is not specified, it currently defaults to 6633.  In the
-future, the default will change to 6653, which is the IANA-defined
-value.
+If \fIport\fR is not specified, it defaults to 6653.
 .TP
 \fBunix:\fIfile\fR
 On POSIX, a Unix domain server socket named \fIfile\fR.
@@ -625,10 +663,9 @@ On Windows, a localhost TCP port written in \fIfile\fR.
 .IP "\fBpssl:\fR[\fIport\fR][\fB:\fIip\fR]"
 .IQ "\fBptcp:\fR[\fIport\fR][\fB:\fIip\fR]"
 Listens for OpenFlow connections on \fIport\fR.  The default
-\fIport\fR is 6633, but a future version of Open vSwitch will change
-the default to the IANA-defined port 6653.  By default, connections
+\fIport\fR is 6653.  By default, connections
 are allowed from any IPv4 address.  Specify \fIip\fR as an IPv4
-address or a bracketed IPv6 address (e.g. \fBptcp:6633:[::1]\fR).  DNS
+address or a bracketed IPv6 address (e.g. \fBptcp:6653:[::1]\fR).  DNS
 names may not be used.  For \fBpssl\fR, the
 \fB\-\-private\-key\fR,\fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR
 options are mandatory.
@@ -693,14 +730,14 @@ use any of the following forms:
 The specified SSL \fIport\fR on the host at the given \fIip\fR, which
 must be expressed as an IP address (not a DNS name) in IPv4 or IPv6 address
 format.  If \fIip\fR is an IPv6 address, then wrap \fIip\fR with square
-brackets, e.g.: \fBssl:[::1]:6632\fR.
+brackets, e.g.: \fBssl:[::1]:6640\fR.
 The \fB\-\-private\-key\fR, \fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR
 options are mandatory when this form is used.
 .
 .IP "\fBtcp:\fIip\fB:\fIport\fR"
 Connect to the given TCP \fIport\fR on \fIip\fR, where \fIip\fR can be IPv4
 or IPv6 address. If \fIip\fR is an IPv6 address, then wrap \fIip\fR with
-square brackets, e.g.: \fBtcp:[::1]:6632\fR.
+square brackets, e.g.: \fBtcp:[::1]:6640\fR.
 .
 .IP "\fBunix:\fIfile\fR"
 On POSIX, connect to the Unix domain server socket named \fIfile\fR.
@@ -714,7 +751,7 @@ it listens only on IPv4 (but not IPv6) addresses, but
 specifying \fIip\fR limits connections to those from the given
 \fIip\fR, either IPv4 or IPv6 address.  If \fIip\fR is
 an IPv6 address, then wrap \fIip\fR with square brackets, e.g.:
-\fBpssl:6632:[::1]\fR.  The \fB\-\-private\-key\fR,
+\fBpssl:6640:[::1]\fR.  The \fB\-\-private\-key\fR,
 \fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR options are mandatory
 when this form is used.
 .
@@ -725,7 +762,7 @@ it listens only on IPv4 (but not IPv6) addresses, but
 \fIip\fR may be specified to listen only for connections to the given
 \fIip\fR, either IPv4 or IPv6 address.  If \fIip\fR is
 an IPv6 address, then wrap \fIip\fR with square brackets, e.g.:
-\fBptcp:6632:[::1]\fR.
+\fBptcp:6640:[::1]\fR.
 .
 .IP "\fBpunix:\fIfile\fR"
 On POSIX, listen on the Unix domain server socket named \fIfile\fR for a
@@ -766,7 +803,7 @@ Prints the SSL configuration.
 Deletes the current SSL configuration.
 .
 .IP "[\fB\-\-bootstrap\fR] \fBset\-ssl\fR \fIprivate-key\fR \fIcertificate\fR \fIca-cert\fR"
-Sets the SSL configuration.  The \fB\-\-bootstrap\fR option is described 
+Sets the SSL configuration.  The \fB\-\-bootstrap\fR option is described
 below.
 .
 .ST "CA Certificate Bootstrap"
@@ -788,6 +825,27 @@ for bootstrapping.
 This option is only useful if the controller sends its CA certificate
 as part of the SSL certificate chain.  The SSL protocol does not
 require the controller to send the CA certificate.
+.
+.SS "Auto-Attach Commands"
+.
+The IETF Auto-Attach SPBM draft standard describes a compact method of using
+IEEE 802.1AB Link Layer Discovery Protocol (LLDP) together with a IEEE 802.1aq
+Shortest Path Bridging (SPB) network to automatically attach network devices to
+individual services in a SPB network.  The intent here is to allow network
+applications and devices using OVS to be able to easily take advantage of
+features offered by industry standard SPB networks. A fundamental element of
+the Auto-Attach feature is to map traditional VLANs onto SPB I_SIDs. These
+commands manage the Auto-Attach I-SID/VLAN mappings.
+.
+.IP "\fBadd\-aa\-mapping \fIbridge i-sid vlan\fR"
+Creates a new Auto-Attach mapping on \fIbridge\fR for \fIi-sid\fR
+and \fIvlan\fR.
+.
+.IP "\fBdel\-aa\-mapping \fIbridge i-sid vlan\fR"
+Deletes an Auto-Attach mapping on \fIbridge\fR for \fIi-sid\fR
+and \fIvlan\fR.
+.IP "\fBget\-aa\-mapping \fIbridge\fR"
+Lists all of the Auto-Attach mappings within \fIbridge\fR on standard output.
 .
 .SS "Database Commands"
 .
@@ -852,6 +910,8 @@ identified by bridge name.
 .IP "\fBFlow_Sample_Collector_Set\fR"
 An IPFIX exporter configuration attached to a bridge for sampling
 packets on a per-flow basis using OpenFlow \fBsample\fR actions.
+.IP "\fBAutoAttach\fR"
+Configuration for Auto Attach within a bridge.
 .PP
 Record names must be specified in full and with correct
 capitalization.  Names of tables and columns are not case-sensitive,
@@ -882,7 +942,7 @@ pair of double quotes (\fB""\fR).
 .IP "UUID"
 Either a universally unique identifier in the style of RFC 4122,
 e.g. \fBf81d4fae\-7dec\-11d0\-a765\-00a0c91e6bf6\fR, or an \fB@\fIname\fR
-defined by a \fBget\fR or \fBcreate\fR command within the same \fBovs\-vsctl\fR
+defined by a \fBget\fR or \fBcreate\fR command within the same \fB\*(PN\fR
 invocation.
 .PP
 Multiple values in a single column may be separated by spaces or a
@@ -977,7 +1037,7 @@ If \fB\-\-columns\fR is specified, only the requested columns are
 listed, in the specified order.  Otherwise all columns are listed, in
 alphabetical order by column name.
 .IP
-The UUIDs shown for rows created in the same \fBovs\-vsctl\fR
+The UUIDs shown for rows created in the same \fB\*(PN\fR
 invocation will be wrong.
 .
 .IP "[\fB\-\-if\-exists\fR] [\fB\-\-id=@\fIname\fR] \fBget \fItable record \fR[\fIcolumn\fR[\fB:\fIkey\fR]]..."
@@ -992,7 +1052,7 @@ exist or \fIkey\fR is specified, if \fIkey\fR does not exist in
 yields no output and a missing \fIkey\fR prints a blank line.
 .IP
 If \fB@\fIname\fR is specified, then the UUID for \fIrecord\fR may be
-referred to by that name later in the same \fBovs\-vsctl\fR
+referred to by that name later in the same \fB\*(PN\fR
 invocation in contexts where a UUID is expected.
 .IP
 Both \fB\-\-id\fR and the \fIcolumn\fR arguments are optional, but
@@ -1057,10 +1117,12 @@ each \fIcolumn\fR.  Columns not explicitly set will receive their
 default values.  Outputs the UUID of the new row.
 .IP
 If \fB@\fIname\fR is specified, then the UUID for the new row may be
-referred to by that name elsewhere in the same \fBovs\-vsctl\fR
+referred to by that name elsewhere in the same \fB\*(PN\fR
 invocation in contexts where a UUID is expected.  Such references may
 precede or follow the \fBcreate\fR command.
-.IP
+.
+.RS
+.IP "Caution (ovs-vsctl as exmaple)"
 Records in the Open vSwitch database are significant only when they
 can be reached directly or indirectly from the \fBOpen_vSwitch\fR
 table.  Except for records in the \fBQoS\fR or \fBQueue\fR tables,
@@ -1073,13 +1135,16 @@ generally be accompanied by additional commands \fIwithin the same
 newly created record from the top-level \fBOpen_vSwitch\fR record.
 The \fBEXAMPLES\fR section gives some examples that show how to do
 this.
+.RE
 .
 .IP "\fR[\fB\-\-if\-exists\fR] \fBdestroy \fItable record\fR..."
 Deletes each specified \fIrecord\fR from \fItable\fR.  Unless
 \fB\-\-if\-exists\fR is specified, each \fIrecord\fRs must exist.
 .IP "\fB\-\-all destroy \fItable\fR"
 Deletes all records from the \fItable\fR.
-.IP
+.
+.RS
+.IP "Caution (ovs-vsctl as exmaple)"
 The \fBdestroy\fR command is only useful for records in the \fBQoS\fR
 or \fBQueue\fR tables.  Records in other tables are automatically
 deleted from the database when they become unreachable from the
@@ -1087,6 +1152,7 @@ deleted from the database when they become unreachable from the
 to a record is sufficient for deleting the record itself.  For records
 in these tables, \fBdestroy\fR is silently ignored.  See the
 \fBEXAMPLES\fR section below for more information.
+.RE
 .
 .IP "\fBwait\-until \fItable record \fR[\fIcolumn\fR[\fB:\fIkey\fR]\fB=\fIvalue\fR]..."
 Waits until \fItable\fR contains a record named \fIrecord\fR whose
@@ -1102,7 +1168,9 @@ If no \fIcolumn\fR[\fB:\fIkey\fR]\fB=\fIvalue\fR arguments are given,
 this command waits only until \fIrecord\fR exists.  If more than one
 such argument is given, the command waits until all of them are
 satisfied.
-.IP
+.
+.RS
+.IP "Caution (ovs-vsctl as exmaple)"
 Usually \fBwait\-until\fR should be placed at the beginning of a set
 of \fBovs\-vsctl\fR commands.  For example, \fBwait\-until bridge br0
 \-\- get bridge br0 datapath_id\fR waits until a bridge named
@@ -1110,9 +1178,10 @@ of \fBovs\-vsctl\fR commands.  For example, \fBwait\-until bridge br0
 whereas \fBget bridge br0 datapath_id \-\- wait\-until bridge br0\fR
 will abort if no bridge named \fBbr0\fR exists when \fBovs\-vsctl\fR
 initially connects to the database.
+.RE
 .IP
 Consider specifying \fB\-\-timeout=0\fR along with
-\fB\-\-wait\-until\fR, to prevent \fBovs\-vsctl\fR from terminating
+\fB\-\-wait\-until\fR, to prevent \fB\*(PN\fR from terminating
 after waiting only at most 5 seconds.
 .IP "\fBcomment \fR[\fIarg\fR]..."
 This command has no effect on behavior, but any database log record
@@ -1125,7 +1194,7 @@ Create a new bridge named br0 and add port eth0 to it:
 .B "ovs\-vsctl add\-port br0 eth0"
 .PP
 Alternatively, perform both operations in a single atomic transaction:
-.IP 
+.IP
 .B "ovs\-vsctl add\-br br0 \-\- add\-port br0 eth0"
 .PP
 Delete bridge \fBbr0\fR, reporting an error if it does not exist:
@@ -1314,9 +1383,13 @@ unregistered packets on bridge \fBbr0\fR.
 .IP
 .B "ovs\-vsctl set Bridge br0 other_config:mcast-snooping-disable-flood-unregistered=true"
 .PP
-Enable flooding of multicast packets on a specific port.
+Enable flooding of multicast packets (except Reports) on a specific port.
 .IP
 .B "ovs\-vsctl set Port eth1 other_config:mcast-snooping-flood=true"
+.PP
+Enable flooding of Reports on a specific port.
+.IP
+.B "ovs\-vsctl set Port eth1 other_config:mcast-snooping-flood-reports=true"
 .PP
 Deconfigure multicasting snooping from above:
 .IP

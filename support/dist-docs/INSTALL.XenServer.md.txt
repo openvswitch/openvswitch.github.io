@@ -5,7 +5,10 @@ This document describes how to build and install Open vSwitch on a
 Citrix XenServer host.  If you want to install Open vSwitch on a
 generic Linux or BSD host, see [INSTALL.md] instead.
 
-These instructions have been tested with XenServer 5.6 FP1.
+Open vSwitch should work with XenServer 5.6.100 and later.  However,
+Open vSwitch requires Python 2.7 or later, so using Open vSwitch with
+XenServer 6.5 or earlier requires installing Python 2.7.
+
 
 Building Open vSwitch for XenServer
 -----------------------------------
@@ -79,6 +82,18 @@ where:
     `<Xen Kernel flavor (suffix) >` is either "xen" or "kdump".
     The "xen" flavor is the main running kernel flavor and the "kdump" flavor is
     the crashdump kernel flavor. Commonly, one would specify "xen" here.
+
+For XenServer 6.5 or above, the kernel version naming no longer contains
+KERNEL_FLAVOR.  In fact, only providing the `uname -r` output is enough.
+So, the final "rpmbuild" step changes to:
+
+   ```
+   KERNEL_UNAME=<`uname -r` output>
+   rpmbuild \
+        -D "kenel_uname $KERNEL_UNAME" \
+        -bb xenserver/openvswitch-xen.spec
+   ```
+
 
 Installing Open vSwitch for XenServer
 -------------------------------------

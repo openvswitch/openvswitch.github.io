@@ -1,0 +1,90 @@
+<html><head><meta charset="UTF-8"></head><body><pre>
+ovn-controller(8)             Open vSwitch Manual            ovn-controller(8)
+
+
+
+<b>N</b><b>A</b><b>M</b><b>E</b>
+       ovn-controller - Open Virtual Network local controller
+
+<b>S</b><b>Y</b><b>N</b><b>O</b><b>P</b><b>S</b><b>I</b><b>S</b>
+       <b>o</b><b>v</b><b>n</b><b>-</b><b>c</b><b>o</b><b>n</b><b>t</b><b>r</b><b>o</b><b>l</b><b>l</b><b>e</b><b>r</b> [<u>o</u><u>p</u><u>t</u><u>i</u><u>o</u><u>n</u><u>s</u>] [<u>o</u><u>v</u><u>s</u><u>-</u><u>d</u><u>a</u><u>t</u><u>a</u><u>b</u><u>a</u><u>s</u><u>e</u>]
+
+<b>D</b><b>E</b><b>S</b><b>C</b><b>R</b><b>I</b><b>P</b><b>T</b><b>I</b><b>O</b><b>N</b>
+       <b>o</b><b>v</b><b>n</b><b>-</b><b>c</b><b>o</b><b>n</b><b>t</b><b>r</b><b>o</b><b>l</b><b>l</b><b>e</b><b>r</b> is the local controller daemon for OVN, the Open Virtual
+       Network.  It connects up to the OVN Southbound database (see <b>o</b><b>v</b><b>n</b><b>-</b><b>s</b><b>b</b>(5))
+       over  the  OVSDB  protocol,  and down to the Open vSwitch database (see
+       <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>d</b><b>.</b><b>c</b><b>o</b><b>n</b><b>f</b><b>.</b><b>d</b><b>b</b>(5)) over the OVSDB protocol and to <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>d</b>(8)
+       via  OpenFlow.   Each hypervisor and software gateway in an OVN deploy‐
+       ment runs its own independent copy of  <b>o</b><b>v</b><b>n</b><b>-</b><b>c</b><b>o</b><b>n</b><b>t</b><b>r</b><b>o</b><b>l</b><b>l</b><b>e</b><b>r</b>;  thus,  <b>o</b><b>v</b><b>n</b><b>-</b><b>c</b><b>o</b><b>n</b><b>‐</b>
+       <b>t</b><b>r</b><b>o</b><b>l</b><b>l</b><b>e</b><b>r</b>’s  downward connections are machine-local and do not run over a
+       physical network.
+
+<b>C</b><b>O</b><b>N</b><b>F</b><b>I</b><b>G</b><b>U</b><b>R</b><b>A</b><b>T</b><b>I</b><b>O</b><b>N</b>
+       <b>o</b><b>v</b><b>n</b><b>-</b><b>c</b><b>o</b><b>n</b><b>t</b><b>r</b><b>o</b><b>l</b><b>l</b><b>e</b><b>r</b> retrieves most of its configuration information from the
+       local Open vSwitch’s ovsdb-server instance.  The default is the <b>d</b><b>b</b><b>.</b><b>s</b><b>o</b><b>c</b><b>k</b>
+       in local Open vSwitch’s "run" directory.  <u>o</u><u>v</u><u>s</u><u>-</u><u>d</u><u>a</u><u>t</u><u>a</u><u>b</u><u>a</u><u>s</u><u>e</u> must take one of
+       the following forms:
+
+              ·      <b>s</b><b>s</b><b>l</b><b>:</b><u>i</u><u>p</u><b>:</b><u>p</u><u>o</u><u>r</u><u>t</u>
+
+                     The specified SSL <u>p</u><u>o</u><u>r</u><u>t</u> on the host at the given <u>i</u><u>p</u>, which
+                     must be expressed as an IP address (not a  DNS  name)  in
+                     IPv4  or  IPv6 address format.  If <u>i</u><u>p</u> is an IPv6 address,
+                     then wrap <u>i</u><u>p</u> with square brackets, e.g.:  <b>s</b><b>s</b><b>l</b><b>:</b><b>[</b><b>:</b><b>:</b><b>1</b><b>]</b><b>:</b><b>6</b><b>6</b><b>4</b><b>0</b>.
+                     The  <b>-</b><b>-</b><b>p</b><b>r</b><b>i</b><b>v</b><b>a</b><b>t</b><b>e</b><b>-</b><b>k</b><b>e</b><b>y</b>,  <b>-</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b><b>i</b><b>f</b><b>i</b><b>c</b><b>a</b><b>t</b><b>e</b>, and <b>-</b><b>-</b><b>c</b><b>a</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b> options
+                     are mandatory when this form is used.
+
+              ·      <b>t</b><b>c</b><b>p</b><b>:</b><u>i</u><u>p</u><b>:</b><u>p</u><u>o</u><u>r</u><u>t</u>
+
+                     Connect to the given TCP <u>p</u><u>o</u><u>r</u><u>t</u> on <u>i</u><u>p</u>, where <u>i</u><u>p</u> can be IPv4
+                     or  IPv6  address. If <u>i</u><u>p</u> is an IPv6 address, then wrap <u>i</u><u>p</u>
+                     with square brackets, e.g.: <b>t</b><b>c</b><b>p</b><b>:</b><b>[</b><b>:</b><b>:</b><b>1</b><b>]</b><b>:</b><b>6</b><b>6</b><b>4</b><b>0</b>.
+
+              ·      <b>u</b><b>n</b><b>i</b><b>x</b><b>:</b><u>f</u><u>i</u><u>l</u><u>e</u>
+
+                     On POSIX, connect to the Unix domain server socket  named
+                     <u>f</u><u>i</u><u>l</u><u>e</u>.
+
+                     On  Windows,  connect to a localhost TCP port whose value
+                     is written in <u>f</u><u>i</u><u>l</u><u>e</u>.
+
+       <b>o</b><b>v</b><b>n</b><b>-</b><b>c</b><b>o</b><b>n</b><b>t</b><b>r</b><b>o</b><b>l</b><b>l</b><b>e</b><b>r</b> assumes it gets configuration information from the  fol‐
+       lowing keys in the <b>O</b><b>p</b><b>e</b><b>n</b><b>_</b><b>v</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b> table of the local OVS instance:
+
+              ·      <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b><b>:</b><b>s</b><b>y</b><b>s</b><b>t</b><b>e</b><b>m</b><b>-</b><b>i</b><b>d</b>  specifies the chassis name to use
+                     in the Chassis table.
+
+              ·      <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b><b>:</b><b>o</b><b>v</b><b>n</b><b>-</b><b>b</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b> specifies the integration  bridge
+                     to  which  logical  ports  are  attached.  The default is
+                     <b>b</b><b>r</b><b>-</b><b>i</b><b>n</b><b>t</b>.
+
+              ·      <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b><b>:</b><b>o</b><b>v</b><b>n</b><b>-</b><b>r</b><b>e</b><b>m</b><b>o</b><b>t</b><b>e</b> specifies the OVN  database  that
+                     this system should connect to for its configuration.
+
+              ·      <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b><b>:</b><b>o</b><b>v</b><b>n</b><b>-</b><b>e</b><b>n</b><b>c</b><b>a</b><b>p</b><b>-</b><b>t</b><b>y</b><b>p</b><b>e</b>  specifies  the encapsulation
+                     type that a chassis should use to connect to  this  node.
+                     Supported  tunnel  types  for  connecting hypervisors are
+                     <b>g</b><b>e</b><b>n</b><b>e</b><b>v</b><b>e</b> and <b>s</b><b>t</b><b>t</b>.  Gateways may use <b>g</b><b>e</b><b>n</b><b>e</b><b>v</b><b>e</b>, <b>v</b><b>x</b><b>l</b><b>a</b><b>n</b>, or <b>s</b><b>t</b><b>t</b>.
+
+              ·      <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b><b>:</b><b>o</b><b>v</b><b>n</b><b>-</b><b>e</b><b>n</b><b>c</b><b>a</b><b>p</b><b>-</b><b>i</b><b>p</b> specifies the IP address that a
+                     chassis should use to connect to this node using encapsu‐
+                     lation type specified by <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b><b>:</b><b>o</b><b>v</b><b>n</b><b>-</b><b>e</b><b>n</b><b>c</b><b>a</b><b>p</b><b>-</b><b>i</b><b>p</b>.
+
+       Currently, <b>o</b><b>v</b><b>n</b><b>-</b><b>c</b><b>o</b><b>n</b><b>t</b><b>r</b><b>o</b><b>l</b><b>l</b><b>e</b><b>r</b> does not support changing the  chassis  name,
+       integration  bridge,  or OVN database mid-run.  If these values need to
+       change, the daemon must be restarted.  This behavior should be changed.
+
+<b>R</b><b>U</b><b>N</b><b>T</b><b>I</b><b>M</b><b>E</b> <b>M</b><b>A</b><b>N</b><b>A</b><b>G</b><b>E</b><b>M</b><b>E</b><b>N</b><b>T</b> <b>C</b><b>O</b><b>M</b><b>M</b><b>A</b><b>N</b><b>D</b><b>S</b>
+       <b>o</b><b>v</b><b>s</b><b>-</b><b>a</b><b>p</b><b>p</b><b>c</b><b>t</b><b>l</b> can send commands to a running <b>o</b><b>v</b><b>n</b><b>-</b><b>c</b><b>o</b><b>n</b><b>t</b><b>r</b><b>o</b><b>l</b><b>l</b><b>e</b><b>r</b> process.   The
+       currently supported commands are described below.
+
+              <b>e</b><b>x</b><b>i</b><b>t</b>   Causes <b>o</b><b>v</b><b>n</b><b>-</b><b>c</b><b>o</b><b>n</b><b>t</b><b>r</b><b>o</b><b>l</b><b>l</b><b>e</b><b>r</b> to gracefully terminate.
+
+              <b>c</b><b>t</b><b>-</b><b>z</b><b>o</b><b>n</b><b>e</b><b>-</b><b>l</b><b>i</b><b>s</b><b>t</b>
+                     Lists each local logical port and its connection tracking
+                     zone.
+
+
+
+Open vSwitch 2.4.90             ovn-controller               ovn-controller(8)
+</pre></body></html>

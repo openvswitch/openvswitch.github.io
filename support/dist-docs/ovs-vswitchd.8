@@ -4,7 +4,7 @@
 .  ns
 .  IP "\\$1"
 ..
-.TH ovs\-vswitchd 8 "2.3.90" "Open vSwitch" "Open vSwitch Manual"
+.TH ovs\-vswitchd 8 "2.4.90" "Open vSwitch" "Open vSwitch Manual"
 .\" This program's name:
 .ds PN ovs\-vswitchd
 .
@@ -19,20 +19,20 @@ A daemon that manages and controls any number of Open vSwitch switches
 on the local machine.
 .PP
 The \fIdatabase\fR argument specifies how \fBovs\-vswitchd\fR connects
-to \fBovsdb\-server\fR.  The default is \fBunix:/var/run/openvswitch/db.sock\fR.
+to \fBovsdb\-server\fR.  The default is \fBunix://var/run/openvswitch/db.sock\fR.
 The following forms are accepted:
 .IP "\fBssl:\fIip\fB:\fIport\fR"
 The specified SSL \fIport\fR on the host at the given \fIip\fR, which
 must be expressed as an IP address (not a DNS name) in IPv4 or IPv6 address
 format.  If \fIip\fR is an IPv6 address, then wrap \fIip\fR with square
-brackets, e.g.: \fBssl:[::1]:6632\fR.
+brackets, e.g.: \fBssl:[::1]:6640\fR.
 The \fB\-\-private\-key\fR, \fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR
 options are mandatory when this form is used.
 .
 .IP "\fBtcp:\fIip\fB:\fIport\fR"
 Connect to the given TCP \fIport\fR on \fIip\fR, where \fIip\fR can be IPv4
 or IPv6 address. If \fIip\fR is an IPv6 address, then wrap \fIip\fR with
-square brackets, e.g.: \fBtcp:[::1]:6632\fR.
+square brackets, e.g.: \fBtcp:[::1]:6640\fR.
 .
 .IP "\fBunix:\fIfile\fR"
 On POSIX, connect to the Unix domain server socket named \fIfile\fR.
@@ -46,7 +46,7 @@ it listens only on IPv4 (but not IPv6) addresses, but
 specifying \fIip\fR limits connections to those from the given
 \fIip\fR, either IPv4 or IPv6 address.  If \fIip\fR is
 an IPv6 address, then wrap \fIip\fR with square brackets, e.g.:
-\fBpssl:6632:[::1]\fR.  The \fB\-\-private\-key\fR,
+\fBpssl:6640:[::1]\fR.  The \fB\-\-private\-key\fR,
 \fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR options are mandatory
 when this form is used.
 .
@@ -57,7 +57,7 @@ it listens only on IPv4 (but not IPv6) addresses, but
 \fIip\fR may be specified to listen only for connections to the given
 \fIip\fR, either IPv4 or IPv6 address.  If \fIip\fR is
 an IPv6 address, then wrap \fIip\fR with square brackets, e.g.:
-\fBptcp:6632:[::1]\fR.
+\fBptcp:6640:[::1]\fR.
 .
 .IP "\fBpunix:\fIfile\fR"
 On POSIX, listen on the Unix domain server socket named \fIfile\fR for a
@@ -141,7 +141,7 @@ Causes a file (by default, \fB\*(PN.pid\fR) to be created indicating
 the PID of the running process.  If the \fIpidfile\fR argument is not
 specified, or
 if it does not begin with \fB/\fR, then it is created in
-\fB/var/run/openvswitch\fR.
+\fB//var/run/openvswitch\fR.
 .IP
 If \fB\-\-pidfile\fR is not specified, no pidfile is created.
 .
@@ -260,7 +260,7 @@ This option is mutually exclusive with \fB\-C\fR and
 .IQ "\fB\-\-verbose=\fR[\fIspec\fR]
 .
 Sets logging levels.  Without any \fIspec\fR, sets the log level for
-every module and facility to \fBdbg\fR.  Otherwise, \fIspec\fR is a
+every module and destination to \fBdbg\fR.  Otherwise, \fIspec\fR is a
 list of words separated by spaces or commas or colons, up to one from
 each category below:
 .
@@ -302,29 +302,67 @@ a word but has no effect.
 Sets the maximum logging verbosity level, equivalent to
 \fB\-\-verbose=dbg\fR.
 .
-.IP "\fB\-vPATTERN:\fIfacility\fB:\fIpattern\fR"
-.IQ "\fB\-\-verbose=PATTERN:\fIfacility\fB:\fIpattern\fR"
-Sets the log pattern for \fIfacility\fR to \fIpattern\fR.  Refer to
+.IP "\fB\-vPATTERN:\fIdestination\fB:\fIpattern\fR"
+.IQ "\fB\-\-verbose=PATTERN:\fIdestination\fB:\fIpattern\fR"
+Sets the log pattern for \fIdestination\fR to \fIpattern\fR.  Refer to
 \fBovs\-appctl\fR(8) for a description of the valid syntax for \fIpattern\fR.
+.
+.IP "\fB\-vFACILITY:\fIfacility\fR"
+.IQ "\fB\-\-verbose=FACILITY:\fIfacility\fR"
+Sets the RFC5424 facility of the log message. \fIfacility\fR can be one of
+\fBkern\fR, \fBuser\fR, \fBmail\fR, \fBdaemon\fR, \fBauth\fR, \fBsyslog\fR,
+\fBlpr\fR, \fBnews\fR, \fBuucp\fR, \fBclock\fR, \fBftp\fR, \fBntp\fR,
+\fBaudit\fR, \fBalert\fR, \fBclock2\fR, \fBlocal0\fR, \fBlocal1\fR,
+\fBlocal2\fR, \fBlocal3\fR, \fBlocal4\fR, \fBlocal5\fR, \fBlocal6\fR or
+\fBlocal7\fR. If this option is not specified, \fBdaemon\fR is used as
+the default for the local system syslog and \fBlocal0\fR is used while sending
+a message to the target provided via the \fB\-\-syslog\-target\fR option.
 .
 .TP
 \fB\-\-log\-file\fR[\fB=\fIfile\fR]
 Enables logging to a file.  If \fIfile\fR is specified, then it is
 used as the exact name for the log file.  The default log file name
-used if \fIfile\fR is omitted is \fB/var/log/openvswitch/\*(PN.log\fR.
+used if \fIfile\fR is omitted is \fB//var/log/openvswitch/\*(PN.log\fR.
 .
 .IP "\fB\-\-syslog\-target=\fIhost\fB:\fIport\fR"
 Send syslog messages to UDP \fIport\fR on \fIhost\fR, in addition to
 the system syslog.  The \fIhost\fR must be a numerical IP address, not
 a hostname.
+.
+.IP "\fB\-\-syslog\-method=\fImethod\fR"
+Specify \fImethod\fR how syslog messages should be sent to syslog daemon.
+Following forms are supported:
+.RS
+.IP \(bu
+\fBlibc\fR, use libc \fBsyslog()\fR function.  This is the default behavior.
+Downside of using this options is that libc adds fixed prefix to every
+message before it is actually sent to the syslog daemon over \fB/dev/log\fR
+UNIX domain socket.
+.IP \(bu
+\fBunix:\fIfile\fR\fR, use UNIX domain socket directly.  It is possible to
+specify arbitrary message format with this option.  However,
+\fBrsyslogd 8.9\fR and older versions use hard coded parser function anyway
+that limits UNIX domain socket use.  If you want to use arbitrary message
+format with older \fBrsyslogd\fR versions, then use UDP socket to localhost
+IP address instead.
+.IP \(bu
+\fBudp:\fIip\fR:\fIport\fR\fR, use UDP socket.  With this method it is
+possible to use arbitrary message format also with older \fBrsyslogd\fR.
+When sending syslog messages over UDP socket extra precaution needs to
+be taken into account, for example, syslog daemon needs to be configured
+to listen on the specified UDP port, accidental iptables rules could be
+interfering with local syslog traffic and there are some security
+considerations that apply to UDP sockets, but do not apply to UNIX domain
+sockets.
+.RE
 .SS "Other Options"
 .IP "\fB\-\-unixctl=\fIsocket\fR"
 Sets the name of the control socket on which \fB\*(PN\fR listens for
 runtime management commands (see \fBRUNTIME MANAGEMENT COMMANDS\fR,
 below).  If \fIsocket\fR does not begin with \fB/\fR, it is
-interpreted as relative to \fB/var/run/openvswitch\fR.  If \fB\-\-unixctl\fR is
+interpreted as relative to \fB//var/run/openvswitch\fR.  If \fB\-\-unixctl\fR is
 not used at all, the default socket is
-\fB/var/run/openvswitch/\*(PN.\fIpid\fB.ctl\fR, where \fIpid\fR is \fB\*(PN\fR's
+\fB//var/run/openvswitch/\*(PN.\fIpid\fB.ctl\fR, where \fIpid\fR is \fB\*(PN\fR's
 process ID.
 .IP
 On Windows, uses a kernel chosen TCP port on the localhost to listen
@@ -609,13 +647,13 @@ With \fB\-\-may\-create\fR, \fBmod\-flow\fR will add a new flow or
 modify an existing one.
 .IP
 If \fB\-s\fR or \fB\-\-statistics\fR is specified, then
-\fBmod\-flows\fR prints the modified flow's statistics.  A flow's
+\fBmod\-flow\fR prints the modified flow's statistics.  A flow's
 statistics are the number of packets and bytes that have passed
 through the flow, the elapsed time since the flow last processed a
 packet (if ever), and (for TCP flows) the union of the TCP flags
 processed through the flow.
 .IP
-With \fB\-\-clear\fR, \fBmod\-flows\fR zeros out the flow's
+With \fB\-\-clear\fR, \fBmod\-flow\fR zeros out the flow's
 statistics.  The statistics printed if \fB\-s\fR or
 \fB\-\-statistics\fR is also specified are those from just before
 clearing the statistics.
@@ -624,7 +662,7 @@ clearing the statistics.
 .DO "[\fB\-s\fR | \fB\-\-statistics\fR]" "\*(DX\fBdel\-flow\fR" "[\fIdp\fR] \fIflow\fR"
 Deletes the flow from \fIdp\fR's flow table that matches \fIflow\fR.
 If \fB\-s\fR or \fB\-\-statistics\fR is specified, then
-\fBmod\-flows\fR prints the deleted flow's statistics.
+\fBdel\-flow\fR prints the deleted flow's statistics.
 .
 .IP "\*(DX\fBget\-flow\fR [\fIdp\fR] ufid:\fIufid\fR"
 Fetches the flow from \fIdp\fR's flow table with unique identifier \fIufid\fR.
@@ -632,6 +670,24 @@ Fetches the flow from \fIdp\fR's flow table with unique identifier \fIufid\fR.
 .
 .IP "\*(DX\fBdel\-flows\fR [\fIdp\fR]"
 Deletes all flow entries from datapath \fIdp\fR's flow table.
+.
+.SS "DPIF-NETDEV COMMANDS"
+These commands are used to expose internal information (mostly statistics)
+about the ``dpif-netdev'' userspace datapath. If there is only one datapath
+(as is often the case, unless \fBdpctl/\fR commands are used), the \fIdp\fR
+argument can be omitted.
+.IP "\fBdpif-netdev/pmd-stats-show\fR [\fIdp\fR]"
+Shows performance statistics for each pmd thread of the datapath \fIdp\fR.
+The special thread ``main'' sums up the statistics of every non pmd thread.
+The sum of ``emc hits'', ``masked hits'' and ``miss'' is the number of
+packets received by the datapath.  Cycles are counted using the TSC or similar
+facilities (when available on the platform).  To reset these counters use
+\fBdpif-netdev/pmd-stats-clear\fR. The duration of one cycle depends on the
+measuring infrastructure.
+.IP "\fBdpif-netdev/pmd-stats-clear\fR [\fIdp\fR]"
+Resets to zero the per pmd thread performance numbers shown by the
+\fBdpif-netdev/pmd-stats-show\fR command.  It will NOT reset datapath or
+bridge statistics, only the values shown by the above command.
 .
 .SS "DATAPATH DEBUGGING COMMANDS"
 These commands query and modify datapaths.  They are are similar to
@@ -772,6 +828,14 @@ only metadata. The metadata can be:
 Packet QoS priority.
 .IP \fIpkt_mark\fR
 Mark of the packet.
+.IP \fIct_state\fR
+Connection state of the packet.
+.IP \fIct_zone\fR
+Connection tracking zone for packet.
+.IP \fIct_mark\fR
+Connection mark of the packet.
+.IP \fIct_label\fR
+Connection label of the packet.
 .IP \fItun_id\fR
 The tunnel ID on which the packet arrived.
 .IP \fIin_port\fR
@@ -812,7 +876,7 @@ as bugs.
 These commands manage \fB\*(PN\fR's logging settings.
 .IP "\fBvlog/set\fR [\fIspec\fR]"
 Sets logging levels.  Without any \fIspec\fR, sets the log level for
-every module and facility to \fBdbg\fR.  Otherwise, \fIspec\fR is a
+every module and destination to \fBdbg\fR.  Otherwise, \fIspec\fR is a
 list of words separated by spaces or commas or colons, up to one from
 each category below:
 .
@@ -849,12 +913,15 @@ will not take place unless \fB\*(PN\fR was invoked with the
 For compatibility with older versions of OVS, \fBany\fR is accepted as
 a word but has no effect.
 .RE
-.IP "\fBvlog/set PATTERN:\fIfacility\fB:\fIpattern\fR"
-Sets the log pattern for \fIfacility\fR to \fIpattern\fR.  Refer to
+.IP "\fBvlog/set PATTERN:\fIdestination\fB:\fIpattern\fR"
+Sets the log pattern for \fIdestination\fR to \fIpattern\fR.  Refer to
 \fBovs\-appctl\fR(8) for a description of the valid syntax for \fIpattern\fR.
 .
 .IP "\fBvlog/list\fR"
 Lists the supported logging modules and their current levels.
+.
+.IP "\fBvlog/list-pattern\fR"
+Lists logging patterns used for each destination.
 .
 .IP "\fBvlog/reopen\fR"
 Causes \fB\*(PN\fR to close and reopen its log file.  (This is useful
@@ -954,12 +1021,13 @@ We believe these limits to be accurate as of this writing.  These
 limits assume the use of the Linux kernel datapath.
 .
 .IP \(bu
-\fBovs\-vswitchd\fR started through \fBovs\-ctl\fR(8) provides a limit of 7500
+\fBovs\-vswitchd\fR started through \fBovs\-ctl\fR(8) provides a limit of 65535
 file descriptors.  The limits on the number of bridges and ports is decided by
 the availability of file descriptors.  With the Linux kernel datapath, creation
-of a single bridge consumes 3 file descriptors and adding a port consumes
-1 file descriptor.  Performance will degrade beyond 1,024 ports per bridge due
-to fixed hash table sizing.  Other platforms may have different limitations.
+of a single bridge consumes three file descriptors and adding a port consumes
+"n-handler-threads" file descriptors per bridge port.  Performance will degrade
+beyond 1,024 ports per bridge due to fixed hash table sizing.  Other platforms
+may have different limitations.
 .
 .IP \(bu
 2,048 MAC learning entries per bridge, by default.  (This is

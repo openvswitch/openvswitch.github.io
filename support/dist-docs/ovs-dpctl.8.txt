@@ -12,6 +12,12 @@ DESCRIPTION
        The ovs-dpctl program can create, modify, and delete Open vSwitch data‐
        paths.  A single machine may host any number of datapaths.
 
+       This program works only with datapaths that are implemented outside  of
+       ovs-vswitchd  itself,  such as the Linux and Windows kernel-based data‐
+       paths.  To manage datapaths that are integrated into ovs-vswitchd, such
+       as  the  userspace  (netdev)  datapath, use ovs-appctl(8) to invoke the
+       dpctl/* commands, which are documented in ovs-vswitchd(8).
+
        A newly created datapath is associated with only one network device,  a
        virtual  network device sometimes called the datapath's ``local port''.
        A newly created datapath is not, however, associated with  any  of  the
@@ -138,7 +144,7 @@ DESCRIPTION
               accepted  by  ovs-ofctl(8)'s  add-flow  command. (This is not an
               OpenFlow flow: besides  other  differences,  it  never  contains
               wildcards.)   The  filter  is  also  useful  to match wildcarded
-              fields   in   the   datapath   flow.   As   an   example,   fil�‐
+              fields   in   the   datapath   flow.   As   an   example,   fil‐
               ter='tcp,tp_src=100'  will  match  the  datapath flow containing
               'tcp(src=80/0xff00,dst=8080/0xff)'.
 
@@ -153,20 +159,20 @@ DESCRIPTION
               modifies  the  actions for an existing flow.  With --may-create,
               mod-flow will add a new flow or modify an existing one.
 
-              If -s or --statistics is specified, then  mod-flows  prints  the
+              If -s or --statistics is specified,  then  mod-flow  prints  the
               modified  flow's statistics.  A flow's statistics are the number
               of packets and bytes that have  passed  through  the  flow,  the
               elapsed  time  since the flow last processed a packet (if ever),
               and (for TCP flows) the union of the TCP flags processed through
               the flow.
 
-              With  --clear,  mod-flows  zeros out the flow's statistics.  The
+              With  --clear,  mod-flow  zeros  out the flow's statistics.  The
               statistics printed if -s or --statistics is also  specified  are
               those from just before clearing the statistics.
 
        [-s | --statistics] del-flow [dp] flow
               Deletes  the flow from dp's flow table that matches flow.  If -s
-              or --statistics is specified, then mod-flows prints the  deleted
+              or --statistics is specified, then del-flow prints  the  deleted
               flow's statistics.
 
        get-flow [dp] ufid:ufid
@@ -194,8 +200,8 @@ OPTIONS
        -v[spec]
        --verbose=[spec]
               Sets  logging  levels.  Without any spec, sets the log level for
-              every module and facility to dbg.  Otherwise, spec is a list  of
-              words  separated  by  spaces or commas or colons, up to one from
+              every module and destination to dbg.  Otherwise, spec is a  list
+              of words separated by spaces or commas or colons, up to one from
               each category below:
 
               ·      A valid module name, as displayed by the  vlog/list  com‐
@@ -227,24 +233,62 @@ OPTIONS
 
        -v
        --verbose
-              Sets  the  maximum logging verbosity level, equivalent to --ver�‐
+              Sets  the  maximum logging verbosity level, equivalent to --ver‐
               bose=dbg.
 
-       -vPATTERN:facility:pattern
-       --verbose=PATTERN:facility:pattern
-              Sets  the  log  pattern  for  facility  to  pattern.   Refer  to
+       -vPATTERN:destination:pattern
+       --verbose=PATTERN:destination:pattern
+              Sets the log pattern  for  destination  to  pattern.   Refer  to
               ovs-appctl(8) for a description of the valid syntax for pattern.
+
+       -vFACILITY:facility
+       --verbose=FACILITY:facility
+              Sets  the  RFC5424  facility of the log message. facility can be
+              one of kern, user, mail, daemon, auth, syslog, lpr, news,  uucp,
+              clock,  ftp,  ntp, audit, alert, clock2, local0, local1, local2,
+              local3, local4, local5, local6 or local7. If this option is  not
+              specified,  daemon  is  used as the default for the local system
+              syslog and local0 is used while sending a message to the  target
+              provided via the --syslog-target option.
 
        --log-file[=file]
               Enables  logging  to  a  file.  If file is specified, then it is
               used as the exact name for the log file.  The default  log  file
-              name    used    if    file    is   omitted   is   /var/log/open�‐
+              name    used    if    file   is   omitted   is   //var/log/open‐
               vswitch/ovs-dpctl.log.
 
        --syslog-target=host:port
               Send syslog messages to UDP port on host,  in  addition  to  the
               system  syslog.   The host must be a numerical IP address, not a
               hostname.
+
+       --syslog-method=method
+              Specify method how syslog messages should be sent to syslog dae‐
+              mon.  Following forms are supported:
+
+              ·      libc,  use  libc  syslog() function.  This is the default
+                     behavior.  Downside of using this options  is  that  libc
+                     adds  fixed prefix to every message before it is actually
+                     sent to the  syslog  daemon  over  /dev/log  UNIX  domain
+                     socket.
+
+              ·      unix:file, use UNIX domain socket directly.  It is possi‐
+                     ble to specify arbitrary message format with this option.
+                     However,  rsyslogd  8.9 and older versions use hard coded
+                     parser function anyway that  limits  UNIX  domain  socket
+                     use.   If  you  want to use arbitrary message format with
+                     older rsyslogd versions, then use UDP socket to localhost
+                     IP address instead.
+
+              ·      udp:ip:port, use UDP socket.  With this method it is pos‐
+                     sible to use arbitrary message  format  also  with  older
+                     rsyslogd.   When  sending syslog messages over UDP socket
+                     extra precaution needs to  be  taken  into  account,  for
+                     example,  syslog  daemon needs to be configured to listen
+                     on the specified  UDP  port,  accidental  iptables  rules
+                     could  be interfering with local syslog traffic and there
+                     are some security considerations that apply to UDP  sock‐
+                     ets, but do not apply to UNIX domain sockets.
 
        -h
        --help Prints a brief help message to the console.
@@ -258,4 +302,4 @@ SEE ALSO
 
 
 
-Open vSwitch                        2.3.90                        ovs-dpctl(8)
+Open vSwitch                        2.4.90                        ovs-dpctl(8)

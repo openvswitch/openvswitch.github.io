@@ -1,7 +1,7 @@
 <html><head>
   <meta charset="UTF-8"></head>
   <link rel="stylesheet" type="text/css" href="style.css">
-  <title>DESIGN.md (Open vSwitch 2.3.90)</title>
+  <title>DESIGN.md (Open vSwitch 2.4.90)</title>
 </head><body>
 <h1>Design Decisions In Open vSwitch</h1>
 
@@ -59,17 +59,34 @@ sent, an entry labeled "---" means that the message is suppressed.</p>
     OFPR<em>NO</em>MATCH                              yes       ---
     OFPR<em>ACTION                                yes       ---
     OFPR</em>INVALID<em>TTL                           ---       ---
+    OFPR</em>ACTION<em>SET (OF1.4+)                   yes       ---
     OFPR</em>GROUP (OF1.4+)                        yes       ---</p>
 
 <p>OFPT<em>FLOW</em>REMOVED / NXT<em>FLOW</em>REMOVED
     OFPRR<em>IDLE</em>TIMEOUT                         yes       ---
     OFPRR<em>HARD</em>TIMEOUT                         yes       ---
-    OFPRR_DELETE                               yes       ---</p>
+    OFPRR<em>DELETE                               yes       ---
+    OFPRR</em>GROUP<em>DELETE (OF1.4+)                yes       ---
+    OFPRR</em>METER<em>DELETE (OF1.4+)                yes       ---
+    OFPRR</em>EVICTION (OF1.4+)                    yes       ---</p>
 
 <p>OFPT<em>PORT</em>STATUS
     OFPPR<em>ADD                                  yes       yes
     OFPPR</em>DELETE                               yes       yes
-    OFPPR_MODIFY                               yes       yes
+    OFPPR_MODIFY                               yes       yes</p>
+
+<p>OFPT<em>ROLE</em>REQUEST / OFPT<em>ROLE</em>REPLY (OF1.4+)
+    OFPCRR<em>MASTER</em>REQUEST                      ---       ---
+    OFPCRR<em>CONFIG                              ---       ---
+    OFPCRR</em>EXPERIMENTER                        ---       ---</p>
+
+<p>OFPT<em>TABLE</em>STATUS (OF1.4+)
+    OFPTR<em>VACANCY</em>DOWN                         ---       ---
+    OFPTR<em>VACANCY</em>UP                           ---       ---</p>
+
+<p>OFPT<em>REQUESTFORWARD (OF1.4+)
+    OFPRFR</em>GROUP<em>MOD                           ---       ---
+    OFPRFR</em>METER_MOD                           ---       ---
 ```</p>
 
 <p>The NXT<em>SET</em>ASYNC<em>CONFIG message directly sets all of the values in
@@ -266,11 +283,64 @@ operations.</p></li>
 
 <h2>OpenFlow 1.4</h2>
 
-<p>OpenFlow 1.4 adds the "importance" field to flow<em>mods, but it does not
-explicitly specify which kinds of flow</em>mods set the importance.For
-consistency, Open vSwitch uses the same rule for importance as for
-idle<em>timeout and hard</em>timeout, that is, only an "ADD" flow_mod sets
-the importance.  (This issue has been filed with the ONF as EXT-496.)</p>
+<p>OpenFlow 1.4 makes these changes:</p>
+
+<ul>
+<li><p>Adds the "importance" field to flow<em>mods, but it does not
+explicitly specify which kinds of flow</em>mods set the importance.
+For consistency, Open vSwitch uses the same rule for importance
+as for idle<em>timeout and hard</em>timeout, that is, only an "ADD"
+flow_mod sets the importance.  (This issue has been filed with
+the ONF as EXT-496.)</p></li>
+<li><p>Eviction Mechanism to automatically delete entries of lower
+importance to make space for newer entries.</p></li>
+</ul>
+
+<h1>OpenFlow 1.4 Bundles</h1>
+
+<p>Open vSwitch makes all flow table modifications atomically, i.e., any
+datapath packet only sees flow table configurations either before or
+after any change made by any flow<em>mod.  For example, if a controller
+removes all flows with a single OpenFlow "flow</em>mod", no packet sees an
+intermediate version of the OpenFlow pipeline where only some of the
+flows have been deleted.</p>
+
+<p>It should be noted that Open vSwitch caches datapath flows, and that
+the cached flows are NOT flushed immediately when a flow table
+changes.  Instead, the datapath flows are revalidated against the new
+flow table as soon as possible, and usually within one second of the
+modification.  This design amortizes the cost of datapath cache
+flushing across multiple flow table changes, and has a significant
+performance effect during simultaneous heavy flow table churn and high
+traffic load.  This means that different cached datapath flows may
+have been computed based on a different flow table configurations, but
+each of the datapath flows is guaranteed to have been computed over a
+coherent view of the flow tables, as described above.</p>
+
+<p>With OpenFlow 1.4 bundles this atomicity can be extended across an
+arbitrary set of flow<em>mods.  Bundles are supported for flow</em>mod and
+port<em>mod messages only.  For flow</em>mods, both 'atomic' and 'ordered'
+bundle flags are trivially supported, as all bundled messages are
+executed in the order they were added and all flow table modifications
+are now atomic to the datapath.  Port mods may not appear in atomic
+bundles, as port status modifications are not atomic.</p>
+
+<p>To support bundles, ovs-ofctl has a '--bundle' option that makes the
+flow mod commands ('add-flow', 'add-flows', 'mod-flows', 'del-flows',
+and 'replace-flows') use an OpenFlow 1.4 bundle to operate the
+modifications as a single atomic transaction.  If any of the flow mods
+in a transaction fail, none of them are executed.  All flow mods in a
+bundle appear to datapath lookups simultaneously.</p>
+
+<p>Furthermore, ovs-ofctl 'add-flow' and 'add-flows' commands now accept
+arbitrary flow mods as an input by allowing the flow specification to
+start with an explicit 'add', 'modify', 'modify<em>strict', 'delete', or
+'delete</em>strict' keyword.  A missing keyword is treated as 'add', so
+this is fully backwards compatible.  With the new '--bundle' option
+all the flow mods are executed as a single atomic transaction using an
+OpenFlow 1.4 bundle.  Without the '--bundle' option the flow mods are
+executed in order up to the first failing flow<em>mod, and in case of an
+error the earlier successful flow</em>mods are not rolled back.</p>
 
 <h1>OFPT<em>PACKET</em>IN</h1>
 
@@ -543,6 +613,70 @@ NXAST<em>RESUBMIT</em>TABLE action specifies another table to search.</p>
 
 <p>Tables 128 and above are reserved for use by the switch itself.
 Controllers should use only tables 0 through 127.</p>
+
+<h1>OFPTC_* Table Configuration</h1>
+
+<p>This section covers the history of the OFPTC_* table configuration
+bits across OpenFlow versions.</p>
+
+<p>OpenFlow 1.0 flow tables had fixed configurations.</p>
+
+<p>OpenFlow 1.1 enabled controllers to configure behavior upon flow table
+miss and added the OFPTC<em>MISS</em>* constants for that purpose.  OFPTC<em>*
+did not control anything else but it was nevertheless conceptualized
+as a set of bit-fields instead of an enum.  OF1.1 added the
+OFPT</em>TABLE<em>MOD message to set OFPTC</em>MISS<em>* for a flow table and added
+the 'config' field to the OFPST</em>TABLE reply to report the current
+setting.</p>
+
+<p>OpenFlow 1.2 did not change anything in this regard.</p>
+
+<p>OpenFlow 1.3 switched to another means to changing flow table miss
+behavior and deprecated OFPTC<em>MISS</em>* without adding any more OFPTC<em>*
+constants.  This meant that OFPT</em>TABLE<em>MOD now had no purpose at all,
+but OF1.3 kept it around "for backward compatibility with older and
+newer versions of the specification."  At the same time, OF1.3
+introduced a new message OFPMP</em>TABLE<em>FEATURES that included a field
+'config' documented as reporting the OFPTC</em>* values set with
+OFPT<em>TABLE</em>MOD; of course this served no real purpose because no
+OFPTC<em>* values are defined.  OF1.3 did remove the OFPTC</em>* field from
+OFPMP<em>TABLE (previously named OFPST</em>TABLE).</p>
+
+<p>OpenFlow 1.4 defined two new OFPTC<em>* constants, OFPTC</em>EVICTION and
+OFPTC<em>VACANCY</em>EVENTS, using bits that did not overlap with
+OFPTC<em>MISS</em>* even though those bits had not been defined since OF1.2.
+OFPT<em>TABLE</em>MOD still controlled these settings.  The field for OFPTC<em>*
+values in OFPMP</em>TABLE<em>FEATURES was renamed from 'config' to
+'capabilities' and documented as reporting the flags that are
+supported in a OFPT</em>TABLE<em>MOD message.  The OFPMP</em>TABLE<em>DESC message
+newly added in OF1.4 reported the OFPTC</em>* setting.</p>
+
+<p>OpenFlow 1.5 did not change anything in this regard.</p>
+
+<p>The following table summarizes.  The columns say:</p>
+
+<ul>
+<li><p>OpenFlow version(s).</p></li>
+<li><p>The OFPTC_* flags defined in those versions.</p></li>
+<li><p>Whether OFPT<em>TABLE</em>MOD can modify OFPTC_* flags.</p></li>
+<li><p>Whether OFPST<em>TABLE/OFPMP</em>TABLE reports the OFPTC_* flags.</p></li>
+<li><p>What OFPMP<em>TABLE</em>FEATURES reports (if it exists): either the
+current configuration or the switch's capabilities.</p></li>
+<li><p>Whether OFPMP<em>TABLE</em>DESC reports the current configuration.</p></li>
+</ul>
+
+<p>OpenFlow   OFPTC<em>* flags            TABLE</em>MOD stats? TABLE<em>FEATURES TABLE</em>DESC</p>
+
+<hr />
+
+<p>OF1.0      none                     no[<em>][+]  no[</em>]  nothing[<em>][+]  no[</em>][+]
+OF1.1/1.2  MISS<em>*                   yes       yes    nothing[+]     no[+]
+OF1.3      none                     yes[*]    no[*]  config[*]      no[*][+]
+OF1.4/1.5  EVICTION/VACANCY</em>EVENTS  yes       no     capabilities   yes</p>
+
+<p>[*] Nothing to report/change anyway.</p>
+
+<p>[+] No such message.</p>
 
 <h1>IPv6</h1>
 
@@ -823,7 +957,7 @@ not know the MAC address of the local port that is sending the traffic
 or the MAC address of the remote in the guest VM.</p>
 
 <p>With a few notable exceptions below, in-band should work in most
-network setups.  The following are considered "supported' in the
+network setups.  The following are considered "supported" in the
 current implementation:</p>
 
 <ul>

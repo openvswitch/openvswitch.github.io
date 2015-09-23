@@ -27,8 +27,8 @@ SYNOPSIS
               [--no-chdir]
 
        Logging options:
-              [-v[module[:facility[:level]]]]...
-              [--verbose[=module[:facility[:level]]]]...
+              [-v[module[:destination[:level]]]]...
+              [--verbose[=module[:destination[:level]]]]...
               [--log-file[=file]]
 
        Public key infrastructure options:
@@ -44,21 +44,21 @@ SYNOPSIS
 DESCRIPTION
        The ovsdb-client program is a command-line client for interacting  with
        a  running  ovsdb-server  process.   Each  command connects to an OVSDB
-       server, which is unix:/var/run/openvswitch/db.sock by default,  or  may
+       server, which is unix://var/run/openvswitch/db.sock by default, or  may
        be specified as server in one of the following forms:
 
               ssl:ip:port
                      The specified SSL port on the host at the given ip, which
                      must be expressed as an IP address (not a  DNS  name)  in
                      IPv4  or  IPv6 address format.  If ip is an IPv6 address,
-                     then wrap ip with square brackets, e.g.:  ssl:[::1]:6632.
+                     then wrap ip with square brackets, e.g.:  ssl:[::1]:6640.
                      The  --private-key,  --certificate, and --ca-cert options
                      are mandatory when this form is used.
 
               tcp:ip:port
                      Connect to the given TCP port on ip, where ip can be IPv4
                      or  IPv6  address. If ip is an IPv6 address, then wrap ip
-                     with square brackets, e.g.: tcp:[::1]:6632.
+                     with square brackets, e.g.: tcp:[::1]:6640.
 
               unix:file
                      On POSIX, connect to the Unix domain server socket  named
@@ -74,7 +74,7 @@ DESCRIPTION
                      addresses,  but specifying ip limits connections to those
                      from the given ip, either IPv4 or IPv6 address.  If ip is
                      an IPv6 address, then wrap ip with square brackets, e.g.:
-                     pssl:6632:[::1].  The --private-key,  --certificate,  and
+                     pssl:6640:[::1].  The --private-key,  --certificate,  and
                      --ca-cert options are mandatory when this form is used.
 
               ptcp:port[:ip]
@@ -84,7 +84,7 @@ DESCRIPTION
                      addresses, but ip may be specified  to  listen  only  for
                      connections to the given ip, either IPv4 or IPv6 address.
                      If ip is an IPv6 address, then wrap ip with square brack‐
-                     ets, e.g.: ptcp:6632:[::1].
+                     ets, e.g.: ptcp:6640:[::1].
 
               punix:file
                      On  POSIX,  listen on the Unix domain server socket named
@@ -270,7 +270,7 @@ OPTIONS
               Causes a file (by default, ovsdb-client.pid) to be created indi‐
               cating  the PID of the running process.  If the pidfile argument
               is not specified, or if it does not begin with  /,  then  it  is
-              created in /var/run/openvswitch.
+              created in //var/run/openvswitch.
 
               If --pidfile is not specified, no pidfile is created.
 
@@ -289,7 +289,7 @@ OPTIONS
        --monitor
               Creates  an  additional process to monitor the ovsdb-client dae‐
               mon.  If the daemon dies due to a signal that indicates  a  pro‐
-              gramming  error  (SIGABRT, SIGALRM, SIGBUS, SIGFPE, SIGILL, SIG�‐
+              gramming  error  (SIGABRT, SIGALRM, SIGBUS, SIGFPE, SIGILL, SIG‐
               PIPE, SIGSEGV, SIGXCPU, or SIGXFSZ)  then  the  monitor  process
               starts  a  new  copy  of  it.   If  the daemon dies or exits for
               another reason, the monitor process exits.
@@ -316,8 +316,8 @@ OPTIONS
        -v[spec]
        --verbose=[spec]
               Sets  logging  levels.  Without any spec, sets the log level for
-              every module and facility to dbg.  Otherwise, spec is a list  of
-              words  separated  by  spaces or commas or colons, up to one from
+              every module and destination to dbg.  Otherwise, spec is a  list
+              of words separated by spaces or commas or colons, up to one from
               each category below:
 
               ·      A valid module name, as displayed by the  vlog/list  com‐
@@ -349,24 +349,62 @@ OPTIONS
 
        -v
        --verbose
-              Sets  the  maximum logging verbosity level, equivalent to --ver�‐
+              Sets  the  maximum logging verbosity level, equivalent to --ver‐
               bose=dbg.
 
-       -vPATTERN:facility:pattern
-       --verbose=PATTERN:facility:pattern
-              Sets  the  log  pattern  for  facility  to  pattern.   Refer  to
+       -vPATTERN:destination:pattern
+       --verbose=PATTERN:destination:pattern
+              Sets the log pattern  for  destination  to  pattern.   Refer  to
               ovs-appctl(8) for a description of the valid syntax for pattern.
+
+       -vFACILITY:facility
+       --verbose=FACILITY:facility
+              Sets  the  RFC5424  facility of the log message. facility can be
+              one of kern, user, mail, daemon, auth, syslog, lpr, news,  uucp,
+              clock,  ftp,  ntp, audit, alert, clock2, local0, local1, local2,
+              local3, local4, local5, local6 or local7. If this option is  not
+              specified,  daemon  is  used as the default for the local system
+              syslog and local0 is used while sending a message to the  target
+              provided via the --syslog-target option.
 
        --log-file[=file]
               Enables  logging  to  a  file.  If file is specified, then it is
               used as the exact name for the log file.  The default  log  file
-              name    used    if    file    is   omitted   is   /var/log/open�‐
+              name    used    if    file   is   omitted   is   //var/log/open‐
               vswitch/ovsdb-client.log.
 
        --syslog-target=host:port
               Send syslog messages to UDP port on host,  in  addition  to  the
               system  syslog.   The host must be a numerical IP address, not a
               hostname.
+
+       --syslog-method=method
+              Specify method how syslog messages should be sent to syslog dae‐
+              mon.  Following forms are supported:
+
+              ·      libc,  use  libc  syslog() function.  This is the default
+                     behavior.  Downside of using this options  is  that  libc
+                     adds  fixed prefix to every message before it is actually
+                     sent to the  syslog  daemon  over  /dev/log  UNIX  domain
+                     socket.
+
+              ·      unix:file, use UNIX domain socket directly.  It is possi‐
+                     ble to specify arbitrary message format with this option.
+                     However,  rsyslogd  8.9 and older versions use hard coded
+                     parser function anyway that  limits  UNIX  domain  socket
+                     use.   If  you  want to use arbitrary message format with
+                     older rsyslogd versions, then use UDP socket to localhost
+                     IP address instead.
+
+              ·      udp:ip:port, use UDP socket.  With this method it is pos‐
+                     sible to use arbitrary message  format  also  with  older
+                     rsyslogd.   When  sending syslog messages over UDP socket
+                     extra precaution needs to  be  taken  into  account,  for
+                     example,  syslog  daemon needs to be configured to listen
+                     on the specified  UDP  port,  accidental  iptables  rules
+                     could  be interfering with local syslog traffic and there
+                     are some security considerations that apply to UDP  sock‐
+                     ets, but do not apply to UNIX domain sockets.
 
    Public Key Infrastructure Options
        -p privkey.pem
@@ -377,40 +415,40 @@ OPTIONS
        -c cert.pem
        --certificate=cert.pem
               Specifies a PEM file containing a certificate that certifies the
-              private key specified on -p or --private-key to be  trustworthy.
+              private  key specified on -p or --private-key to be trustworthy.
               The certificate must be signed by the certificate authority (CA)
               that the peer in SSL connections will use to verify it.
 
        -C cacert.pem
        --ca-cert=cacert.pem
-              Specifies  a  PEM  file  containing  the  CA  certificate   that
-              ovsdb-client  should  use to verify certificates presented to it
-              by SSL peers.  (This may be the same certificate that SSL  peers
-              use  to verify the certificate specified on -c or --certificate,
-              or it may be a different one, depending on  the  PKI  design  in
+              Specifies   a  PEM  file  containing  the  CA  certificate  that
+              ovsdb-client should use to verify certificates presented  to  it
+              by  SSL peers.  (This may be the same certificate that SSL peers
+              use to verify the certificate specified on -c or  --certificate,
+              or  it  may  be  a different one, depending on the PKI design in
               use.)
 
        -C none
        --ca-cert=none
-              Disables  verification  of  certificates presented by SSL peers.
-              This introduces a security risk, because it means that  certifi‐
+              Disables verification of certificates presented  by  SSL  peers.
+              This  introduces a security risk, because it means that certifi‐
               cates cannot be verified to be those of known trusted hosts.
 
        --bootstrap-ca-cert=cacert.pem
               When cacert.pem exists, this option has the same effect as -C or
               --ca-cert.  If it does not exist, then ovsdb-client will attempt
-              to  obtain the CA certificate from the SSL peer on its first SSL
+              to obtain the CA certificate from the SSL peer on its first  SSL
               connection and save it to the named PEM file.  If it is success‐
-              ful,  it will immediately drop the connection and reconnect, and
+              ful, it will immediately drop the connection and reconnect,  and
               from then on all SSL connections must be authenticated by a cer‐
               tificate signed by the CA certificate thus obtained.
 
-              This  option  exposes  the SSL connection to a man-in-the-middle
-              attack obtaining the initial CA certificate, but it may be  use‐
+              This option exposes the SSL connection  to  a  man-in-the-middle
+              attack  obtaining the initial CA certificate, but it may be use‐
               ful for bootstrapping.
 
               This option is only useful if the SSL peer sends its CA certifi‐
-              cate as part of the SSL certificate  chain.   The  SSL  protocol
+              cate  as  part  of  the SSL certificate chain.  The SSL protocol
               does not require the server to send the CA certificate.
 
               This option is mutually exclusive with -C and --ca-cert.
@@ -428,4 +466,4 @@ SEE ALSO
 
 
 
-Open vSwitch                         2.3.1                     ovsdb-client(1)
+Open vSwitch                        2.4.90                     ovsdb-client(1)

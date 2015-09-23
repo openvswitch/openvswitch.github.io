@@ -3,7 +3,7 @@ vtep(5)                       Open vSwitch Manual                      vtep(5)
 
 
 NAME
-       hardware_vtep - hardware_vtep database schema
+       vtep - hardware_vtep database schema
 
        This schema specifies relations that a VTEP can use to integrate physi‐
        cal ports into logical switches maintained by a network  virtualization
@@ -131,7 +131,7 @@ Manager TABLE
               The following connection methods are currently supported:
 
               ssl:ip[:port]
-                     The specified SSL port (default: 6632) on the host at the
+                     The specified SSL port (default: 6640) on the host at the
                      given ip, which must be expressed as an IP address (not a
                      DNS name).
 
@@ -139,19 +139,19 @@ Manager TABLE
                      database.
 
               tcp:ip[:port]
-                     The specified TCP port (default: 6632) on the host at the
+                     The specified TCP port (default: 6640) on the host at the
                      given ip, which must be expressed as an IP address (not a
                      DNS name).
 
               pssl:[port][:ip]
                      Listens for SSL connections on  the  specified  TCP  port
-                     (default: 6632).  If ip, which must be expressed as an IP
+                     (default: 6640).  If ip, which must be expressed as an IP
                      address (not a DNS name), is specified, then  connections
                      are restricted to the specified local IP address.
 
               ptcp:[port][:ip]
                      Listens   for  connections  on  the  specified  TCP  port
-                     (default: 6632).  If ip, which must be expressed as an IP
+                     (default: 6640).  If ip, which must be expressed as an IP
                      address  (not a DNS name), is specified, then connections
                      are restricted to the specified local IP address.
 
@@ -411,7 +411,7 @@ Tunnel TABLE
               169.254.1.0.
 
      BFD Remote Configuration:
-       The  bfd_config_remote column is the remote counterpart of the bfd_con�‐
+       The  bfd_config_remote column is the remote counterpart of the bfd_con‐
        fig_local column.  The NVC writes the key-value pairs in this column.
 
        bfd_config_remote : bfd_dst_mac: optional string
@@ -571,7 +571,7 @@ Physical_Port TABLE
               more specific information is available.
 
 Logical_Binding_Stats TABLE
-       Reports statistics for the Logical_Switch with which a VLAN on a Physi�‐
+       Reports statistics for the Logical_Switch with which a VLAN on a Physi‐
        cal_Port is associated.
 
    Summary:
@@ -722,6 +722,7 @@ Mcast_Macs_Local TABLE
        MAC                           string
        logical_switch                Logical_Switch
        locator_set                   Physical_Locator_Set
+       ipaddr                        string
 
    Details:
        MAC: string
@@ -741,15 +742,19 @@ Mcast_Macs_Local TABLE
               In this table, the physical locator set will be contain  one  or
               more tunnel IP addresses of the appropriate VTEP(s).
 
+       ipaddr: string
+              The IP address to which this MAC corresponds. Optional field for
+              the purpose of ARP supression.
+
 Mcast_Macs_Remote TABLE
        Mapping of multicast MAC addresses to tunnels (physical locators). This
-       table is written by the NVC, so it contains the MAC addresses that  the
-       NVC  has  learned. This table also specifies how to handle unknown uni‐
+       table  is written by the NVC, so it contains the MAC addresses that the
+       NVC has learned. This table also specifies how to handle  unknown  uni‐
        cast and broadcast packets.
 
        Multicast packet replication may be handled by a service node, in which
-       case  the  physical  locators will be IP addresses of service nodes. If
-       the VTEP supports replication onto multiple tunnels, then this  may  be
+       case the physical locators will be IP addresses of  service  nodes.  If
+       the  VTEP  supports replication onto multiple tunnels, then this may be
        used to replicate directly onto VTEP-hyperisor tunnels.
 
    Summary:
@@ -762,27 +767,28 @@ Mcast_Macs_Remote TABLE
        MAC: string
               A MAC address that has been learned by the NVC.
 
-              The   keyword  unknown-dst  is  used  as  a  special  ``Ethernet
-              address’’ that indicates the locations to  which  packets  in  a
-              logical  switch  whose  destination  addresses  do not otherwise
-              appear  in  Ucast_Macs_Remote   (for   unicast   addresses)   or
+              The  keyword  unknown-dst  is  used  as  a  special   ``Ethernet
+              address’’  that  indicates  the  locations to which packets in a
+              logical switch whose  destination  addresses  do  not  otherwise
+              appear   in   Ucast_Macs_Remote   (for   unicast  addresses)  or
               Mcast_Macs_Remote (for multicast addresses) should be sent.
 
        logical_switch: Logical_Switch
               The Logical switch to which this mapping applies.
 
        locator_set: Physical_Locator_Set
-              The  physical  locator set to be used to reach this MAC address.
+              The physical locator set to be used to reach this  MAC  address.
               In this table, the physical locator set will be either a service
-              node  IP  address or a set of tunnel IP addresses of hypervisors
+              node IP address or a set of tunnel IP addresses  of  hypervisors
               (and potentially other VTEPs).
 
        ipaddr: string
               The IP address to which this MAC corresponds. Optional field for
               the purpose of ARP supression.
+
 Logical_Router TABLE
-       A  logical  router, or VRF. A logical router may be connected to one or
-       more logical switches. Subnet addresses and interface addresses may  be
+       A logical router, or VRF. A logical router may be connected to  one  or
+       more  logical switches. Subnet addresses and interface addresses may be
        configured on the interfaces.
 
    Summary:
@@ -794,16 +800,16 @@ Logical_Router TABLE
 
    Details:
        switch_binding: map of string-Logical_Switch pairs
-              Maps  from  an IPv4 or IPv6 address prefix in CIDR notation to a
+              Maps from an IPv4 or IPv6 address prefix in CIDR notation  to  a
               logical switch. Multiple prefixes may map to the same switch. By
-              writing  a  32-bit  (or 128-bit for v6) address with a /N prefix
-              length, both the router’s interface address and the subnet  pre‐
-              fix  can be configured. For example, 192.68.1.1/24 creates a /24
-              subnet for the logical switch  attached  to  the  interface  and
+              writing a 32-bit (or 128-bit for v6) address with  a  /N  prefix
+              length,  both the router’s interface address and the subnet pre‐
+              fix can be configured. For example, 192.68.1.1/24 creates a  /24
+              subnet  for  the  logical  switch  attached to the interface and
               assigns the address 192.68.1.1 to the router interface.
 
        static_routes: map of string-string pairs
-              One  or  more  static routes, mapping IP prefixes to next hop IP
+              One or more static routes, mapping IP prefixes to  next  hop  IP
               addresses.
 
      Identification:
@@ -815,38 +821,18 @@ Logical_Router TABLE
               An extended description for the logical router.
 
 Arp_Sources_Local TABLE
-       MAC address to be used when a VTEP issues ARP requests on behalf  of  a
+       MAC  address  to be used when a VTEP issues ARP requests on behalf of a
        logical router.
 
-       A  distributed  logical  router  is implemented by a set of VTEPs (both
-       hardware VTEPs and vswitches). In order for a given  VTEP  to  populate
+       A distributed logical router is implemented by a  set  of  VTEPs  (both
+       hardware  VTEPs  and  vswitches). In order for a given VTEP to populate
        the local ARP cache for a logical router, it issues ARP requests with a
-       source MAC address that is unique to the VTEP. A  single  per-VTEP  MAC
-       can  be  re-used  across  all logical networks. This table contains the
-       MACs that are used by the VTEPs of a given HSC. The table provides  the
-       mapping  from  MAC to physical locator for each VTEP so that replies to
-       the ARP requests can be sent back to the correct VTEP using the  appro‐
+       source  MAC  address  that is unique to the VTEP. A single per-VTEP MAC
+       can be re-used across all logical networks.  This  table  contains  the
+       MACs  that are used by the VTEPs of a given HSC. The table provides the
+       mapping from MAC to physical locator for each VTEP so that  replies  to
+       the  ARP requests can be sent back to the correct VTEP using the appro‐
        priate physical locator.
-
-   Summary:
-       src_mac                       string
-       locator                       Physical_Locator
-
-   Details:
-       src_mac: string
-              The source MAC to be used by a given VTEP.
-
-       locator: Physical_Locator
-              The  Physical_Locator  to  use  for replies to ARP requests from
-              this MAC address.
-Arp_Sources_Remote TABLE
-       MAC address to be used when a remote VTEP issues ARP requests on behalf
-       of a logical router.
-
-       This  table  is  the  remote  counterpart of Arp_sources_local. The NVC
-       writes this table to notify the HSC of the MACs that will  be  used  by
-       remote  VTEPs  when  they issue ARP requests on behalf of a distributed
-       logical router.
 
    Summary:
        src_mac                       string
@@ -860,6 +846,26 @@ Arp_Sources_Remote TABLE
               The Physical_Locator to use for replies  to  ARP  requests  from
               this MAC address.
 
+Arp_Sources_Remote TABLE
+       MAC address to be used when a remote VTEP issues ARP requests on behalf
+       of a logical router.
+
+       This table is the remote  counterpart  of  Arp_sources_local.  The  NVC
+       writes  this  table  to notify the HSC of the MACs that will be used by
+       remote VTEPs when they issue ARP requests on behalf  of  a  distributed
+       logical router.
+
+   Summary:
+       src_mac                       string
+       locator                       Physical_Locator
+
+   Details:
+       src_mac: string
+              The source MAC to be used by a given VTEP.
+
+       locator: Physical_Locator
+              The  Physical_Locator  to  use  for replies to ARP requests from
+              this MAC address.
 Physical_Locator_Set TABLE
        A set of one or more Physical_Locators.
 
@@ -867,24 +873,24 @@ Physical_Locator_Set TABLE
        type ``map from string to one or more Physical_Locator records.’’
 
    Summary:
-       locators                      immutable set of 1 or more Physical_Loca�‐
+       locators                      immutable set of 1 or more Physical_Loca‐
                                      tors
 
    Details:
        locators: immutable set of 1 or more Physical_Locators
 
 Physical_Locator TABLE
-       Identifies  an endpoint to which logical switch traffic may be encapsu‐
+       Identifies an endpoint to which logical switch traffic may be  encapsu‐
        lated and forwarded.
 
-       For the vxlan_over_ipv4 encapsulation, the only  encapsulation  defined
+       For  the  vxlan_over_ipv4 encapsulation, the only encapsulation defined
        so far, all endpoints associated with a given Logical_Switch must use a
-       common tunnel key, which is carried in the tunnel_key column  of  Logi�‐
+       common  tunnel  key, which is carried in the tunnel_key column of Logi‐
        cal_Switch.
 
-       For  some  encapsulations yet to be defined, we expect Physical_Locator
-       to identify both an endpoint and a tunnel key.   When  the  first  such
-       encapsulation  is  defined, we expect to add a ``tunnel_key’’ column to
+       For some encapsulations yet to be defined, we  expect  Physical_Locator
+       to  identify  both  an  endpoint and a tunnel key.  When the first such
+       encapsulation is defined, we expect to add a ``tunnel_key’’  column  to
        Physical_Locator to allow the tunnel key to be defined.
 
        See the ``Per Logical-Switch Tunnel Key’’ section in the Logical_Switch
@@ -902,9 +908,9 @@ Physical_Locator TABLE
               For vxlan_over_ipv4 encapsulation, the IPv4 address of the VXLAN
               tunnel endpoint.
 
-              We expect that this column  could  be  used  for  IPv4  or  IPv6
+              We  expect  that  this  column  could  be  used for IPv4 or IPv6
               addresses in encapsulations to be introduced later.
 
 
 
-Open vSwitch 2.3.90             DB Schema 1.3.0                        vtep(5)
+Open vSwitch 2.4.90             DB Schema 1.3.0                        vtep(5)
