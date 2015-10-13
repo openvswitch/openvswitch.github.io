@@ -20,18 +20,20 @@ DESCRIPTION
 
 CONFIGURATION
        ovn-controller retrieves most of its configuration information from the
-       local Open vSwitch’s ovsdb-server instance.  The default is the db.sock
-       in local Open vSwitch’s "run" directory.  ovs-database must take one of
-       the following forms:
+       local  Open  vSwitch’s  ovsdb-server instance.  The default location is
+       db.sock in the local Open vSwitch’s "run" directory.  It may  be  over‐
+       ridden  by specifying the ovs-database argument in one of the following
+       forms:
 
               ·      ssl:ip:port
 
                      The specified SSL port on the host at the given ip, which
-                     must be expressed as an IP address (not a  DNS  name)  in
-                     IPv4  or  IPv6 address format.  If ip is an IPv6 address,
-                     then wrap ip with square brackets, e.g.:  ssl:[::1]:6640.
-                     The  --private-key,  --certificate, and --ca-cert options
-                     are mandatory when this form is used.
+                     must  be  expressed  as an IP address (not a DNS name) in
+                     IPv4 or IPv6 address format.  If ip is an  IPv6  address,
+                     then  wrap ip with square brackets, e.g.: ssl:[::1]:6640.
+                     The --private-key, --certificate and either of  --ca-cert
+                     or  --bootstrap-ca-cert  options  are mandatory when this
+                     form is used.
 
               ·      tcp:ip:port
 
@@ -50,38 +52,72 @@ CONFIGURATION
        ovn-controller assumes it gets configuration information from the  fol‐
        lowing keys in the Open_vSwitch table of the local OVS instance:
 
-              ·      external_ids:system-id  specifies the chassis name to use
-                     in the Chassis table.
+              external_ids:system-id
+                     The chassis name to use in the Chassis table.
 
-              ·      external_ids:ovn-bridge specifies the integration  bridge
-                     to  which  logical  ports  are  attached.  The default is
-                     br-int.
+              external_ids:ovn-bridge
+                     The   integration  bridge  to  which  logical  ports  are
+                     attached.  The default is br-int.  If  this  bridge  does
+                     not  exist when ovn-controller starts, it will be created
+                     automatically with the default configuration suggested in
+                     ovn-architecture(7).
 
-              ·      external_ids:ovn-remote specifies the OVN  database  that
-                     this system should connect to for its configuration.
+              external_ids:ovn-remote
+                     The  OVN  database that this system should connect to for
+                     its configuration.
 
-              ·      external_ids:ovn-encap-type  specifies  the encapsulation
-                     type that a chassis should use to connect to  this  node.
-                     Supported  tunnel  types  for  connecting hypervisors are
-                     geneve and stt.  Gateways may use geneve, vxlan, or stt.
+                     Currently, ovn-controller does not support changing  this
+                     setting  mid-run.  If the value needs to change, the dae‐
+                     mon  must  be  restarted.   (This  behavior   should   be
+                     improved.)
 
-              ·      external_ids:ovn-encap-ip specifies the IP address that a
-                     chassis should use to connect to this node using encapsu‐
-                     lation type specified by external_ids:ovn-encap-ip.
+              external_ids:ovn-encap-type
+                     The  encapsulation type that a chassis should use to con‐
+                     nect to this node.  Supported tunnel types for connecting
+                     hypervisors are geneve and stt.  Gateways may use geneve,
+                     vxlan, or stt.
 
-       Currently, ovn-controller does not support changing the  chassis  name,
-       integration  bridge,  or OVN database mid-run.  If these values need to
-       change, the daemon must be restarted.  This behavior should be changed.
+              external_ids:ovn-encap-ip
+                     The IP address that a chassis should use  to  connect  to
+                     this  node  using  encapsulation type specified by exter‐
+                     nal_ids:ovn-encap-ip.
+
+              external_ids:ovn-bridge-mappings
+                     A list of key-value pairs that  map  a  physical  network
+                     name  to a local ovs bridge that provides connectivity to
+                     that network.  An example value mapping two physical net‐
+                     work   names   to   two   ovs  bridges  would  be:  phys‐
+                     net1:br-eth0,physnet2:br-eth1.
+
+OPEN VSWITCH DATABASE USAGE
+       ovn-controller uses a number of external-ids keys in the  Open  vSwitch
+       database  to keep track of ports and interfaces.  For proper operation,
+       users should not change or clear these keys:
+
+              external_ids:ovn-chassis-id in the Port table
+                     The presence of this key identifies a tunnel port  within
+                     the  integration  bridge as one created by ovn-controller
+                     to reach a remote chassis.  Its value is the  chassis  ID
+                     of the remote chassis.
+
+              external-ids:ovn-patch-port in the Port table
+                     The  presence  of this key identifies a patch port as one
+                     created by  ovn-controller  to  connect  the  integration
+                     bridge and another bridge to implement a localnet logical
+                     port.  Its value is the name of the physical network that
+                     the  port  implements.   See external_ids:ovn-bridge-map‐
+                     pings, above, for more information.
+
+                     Each localnet logical port is implemented as  a  pair  of
+                     patch ports, one in the integration bridge, one in a dif‐
+                     ferent bridge, with the same  external-ids:ovn-patch-port
+                     value.
 
 RUNTIME MANAGEMENT COMMANDS
-       ovs-appctl can send commands to a running ovn-controller process.   The
+       ovs-appctl  can send commands to a running ovn-controller process.  The
        currently supported commands are described below.
 
               exit   Causes ovn-controller to gracefully terminate.
-
-              ct-zone-list
-                     Lists each local logical port and its connection tracking
-                     zone.
 
 
 

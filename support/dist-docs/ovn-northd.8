@@ -1,0 +1,161 @@
+'\" p
+.\" -*- nroff -*-
+.TH "ovn-northd" 8 "ovn-northd" "Open vSwitch 2\[char46]4\[char46]90" "Open vSwitch Manual"
+.fp 5 L CR              \\" Make fixed-width font available as \\fL.
+.de TQ
+.  br
+.  ns
+.  TP "\\$1"
+..
+.de ST
+.  PP
+.  RS -0.15in
+.  I "\\$1"
+.  RE
+..
+.SH "NAME"
+.PP
+ovn-northd \- Open Virtual Network central control daemon
+.SH "SYNOPSIS"
+.PP
+\fBovn\-northd\fR [\fIoptions\fR]
+.SH "DESCRIPTION"
+.PP
+\fBovn\-northd\fR is a centralized daemon responsible for
+translating the high-level OVN configuration into logical
+configuration consumable by daemons such as
+\fBovn\-controller\fR\[char46]  It translates the logical network
+configuration in terms of conventional network concepts, taken
+from the OVN Northbound Database (see \fBovn\-nb\fR(5)),
+into logical datapath flows in the OVN Southbound Database (see
+\fBovn\-sb\fR(5)) below it\[char46]
+.SH "CONFIGURATION"
+.PP
+\fBovn\-northd\fR requires a connection to the Northbound
+and Southbound databases\[char46]  The default is \fBdb\[char46]sock\fR
+in the local Open vSwitch\(cqs \(dqrun\(dq directory\[char46]  This may be
+overridden with the following commands:
+.RS
+.IP \(bu
+\fB\-\-ovnnb\-db=\fIdatabase\fB\fR
+.IP
+The database containing the OVN Northbound Database\[char46]
+.IP \(bu
+\fB\-\-ovsnb\-db=\fIdatabase\fB\fR
+.IP
+The database containing the OVN Southbound Database\[char46]
+.RE
+.PP
+The \fIdatabase\fR argument must take one of the following forms:
+.RS
+.IP \(bu
+\fBssl:\fIip\fB:\fIport\fB\fR
+.IP
+The specified SSL \fIport\fR on the host at the given
+\fIip\fR, which must be expressed as an IP address (not a DNS
+name) in IPv4 or IPv6 address format\[char46]  If \fIip\fR is an IPv6
+address, then wrap \fIip\fR with square brackets, e\[char46]g\[char46]:
+\fBssl:[::1]:6640\fR\[char46]  The \fB\-\-private\-key\fR,
+\fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR options are
+mandatory when this form is used\[char46]
+.IP \(bu
+\fBtcp:\fIip\fB:\fIport\fB\fR
+.IP
+Connect to the given TCP \fIport\fR on \fIip\fR, where
+\fIip\fR can be IPv4 or IPv6 address\[char46] If \fIip\fR is an
+IPv6 address, then wrap \fIip\fR with square brackets, e\[char46]g\[char46]:
+\fBtcp:[::1]:6640\fR\[char46]
+.IP \(bu
+\fBunix:\fIfile\fB\fR
+.IP
+On POSIX, connect to the Unix domain server socket named
+\fIfile\fR\[char46]
+.IP
+On Windows, connect to a localhost TCP port whose value is written
+in \fIfile\fR\[char46]
+.RE
+.SH "RUNTIME MANAGEMENT COMMANDS"
+.PP
+\fBovs\-appctl\fR can send commands to a running
+\fBovn\-northd\fR process\[char46]  The currently supported commands
+are described below\[char46]
+.RS
+.TP
+\fBexit\fR
+Causes \fBovn\-northd\fR to gracefully terminate\[char46]
+.RE
+.SH "LOGICAL FLOW TABLE STRUCTURE"
+.PP
+One of the main purposes of \fBovn\-northd\fR is to populate the
+\fBLogical_Flow\fR table in the \fBOVN_Southbound\fR
+database\[char46]  This section describes how \fBovn\-northd\fR does this
+for logical datapaths\[char46]
+.SS "Ingress Table 0: Admission Control and Ingress Port Security"
+.PP
+Ingress table 0 contains these logical flows:
+.RS
+.IP \(bu
+Priority 100 flows to drop packets with VLAN tags or multicast Ethernet
+source addresses\[char46]
+.IP \(bu
+Priority 50 flows that implement ingress port security for each enabled
+logical port\[char46]  For logical ports on which port security is enabled,
+these match the \fBinport\fR and the valid \fBeth\[char46]src\fR
+address(es) and advance only those packets to the next flow table\[char46]  For
+logical ports on which port security is not enabled, these advance all
+packets that match the \fBinport\fR\[char46]
+.RE
+.PP
+There are no flows for disabled logical ports because the default-drop
+behavior of logical flow tables causes packets that ingress from them to
+be dropped\[char46]
+.SS "Ingress table 1: \fBfrom\-lport\fR ACLs"
+.PP
+Logical flows in this table closely reproduce those in the
+\fBACL\fR table in the \fBOVN_Northbound\fR database for
+the \fBfrom\-lport\fR direction\[char46]  \fBallow\fR and
+\fBallow\-related\fR ACLs translate into logical flows with the
+\fBnext;\fR action, others to \fBdrop;\fR\[char46]  The
+\fBpriority\fR values from the \fBACL\fR table are used
+directly\[char46]
+.PP
+Ingress table 1 also contains a priority 0 flow with action
+\fBnext;\fR, so that ACLs allow packets by default\[char46]
+.SS "Ingress Table 2: Destination Lookup"
+.PP
+This table implements switching behavior\[char46]  It contains these logical
+flows:
+.RS
+.IP \(bu
+A priority\-100 flow that outputs all packets with an Ethernet broadcast
+or multicast \fBeth\[char46]dst\fR to the \fBMC_FLOOD\fR
+multicast group, which \fBovn\-northd\fR populates with all
+enabled logical ports\[char46]
+.IP \(bu
+One priority\-50 flow that matches each known Ethernet address against
+\fBeth\[char46]dst\fR and outputs the packet to the single associated
+output port\[char46]
+.IP \(bu
+One priority\-0 fallback flow that matches all packets and outputs them
+to the \fBMC_UNKNOWN\fR multicast group, which
+\fBovn\-northd\fR populates with all enabled logical ports that
+accept unknown destination packets\[char46]  As a small optimization, if no
+logical ports accept unknown destination packets,
+\fBovn\-northd\fR omits this multicast group and logical flow\[char46]
+.RE
+.SS "Egress Table 0: \fBto\-lport\fR ACLs"
+.PP
+This is similar to ingress table 1 except for \fBto\-lport\fR ACLs\[char46]
+.SS "Egress Table 1: Egress Port Security"
+.PP
+This is similar to the ingress port security logic in ingress table 0,
+but with important differences\[char46]  Most obviously, \fBoutport\fR and
+\fBeth\[char46]dst\fR are checked instead of \fBinport\fR and
+\fBeth\[char46]src\fR\[char46]  Second, packets directed to broadcast or multicast
+\fBeth\[char46]dst\fR are always accepted instead of being subject to the
+port security rules; this is implemented through a priority\-100 flow that
+matches on \fBeth\[char46]dst[40]\fR with action \fBoutput;\fR\[char46]
+Finally, to ensure that even broadcast and multicast packets are not
+delivered to disabled logical ports, a priority\-150 flow for each
+disabled logical \fBoutport\fR overrides the priority\-100 flow
+with a \fBdrop;\fR action\[char46]

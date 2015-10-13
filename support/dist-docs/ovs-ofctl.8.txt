@@ -42,7 +42,7 @@ DESCRIPTION
               file   This  is  short  for  unix:file, as long as file does not
                      contain a colon.
 
-              bridge This is short for unix://var/run/openvswitch/bridge.mgmt,
+              bridge This is short for  unix:/var/run/openvswitch/bridge.mgmt,
                      as long as bridge does not contain a colon.
 
               [type@]dp
@@ -450,7 +450,7 @@ DESCRIPTION
               Connects  to  switch and prints to the console all OpenFlow mes‐
               sages received.  Unlike other ovs-ofctl commands, if  switch  is
               the  name of a bridge, then the snoop command connects to a Unix
-              domain    socket    named    //var/run/openvswitch/switch.snoop.
+              domain    socket    named     /var/run/openvswitch/switch.snoop.
               ovs-vswitchd  listens on such a socket for each bridge and sends
               to it all of the OpenFlow messages sent to or received from  its
               configured  OpenFlow controller.  Thus, this command can be used
@@ -931,17 +931,31 @@ DESCRIPTION
 
        ip     Same as dl_type=0x0800.
 
+       ipv6   Same as dl_type=0x86dd.
+
        icmp   Same as dl_type=0x0800,nw_proto=1.
+
+       icmp6  Same as dl_type=0x86dd,nw_proto=58.
 
        tcp    Same as dl_type=0x0800,nw_proto=6.
 
+       tcp6   Same as dl_type=0x86dd,nw_proto=6.
+
        udp    Same as dl_type=0x0800,nw_proto=17.
 
+       udp6   Same as dl_type=0x86dd,nw_proto=17.
+
        sctp   Same as dl_type=0x0800,nw_proto=132.
+
+       sctp6  Same as dl_type=0x86dd,nw_proto=132.
 
        arp    Same as dl_type=0x0806.
 
        rarp   Same as dl_type=0x8035.
+
+       mpls   Same as dl_type=0x8847.
+
+       mplsm  Same as dl_type=0x8848.
 
        The following field assignments require support  for  the  NXM  (Nicira
        Extended Match) extension to OpenFlow.  When one of these is specified,
@@ -1172,60 +1186,65 @@ DESCRIPTION
               For  more  information, please see the corresponding IETF draft:
               https://tools.ietf.org/html/draft-smith-vxlan-group-policy
 
-       tun_metadataidx=value[/mask]
+       tun_metadataidx[=value[/mask]]
               Matches value either exactly or with  optional  mask  in  tunnel
-              metadata field number idx (numbered from 0 to 63).  Tunnel meta‐
-              data fields can be dynamically assigned onto the data  contained
-              in the options of Geneve packets using the commands described in
-              the section OpenFlow Switch Geneve Option Table  Commands.  Once
-              assigned,  the  length of the field is variable according to the
-              size of the option. Before updating a mapping in the option  ta‐
-              ble,  flows  with  references to it should be removed, otherwise
-              the result is non-deterministic.
+              metadata  field  number idx (numbered from 0 to 63).  The act of
+              specifying a field implies a match  on  the  existence  of  that
+              field in the packet in addition to the masked value. As a short‐
+              hand, it is possible to specify only the field  name  to  simply
+              match on an option being present.
+
+              Tunnel metadata fields can be dynamically assigned onto the data
+              contained in the options of Geneve packets  using  the  commands
+              described  in  the  section  OpenFlow Switch Geneve Option Table
+              Commands. Once assigned, the length of  the  field  is  variable
+              according  to  the size of the option. Before updating a mapping
+              in the option table, flows  with  references  to  it  should  be
+              removed, otherwise the result is non-deterministic.
 
               These fields were introduced in Open vSwitch 2.5.
 
        regidx=value[/mask]
-              Matches value either exactly or with optional mask  in  register
-              number  idx.   The  valid  range  of  idx depends on the switch.
+              Matches  value  either exactly or with optional mask in register
+              number idx.  The valid range  of  idx  depends  on  the  switch.
               value and mask are 32-bit integers, by default in decimal (use a
-              0x  prefix  to  specify hexadecimal).  Arbitrary mask values are
+              0x prefix to specify hexadecimal).  Arbitrary  mask  values  are
               allowed: a 1-bit in mask indicates that the corresponding bit in
               value must match exactly, and a 0-bit wildcards that bit.
 
-              When  a  packet  enters an OpenFlow switch, all of the registers
+              When a packet enters an OpenFlow switch, all  of  the  registers
               are set to 0.  Only explicit actions change register values.
 
        xregidx=value[/mask]
-              Matches value either exactly or with  optional  mask  in  64-bit
-              ``extended  register''  number idx.  Each of the 64-bit extended
-              registers overlays two of the 32-bit registers:  xreg0  overlays
-              reg0  and reg1, with reg0 supplying the most-significant bits of
-              xreg0 and reg1 the least-significant.  xreg1 similarly  overlays
+              Matches  value  either  exactly  or with optional mask in 64-bit
+              ``extended register'' number idx.  Each of the  64-bit  extended
+              registers  overlays  two of the 32-bit registers: xreg0 overlays
+              reg0 and reg1, with reg0 supplying the most-significant bits  of
+              xreg0  and reg1 the least-significant.  xreg1 similarly overlays
               reg2 and reg3, and so on.
 
-              These  fields were added in Open vSwitch 2.3 to conform with the
-              OpenFlow 1.5 specification.  OpenFlow  1.5  calls  these  fields
-              just  the  ``packet  registers,''  but  Open vSwitch already had
-              32-bit registers by that name, which is why Open vSwitch  refers
+              These fields were added in Open vSwitch 2.3 to conform with  the
+              OpenFlow  1.5  specification.   OpenFlow  1.5 calls these fields
+              just the ``packet registers,''  but  Open  vSwitch  already  had
+              32-bit  registers by that name, which is why Open vSwitch refers
               to the standard registers as ``extended registers''.
 
        pkt_mark=value[/mask]
-              Matches  packet  metadata  mark  value  either  exactly  or with
-              optional mask. The mark is associated data that  may  be  passed
-              into  other system components in order to facilitate interaction
-              between subsystems.  On Linux this corresponds to the  skb  mark
+              Matches packet  metadata  mark  value  either  exactly  or  with
+              optional  mask.  The  mark is associated data that may be passed
+              into other system components in order to facilitate  interaction
+              between  subsystems.   On Linux this corresponds to the skb mark
               but the exact implementation is platform-dependent.
 
        actset_output=port
-              Matches  the  output  port currently in the OpenFlow action set,
-              where port may be an  OpenFlow  port  number  or  keyword  (e.g.
-              LOCAL).   If there is no output port in the OpenFlow action set,
-              or if the output port will be ignored (e.g. because there is  an
+              Matches the output port currently in the  OpenFlow  action  set,
+              where  port  may  be  an  OpenFlow  port number or keyword (e.g.
+              LOCAL).  If there is no output port in the OpenFlow action  set,
+              or  if the output port will be ignored (e.g. because there is an
               output group in the OpenFlow action set), then the value will be
               UNSET.
 
-              This field was introduced in Open vSwitch 2.4  to  conform  with
+              This  field  was  introduced in Open vSwitch 2.4 to conform with
               the OpenFlow 1.5 specification.
 
        conj_id=value
@@ -1233,64 +1252,6 @@ DESCRIPTION
               is used only with the conjunction action (see below).
 
               This field was introduced in Open vSwitch 2.4.
-
-       ct_state=flags/mask
-       ct_state=[+flag...][-flag...]
-              Bitwise match on connection state flags.   The  flags  are  only
-              available  after  a call to the ct action with the "recirc" flag
-              set.
-
-              The flags and mask are 8-bit numbers written in  decimal  or  in
-              hexadecimal  prefixed  by  0x.  Each 1-bit in mask requires that
-              the corresponding bit in flags must match.  Each 0-bit  in  mask
-              causes the corresponding bit to be ignored.
-
-              Alternatively,  the  flags  can  be  specified by their symbolic
-              names (listed below), each preceded by either + for a flag  that
-              must  be  set,  or  - for a flag that must be unset, without any
-              other delimiters between the flags.   Flags  not  mentioned  are
-              wildcarded.   For  example,  tcp,ct_state=+trk-new  matches  TCP
-              packets that have been run through the connection tracker and do
-              not establish a new flow.
-
-              The following flags describe the state of the tracking:
-
-              0x80: trk
-                     Connection tracking has occurred.
-
-              0x40: rpl
-                     The  flow  is  in the reply direction, meaning it did not
-                     initiate the connection.
-
-              0x20: inv
-                     The flow is invalid, meaning that the connection  tracker
-                     couldn't identify the connection.
-
-              0x01: new
-                     This is the beginning of a new connection.
-
-              0x02: est
-                     This is part of an already existing connection.
-
-              0x04: rel
-                     This  is a connection that is related to an existing con‐
-                     nection, for instance ICMP "destination unreachable" mes‐
-                     sages or FTP data connections.
-
-       The  following  fields  are data associated with the connection tracker
-       and can only be matched or set after  running  through  the  connection
-       tracker by using the ct action.
-
-       ct_zone=value
-              Matches connection zone value exactly.
-
-       ct_mark=value[/mask]
-              Matches  connection  mark  value either exactly or with optional
-              mask.
-
-       ct_label=value[/mask]
-              Matches connection label value either exactly or  with  optional
-              mask.
 
        Defining  IPv6 flows (those with dl_type equal to 0x86dd) requires sup‐
        port for NXM.  The following  shorthand  notations  are  available  for
@@ -1536,37 +1497,6 @@ DESCRIPTION
               pop_queue
                      Restores  the  queue  to  the  value  it  was  before any
                      set_queue actions were applied.
-
-              ct
-              ct([argument][,argument...])
-                     Run the packet through the connection tracker.  The  fol‐
-                     lowing arguments are supported:
-
-
-                     recirc The  packet  should  be sent back for further pro‐
-                            cessing with the ct_state match fields set.
-
-                     commit Commit the flow to the connection tracking module.
-
-                     zone=zone
-                            A 16-bit context id that can be  used  to  isolate
-                            connections into separate domains that allow over‐
-                            lapping network addresses.  If a zone is not  pro‐
-                            vided, then the default is to use zone zero.
-
-                     alg=alg
-                            Specify  application  layer  gateway  alg to track
-                            specific   connection   types.   Supported   types
-                            include:
-
-                            ftp    Look  for  negotiation  of FTP data connec‐
-                                   tions. If a subsequent FTP data  connection
-                                   arrives  which  is  related,  the ct action
-                                   will  mark  such  packets  with   the   rel
-                                   ct_state flag.
-
-                     Currently, connection tracking is only available on Linux
-                     kernels with the conntrack module loaded.
 
               dec_ttl
               dec_ttl[(id1,id2)]
@@ -2712,7 +2642,7 @@ OPTIONS
               Causes a file (by default, ovs-ofctl.pid) to be created indicat‐
               ing the PID of the running process.  If the pidfile argument  is
               not  specified,  or if it does not begin with /, then it is cre‐
-              ated in //var/run/openvswitch.
+              ated in /var/run/openvswitch.
 
               If --pidfile is not specified, no pidfile is created.
 
@@ -2755,12 +2685,28 @@ OPTIONS
 
               This option has no effect when --detach is not specified.
 
+       --user Causes  ovs-ofctl  to  run  as  a  non  root  user  specified in
+              "user:group", thus dropping all  root  privileges.  Short  forms
+              "user" and ":group" are also allowed, with current user or group
+              are assumed respectively. Only daemons started by the root  user
+              accepts this argument.
+
+              On   Linux,   daemons   will   be   granted   CAP_IPC_LOCK   and
+              CAP_NET_BIND_SERVICES before dropping root  privileges.  Daemons
+              interact  with  datapath,  such as ovs-vswitchd, will be granted
+              two   additional   capabilities,   namely   CAP_NET_ADMIN    and
+              CAP_NET_RAW.
+
+              On Windows, this option is not currently supported. For security
+              reasons, specifying this option will cause  the  daemon  process
+              not to start.
+
        --unixctl=socket
               Sets  the  name of the control socket on which ovs-ofctl listens
               for runtime management commands  (see  RUNTIME  MANAGEMENT  COM‐
               MANDS,  below).   If  socket does not begin with /, it is inter‐
-              preted as relative to //var/run/openvswitch.   If  --unixctl  is
-              not   used   at  all,  the  default  socket  is  //var/run/open‐
+              preted as relative to /var/run/openvswitch.  If --unixctl is not
+              used    at   all,   the   default   socket   is   /var/run/open‐
               vswitch/ovs-ofctl.pid.ctl, where pid is ovs-ofctl's process ID.
 
               On Windows, uses a kernel chosen TCP port on  the  localhost  to
@@ -2855,7 +2801,7 @@ OPTIONS
        --log-file[=file]
               Enables logging to a file.  If file is  specified,  then  it  is
               used  as  the exact name for the log file.  The default log file
-              name   used   if   file   is    omitted    is    //var/log/open‐
+              name   used   if   file    is    omitted    is    /var/log/open‐
               vswitch/ovs-ofctl.log.
 
        --syslog-target=host:port

@@ -56,6 +56,8 @@ TABLE SUMMARY
                  Physical_Locator_Set configuration.
        Physical_Locator
                  Physical_Locator configuration.
+       ACL_entry ACL_entry configuration.
+       ACL       ACL configuration.
 
 Global TABLE
        Top-level configuration for a hardware VTEP.  There must be exactly one
@@ -397,7 +399,7 @@ Tunnel TABLE
 
      BFD Local Configuration:
        The  HSC  writes  the key-value pairs in the bfd_config_local column to
-       specifiy the local configurations to be used for BFD sessions  on  this
+       specify the local configurations to be used for BFD  sessions  on  this
        tunnel.
 
        bfd_config_local : bfd_dst_mac: optional string
@@ -461,8 +463,8 @@ Tunnel TABLE
        bfd_params : cpath_down: optional string, either true or false
               Set to true to notify the remote endpoint  that  traffic  should
               not  be  forwarded  to  this system for some reason other than a
-              connectivty failure on the interface being monitored.  The typi‐
-              cal  underlying  reason  is ``concatenated path down,’’ that is,
+              connectivity failure on the interface being monitored.  The typ‐
+              ical  underlying  reason is ``concatenated path down,’’ that is,
               that connectivity beyond the local system is down.  Defaults  to
               false.
 
@@ -518,7 +520,9 @@ Physical_Port TABLE
    Summary:
        vlan_bindings                 map of integer-Logical_Switch pairs,  key
                                      in range 0 to 4,095
-       vlan_stats                    map    of   integer-Logical_Binding_Stats
+       acl_bindings                  map  of integer-ACL pairs, key in range 0
+                                     to 4,095
+       vlan_stats                    map   of    integer-Logical_Binding_Stats
                                      pairs, key in range 0 to 4,095
        Identification:
          name                        string
@@ -526,31 +530,50 @@ Physical_Port TABLE
        Error Notification:
          port_fault_status : invalid_vlan_map
                                      none
+         port_fault_status : invalid_ACL_binding
+                                     none
          port_fault_status : unspecified_fault
                                      none
 
    Details:
-       vlan_bindings: map of integer-Logical_Switch pairs, key in range  0  to
+       vlan_bindings:  map  of integer-Logical_Switch pairs, key in range 0 to
        4,095
-              Identifies  how  VLANs on the physical port are bound to logical
-              switches.  If, for example, the map contains  a  (VLAN,  logical
-              switch)  pair,  a packet that arrives on the port in the VLAN is
-              considered to belong to the paired logical switch.
+              Identifies how VLANs on the physical port are bound  to  logical
+              switches.   If,  for  example, the map contains a (VLAN, logical
+              switch) pair, a packet that arrives on the port in the  VLAN  is
+              considered  to  belong  to the paired logical switch. A value of
+              zero in the VLAN field means that untagged traffic on the physi‐
+              cal port is mapped to the logical switch.
 
-       vlan_stats: map of integer-Logical_Binding_Stats pairs, key in range  0
+       acl_bindings: map of integer-ACL pairs, key in range 0 to 4,095
+              Attach  Access  Control  Lists  (ACLs) to the physical port. The
+              column consists of a map of VLAN tags to ACLs. If the  value  of
+              the VLAN tag in the map is 0, this means that the ACL is associ‐
+              ated with the entire physical port. Non-zero  values  mean  that
+              the  ACL is to be applied only on packets carrying that VLAN tag
+              value. Switches will not necessarily  support  matching  on  the
+              VLAN  tag  for all ACLs, and unsupported ACL bindings will cause
+              errors to be reported. The binding of an ACL to a specific  VLAN
+              and the binding of an ACL to the entire physical port should not
+              be combined on a single physical port. That is, a  mix  of  zero
+              and non-zero keys in the map is not recommended.
+
+       vlan_stats:  map of integer-Logical_Binding_Stats pairs, key in range 0
        to 4,095
-              Statistics  for  VLANs bound to logical switches on the physical
-              port.  An implementation that  fully  supports  such  statistics
+              Statistics for VLANs bound to logical switches on  the  physical
+              port.   An  implementation  that  fully supports such statistics
               would populate this column with a mapping for every VLAN that is
               bound in vlan_bindings.  An implementation that does not support
-              such  statistics or only partially supports them would not popu‐
-              late this column or partially populate it, respectively.
+              such statistics or only partially supports them would not  popu‐
+              late this column or partially populate it, respectively. A value
+              of zero in the VLAN field refers  to  untagged  traffic  on  the
+              physical port.
 
      Identification:
 
        name: string
-              Symbolic name for the port.  The name ought to be unique  within
-              a  given  Physical_Switch,  but  the  database is not capable of
+              Symbolic  name for the port.  The name ought to be unique within
+              a given Physical_Switch, but the  database  is  not  capable  of
               enforcing this.
 
        description: string
@@ -558,18 +581,21 @@ Physical_Port TABLE
 
      Error Notification:
        An entry in this column indicates to the NVC that the physical port has
-       encountered  a fault. The switch must clear this column when the errror
+       encountered a fault. The switch must clear this column when  the  error
        has been cleared.
 
        port_fault_status : invalid_vlan_map: none
               Indicates that a VLAN-to-logical-switch mapping requested by the
-              controller  could not be instantiated by the switch because of a
+              controller could not be instantiated by the switch because of  a
               conflict with local configuration.
+
+       port_fault_status : invalid_ACL_binding: none
+              Indicates  that an error has occurred in associating an ACL with
+              a port.
 
        port_fault_status : unspecified_fault: none
               Indicates that an error has occurred on the  port  but  that  no
               more specific information is available.
-
 Logical_Binding_Stats TABLE
        Reports statistics for the Logical_Switch with which a VLAN on a Physi‐
        cal_Port is associated.
@@ -681,6 +707,7 @@ Ucast_Macs_Local TABLE
        ipaddr: string
               The IP address to which this MAC corresponds. Optional field for
               the purpose of ARP supression.
+
 Ucast_Macs_Remote TABLE
        Mapping of unicast MAC addresses to tunnels (physical  locators).  This
        table  is written by the NVC, so it contains the MAC addresses that the
@@ -755,7 +782,7 @@ Mcast_Macs_Remote TABLE
        Multicast packet replication may be handled by a service node, in which
        case the physical locators will be IP addresses of  service  nodes.  If
        the  VTEP  supports replication onto multiple tunnels, then this may be
-       used to replicate directly onto VTEP-hyperisor tunnels.
+       used to replicate directly onto VTEP-hypervisor tunnels.
 
    Summary:
        MAC                           string
@@ -794,9 +821,15 @@ Logical_Router TABLE
    Summary:
        switch_binding                map of string-Logical_Switch pairs
        static_routes                 map of string-string pairs
+       acl_binding                   map of string-ACL pairs
        Identification:
          name                        string (must be unique within table)
          description                 string
+       Error Notification:
+         LR_fault_status : invalid_ACL_binding
+                                     none
+         LR_fault_status : unspecified_fault
+                                     none
 
    Details:
        switch_binding: map of string-Logical_Switch pairs
@@ -812,6 +845,13 @@ Logical_Router TABLE
               One or more static routes, mapping IP prefixes to  next  hop  IP
               addresses.
 
+       acl_binding: map of string-ACL pairs
+              Maps  ACLs  to  logical router interfaces. The router interfaces
+              are indicated using IP address notation, and must  be  the  same
+              interfaces created in the switch_binding column. For example, an
+              ACL could be associated with the logical router  interface  with
+              an address of 192.68.1.1 as defined in the example above.
+
      Identification:
 
        name: string (must be unique within table)
@@ -820,19 +860,50 @@ Logical_Router TABLE
        description: string
               An extended description for the logical router.
 
+     Error Notification:
+       An  entry  in this column indicates to the NVC that the HSC has encoun‐
+       tered a fault in configuring state related to the logical router.
+
+       LR_fault_status : invalid_ACL_binding: none
+              Indicates that an error has occurred in associating an ACL  with
+              a logical router port.
+
+       LR_fault_status : unspecified_fault: none
+              Indicates  that an error has occurred in configuring the logical
+              router but that no more specific information is available.
 Arp_Sources_Local TABLE
-       MAC  address  to be used when a VTEP issues ARP requests on behalf of a
+       MAC address to be used when a VTEP issues ARP requests on behalf  of  a
        logical router.
 
-       A distributed logical router is implemented by a  set  of  VTEPs  (both
-       hardware  VTEPs  and  vswitches). In order for a given VTEP to populate
+       A  distributed  logical  router  is implemented by a set of VTEPs (both
+       hardware VTEPs and vswitches). In order for a given  VTEP  to  populate
        the local ARP cache for a logical router, it issues ARP requests with a
-       source  MAC  address  that is unique to the VTEP. A single per-VTEP MAC
-       can be re-used across all logical networks.  This  table  contains  the
-       MACs  that are used by the VTEPs of a given HSC. The table provides the
-       mapping from MAC to physical locator for each VTEP so that  replies  to
-       the  ARP requests can be sent back to the correct VTEP using the appro‐
+       source MAC address that is unique to the VTEP. A  single  per-VTEP  MAC
+       can  be  re-used  across  all logical networks. This table contains the
+       MACs that are used by the VTEPs of a given HSC. The table provides  the
+       mapping  from  MAC to physical locator for each VTEP so that replies to
+       the ARP requests can be sent back to the correct VTEP using the  appro‐
        priate physical locator.
+
+   Summary:
+       src_mac                       string
+       locator                       Physical_Locator
+
+   Details:
+       src_mac: string
+              The source MAC to be used by a given VTEP.
+
+       locator: Physical_Locator
+              The  Physical_Locator  to  use  for replies to ARP requests from
+              this MAC address.
+Arp_Sources_Remote TABLE
+       MAC address to be used when a remote VTEP issues ARP requests on behalf
+       of a logical router.
+
+       This  table  is  the  remote  counterpart of Arp_sources_local. The NVC
+       writes this table to notify the HSC of the MACs that will  be  used  by
+       remote  VTEPs  when  they issue ARP requests on behalf of a distributed
+       logical router.
 
    Summary:
        src_mac                       string
@@ -846,26 +917,6 @@ Arp_Sources_Local TABLE
               The Physical_Locator to use for replies  to  ARP  requests  from
               this MAC address.
 
-Arp_Sources_Remote TABLE
-       MAC address to be used when a remote VTEP issues ARP requests on behalf
-       of a logical router.
-
-       This table is the remote  counterpart  of  Arp_sources_local.  The  NVC
-       writes  this  table  to notify the HSC of the MACs that will be used by
-       remote VTEPs when they issue ARP requests on behalf  of  a  distributed
-       logical router.
-
-   Summary:
-       src_mac                       string
-       locator                       Physical_Locator
-
-   Details:
-       src_mac: string
-              The source MAC to be used by a given VTEP.
-
-       locator: Physical_Locator
-              The  Physical_Locator  to  use  for replies to ARP requests from
-              this MAC address.
 Physical_Locator_Set TABLE
        A set of one or more Physical_Locators.
 
@@ -880,17 +931,17 @@ Physical_Locator_Set TABLE
        locators: immutable set of 1 or more Physical_Locators
 
 Physical_Locator TABLE
-       Identifies an endpoint to which logical switch traffic may be  encapsu‐
+       Identifies  an endpoint to which logical switch traffic may be encapsu‐
        lated and forwarded.
 
-       For  the  vxlan_over_ipv4 encapsulation, the only encapsulation defined
+       For the vxlan_over_ipv4 encapsulation, the only  encapsulation  defined
        so far, all endpoints associated with a given Logical_Switch must use a
-       common  tunnel  key, which is carried in the tunnel_key column of Logi‐
+       common tunnel key, which is carried in the tunnel_key column  of  Logi‐
        cal_Switch.
 
-       For some encapsulations yet to be defined, we  expect  Physical_Locator
-       to  identify  both  an  endpoint and a tunnel key.  When the first such
-       encapsulation is defined, we expect to add a ``tunnel_key’’  column  to
+       For  some  encapsulations yet to be defined, we expect Physical_Locator
+       to identify both an endpoint and a tunnel key.   When  the  first  such
+       encapsulation  is  defined, we expect to add a ``tunnel_key’’ column to
        Physical_Locator to allow the tunnel key to be defined.
 
        See the ``Per Logical-Switch Tunnel Key’’ section in the Logical_Switch
@@ -908,9 +959,187 @@ Physical_Locator TABLE
               For vxlan_over_ipv4 encapsulation, the IPv4 address of the VXLAN
               tunnel endpoint.
 
-              We  expect  that  this  column  could  be  used for IPv4 or IPv6
+              We expect that this column  could  be  used  for  IPv4  or  IPv6
               addresses in encapsulations to be introduced later.
 
+ACL_entry TABLE
+       Describes the individual entries that comprise an Access Control List.
+
+       Each  entry  in  the  table is a single rule to match on certain header
+       fields. While there are a large number of fields that  can  be  matched
+       on,  most hardware cannot match on arbitrary combinations of fields. It
+       is common to match on either L2 fields (described below in the L2 group
+       of  columns) or L3/L4 fields (the L3/L4 group of columns) but not both.
+       The hardware switch controller  may  log  an  error  if  an  ACL  entry
+       requires it to match on an incompatible mixture of fields.
+
+   Summary:
+       sequence                      integer
+       L2 fields:
+         source_mac                  optional string
+         dest_mac                    optional string
+         ethertype                   optional string
+       L3/L4 fields:
+         source_ip                   optional string
+         source_mask                 optional string
+         dest_ip                     optional string
+         dest_mask                   optional string
+         protocol                    optional integer
+         source_port_min             optional integer
+         source_port_max             optional integer
+         dest_port_min               optional integer
+         dest_port_max               optional integer
+         tcp_flags                   optional integer
+         tcp_flags_mask              optional integer
+         icmp_type                   optional integer
+         icmp_code                   optional integer
+       direction                     string, either ingress or egress
+       action                        string, either deny or permit
+       Error Notification:
+         acle_fault_status : invalid_acl_entry
+                                     none
+         acle_fault_status : unspecified_fault
+                                     none
+
+   Details:
+       sequence: integer
+              The  sequence number for the ACL entry for the purpose of order‐
+              ing entries in an ACL. Lower numbered entries are matched before
+              higher numbered entries.
+
+     L2 fields:
+
+       source_mac: optional string
+              Source MAC address, in the form xx:xx:xx:xx:xx:xx
+
+       dest_mac: optional string
+              Destination MAC address, in the form xx:xx:xx:xx:xx:xx
+
+       ethertype: optional string
+              Ethertype in hexadecimal, in the form 0xAAAA
+
+     L3/L4 fields:
+
+       source_ip: optional string
+              Source IP address, in the form xx.xx.xx.xx for IPv4 or appropri‐
+              ate colon-separated hexadecimal notation for IPv6.
+
+       source_mask: optional string
+              Mask that determines which bits of source_ip to match on, in the
+              form  xx.xx.xx.xx  for IPv4 or appropriate colon-separated hexa‐
+              decimal notation for IPv6.
+
+       dest_ip: optional string
+              Destination IP address, in the  form  xx.xx.xx.xx  for  IPv4  or
+              appropriate colon-separated hexadecimal notation for IPv6.
+
+       dest_mask: optional string
+              Mask  that  determines which bits of dest_ip to match on, in the
+              form xx.xx.xx.xx for IPv4 or appropriate  colon-separated  hexa‐
+              decimal notation for IPv6.
+
+       protocol: optional integer
+              Protocol  number  in  the  IPv4  header,  or  value of the "next
+              header" field in the IPv6 header.
+
+       source_port_min: optional integer
+              Lower end of the range of source port values. The  value  speci‐
+              fied is included in the range.
+
+       source_port_max: optional integer
+              Upper  end  of the range of source port values. The value speci‐
+              fied is included in the range.
+
+       dest_port_min: optional integer
+              Lower end of the range of destination  port  values.  The  value
+              specified is included in the range.
+
+       dest_port_max: optional integer
+              Upper  end  of  the  range of destination port values. The value
+              specified is included in the range.
+
+       tcp_flags: optional integer
+              Integer representing the value of TCP flags to match. For  exam‐
+              ple, the SYN flag is the second least significant bit in the TCP
+              flags. Hence a value of 2 would indicate  that  the  "SYN"  flag
+              should be set (assuming an appropriate mask).
+
+       tcp_flags_mask: optional integer
+              Integer  representing the mask to apply when matching TCP flags.
+              For example, a value of 2 would imply that the "SYN" flag should
+              be matched and all other flags ignored.
+
+       icmp_type: optional integer
+              ICMP type to be matched.
+
+       icmp_code: optional integer
+              ICMP code to be matched.
+
+       direction: string, either ingress or egress
+              Direction  of  traffic  to  match  on the specified port, either
+              "ingress" (toward the logical  switch  or  router)  or  "egress"
+              (leaving the logical switch or router).
+
+       action: string, either deny or permit
+              Action to take for this rule, either "permit" or "deny".
+
+     Error Notification:
+       An  entry in this column indicates to the NVC that the ACL could not be
+       configured as requested. The switch must clear  this  column  when  the
+       error has been cleared.
+
+       acle_fault_status : invalid_acl_entry: none
+              Indicates  that  an  ACL entry requested by the controller could
+              not be instantiated by the switch, e.g. because it  requires  an
+              unsupported combination of fields to be matched.
+
+       acle_fault_status : unspecified_fault: none
+              Indicates  that  an  error  has  occurred in configuring the ACL
+              entry but no more specific information is available.
+
+ACL TABLE
+       Access Control List table. Each ACL is constructed as a set of  entries
+       from  the ACL_entry table. Packets that are not matched by any entry in
+       the ACL are allowed by default.
+
+   Summary:
+       acl_entries                   set of 1 or more ACL_entrys
+       acl_name                      string (must be unique within table)
+       Error Notification:
+         acl_fault_status : invalid_acl
+                                     none
+         acl_fault_status : resource_shortage
+                                     none
+         acl_fault_status : unspecified_fault
+                                     none
+
+   Details:
+       acl_entries: set of 1 or more ACL_entrys
+              A set of references to entries in the ACL_entry table.
+
+       acl_name: string (must be unique within table)
+              A human readable name for the ACL, which may  (for  example)  be
+              displayed on the switch CLI.
+
+     Error Notification:
+       An  entry in this column indicates to the NVC that the ACL could not be
+       configured as requested. The switch must clear  this  column  when  the
+       error has been cleared.
+
+       acl_fault_status : invalid_acl: none
+              Indicates  that  an ACL requested by the controller could not be
+              instantiated by the switch, e.g., because it requires an  unsup‐
+              ported combination of fields to be matched.
+
+       acl_fault_status : resource_shortage: none
+              Indicates  that  an ACL requested by the controller could not be
+              instantiated by the switch due to a shortage of resources  (e.g.
+              TCAM space).
+
+       acl_fault_status : unspecified_fault: none
+              Indicates  that an error has occurred in configuring the ACL but
+              no more specific information is available.
 
 
-Open vSwitch 2.4.90             DB Schema 1.3.0                        vtep(5)
+
+Open vSwitch 2.4.90             DB Schema 1.4.0                        vtep(5)

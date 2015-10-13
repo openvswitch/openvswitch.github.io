@@ -93,7 +93,7 @@ Logical_Port TABLE
        type                          string
        options                       map of string-string pairs
        parent_name                   optional string
-       tag                           optional integer, in range 0 to 4,095
+       tag                           optional integer, in range 1 to 4,095
        up                            optional boolean
        enabled                       optional boolean
        macs                          set of strings
@@ -119,13 +119,37 @@ Logical_Port TABLE
               Specify a type for this logical port.  Logical ports can be used
               to model other types of connectivity into an OVN logical switch.
               Leaving this column blank maintains  the  default  logical  port
-              behavior.
+              behavior,  which  is for a VM (or VIF) interface.  The following
+              other types are defined:
 
-              There are no other logical port types implemented yet.
+              localnet
+                     A connection to a locally accessible  network  from  each
+                     ovn-controller  instance.  A logical switch can only have
+                     a single localnet port attached and at most  one  regular
+                     logical  port.  This is used to model direct connectivity
+                     to an existing network.
+
+              vtep   A port to a logical switch on a VTEP gateway.   In  order
+                     to  get  this  port  correctly recognized by the OVN con‐
+                     troller,     the     options:vtep-physical-switch     and
+                     options:vtep-logical-switch must also be defined.
 
        options: map of string-string pairs
               This  column provides key/value settings specific to the logical
-              port type.
+              port type.  The following options are defined:
+
+              network_name
+                     Must be set when type is localnet.   ovn-controller  uses
+                     local  configuration  to determine exactly how to connect
+                     to this locally accessible network.
+
+              vtep-physical-switch
+                     The name of the VTEP gateway.  Must be set when  type  is
+                     vtep.
+
+              vtep-logical-switch
+                     A  logical  switch  name  connected  by the VTEP gateway.
+                     Must be set when type is vtep.
 
        parent_name: optional string
               When name identifies the interface of a container spawned inside
@@ -136,20 +160,25 @@ Logical_Port TABLE
               use  external_ids:iface-id  as a lookup key to identify the net‐
               work interface of the tenant VM.
 
-       tag: optional integer, in range 0 to 4,095
-              When name identifies the interface of a container spawned inside
-              a  tenant VM, this column identifies the VLAN tag in the network
-              traffic associated  with  that  container’s  network  interface.
-              When there are multiple container interfaces inside a VM, all of
-              them send their network traffic  through  a  single  VM  network
-              interface  and  this  value  helps OVN identify the correct con‐
-              tainer interface.
+       tag: optional integer, in range 1 to 4,095
+              When type is empty and name identifies the interface of  a  con‐
+              tainer  spawned  inside  a tenant VM, this column identifies the
+              VLAN tag in the network traffic associated with that container’s
+              network  interface. When there are multiple container interfaces
+              inside a VM, all of them send their network  traffic  through  a
+              single  VM  network  interface and this value helps OVN identify
+              the correct container interface.
+
+              When type is set to localnet, this can be set to  indicate  that
+              the port represents a connection to a specific VLAN on a locally
+              accessible network. The VLAN ID is used to match incoming  traf‐
+              fic and is also added to outgoing traffic.
 
        up: optional boolean
-              This column is populated by ovn-northd, rather than by  the  CMS
-              plugin  as  is  most  of  this database.  When a logical port is
-              bound to a physical location  in  the  OVN  Southbound  database
-              Binding  table,  ovn-northd sets this column to true; otherwise,
+              This  column  is populated by ovn-northd, rather than by the CMS
+              plugin as is most of this database.   When  a  logical  port  is
+              bound  to  a  physical  location  in the OVN Southbound database
+              Binding table, ovn-northd sets this column to  true;  otherwise,
               or if the port becomes unbound later, it sets it to false.  This
               allows the CMS to wait for a VM’s (or container’s) networking to
               become active before it allows the VM (or container) to start.
@@ -157,24 +186,24 @@ Logical_Port TABLE
        enabled: optional boolean
               This column is used to administratively set port state.  If this
               column is empty or is set to true, the port is enabled.  If this
-              column is set to false, the port is disabled.  A  disabled  port
+              column  is  set to false, the port is disabled.  A disabled port
               has all ingress and egress traffic dropped.
 
        macs: set of strings
-              The  logical  port’s  own Ethernet address or addresses, each in
-              the form xx:xx:xx:xx:xx:xx.  Like a  physical  Ethernet  NIC,  a
-              logical  port  ordinarily  has  a single fixed Ethernet address.
-              The string unknown is also allowed to indicate that the  logical
+              The logical port’s own Ethernet address or  addresses,  each  in
+              the  form  xx:xx:xx:xx:xx:xx.   Like  a physical Ethernet NIC, a
+              logical port ordinarily has a  single  fixed  Ethernet  address.
+              The  string unknown is also allowed to indicate that the logical
               port has an unknown set of (additional) source addresses.
 
        port_security: set of strings
-              A  set of L2 (Ethernet) addresses from which the logical port is
-              allowed to send packets and to which it is  allowed  to  receive
-              packets.   If this column is empty, all addresses are permitted.
+              A set of L2 (Ethernet) addresses from which the logical port  is
+              allowed  to  send  packets and to which it is allowed to receive
+              packets.  If this column is empty, all addresses are  permitted.
               Logical ports are always allowed to receive packets addressed to
               multicast and broadcast addresses.
 
-              Each  member  of  the  set  is  an  Ethernet address in the form
+              Each member of the set  is  an  Ethernet  address  in  the  form
               xx:xx:xx:xx:xx:xx.
 
               This specification will be extended to support L3 port security.
@@ -185,18 +214,18 @@ Logical_Port TABLE
               See External IDs at the beginning of this document.
 
 ACL TABLE
-       Each row in this table represents one ACL rule  for  a  logical  switch
-       that  points  to it through its acls column.  The action column for the
-       highest-priority matching row  in  this  table  determines  a  packet’s
+       Each  row  in  this  table represents one ACL rule for a logical switch
+       that points to it through its acls column.  The action column  for  the
+       highest-priority  matching  row  in  this  table  determines a packet’s
        treatment.   If  no  row  matches,  packets  are  allowed  by  default.
-       (Default-deny treatment is possible: add a rule with priority 1,  1  as
+       (Default-deny  treatment  is possible: add a rule with priority 1, 1 as
        match, and deny as action.)
 
    Summary:
        priority                      integer, in range 1 to 65,534
        direction                     string, either to-lport or from-lport
        match                         string
-       action                        string,   one   of  allow-related,  drop,
+       action                        string,  one  of   allow-related,   drop,
                                      allow, or reject
        log                           boolean
        Common Columns:
@@ -205,11 +234,11 @@ ACL TABLE
    Details:
        priority: integer, in range 1 to 65,534
               The ACL rule’s priority.  Rules with numerically higher priority
-              take  precedence  over  those with lower.  If two ACL rules with
+              take precedence over those with lower.  If two  ACL  rules  with
               the same priority both match, then the one actually applied to a
               packet is undefined.
 
-              Return  traffic from an allow-related flow is always allowed and
+              Return traffic from an allow-related flow is always allowed  and
               cannot be changed through an ACL.
 
        direction: string, either to-lport or from-lport
@@ -219,15 +248,16 @@ ACL TABLE
                      from a logical port.  These rules are applied to the log‐
                      ical switch’s ingress pipeline.
 
-              ·      to-lport: Used to implement filters on traffic  forwarded
-                     to  a logical port.  These rules are applied to the logi‐
+              ·      to-lport:  Used to implement filters on traffic forwarded
+                     to a logical port.  These rules are applied to the  logi‐
                      cal switch’s egress pipeline.
 
        match: string
-              The packets that the ACL should match, in  the  same  expression
-              language  used  for the match column in the OVN Southbound data‐
-              base’s Logical_Flow table.  The outport  logical  port  is  only
-              available in the to-lport direction.
+              The  packets  that  the ACL should match, in the same expression
+              language used for the match column in the OVN  Southbound  data‐
+              base’s  Logical_Flow  table.   The  outport logical port is only
+              available in the to-lport direction (the inport is available  in
+              both directions).
 
               By default all traffic is allowed.  When writing a more restric‐
               tive policy, it is important to remember to allow flows such  as

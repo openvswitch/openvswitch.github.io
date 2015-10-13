@@ -1,0 +1,136 @@
+<html><head><meta charset="UTF-8"></head><body><pre>
+ovn-northd(8)                 Open vSwitch Manual                ovn-northd(8)
+
+
+
+<b>N</b><b>A</b><b>M</b><b>E</b>
+       ovn-northd - Open Virtual Network central control daemon
+
+<b>S</b><b>Y</b><b>N</b><b>O</b><b>P</b><b>S</b><b>I</b><b>S</b>
+       <b>o</b><b>v</b><b>n</b><b>-</b><b>n</b><b>o</b><b>r</b><b>t</b><b>h</b><b>d</b> [<u>o</u><u>p</u><u>t</u><u>i</u><u>o</u><u>n</u><u>s</u>]
+
+<b>D</b><b>E</b><b>S</b><b>C</b><b>R</b><b>I</b><b>P</b><b>T</b><b>I</b><b>O</b><b>N</b>
+       <b>o</b><b>v</b><b>n</b><b>-</b><b>n</b><b>o</b><b>r</b><b>t</b><b>h</b><b>d</b>  is  a  centralized  daemon  responsible for translating the
+       high-level OVN configuration into logical configuration  consumable  by
+       daemons such as <b>o</b><b>v</b><b>n</b><b>-</b><b>c</b><b>o</b><b>n</b><b>t</b><b>r</b><b>o</b><b>l</b><b>l</b><b>e</b><b>r</b>.  It translates the logical network con‐
+       figuration in terms of conventional network concepts,  taken  from  the
+       OVN Northbound Database (see <b>o</b><b>v</b><b>n</b><b>-</b><b>n</b><b>b</b>(5)), into logical datapath flows in
+       the OVN Southbound Database (see <b>o</b><b>v</b><b>n</b><b>-</b><b>s</b><b>b</b>(5)) below it.
+
+<b>C</b><b>O</b><b>N</b><b>F</b><b>I</b><b>G</b><b>U</b><b>R</b><b>A</b><b>T</b><b>I</b><b>O</b><b>N</b>
+       <b>o</b><b>v</b><b>n</b><b>-</b><b>n</b><b>o</b><b>r</b><b>t</b><b>h</b><b>d</b> requires a connection to the Northbound and Southbound data‐
+       bases.  The default is <b>d</b><b>b</b><b>.</b><b>s</b><b>o</b><b>c</b><b>k</b> in the local Open vSwitch’s "run" direc‐
+       tory.  This may be overridden with the following commands:
+
+              ·      <b>-</b><b>-</b><b>o</b><b>v</b><b>n</b><b>n</b><b>b</b><b>-</b><b>d</b><b>b</b><b>=</b><u>d</u><u>a</u><u>t</u><u>a</u><u>b</u><u>a</u><u>s</u><u>e</u>
+
+                     The database containing the OVN Northbound Database.
+
+              ·      <b>-</b><b>-</b><b>o</b><b>v</b><b>s</b><b>n</b><b>b</b><b>-</b><b>d</b><b>b</b><b>=</b><u>d</u><u>a</u><u>t</u><u>a</u><u>b</u><u>a</u><u>s</u><u>e</u>
+
+                     The database containing the OVN Southbound Database.
+
+       The <u>d</u><u>a</u><u>t</u><u>a</u><u>b</u><u>a</u><u>s</u><u>e</u> argument must take one of the following forms:
+
+              ·      <b>s</b><b>s</b><b>l</b><b>:</b><u>i</u><u>p</u><b>:</b><u>p</u><u>o</u><u>r</u><u>t</u>
+
+                     The specified SSL <u>p</u><u>o</u><u>r</u><u>t</u> on the host at the given <u>i</u><u>p</u>, which
+                     must  be  expressed  as an IP address (not a DNS name) in
+                     IPv4 or IPv6 address format.  If <u>i</u><u>p</u> is an  IPv6  address,
+                     then  wrap <u>i</u><u>p</u> with square brackets, e.g.: <b>s</b><b>s</b><b>l</b><b>:</b><b>[</b><b>:</b><b>:</b><b>1</b><b>]</b><b>:</b><b>6</b><b>6</b><b>4</b><b>0</b>.
+                     The <b>-</b><b>-</b><b>p</b><b>r</b><b>i</b><b>v</b><b>a</b><b>t</b><b>e</b><b>-</b><b>k</b><b>e</b><b>y</b>, <b>-</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b><b>i</b><b>f</b><b>i</b><b>c</b><b>a</b><b>t</b><b>e</b>, and  <b>-</b><b>-</b><b>c</b><b>a</b><b>-</b><b>c</b><b>e</b><b>r</b><b>t</b>  options
+                     are mandatory when this form is used.
+
+              ·      <b>t</b><b>c</b><b>p</b><b>:</b><u>i</u><u>p</u><b>:</b><u>p</u><u>o</u><u>r</u><u>t</u>
+
+                     Connect to the given TCP <u>p</u><u>o</u><u>r</u><u>t</u> on <u>i</u><u>p</u>, where <u>i</u><u>p</u> can be IPv4
+                     or IPv6 address. If <u>i</u><u>p</u> is an IPv6 address, then  wrap  <u>i</u><u>p</u>
+                     with square brackets, e.g.: <b>t</b><b>c</b><b>p</b><b>:</b><b>[</b><b>:</b><b>:</b><b>1</b><b>]</b><b>:</b><b>6</b><b>6</b><b>4</b><b>0</b>.
+
+              ·      <b>u</b><b>n</b><b>i</b><b>x</b><b>:</b><u>f</u><u>i</u><u>l</u><u>e</u>
+
+                     On  POSIX, connect to the Unix domain server socket named
+                     <u>f</u><u>i</u><u>l</u><u>e</u>.
+
+                     On Windows, connect to a localhost TCP port  whose  value
+                     is written in <u>f</u><u>i</u><u>l</u><u>e</u>.
+
+<b>R</b><b>U</b><b>N</b><b>T</b><b>I</b><b>M</b><b>E</b> <b>M</b><b>A</b><b>N</b><b>A</b><b>G</b><b>E</b><b>M</b><b>E</b><b>N</b><b>T</b> <b>C</b><b>O</b><b>M</b><b>M</b><b>A</b><b>N</b><b>D</b><b>S</b>
+       <b>o</b><b>v</b><b>s</b><b>-</b><b>a</b><b>p</b><b>p</b><b>c</b><b>t</b><b>l</b> can send commands to a running <b>o</b><b>v</b><b>n</b><b>-</b><b>n</b><b>o</b><b>r</b><b>t</b><b>h</b><b>d</b> process.  The cur‐
+       rently supported commands are described below.
+
+              <b>e</b><b>x</b><b>i</b><b>t</b>   Causes <b>o</b><b>v</b><b>n</b><b>-</b><b>n</b><b>o</b><b>r</b><b>t</b><b>h</b><b>d</b> to gracefully terminate.
+
+<b>L</b><b>O</b><b>G</b><b>I</b><b>C</b><b>A</b><b>L</b> <b>F</b><b>L</b><b>O</b><b>W</b> <b>T</b><b>A</b><b>B</b><b>L</b><b>E</b> <b>S</b><b>T</b><b>R</b><b>U</b><b>C</b><b>T</b><b>U</b><b>R</b><b>E</b>
+       One of the main purposes of <b>o</b><b>v</b><b>n</b><b>-</b><b>n</b><b>o</b><b>r</b><b>t</b><b>h</b><b>d</b> is to populate the  <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>F</b><b>l</b><b>o</b><b>w</b>
+       table  in  the  <b>O</b><b>V</b><b>N</b><b>_</b><b>S</b><b>o</b><b>u</b><b>t</b><b>h</b><b>b</b><b>o</b><b>u</b><b>n</b><b>d</b>  database.   This  section describes how
+       <b>o</b><b>v</b><b>n</b><b>-</b><b>n</b><b>o</b><b>r</b><b>t</b><b>h</b><b>d</b> does this for logical datapaths.
+
+   <b>I</b><b>n</b><b>g</b><b>r</b><b>e</b><b>s</b><b>s</b> <b>T</b><b>a</b><b>b</b><b>l</b><b>e</b> <b>0</b><b>:</b> <b>A</b><b>d</b><b>m</b><b>i</b><b>s</b><b>s</b><b>i</b><b>o</b><b>n</b> <b>C</b><b>o</b><b>n</b><b>t</b><b>r</b><b>o</b><b>l</b> <b>a</b><b>n</b><b>d</b> <b>I</b><b>n</b><b>g</b><b>r</b><b>e</b><b>s</b><b>s</b> <b>P</b><b>o</b><b>r</b><b>t</b> <b>S</b><b>e</b><b>c</b><b>u</b><b>r</b><b>i</b><b>t</b><b>y</b>
+       Ingress table 0 contains these logical flows:
+
+              ·      Priority 100 flows to drop packets with VLAN tags or mul‐
+                     ticast Ethernet source addresses.
+
+              ·      Priority  50  flows  that implement ingress port security
+                     for each enabled logical  port.   For  logical  ports  on
+                     which  port  security  is enabled, these match the <b>i</b><b>n</b><b>p</b><b>o</b><b>r</b><b>t</b>
+                     and the valid <b>e</b><b>t</b><b>h</b><b>.</b><b>s</b><b>r</b><b>c</b> address(es) and advance only  those
+                     packets  to  the  next  flow table.  For logical ports on
+                     which port security is not  enabled,  these  advance  all
+                     packets that match the <b>i</b><b>n</b><b>p</b><b>o</b><b>r</b><b>t</b>.
+
+       There  are no flows for disabled logical ports because the default-drop
+       behavior of logical flow tables causes packets that ingress  from  them
+       to be dropped.
+
+   <b>I</b><b>n</b><b>g</b><b>r</b><b>e</b><b>s</b><b>s</b> <b>t</b><b>a</b><b>b</b><b>l</b><b>e</b> <b>1</b><b>:</b> <b>f</b><b>r</b><b>o</b><b>m</b><b>-</b><b>l</b><b>p</b><b>o</b><b>r</b><b>t</b> ACLs
+       Logical flows in this table closely reproduce those in the <b>A</b><b>C</b><b>L</b> table in
+       the <b>O</b><b>V</b><b>N</b><b>_</b><b>N</b><b>o</b><b>r</b><b>t</b><b>h</b><b>b</b><b>o</b><b>u</b><b>n</b><b>d</b> database for the <b>f</b><b>r</b><b>o</b><b>m</b><b>-</b><b>l</b><b>p</b><b>o</b><b>r</b><b>t</b>  direction.   <b>a</b><b>l</b><b>l</b><b>o</b><b>w</b>  and
+       <b>a</b><b>l</b><b>l</b><b>o</b><b>w</b><b>-</b><b>r</b><b>e</b><b>l</b><b>a</b><b>t</b><b>e</b><b>d</b>  ACLs translate into logical flows with the <b>n</b><b>e</b><b>x</b><b>t</b><b>;</b> action,
+       others to <b>d</b><b>r</b><b>o</b><b>p</b><b>;</b>.  The <b>p</b><b>r</b><b>i</b><b>o</b><b>r</b><b>i</b><b>t</b><b>y</b> values  from  the  <b>A</b><b>C</b><b>L</b>  table  are  used
+       directly.
+
+       Ingress  table  1 also contains a priority 0 flow with action <b>n</b><b>e</b><b>x</b><b>t</b><b>;</b>, so
+       that ACLs allow packets by default.
+
+   <b>I</b><b>n</b><b>g</b><b>r</b><b>e</b><b>s</b><b>s</b> <b>T</b><b>a</b><b>b</b><b>l</b><b>e</b> <b>2</b><b>:</b> <b>D</b><b>e</b><b>s</b><b>t</b><b>i</b><b>n</b><b>a</b><b>t</b><b>i</b><b>o</b><b>n</b> <b>L</b><b>o</b><b>o</b><b>k</b><b>u</b><b>p</b>
+       This table implements switching behavior.  It  contains  these  logical
+       flows:
+
+              ·      A priority-100 flow that outputs all packets with an Eth‐
+                     ernet broadcast or multicast <b>e</b><b>t</b><b>h</b><b>.</b><b>d</b><b>s</b><b>t</b> to the <b>M</b><b>C</b><b>_</b><b>F</b><b>L</b><b>O</b><b>O</b><b>D</b> mul‐
+                     ticast group, which <b>o</b><b>v</b><b>n</b><b>-</b><b>n</b><b>o</b><b>r</b><b>t</b><b>h</b><b>d</b> populates with all enabled
+                     logical ports.
+
+              ·      One priority-50 flow that  matches  each  known  Ethernet
+                     address  against  <b>e</b><b>t</b><b>h</b><b>.</b><b>d</b><b>s</b><b>t</b>  and  outputs the packet to the
+                     single associated output port.
+
+              ·      One priority-0 fallback flow that matches all packets and
+                     outputs  them  to  the  <b>M</b><b>C</b><b>_</b><b>U</b><b>N</b><b>K</b><b>N</b><b>O</b><b>W</b><b>N</b> multicast group, which
+                     <b>o</b><b>v</b><b>n</b><b>-</b><b>n</b><b>o</b><b>r</b><b>t</b><b>h</b><b>d</b> populates with all enabled logical ports  that
+                     accept unknown destination packets.  As a small optimiza‐
+                     tion, if no  logical  ports  accept  unknown  destination
+                     packets,  <b>o</b><b>v</b><b>n</b><b>-</b><b>n</b><b>o</b><b>r</b><b>t</b><b>h</b><b>d</b> omits this multicast group and logi‐
+                     cal flow.
+
+   <b>E</b><b>g</b><b>r</b><b>e</b><b>s</b><b>s</b> <b>T</b><b>a</b><b>b</b><b>l</b><b>e</b> <b>0</b><b>:</b> <b>t</b><b>o</b><b>-</b><b>l</b><b>p</b><b>o</b><b>r</b><b>t</b> ACLs
+       This is similar to ingress table 1 except for <b>t</b><b>o</b><b>-</b><b>l</b><b>p</b><b>o</b><b>r</b><b>t</b> ACLs.
+
+   <b>E</b><b>g</b><b>r</b><b>e</b><b>s</b><b>s</b> <b>T</b><b>a</b><b>b</b><b>l</b><b>e</b> <b>1</b><b>:</b> <b>E</b><b>g</b><b>r</b><b>e</b><b>s</b><b>s</b> <b>P</b><b>o</b><b>r</b><b>t</b> <b>S</b><b>e</b><b>c</b><b>u</b><b>r</b><b>i</b><b>t</b><b>y</b>
+       This is similar to the ingress port security logic in ingress table  0,
+       but  with  important  differences.  Most obviously, <b>o</b><b>u</b><b>t</b><b>p</b><b>o</b><b>r</b><b>t</b> and <b>e</b><b>t</b><b>h</b><b>.</b><b>d</b><b>s</b><b>t</b>
+       are checked instead of <b>i</b><b>n</b><b>p</b><b>o</b><b>r</b><b>t</b> and <b>e</b><b>t</b><b>h</b><b>.</b><b>s</b><b>r</b><b>c</b>.  Second, packets directed to
+       broadcast  or  multicast  <b>e</b><b>t</b><b>h</b><b>.</b><b>d</b><b>s</b><b>t</b>  are always accepted instead of being
+       subject to the port security rules; this is implemented through a  pri‐
+       ority-100  flow  that  matches  on  <b>e</b><b>t</b><b>h</b><b>.</b><b>d</b><b>s</b><b>t</b><b>[</b><b>4</b><b>0</b><b>]</b>  with  action  <b>o</b><b>u</b><b>t</b><b>p</b><b>u</b><b>t</b><b>;</b>.
+       Finally, to ensure that even broadcast and multicast  packets  are  not
+       delivered  to disabled logical ports, a priority-150 flow for each dis‐
+       abled logical <b>o</b><b>u</b><b>t</b><b>p</b><b>o</b><b>r</b><b>t</b> overrides the  priority-100  flow  with  a  <b>d</b><b>r</b><b>o</b><b>p</b><b>;</b>
+       action.
+
+
+
+Open vSwitch 2.4.90               ovn-northd                     ovn-northd(8)
+</pre></body></html>

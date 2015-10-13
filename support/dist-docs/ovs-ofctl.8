@@ -53,7 +53,7 @@ This is short for \fBunix:\fIfile\fR, as long as \fIfile\fR does not
 contain a colon.
 .
 .IP \fIbridge\fR
-This is short for \fBunix://var/run/openvswitch/\fIbridge\fB.mgmt\fR, as long as
+This is short for \fBunix:/var/run/openvswitch/\fIbridge\fB.mgmt\fR, as long as
 \fIbridge\fR does not contain a colon.
 .
 .IP [\fItype\fB@\fR]\fIdp\fR
@@ -481,7 +481,7 @@ Connects to \fIswitch\fR and prints to the console all OpenFlow
 messages received.  Unlike other \fBovs\-ofctl\fR commands, if
 \fIswitch\fR is the name of a bridge, then the \fBsnoop\fR command
 connects to a Unix domain socket named
-\fB//var/run/openvswitch/\fIswitch\fB.snoop\fR.  \fBovs\-vswitchd\fR listens on
+\fB/var/run/openvswitch/\fIswitch\fB.snoop\fR.  \fBovs\-vswitchd\fR listens on
 such a socket for each bridge and sends to it all of the OpenFlow
 messages sent to or received from its configured OpenFlow controller.
 Thus, this command can be used to view OpenFlow protocol activity
@@ -982,23 +982,44 @@ The following shorthand notations are also available:
 .IP \fBip\fR
 Same as \fBdl_type=0x0800\fR.
 .
+.IP \fBipv6\fR
+Same as \fBdl_type=0x86dd\fR.
+.
 .IP \fBicmp\fR
 Same as \fBdl_type=0x0800,nw_proto=1\fR.
+.
+.IP \fBicmp6\fR
+Same as \fBdl_type=0x86dd,nw_proto=58\fR.
 .
 .IP \fBtcp\fR
 Same as \fBdl_type=0x0800,nw_proto=6\fR.
 .
+.IP \fBtcp6\fR
+Same as \fBdl_type=0x86dd,nw_proto=6\fR.
+.
 .IP \fBudp\fR
 Same as \fBdl_type=0x0800,nw_proto=17\fR.
 .
+.IP \fBudp6\fR
+Same as \fBdl_type=0x86dd,nw_proto=17\fR.
+.
 .IP \fBsctp\fR
 Same as \fBdl_type=0x0800,nw_proto=132\fR.
+.
+.IP \fBsctp6\fR
+Same as \fBdl_type=0x86dd,nw_proto=132\fR.
 .
 .IP \fBarp\fR
 Same as \fBdl_type=0x0806\fR.
 .
 .IP \fBrarp\fR
 Same as \fBdl_type=0x8035\fR.
+.
+.IP \fBmpls\fR
+Same as \fBdl_type=0x8847\fR.
+.
+.IP \fBmplsm\fR
+Same as \fBdl_type=0x8848\fR.
 .
 .PP
 The following field assignments require support for the NXM (Nicira
@@ -1228,9 +1249,14 @@ set.
 For more information, please see the corresponding IETF draft:
 https://tools.ietf.org/html/draft-smith-vxlan-group-policy
 .
-.IP "\fBtun_metadata\fIidx\fB=\fIvalue\fR[\fB/\fImask\fR]"
+.IP "\fBtun_metadata\fIidx\fR[\fB=\fIvalue\fR[\fB/\fImask\fR]]"
 Matches \fIvalue\fR either exactly or with optional \fImask\fR in
 tunnel metadata field number \fIidx\fR (numbered from 0 to 63).
+The act of specifying a field implies a match on the existence
+of that field in the packet in addition to the masked value. As
+a shorthand, it is possible to specify only the field name to
+simply match on an option being present.
+.IP
 Tunnel metadata fields can be dynamically assigned onto the data
 contained in the options of Geneve packets using the commands
 described in the section \fBOpenFlow Switch Geneve Option Table
@@ -1291,59 +1317,6 @@ Matches the given 32-bit \fIvalue\fR against the conjunction ID.  This
 is used only with the \fBconjunction\fR action (see below).
 .IP
 This field was introduced in Open vSwitch 2.4.
-.
-.IP \fBct_state=\fIflags\fB/\fImask\fR
-.IQ \fBct_state=\fR[\fB+\fIflag\fR...][\fB-\fIflag\fR...]
-Bitwise match on connection state flags.  The flags are only available
-after a call to the \fBct\fR action with the "recirc" flag set.
-.IP
-The \fIflags\fR and \fImask\fR are 8-bit numbers written in decimal or
-in hexadecimal prefixed by \fB0x\fR.  Each 1-bit in \fImask\fR requires
-that the corresponding bit in \fIflags\fR must match.  Each 0-bit in
-\fImask\fR causes the corresponding bit to be ignored.
-.IP
-Alternatively, the flags can be specified by their symbolic names
-(listed below), each preceded by either \fB+\fR for a flag that must
-be set, or \fB\-\fR for a flag that must be unset, without any other
-delimiters between the flags.  Flags not mentioned are wildcarded.  For
-example, \fBtcp,ct_state=+trk\-new\fR matches TCP packets that
-have been run through the connection tracker and do not establish a new
-flow.
-.IP
-The following flags describe the state of the tracking:
-.RS
-.IP "\fB0x80: trk\fR"
-Connection tracking has occurred.
-.IP "\fB0x40: rpl\fR"
-The flow is in the reply direction, meaning it did not initiate the
-connection.
-.IP "\fB0x20: inv\fR"
-The flow is invalid, meaning that the connection tracker couldn't identify the
-connection.
-.IP "\fB0x01: new\fR"
-This is the beginning of a new connection.
-.IP "\fB0x02: est\fR"
-This is part of an already existing connection.
-.IP "\fB0x04: rel\fR"
-This is a connection that is related to an existing connection, for
-instance ICMP "destination unreachable" messages or FTP data connections.
-.RE
-.
-.PP
-The following fields are data associated with the connection tracker and
-can only be matched or set after running through the connection tracker
-by using the \fBct\fR action.
-.
-.IP \fBct_zone=\fIvalue
-Matches connection zone \fIvalue\fR exactly.
-.
-.IP \fBct_mark=\fIvalue\fR[\fB/\fImask\fR]
-Matches connection mark \fIvalue\fR either exactly or with optional
-\fImask\fR.
-.
-.IP \fBct_label=\fIvalue\fR[\fB/\fImask\fR]
-Matches connection label \fIvalue\fR either exactly or with optional
-\fImask\fR.
 .
 .PP
 Defining IPv6 flows (those with \fBdl_type\fR equal to 0x86dd) requires
@@ -1581,35 +1554,6 @@ OpenFlow implementations do not support queuing at all.
 .IP \fBpop_queue\fR
 Restores the queue to the value it was before any \fBset_queue\fR
 actions were applied.
-.
-.IP \fBct\fR
-.IQ \fBct\fB(\fR[\fIargument\fR][\fB,\fIargument\fR...]\fB)
-Run the packet through the connection tracker.  The following arguments
-are supported:
-
-.RS
-.IP \fBrecirc\fR
-The packet should be sent back for further processing with the
-\fBct_state\fR match fields set.
-.IP \fBcommit\fR
-Commit the flow to the connection tracking module.
-.IP \fBzone=\fR\fIzone\fR
-A 16-bit context id that can be used to isolate connections into
-separate domains that allow overlapping network addresses.  If a zone is
-not provided, then the default is to use zone zero.
-.IP \fBalg=\fR\fIalg\fR
-Specify application layer gateway \fIalg\fR to track specific connection
-types. Supported types include:
-.RS
-.IP \fBftp\fR
-Look for negotiation of FTP data connections. If a subsequent FTP data
-connection arrives which is related, the \fBct\fR action will mark such
-packets with the \fIrel\fR ct_state flag.
-.RE
-.RE
-.IP
-Currently, connection tracking is only available on Linux kernels with the
-conntrack module loaded.
 .
 .IP \fBdec_ttl\fR
 .IQ \fBdec_ttl\fB[\fR(\fIid1,id2\fI)\fR]\fR
@@ -2789,7 +2733,7 @@ Causes a file (by default, \fB\*(PN.pid\fR) to be created indicating
 the PID of the running process.  If the \fIpidfile\fR argument is not
 specified, or
 if it does not begin with \fB/\fR, then it is created in
-\fB//var/run/openvswitch\fR.
+\fB/var/run/openvswitch\fR.
 .IP
 If \fB\-\-pidfile\fR is not specified, no pidfile is created.
 .
@@ -2834,13 +2778,28 @@ core dumps into the current working directory and the root directory
 is not a good directory to use.
 .IP
 This option has no effect when \fB\-\-detach\fR is not specified.
+.
+.TP
+\fB\-\-user\fR
+Causes \fB\*(PN\fR to run as a non root user specified in "user:group", thus
+dropping all root privileges. Short forms "user" and ":group" are also
+allowed, with current user or group are assumed respectively. Only daemons
+started by the root user accepts this argument.
+.IP
+On Linux, daemons will be granted CAP_IPC_LOCK and CAP_NET_BIND_SERVICES
+before dropping root privileges. Daemons interact with datapath,
+such as ovs-vswitchd, will be granted two additional capabilities, namely
+CAP_NET_ADMIN and CAP_NET_RAW.
+.IP
+On Windows, this option is not currently supported. For security reasons,
+specifying this option will cause the daemon process not to start.
 .IP "\fB\-\-unixctl=\fIsocket\fR"
 Sets the name of the control socket on which \fB\*(PN\fR listens for
 runtime management commands (see \fBRUNTIME MANAGEMENT COMMANDS\fR,
 below).  If \fIsocket\fR does not begin with \fB/\fR, it is
-interpreted as relative to \fB//var/run/openvswitch\fR.  If \fB\-\-unixctl\fR is
+interpreted as relative to \fB/var/run/openvswitch\fR.  If \fB\-\-unixctl\fR is
 not used at all, the default socket is
-\fB//var/run/openvswitch/\*(PN.\fIpid\fB.ctl\fR, where \fIpid\fR is \fB\*(PN\fR's
+\fB/var/run/openvswitch/\*(PN.\fIpid\fB.ctl\fR, where \fIpid\fR is \fB\*(PN\fR's
 process ID.
 .IP
 On Windows, uses a kernel chosen TCP port on the localhost to listen
@@ -2953,7 +2912,7 @@ a message to the target provided via the \fB\-\-syslog\-target\fR option.
 \fB\-\-log\-file\fR[\fB=\fIfile\fR]
 Enables logging to a file.  If \fIfile\fR is specified, then it is
 used as the exact name for the log file.  The default log file name
-used if \fIfile\fR is omitted is \fB//var/log/openvswitch/\*(PN.log\fR.
+used if \fIfile\fR is omitted is \fB/var/log/openvswitch/\*(PN.log\fR.
 .
 .IP "\fB\-\-syslog\-target=\fIhost\fB:\fIport\fR"
 Send syslog messages to UDP \fIport\fR on \fIhost\fR, in addition to

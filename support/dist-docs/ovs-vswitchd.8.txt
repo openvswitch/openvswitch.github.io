@@ -13,7 +13,7 @@ DESCRIPTION
        on the local machine.
 
        The  database  argument  specifies   how   ovs-vswitchd   connects   to
-       ovsdb-server.   The default is unix://var/run/openvswitch/db.sock.  The
+       ovsdb-server.   The  default is unix:/var/run/openvswitch/db.sock.  The
        following forms are accepted:
 
        ssl:ip:port
@@ -121,7 +121,7 @@ OPTIONS
               Causes a file (by default, ovs-vswitchd.pid) to be created indi‐
               cating the PID of the running process.  If the pidfile  argument
               is  not  specified,  or  if it does not begin with /, then it is
-              created in //var/run/openvswitch.
+              created in /var/run/openvswitch.
 
               If --pidfile is not specified, no pidfile is created.
 
@@ -164,6 +164,22 @@ OPTIONS
               and the root directory is not a good directory to use.
 
               This option has no effect when --detach is not specified.
+
+       --user Causes ovs-vswitchd to run as  a  non  root  user  specified  in
+              "user:group",  thus  dropping  all  root privileges. Short forms
+              "user" and ":group" are also allowed, with current user or group
+              are  assumed respectively. Only daemons started by the root user
+              accepts this argument.
+
+              On   Linux,   daemons   will   be   granted   CAP_IPC_LOCK   and
+              CAP_NET_BIND_SERVICES  before  dropping root privileges. Daemons
+              interact with datapath, such as ovs-vswitchd,  will  be  granted
+              two    additional   capabilities,   namely   CAP_NET_ADMIN   and
+              CAP_NET_RAW.
+
+              On Windows, this option is not currently supported. For security
+              reasons,  specifying  this  option will cause the daemon process
+              not to start.
 
    Service Options
        The following options are valid only on Windows platform.
@@ -285,7 +301,7 @@ OPTIONS
        --log-file[=file]
               Enables  logging  to  a  file.  If file is specified, then it is
               used as the exact name for the log file.  The default  log  file
-              name    used    if    file   is   omitted   is   //var/log/open‐
+              name    used    if    file    is   omitted   is   /var/log/open‐
               vswitch/ovs-vswitchd.log.
 
        --syslog-target=host:port
@@ -326,8 +342,8 @@ OPTIONS
               Sets  the  name of the control socket on which ovs-vswitchd lis‐
               tens for runtime management  commands  (see  RUNTIME  MANAGEMENT
               COMMANDS, below).  If socket does not begin with /, it is inter‐
-              preted as relative to //var/run/openvswitch.   If  --unixctl  is
-              not   used   at  all,  the  default  socket  is  //var/run/open‐
+              preted as relative to /var/run/openvswitch.  If --unixctl is not
+              used    at   all,   the   default   socket   is   /var/run/open‐
               vswitch/ovs-vswitchd.pid.ctl,  where   pid   is   ovs-vswitchd's
               process ID.
 
@@ -800,18 +816,6 @@ RUNTIME MANAGEMENT COMMANDS
                      pkt_mark
                             Mark of the packet.
 
-                     ct_state
-                            Connection state of the packet.
-
-                     ct_zone
-                            Connection tracking zone for packet.
-
-                     ct_mark
-                            Connection mark of the packet.
-
-                     ct_label
-                            Connection label of the packet.
-
                      tun_id The tunnel ID on which the packet arrived.
 
                      in_port
@@ -956,12 +960,16 @@ RUNTIME MANAGEMENT COMMANDS
               OVS  builds  ARP  cache  by  snooping are messages. This command
               shows ARP cache table.
 
+       tnl/arp/set bridge ip mac
+              Adds or modifies an ARP cache entry in  bridge,  mapping  ip  to
+              mac.
+
        tnl/arp/flush
               Flush ARP table.
 
        tnl/egress_port_range [num1] [num2]
-              Set range for UDP source port used for UDP  based  Tunnels.  For
-              example  VxLAN.  If  case  of zero arguments this command prints
+              Set  range  for  UDP source port used for UDP based Tunnels. For
+              example VxLAN. If case of zero  arguments  this  command  prints
               current range in use.
 
 OPENFLOW IMPLEMENTATION
@@ -972,54 +980,54 @@ OPENFLOW IMPLEMENTATION
        The OpenFlow specification, version 1.2, says:
 
               Switches  that  implement  buffering  are  expected  to  expose,
-              through documentation, both the amount of  available  buffering,
+              through  documentation,  both the amount of available buffering,
               and the length of time before buffers may be reused.
 
-       Open  vSwitch  maintains  a separate set of 256 packet buffers for each
-       OpenFlow connection.  Any given packet buffer is preserved until it  is
+       Open vSwitch maintains a separate set of 256 packet  buffers  for  each
+       OpenFlow  connection.  Any given packet buffer is preserved until it is
        referenced by an OFPT_FLOW_MOD or OFPT_PACKET_OUT request or for 5 sec‐
        onds, whichever comes first.
 
 LIMITS
-       We believe these limits to be accurate as of this writing.  These  lim‐
+       We  believe these limits to be accurate as of this writing.  These lim‐
        its assume the use of the Linux kernel datapath.
 
-       ·      ovs-vswitchd  started  through  ovs-ctl(8)  provides  a limit of
+       ·      ovs-vswitchd started through  ovs-ctl(8)  provides  a  limit  of
               65535 file descriptors.  The limits on the number of bridges and
-              ports  is decided by the availability of file descriptors.  With
-              the Linux kernel datapath, creation of a single bridge  consumes
-              three  file  descriptors  and adding a port consumes "n-handler-
-              threads" file descriptors per  bridge  port.   Performance  will
-              degrade  beyond  1,024  ports per bridge due to fixed hash table
+              ports is decided by the availability of file descriptors.   With
+              the  Linux kernel datapath, creation of a single bridge consumes
+              three file descriptors and adding a  port  consumes  "n-handler-
+              threads"  file  descriptors  per  bridge port.  Performance will
+              degrade beyond 1,024 ports per bridge due to  fixed  hash  table
               sizing.  Other platforms may have different limitations.
 
-       ·      2,048 MAC learning entries per bridge,  by  default.   (This  is
-              configurable  via  other-config:mac-table-size in the Bridge ta‐
+       ·      2,048  MAC  learning  entries  per bridge, by default.  (This is
+              configurable via other-config:mac-table-size in the  Bridge  ta‐
               ble.  See ovs-vswitchd.conf.db(5) for details.)
 
        ·      Kernel flows are limited only by memory available to the kernel.
-              Performance  will  degrade  beyond  1,048,576  kernel  flows per
-              bridge with a 32-bit kernel, beyond 262,144 with a  64-bit  ker‐
+              Performance will  degrade  beyond  1,048,576  kernel  flows  per
+              bridge  with  a 32-bit kernel, beyond 262,144 with a 64-bit ker‐
               nel.  (ovs-vswitchd should never install anywhere near that many
               flows.)
 
-       ·      OpenFlow flows are limited only by  available  memory.   Perfor‐
+       ·      OpenFlow  flows  are  limited only by available memory.  Perfor‐
               mance is linear in the number of unique wildcard patterns.  That
               is, an OpenFlow table that contains many flows that all match on
-              the  same fields in the same way has a constant-time lookup, but
-              a table that contains many flows that match on different  fields
+              the same fields in the same way has a constant-time lookup,  but
+              a  table that contains many flows that match on different fields
               requires lookup time linear in the number of flows.
 
-       ·      255  ports per bridge participating in 802.1D Spanning Tree Pro‐
+       ·      255 ports per bridge participating in 802.1D Spanning Tree  Pro‐
               tocol.
 
        ·      32 mirrors per bridge.
 
-       ·      15 bytes for the name of a port.  (This is a Linux kernel  limi‐
+       ·      15  bytes for the name of a port.  (This is a Linux kernel limi‐
               tation.)
 
 SEE ALSO
-       ovs-appctl(8),  ovsdb-server(1), INSTALL.Linux in the Open vSwitch dis‐
+       ovs-appctl(8), ovsdb-server(1), INSTALL.Linux in the Open vSwitch  dis‐
        tribution.
 
 
