@@ -11,14 +11,14 @@ tags: [vxlan, DPDK, tunneling]
 comments: []
 ---
 
-This guide is for configuring userspace tunneling in Open-vSwitch. The
-traditional OVS with kernel datapath uses kernel module to perform the tunneling
+This guide is for configuring userspace tunneling in Open vSwitch. The
+traditional OVS with kernel datapath uses kernel module to perform the tunneling,
 however this setup performs all the tunneling operations purely in the
-userspace. This way userspace-tunnelling is platform independent.
+userspace. This way userspace-tunneling is platform independent.
 
 This setup needs an additional bridge called “br-phy1” when compared to the
 kernel based OVS. The purpose of this bridge is to make available the kernel
-network stack for routing and arp resolution. The data path needs to look-up
+network stack for routing and arp resolution. The datapath needs to look-up
 the routing table and arp table to prepare the tunnel header and xmit data to
 the output port.
 
@@ -62,7 +62,7 @@ This setup guide covers only the required steps for setting up VxLAN userspace
 tunneling. The same approach can be used for any other tunneling protocols, by
 specifying the appropriate tunneling protocol type.
 
-"eth1" intreface on Host A is managed by kernel driver by default. The
+"eth1" interface on Host A is managed by kernel driver by default. The
 interface must be attached to DPDK driver first, to perform the tunneling over
 DPDK interface. Use the following script to bind "eth1" interface
 to DPDK driver.
@@ -74,10 +74,10 @@ kernel.More details on bind/unbind can be found at following link
 
  [bind/unbind network ports to DPDK](http://dpdk.org/doc/guides/linux_gsg/build_dpdk.html#binding-and-unbinding-network-ports-to-from-the-kernel-modules)
 
-Note:- This configuration guide is for setting up the VxLAN tunneling on one
-host(local host). The same steps have to perform on the remote host as well for
+Note: This configuration guide is for setting up the VxLAN tunneling on one
+host (local host). The same steps have to be performed on the remote host as well for
 setting up a VM<->VM VxLAN tunnel setup. The only difference for setting up the
-userspace-tunneling in remote node is , VM and VxLAN tunnel ip addresses are
+userspace-tunneling in remote node is, VM and VxLAN tunnel ip addresses are
 different.
 
 #### Configuration steps
@@ -101,7 +101,7 @@ command inside the VM to set the Ip address.
 
     ***VM-0$ ip addr add 192.168.1.1/24 dev eth0***
 
-    *[“eth0” is the interface inside VM. its possible to set the ip address using
+    *[“eth0” is the interface inside VM. It's possible to set the ip address using
 "ifconfig" command as "ifconfig eth0 192.168.1.1/24". Please use either
 one command to set the ip address.]*
 
@@ -123,7 +123,7 @@ to the “br-phy1”.]*
 interface or a DPDK interface. Depending on the operating mode, attach "eth1"
 to the "br-phy1" bridge as follows.
 
-    Use step-7 if "eth1" is managed by kernel driver. Please follow Step :8 rather than this step in case "eth1" is a DPDK Interface.This step will cause to loose the connectivity through “eth1” ([refer configuration problems in FAQ](https://github.com/openvswitch/ovs/blob/master/FAQ.md) for more details) for a while. The connectivity can be restored by moving the IP address to the “br-phy1” internal interface. The following command-set will do that,
+    Use step-7 if "eth1" is managed by kernel driver. Please follow step-8 rather than this step in case "eth1" is a DPDK Interface.This step will cause to loose the connectivity through “eth1” ([refer configuration problems in FAQ](https://github.com/openvswitch/ovs/blob/master/FAQ.md) for more details) for a while. The connectivity can be restored by moving the IP address to the “br-phy1” internal interface. The following command-set will do that,
 
     ***HOST-A$ ovs-vsctl --timeout 10 add-port br-phy1 eth1***
 
@@ -155,7 +155,7 @@ starts with “dpdk”]*
 Now the traffic from “VM0” will be VxLAN encapsulated and send out over eth1/dpdk0
 interface.
 
-TCPDUMP doesnt work on DPDK interfaces(eth0) as its no longer managed by the kernel.
+TCPDUMP doesn't work on DPDK interfaces(eth1) as its no longer managed by the kernel.
 
 #### Debugging
 
@@ -163,8 +163,8 @@ TCPDUMP doesnt work on DPDK interfaces(eth0) as its no longer managed by the ker
 
      ***HOST-A$ ovs-appctl tnl/ports/show***
 
-*	  As mentioned before, its necessary that the vswitch should have the arp-table
-entries to do tunnelling at userspace. The learned arp entries in the vswitch
+*	  As mentioned before, it's necessary that the vswitch should have the arp-table
+entries to do tunneling at userspace. The learned arp entries in the vswitch
 can be verified by,
 
       ***HOST-A$ ovs-appctl tnl/arp/show***
@@ -177,7 +177,7 @@ can be verified by,
 
       ***HOST-A$ ovs-appctl tnl/arp/set &lt;bridge&gt; &lt;ip addr&gt; &lt;mac addr&gt;***
 
-      In the above test setup, the following arp entries has to set in case they are
+      In the above test setup, the following arp entries have to be set in case they are
  not present.
 
       ***HOST-A$ ovs-appctl tnl/arp/set br-int 172.168.1.1 &lt;mac addr of br-phy1&gt;***
@@ -185,7 +185,7 @@ can be verified by,
       ***HOST-A$ ovs-appctl tnl/arp/set br-phy1 172.168.1.2 &lt;mac addr of remote TEP&gt;***
 
 *	  Similarly OVS uses routing table entries to xmit the tunnel packets. The
-vswitch routing entries can be verified by,
+vswitch routing entries can be verified by
 
       ***HOST-A$ ovs-appctl ovs/route/show***
 
