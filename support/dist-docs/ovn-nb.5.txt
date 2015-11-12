@@ -47,7 +47,6 @@ Logical_Switch TABLE
    Summary:
        name                          string
        ports                         set of Logical_Ports
-       router_port                   optional Logical_Router_Port
        acls                          set of ACLs
        Common Columns:
          external_ids                map of string-string pairs
@@ -66,18 +65,8 @@ Logical_Switch TABLE
               It is an error for multiple logical switches to include the same
               logical port.
 
-       router_port: optional Logical_Router_Port
-              The router port to which this logical switch  is  connected,  or
-              empty  if this logical switch is not connected to any router.  A
-              switch may be connected to at most one logical router, but  this
-              is  not a significant restriction because logical routers may be
-              connected into arbitrary topologies.
-
-              It is an error for multiple logical switches  to  refer  to  the
-              same router port.
-
        acls: set of ACLs
-              Access  control  rules  that apply to packets within the logical
+              Access control rules that apply to packets  within  the  logical
               switch.
 
      Common Columns:
@@ -89,38 +78,56 @@ Logical_Port TABLE
        A port within an L2 logical switch.
 
    Summary:
-       name                          string (must be unique within table)
-       type                          string
-       options                       map of string-string pairs
-       parent_name                   optional string
-       tag                           optional integer, in range 1 to 4,095
-       up                            optional boolean
-       enabled                       optional boolean
-       macs                          set of strings
-       port_security                 set of strings
+       Core Features:
+         name                        string (must be unique within table)
+         type                        string
+       Options:
+         options                     map of string-string pairs
+         Options for router ports:
+            options : router-port    optional string, containing an uuid
+         Options for localnet ports:
+            options : network_name   optional string
+         Options for vtep ports:
+            options : vtep-physical-switch
+                                     optional string
+            options : vtep-logical-switch
+                                     optional string
+       Containers:
+         parent_name                 optional string
+         tag                         optional integer, in range 1 to 4,095
+       Port State:
+         up                          optional boolean
+         enabled                     optional boolean
+       Addressing:
+         addresses                   set of strings
+         port_security               set of strings
        Common Columns:
          external_ids                map of string-string pairs
 
    Details:
+     Core Features:
+
        name: string (must be unique within table)
               The logical port name.
 
-              For entities (VMs or containers) that are spawned in the  hyper‐
-              visor,  the  name  used here must match those used in the exter‐
+              For  entities (VMs or containers) that are spawned in the hyper‐
+              visor, the name used here must match those used  in  the  exter‐
               nal_ids:iface-id in the Open_vSwitch database’s Interface table,
               because hypervisors use external_ids:iface-id as a lookup key to
               identify the network interface of that entity.
 
-              For containers that are spawned inside a VM, the name can be any
-              unique  identifier.   In  such a case, parent_name must be popu‐
-              lated.
+              For containers that share a VIF within a VM, the name can be any
+              unique identifier.  See Containers, below, for more information.
 
        type: string
               Specify a type for this logical port.  Logical ports can be used
               to model other types of connectivity into an OVN logical switch.
-              Leaving this column blank maintains  the  default  logical  port
-              behavior,  which  is for a VM (or VIF) interface.  The following
-              other types are defined:
+              The following types are defined:
+
+              (empty string)
+                     A VM (or VIF) interface.
+
+              router A connection to a logical router.
 
               localnet
                      A connection to a locally accessible  network  from  each
@@ -129,56 +136,78 @@ Logical_Port TABLE
                      logical  port.  This is used to model direct connectivity
                      to an existing network.
 
-              vtep   A port to a logical switch on a VTEP gateway.   In  order
-                     to  get  this  port  correctly recognized by the OVN con‐
-                     troller,     the     options:vtep-physical-switch     and
-                     options:vtep-logical-switch must also be defined.
+              vtep   A port to a logical switch on a VTEP gateway.
+
+     Options:
 
        options: map of string-string pairs
-              This  column provides key/value settings specific to the logical
-              port type.  The following options are defined:
+              This column provides key/value settings specific to the  logical
+              port type.  The type-specific options are described individually
+              below.
 
-              network_name
-                     Must be set when type is localnet.   ovn-controller  uses
-                     local  configuration  to determine exactly how to connect
-                     to this locally accessible network.
+     Options for router ports:
+       These options apply when type is router.
 
-              vtep-physical-switch
-                     The name of the VTEP gateway.  Must be set when  type  is
-                     vtep.
+       If a  given  logical  switch  has  multiple  router  ports,  the  Logi‐
+       cal_Router_Port  rows that they reference must be all on the same Logi‐
+       cal_Router (for different subnets).
 
-              vtep-logical-switch
-                     A  logical  switch  name  connected  by the VTEP gateway.
-                     Must be set when type is vtep.
+       options : router-port: optional string, containing an uuid
+              Required.  The UUID of the  Logical_Router_Port  to  which  this
+              logical switch port is connected.
+
+     Options for localnet ports:
+       These options apply when type is localnet.
+
+       options : network_name: optional string
+              Required.  The name of the network to which the localnet port is
+              connected.  Each hypervisor, via ovn-controller, uses its  local
+              configuration  to  determine  exactly  how  to  connect  to this
+              locally accessible network.
+
+     Options for vtep ports:
+       These options apply when type is vtep.
+
+       options : vtep-physical-switch: optional string
+              Required.  The name of the VTEP gateway.
+
+       options : vtep-logical-switch: optional string
+              Required.  A logical switch name connected by the VTEP gateway.
+
+     Containers:
+       When a large number of containers are nested within a VM, it may be too
+       expensive  to  dedicate a VIF to each container.  OVN can use VLAN tags
+       to support such cases.  Each container is assigned a VLAN ID  and  each
+       packet that passes between the hypervisor and the VM is tagged with the
+       appropriate ID for the container.  Such VLAN  IDs  never  appear  on  a
+       physical  wire, even inside a tunnel, so they need not be unique except
+       relative to a single VM on a hypervisor.
+
+       These columns are used for VIFs that represent nested containers  using
+       shared VIFs.  For VMs and for containers that have dedicated VIFs, they
+       are empty.
 
        parent_name: optional string
-              When name identifies the interface of a container spawned inside
-              a  tenant  VM,  this  column represents the VM interface through
-              which the container interface sends its  network  traffic.   The
-              name  used here must match those used in the external_ids:iface-
-              id in the Open_vSwitch table, because hypervisors in  this  case
-              use  external_ids:iface-id  as a lookup key to identify the net‐
-              work interface of the tenant VM.
+              The VM interface through which the nested  container  sends  its
+              network traffic.  This must match the name column for some other
+              Logical_Port.
 
        tag: optional integer, in range 1 to 4,095
-              When type is empty and name identifies the interface of  a  con‐
-              tainer  spawned  inside  a tenant VM, this column identifies the
-              VLAN tag in the network traffic associated with that container’s
-              network  interface. When there are multiple container interfaces
-              inside a VM, all of them send their network  traffic  through  a
-              single  VM  network  interface and this value helps OVN identify
-              the correct container interface.
+              The VLAN tag in the  network  traffic  associated  with  a  con‐
+              tainer’s network interface.
 
-              When type is set to localnet, this can be set to  indicate  that
+              When  type  is set to localnet, this can be set to indicate that
               the port represents a connection to a specific VLAN on a locally
-              accessible network. The VLAN ID is used to match incoming  traf‐
+              accessible  network. The VLAN ID is used to match incoming traf‐
               fic and is also added to outgoing traffic.
 
+     Port State:
+
        up: optional boolean
-              This  column  is populated by ovn-northd, rather than by the CMS
-              plugin as is most of this database.   When  a  logical  port  is
-              bound  to  a  physical  location  in the OVN Southbound database
-              Binding table, ovn-northd sets this column to  true;  otherwise,
+              This column is populated by ovn-northd, rather than by  the  CMS
+              plugin  as  is  most  of  this database.  When a logical port is
+              bound to a physical location  in  the  OVN  Southbound  database
+              Binding  table,  ovn-northd sets this column to true; otherwise,
               or if the port becomes unbound later, it sets it to false.  This
               allows the CMS to wait for a VM’s (or container’s) networking to
               become active before it allows the VM (or container) to start.
@@ -186,15 +215,45 @@ Logical_Port TABLE
        enabled: optional boolean
               This column is used to administratively set port state.  If this
               column is empty or is set to true, the port is enabled.  If this
-              column  is  set to false, the port is disabled.  A disabled port
+              column is set to false, the port is disabled.  A  disabled  port
               has all ingress and egress traffic dropped.
 
-       macs: set of strings
-              The logical port’s own Ethernet address or  addresses,  each  in
-              the  form  xx:xx:xx:xx:xx:xx.   Like  a physical Ethernet NIC, a
-              logical port ordinarily has a  single  fixed  Ethernet  address.
-              The  string unknown is also allowed to indicate that the logical
-              port has an unknown set of (additional) source addresses.
+     Addressing:
+
+       addresses: set of strings
+              Addresses owned by the logical port.
+
+              Each element in the set must take one of the following forms:
+
+              xx:xx:xx:xx:xx:xx
+                     An  Ethernet  address  owned by the logical port.  Like a
+                     physical Ethernet NIC, a logical port  ordinarily  has  a
+                     single fixed Ethernet address.
+
+                     When  a  OVN  logical switch processes a unicast Ethernet
+                     frame whose destination  MAC  address  is  in  a  logical
+                     port’s  addresses  column,  it  delivers  it only to that
+                     port, as if a MAC learning process had learned  that  MAC
+                     address on the port.
+
+              xx:xx:xx:xx:xx:xx a.b.c.d
+                     This  form  has all the effects of the previous form.  It
+                     also indicates that the logical port owns the given  IPv4
+                     address.
+
+                     The  OVN  logical switch uses this information to synthe‐
+                     size responses to ARP  requests  without  traversing  the
+                     physical  network.   The  OVN logical router connected to
+                     the logical switch, if  any,  uses  this  information  to
+                     avoid issuing ARP requests for logical switch ports.
+
+              unknown
+                     This  indicates  that the logical port has an unknown set
+                     of Ethernet addresses.  When an OVN logical  switch  pro‐
+                     cesses  a  unicast  Ethernet  frame whose destination MAC
+                     address is not in any logical port’s addresses column, it
+                     delivers  it  to the port (or ports) whose addresses col‐
+                     umns include unknown.
 
        port_security: set of strings
               A set of L2 (Ethernet) addresses from which the logical port  is
@@ -218,11 +277,11 @@ ACL TABLE
        that points to it through its acls column.  The action column  for  the
        highest-priority  matching  row  in  this  table  determines a packet’s
        treatment.   If  no  row  matches,  packets  are  allowed  by  default.
-       (Default-deny  treatment  is possible: add a rule with priority 1, 1 as
+       (Default-deny  treatment  is possible: add a rule with priority 0, 0 as
        match, and deny as action.)
 
    Summary:
-       priority                      integer, in range 1 to 65,534
+       priority                      integer, in range 0 to 32,767
        direction                     string, either to-lport or from-lport
        match                         string
        action                        string,  one  of   allow-related,   drop,
@@ -232,7 +291,7 @@ ACL TABLE
          external_ids                map of string-string pairs
 
    Details:
-       priority: integer, in range 1 to 65,534
+       priority: integer, in range 0 to 32,767
               The ACL rule’s priority.  Rules with numerically higher priority
               take precedence over those with lower.  If two  ACL  rules  with
               the same priority both match, then the one actually applied to a
@@ -263,25 +322,22 @@ ACL TABLE
               tive policy, it is important to remember to allow flows such  as
               ARP and IPv6 neighbor discovery packets.
 
-              In  logical  switches  connected to logical routers, the special
-              port name ROUTER refers to the logical router port.
-
        action: string, one of allow-related, drop, allow, or reject
               The action to take when the ACL rule matches:
 
               ·      allow: Forward the packet.
 
-              ·      allow-related: Forward the  packet  and  related  traffic
+              ·      allow-related:  Forward  the  packet  and related traffic
                      (e.g. inbound replies to an outbound connection).
 
               ·      drop: Silently drop the packet.
 
-              ·      reject:  Drop  the packet, replying with a RST for TCP or
-                     ICMP unreachable message for  other  IP-based  protocols.
+              ·      reject: Drop the packet, replying with a RST for  TCP  or
+                     ICMP  unreachable  message  for other IP-based protocols.
                      Not implemented--currently treated as drop
 
        log: boolean
-              If  set  to  true, packets that match the ACL will trigger a log
+              If set to true, packets that match the ACL will  trigger  a  log
               message on the transport node or nodes that perform ACL process‐
               ing.  Logging may be combined with any action.
 
@@ -297,8 +353,7 @@ Logical_Router TABLE
 
    Summary:
        name                          string
-       ports                         set    of   weak   reference   to   Logi‐
-                                     cal_Router_Ports
+       ports                         set of Logical_Router_Ports
        default_gw                    optional string
        Common Columns:
          external_ids                map of string-string pairs
@@ -311,10 +366,8 @@ Logical_Router TABLE
               name  to be unique.  The logical router’s UUID should be used as
               the unique identifier.
 
-       ports: set of weak reference to Logical_Router_Ports
-              The router’s ports.  This is a set of weak references, so a Log‐
-              ical_Switch  must also refer to any given Logical_Router_Port or
-              it will automatically be deleted.
+       ports: set of Logical_Router_Ports
+              The router’s ports.
 
        default_gw: optional string
               IP address to use as default gateway, if any.
@@ -327,17 +380,16 @@ Logical_Router TABLE
 Logical_Router_Port TABLE
        A port within an L3 logical router.
 
-       A router port is always attached to a logical switch and to  a  logical
-       router.   The  former  attachment,  which  is  enforced by the database
-       schema, can be identified  by  finding  the  Logical_Switch  row  whose
-       router_port  column  points to the router port.  The latter attachment,
-       which the database schema does not enforce, can be identified by  find‐
-       ing the Logical_Router row whose ports column includes the router port.
+       Exactly one Logical_Router row must reference a  given  logical  router
+       port.
 
    Summary:
        name                          string
        network                       string
        mac                           string
+       enabled                       optional boolean
+       Attachment:
+         peer                        optional Logical_Router_Port
        Common Columns:
          external_ids                map of string-string pairs
 
@@ -358,6 +410,32 @@ Logical_Router_Port TABLE
        mac: string
               The Ethernet address that belongs to this router port.
 
+       enabled: optional boolean
+              This column is used to administratively set port state.  If this
+              column is empty or is set to true, the port is enabled.  If this
+              column is set to false, the port is disabled.  A  disabled  port
+              has all ingress and egress traffic dropped.
+
+     Attachment:
+       A given router port serves one of two purposes:
+
+              ·      To  attach a logical switch to a logical router.  A logi‐
+                     cal router port of this type is referenced by exactly one
+                     Logical_Port of type router.  The peer column is empty.
+
+              ·      To  connect one logical router to another.  This requires
+                     a pair of logical router ports, each connected to a  dif‐
+                     ferent  router.   Each  router port in the pair specifies
+                     the other in its peer column.  No  Logical_Switch  refers
+                     to the router port.
+
+       peer: optional Logical_Router_Port
+              For  a  router  port  used  to connect two logical routers, this
+              identifies the other router port in the pair.
+
+              For a router port attached to a logical switch, this  column  is
+              empty.
+
      Common Columns:
 
        external_ids: map of string-string pairs
@@ -365,4 +443,4 @@ Logical_Router_Port TABLE
 
 
 
-Open vSwitch 2.4.90             DB Schema 1.0.0                      ovn-nb(5)
+Open vSwitch 2.4.90             DB Schema 2.0.0                      ovn-nb(5)

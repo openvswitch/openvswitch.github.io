@@ -461,7 +461,7 @@ ovn-architecture(7)           Open vSwitch Manual          ovn-architecture(7)
                 table updates that  <b>o</b><b>v</b><b>n</b><b>-</b><b>n</b><b>o</b><b>r</b><b>t</b><b>h</b><b>d</b>  made  in  the  previous  step.
                 <b>o</b><b>v</b><b>n</b><b>-</b><b>c</b><b>o</b><b>n</b><b>t</b><b>r</b><b>o</b><b>l</b><b>l</b><b>e</b><b>r</b> updates OpenFlow tables to reflect the update.
 
-   <b>L</b><b>i</b><b>f</b><b>e</b> <b>C</b><b>y</b><b>c</b><b>l</b><b>e</b> <b>o</b><b>f</b> <b>a</b> <b>P</b><b>a</b><b>c</b><b>k</b><b>e</b><b>t</b>
+   <b>A</b><b>r</b><b>c</b><b>h</b><b>i</b><b>t</b><b>e</b><b>c</b><b>t</b><b>u</b><b>r</b><b>a</b><b>l</b> <b>P</b><b>h</b><b>y</b><b>s</b><b>i</b><b>c</b><b>a</b><b>l</b> <b>L</b><b>i</b><b>f</b><b>e</b> <b>C</b><b>y</b><b>c</b><b>l</b><b>e</b> <b>o</b><b>f</b> <b>a</b> <b>P</b><b>a</b><b>c</b><b>k</b><b>e</b><b>t</b>
        This section describes how a packet travels from one virtual machine or
        container to another through OVN.   This  description  focuses  on  the
        physical  treatment  of a packet; for a description of the logical life
@@ -488,16 +488,33 @@ ovn-architecture(7)           Open vSwitch Manual          ovn-architecture(7)
               logical input port field
                      A field that denotes the  logical  port  from  which  the
                      packet  entered the logical datapath.  OVN stores this in
-                     Nicira extension  register  number  6.   (This  field  is
-                     passed across tunnels as part of the tunnel key.)
+                     Nicira extension register number 6.
+
+                     Geneve and STT tunnels pass this field  as  part  of  the
+                     tunnel  key.   Although  VXLAN  tunnels do not explicitly
+                     carry a logical input port, OVN only uses VXLAN to commu‐
+                     nicate  with gateways that from OVN’s perspective consist
+                     of only a single logical port, so that OVN  can  set  the
+                     logical  input  port  field to this one on ingress to the
+                     OVN logical pipeline.
 
               logical output port field
-                     A  field  that  denotes  the  logical port from which the
+                     A field that denotes the  logical  port  from  which  the
                      packet will leave the logical datapath.  This is initial‐
-                     ized  to  0 at the beginning of the logical ingress pipe‐
-                     line.  OVN stores this in Nicira extension register  num‐
-                     ber  7.   (This field is passed across tunnels as part of
-                     the tunnel key.)
+                     ized to 0 at the beginning of the logical  ingress  pipe‐
+                     line.   OVN stores this in Nicira extension register num‐
+                     ber 7.
+
+                     Geneve and STT tunnels pass this field  as  part  of  the
+                     tunnel  key.   VXLAN  tunnels do not transmit the logical
+                     output port field.
+
+              conntrack zone field
+                     A field that denotes the connection tracking  zone.   The
+                     value  only  has local significance and is not meaningful
+                     between chassis.  This is initialized to 0 at the  begin‐
+                     ning of the logical ingress pipeline.  OVN stores this in
+                     Nicira extension register number 5.
 
               VLAN ID
                      The VLAN ID is used as an interface between OVN and  con‐
@@ -576,55 +593,73 @@ ovn-architecture(7)           Open vSwitch Manual          ovn-architecture(7)
                 local hypervisor, and table 34 discards packets whose  logical
                 ingress and egress port are the same.
 
-                Each  flow  in  table  32 matches on a logical output port for
+                Logical  patch  ports are a special case.  Logical patch ports
+                do not have a physical  location  and  effectively  reside  on
+                every hypervisor.  Thus, flow table 33, for output to ports on
+                the local hypervisor, naturally implements output  to  unicast
+                logical  patch ports too.  However, applying the same logic to
+                a logical patch port that is part of a logical multicast group
+                yields  packet  duplication, because each hypervisor that con‐
+                tains a logical port in the multicast group will  also  output
+                the  packet to the logical patch port.  Thus, multicast groups
+                implement output to logical patch ports in table 32.
+
+                Each flow in table 32 matches on a  logical  output  port  for
                 unicast or multicast logical ports that include a logical port
                 on a remote hypervisor.  Each flow’s actions implement sending
-                a packet to the port it matches.  For unicast  logical  output
+                a  packet  to the port it matches.  For unicast logical output
                 ports on remote hypervisors, the actions set the tunnel key to
-                the correct value, then send the packet on the tunnel port  to
-                the  correct hypervisor.  (When the remote hypervisor receives
-                the packet, table 0 there will  recognize  it  as  a  tunneled
-                packet  and pass it along to table 33.)  For multicast logical
-                output ports, the actions send one copy of the packet to  each
-                remote  hypervisor,  in  the  same way as for unicast destina‐
-                tions.  If a multicast group includes a logical port or  ports
+                the  correct value, then send the packet on the tunnel port to
+                the correct hypervisor.  (When the remote hypervisor  receives
+                the  packet,  table  0  there  will recognize it as a tunneled
+                packet and pass it along to table 33.)  For multicast  logical
+                output  ports, the actions send one copy of the packet to each
+                remote hypervisor, in the same way  as  for  unicast  destina‐
+                tions.   If a multicast group includes a logical port or ports
                 on the local hypervisor, then its actions also resubmit to ta‐
                 ble 33.  Table 32 also includes a fallback flow that resubmits
                 to table 33 if there is no other match.
 
-                Flows  in  table 33 resemble those in table 32 but for logical
-                ports that reside locally rather than remotely.   For  unicast
+                Flows in table 33 resemble those in table 32 but  for  logical
+                ports  that  reside locally rather than remotely.  For unicast
                 logical output ports on the local hypervisor, the actions just
                 resubmit to table 34.  For multicast output ports that include
-                one  or  more  logical ports on the local hypervisor, for each
-                such logical port <u>P</u>, the actions  change  the  logical  output
+                one or more logical ports on the local  hypervisor,  for  each
+                such  logical  port  <u>P</u>,  the actions change the logical output
                 port to <u>P</u>, then resubmit to table 34.
 
                 Table 34 matches and drops packets for which the logical input
-                and output ports are the same.  It resubmits other packets  to
+                and  output ports are the same.  It resubmits other packets to
                 table 48.
 
               4.
                 OpenFlow tables 48 through 63 execute the logical egress pipe‐
-                line from the <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>F</b><b>l</b><b>o</b><b>w</b> table in the OVN  Southbound  data‐
-                base.   The egress pipeline can perform a final stage of vali‐
-                dation before packet delivery.  Eventually, it may execute  an
+                line  from  the <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>F</b><b>l</b><b>o</b><b>w</b> table in the OVN Southbound data‐
+                base.  The egress pipeline can perform a final stage of  vali‐
+                dation  before packet delivery.  Eventually, it may execute an
                 <b>o</b><b>u</b><b>t</b><b>p</b><b>u</b><b>t</b> action, which <b>o</b><b>v</b><b>n</b><b>-</b><b>c</b><b>o</b><b>n</b><b>t</b><b>r</b><b>o</b><b>l</b><b>l</b><b>e</b><b>r</b> implements by resubmitting
-                to table 64.  A packet for which the pipeline  never  executes
-                <b>o</b><b>u</b><b>t</b><b>p</b><b>u</b><b>t</b>  is  effectively  dropped  (although  it  may have been
+                to  table  64.  A packet for which the pipeline never executes
+                <b>o</b><b>u</b><b>t</b><b>p</b><b>u</b><b>t</b> is effectively  dropped  (although  it  may  have  been
                 transmitted through a tunnel across a physical network).
 
-                The egress pipeline cannot change the logical output  port  or
+                The  egress  pipeline cannot change the logical output port or
                 cause further tunneling.
 
               5.
-                OpenFlow  table  64  performs logical-to-physical translation,
-                the opposite of table 0.   It  matches  the  packet’s  logical
-                egress  port.   Its  actions  output  the  packet  to the port
-                attached to the OVN integration bridge  that  represents  that
-                logical  port.   If  the  logical  egress  port is a container
-                nested with a VM, then before sending the packet  the  actions
+                OpenFlow table 64  performs  logical-to-physical  translation,
+                the  opposite  of  table  0.   It matches the packet’s logical
+                egress port.  Its  actions  output  the  packet  to  the  port
+                attached  to  the  OVN integration bridge that represents that
+                logical port.  If the  logical  egress  port  is  a  container
+                nested  with  a VM, then before sending the packet the actions
                 push on a VLAN header with an appropriate VLAN ID.
+
+                If the logical egress port is a logical patch port, then table
+                64  outputs  to  an OVS patch port that represents the logical
+                patch port.  The packet re-enters the OpenFlow flow table from
+                the  OVS  patch  port’s  peer in table 0, which identifies the
+                logical datapath and logical input port based on the OVS patch
+                port’s OpenFlow port number.
 
    <b>L</b><b>i</b><b>f</b><b>e</b> <b>C</b><b>y</b><b>c</b><b>l</b><b>e</b> <b>o</b><b>f</b> <b>a</b> <b>V</b><b>T</b><b>E</b><b>P</b> <b>g</b><b>a</b><b>t</b><b>e</b><b>w</b><b>a</b><b>y</b>
        A  gateway  is  a chassis that forwards traffic between the OVN-managed

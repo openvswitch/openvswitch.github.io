@@ -290,11 +290,11 @@ compute and push out physical flows to each chassis\[char46])
 .PP
 The default action when no flow matches is to drop packets\[char46]
 .PP
-\fBLogical Life Cycle of a Packet\fR
+\fBArchitectural Logical Life Cycle of a Packet\fR
 .PP
 This following description focuses on the life cycle of a packet through
 a logical datapath, ignoring physical details of the implementation\[char46]
-Please refer to \fBLife Cycle of a Packet\fR in
+Please refer to \fBArchitectural Physical Life Cycle of a Packet\fR in
 \fBovn\-architecture\fR(7) for the physical information\[char46]
 .PP
 The description here is written as if OVN itself executes these steps,
@@ -335,10 +335,11 @@ depends on the current value of the \fBoutport\fR field\[char46]  Suppose
 \fBinport\fR to \fBoutport\fR; if they are equal, it treats
 the \fBoutput\fR as a no-op\[char46]  In the common case, where they are
 different, the packet enters the egress pipeline\[char46]  This transition to the
-egress pipeline discards register data, e\[char46]g\[char46] \fBreg0\fR
-\[char46]\[char46]\[char46] \fBreg5\fR, to achieve uniform behavior regardless of whether
-the egress pipeline is on a different hypervisor (because registers
-aren\(cqt preserve across tunnel encapsulation)\[char46]
+egress pipeline discards register data, e\[char46]g\[char46] \fBreg0\fR \[char46]\[char46]\[char46]
+\fBreg4\fR and connection tracking state, to achieve
+uniform behavior regardless of whether the egress pipeline is on a
+different hypervisor (because registers aren\(cqt preserve across
+tunnel encapsulation)\[char46]
 .PP
 To execute the egress pipeline, OVN again searches the \fBLogical_Flow\fR table for a row with correct \fBlogical_datapath\fR, a \fBtable_id\fR of 0, a \fBmatch\fR that is true for the packet, but now looking for a \fBpipeline\fR of \fBegress\fR\[char46]  If no matching row is found,
 the output becomes a no-op\[char46]  Otherwise, OVN executes the actions for the
@@ -643,7 +644,7 @@ group defined in the \fBMulticast_Group\fR table\[char46]  For both
 symbols, only names within the flow\(cqs logical datapath may be used\[char46]
 .RS
 .IP \(bu
-\fBreg0\fR\[char46]\[char46]\[char46]\fBreg5\fR
+\fBreg0\fR\[char46]\[char46]\[char46]\fBreg4\fR
 .IP \(bu
 \fBinport\fR \fBoutport\fR
 .IP \(bu
@@ -670,14 +671,37 @@ symbols, only names within the flow\(cqs logical datapath may be used\[char46]
 \fBicmp6\[char46]type\fR \fBicmp6\[char46]code\fR
 .IP \(bu
 \fBnd\[char46]target\fR \fBnd\[char46]sll\fR \fBnd\[char46]tll\fR
+.IP \(bu
+\fBct_state\fR, which has the following Boolean subfields:
+.RS
+.IP \(bu
+\fBct\[char46]new\fR: True for a new flow
+.IP \(bu
+\fBct\[char46]est\fR: True for an established flow
+.IP \(bu
+\fBct\[char46]rel\fR: True for a related flow
+.IP \(bu
+\fBct\[char46]rpl\fR: True for a reply flow
+.IP \(bu
+\fBct\[char46]inv\fR: True for a connection entry in a bad state
+.RE
+.IP
+\fBct_state\fR and its subfields are initialized by the
+\fBct_next\fR action, described below\[char46]
 .RE
 .IP
 The following predicates are supported:
 .RS
 .IP \(bu
+\fBeth\[char46]bcast\fR expands to \fBeth\[char46]dst == ff:ff:ff:ff:ff:ff\fR
+.IP \(bu
+\fBeth\[char46]mcast\fR expands to \fBeth\[char46]dst[40]\fR
+.IP \(bu
 \fBvlan\[char46]present\fR expands to \fBvlan\[char46]tci[12]\fR
 .IP \(bu
 \fBip4\fR expands to \fBeth\[char46]type == 0x800\fR
+.IP \(bu
+\fBip4\[char46]mcast\fR expands to \fBip4\[char46]dst[28\[char46]\[char46]31] == 0xe\fR
 .IP \(bu
 \fBip6\fR expands to \fBeth\[char46]type == 0x86dd\fR
 .IP \(bu
@@ -732,10 +756,18 @@ pipeline, \fBoutport\fR never names a multicast group\[char46])
 .IP
 Output to the input port is implicitly dropped, that is,
 \fBoutput\fR becomes a no-op if \fBoutport\fR ==
-\fBinport\fR\[char46]
+\fBinport\fR\[char46]  Occasionally it may be useful to override
+this behavior, e\[char46]g\[char46] to send an ARP reply to an ARP request; to do
+so, use \fBinport = \(dq\(dq;\fR to set the logical input port to
+an empty string (which should not be used as the name of any
+logical port)\[char46]
 .TP
 \fBnext;\fR
-Executes the next logical datapath table as a subroutine\[char46]
+.TQ .5in
+\fBnext(\fItable\fB);\fR
+Executes another logical datapath table as a subroutine\[char46]  By default,
+the table after the current one is executed\[char46]  Specify
+\fItable\fR to jump to a specific table in the same pipeline\[char46]
 .TP
 \fB\fIfield\fB = \fIconstant\fB;\fR
 Sets data or metadata field \fIfield\fR to constant value
@@ -782,25 +814,127 @@ that a logical flow with such an assignment will never be matched\[char46]
 Similar to \fB\fIfield1\fB = \fIfield2\fB;\fR
 except that the two values are exchanged instead of copied\[char46]  Both
 \fIfield1\fR and \fIfield2\fR must modifiable\[char46]
+.TP
+\fBip\[char46]ttl\-\-;\fR
+Decrements the IPv4 or IPv6 TTL\[char46]  If this would make the TTL zero
+or negative, then processing of the packet halts; no further
+actions are processed\[char46]  (To properly handle such cases, a
+higher-priority flow should match on
+\fBip\[char46]ttl == {0, 1};\fR\[char46])
+.IP
+\fBPrerequisite:\fR \fBip\fR
+.TP
+\fBct_next;\fR
+Apply connection tracking to the flow, initializing
+\fBct_state\fR for matching in later tables\[char46]
+Automatically moves on to the next table, as if followed by
+\fBnext\fR\[char46]
+.IP
+As a side effect, IP fragments will be reassembled for matching\[char46]
+If a fragmented packet is output, then it will be sent with any
+overlapping fragments squashed\[char46]  The connection tracking state is
+scoped by the logical port, so overlapping addresses may be used\[char46]
+To allow traffic related to the matched flow, execute
+\fBct_commit\fR\[char46]
+.IP
+It is possible to have actions follow \fBct_next\fR,
+but they will not have access to any of its side-effects and
+is not generally useful\[char46]
+.TP
+\fBct_commit;\fR
+Commit the flow to the connection tracking entry associated
+with it by a previous call to \fBct_next\fR\[char46]
 .RE
 .IP
 The following actions will likely be useful later, but they have not
 been thought out carefully\[char46]
 .RS
 .TP
-\fBlearn\fR
-.TQ .5in
-\fBconntrack\fR
-.TQ .5in
-\fBdec_ttl { \fIaction\fB, \fR\[char46]\[char46]\[char46]\fB } { \fIaction\fB; \fR\[char46]\[char46]\[char46]\fB};\fR
-decrement TTL; execute first set of actions if
-successful, second set if TTL decrement fails
+\fBarp { \fIaction\fB; \fR\[char46]\[char46]\[char46]\fB };\fR
+Temporarily replaces the IPv4 packet being processed by an ARP
+packet and executes each nested \fIaction\fR on the ARP
+packet\[char46]  Actions following the \fIarp\fR action, if any, apply
+to the original, unmodified packet\[char46]
+.IP
+The ARP packet that this action operates on is initialized based on
+the IPv4 packet being processed, as follows\[char46]  These are default
+values that the nested actions will probably want to change:
+.RS
+.IP \(bu
+\fBeth\[char46]src\fR unchanged
+.IP \(bu
+\fBeth\[char46]dst\fR unchanged
+.IP \(bu
+\fBeth\[char46]type = 0x0806\fR
+.IP \(bu
+\fBarp\[char46]op = 1\fR (ARP request)
+.IP \(bu
+\fBarp\[char46]sha\fR copied from \fBeth\[char46]src\fR
+.IP \(bu
+\fBarp\[char46]spa\fR copied from \fBip4\[char46]src\fR
+.IP \(bu
+\fBarp\[char46]tha = 00:00:00:00:00:00\fR
+.IP \(bu
+\fBarp\[char46]tpa\fR copied from \fBip4\[char46]dst\fR
+.RE
+.IP
+\fBPrerequisite:\fR \fBip4\fR
 .TP
-\fBicmp_reply { \fIaction\fB, \fR\[char46]\[char46]\[char46]\fB };\fR
-generate ICMP reply from packet, execute \fIaction\fRs
+\fBicmp4 { \fIaction\fB; \fR\[char46]\[char46]\[char46]\fB };\fR
+Temporarily replaces the IPv4 packet being processed by an ICMPv4
+packet and executes each nested \fIaction\fR on the ICMPv4
+packet\[char46]  Actions following the \fIicmp4\fR action, if any,
+apply to the original, unmodified packet\[char46]
+.IP
+The ICMPv4 packet that this action operates on is initialized based
+on the IPv4 packet being processed, as follows\[char46]  These are default
+values that the nested actions will probably want to change\[char46]
+Ethernet and IPv4 fields not listed here are not changed:
+.RS
+.IP \(bu
+\fBip\[char46]proto = 1\fR (ICMPv4)
+.IP \(bu
+\fBip\[char46]frag = 0\fR (not a fragment)
+.IP \(bu
+\fBicmp4\[char46]type = 3\fR (destination unreachable)
+.IP \(bu
+\fBicmp4\[char46]code = 1\fR (host unreachable)
+.RE
+.IP
+Details TBD\[char46]
+.IP
+\fBPrerequisite:\fR \fBip4\fR
 .TP
-\fBarp { \fIaction\fB, \fR\[char46]\[char46]\[char46]\fB }\fR
-generate ARP from packet, execute \fIaction\fRs
+\fBtcp_reset;\fR
+This action transforms the current TCP packet according to the
+following pseudocode:
+.IP
+.nf
+\fB
+.br
+\fBif (tcp\[char46]ack) {
+.br
+\fB        tcp\[char46]seq = tcp\[char46]ack;
+.br
+\fB} else {
+.br
+\fB        tcp\[char46]ack = tcp\[char46]seq + length(tcp\[char46]payload);
+.br
+\fB        tcp\[char46]seq = 0;
+.br
+\fB}
+.br
+\fBtcp\[char46]flags = RST;
+.br
+\fB
+.fi
+.IP
+Then, the action drops all TCP options and payload data, and
+updates the TCP checksum\[char46]
+.IP
+Details TBD\[char46]
+.IP
+\fBPrerequisite:\fR \fBtcp\fR
 .RE
 .IP "\fBexternal_ids : stage-name\fR: optional string"
 Human-readable name for this flow\(cqs stage in the pipeline\[char46]
@@ -863,9 +997,16 @@ logical switch or a logical router\[char46]
 .TQ 3.00in
 \fBtunnel_key\fR
 integer, in range 1 to 16,777,215 (must be unique within table)
-.TQ 3.00in
+.TQ .25in
+\fIOVN_Northbound Relationship:\fR
+.RS .25in
+.TQ 2.75in
 \fBexternal_ids : logical-switch\fR
 optional string, containing an uuid
+.TQ 2.75in
+\fBexternal_ids : logical-router\fR
+optional string, containing an uuid
+.RE
 .TQ .25in
 \fICommon Columns:\fR
 .RS .25in
@@ -879,18 +1020,29 @@ The tunnel key value to which the logical datapath is bound\[char46]
 The \fBTunnel Encapsulation\fR section in
 \fBovn\-architecture\fR(7) describes how tunnel keys are
 constructed for each supported encapsulation\[char46]
-.IP "\fBexternal_ids : logical-switch\fR: optional string, containing an uuid"
+.ST "OVN_Northbound Relationship:"
 Each row in \fBDatapath_Binding\fR is associated with some
-logical datapath\[char46]  \fBovn\-northd\fR uses this key to store the
-UUID of the logical datapath \fBLogical_Switch\fR row in the \fBOVN_Northbound\fR database\[char46]
+logical datapath\[char46]  \fBovn\-northd\fR uses these keys to track the
+association of a logical datapath with concepts in the \fBOVN_Northbound\fR database\[char46]
+.IP "\fBexternal_ids : logical-switch\fR: optional string, containing an uuid"
+For a logical datapath that represents a logical switch,
+\fBovn\-northd\fR stores in this key the UUID of the
+corresponding \fBLogical_Switch\fR row in
+the \fBOVN_Northbound\fR database\[char46]
+.IP "\fBexternal_ids : logical-router\fR: optional string, containing an uuid"
+For a logical datapath that represents a logical router,
+\fBovn\-northd\fR stores in this key the UUID of the
+corresponding \fBLogical_Router\fR row in
+the \fBOVN_Northbound\fR database\[char46]
 .ST "Common Columns:"
 The overall purpose of these columns is described under \fBCommon
 Columns\fR at the beginning of this document\[char46]
 .IP "\fBexternal_ids\fR: map of string-string pairs"
 .bp
 .SH "Port_Binding TABLE"
-Each row in this table identifies the physical location of a logical
-port\[char46]
+Most rows in this table identify the physical location of a logical port\[char46]
+(The exceptions are logical patch ports, which do not have any physical
+location\[char46])
 .PP
 For every \fBLogical_Port\fR record in \fBOVN_Northbound\fR
 database, \fBovn\-northd\fR creates a record in this table\[char46]
@@ -935,6 +1087,13 @@ set of strings
 .TQ 2.75in
 \fBtype\fR
 string
+.RE
+.TQ .25in
+\fIPatch Options:\fR
+.RS .25in
+.TQ 2.75in
+\fBoptions : peer\fR
+optional string
 .RE
 .TQ .25in
 \fILocalnet Options:\fR
@@ -1002,6 +1161,11 @@ are defined:
 (empty string)
 VM (or VIF) interface\[char46]
 .TP
+\fBpatch\fR
+One of a pair of logical ports that act as if connected by a patch
+cable\[char46]  Useful for connecting two logical datapaths, e\[char46]g\[char46] to connect
+a logical router to a logical switch or to another logical router\[char46]
+.TP
 \fBlocalnet\fR
 A connection to a locally accessible network from each
 \fBovn\-controller\fR instance\[char46]  A logical switch can only
@@ -1014,6 +1178,15 @@ A port to a logical switch on a VTEP gateway chassis\[char46]  In order to
 get this port correctly recognized by the OVN controller, the \fBoptions\fR:\fBvtep\-physical\-switch\fR and \fBoptions\fR:\fBvtep\-logical\-switch\fR must also
 be defined\[char46]
 .RE
+.ST "Patch Options:"
+These options apply to logical ports with \fBtype\fR of
+\fBpatch\fR\[char46]
+.IP "\fBoptions : peer\fR: optional string"
+The \fBlogical_port\fR in the \fBPort_Binding\fR
+record for the other side of the patch\[char46]  The named \fBlogical_port\fR must specify this \fBlogical_port\fR
+in its own \fBpeer\fR option\[char46]  That is, the two patch logical
+ports must have reversed \fBlogical_port\fR and
+\fBpeer\fR values\[char46]
 .ST "Localnet Options:"
 These options apply to logical ports with \fBtype\fR of
 \fBlocalnet\fR\[char46]

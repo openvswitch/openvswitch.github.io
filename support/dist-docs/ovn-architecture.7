@@ -492,7 +492,7 @@ On every hypervisor, \fBovn\-controller\fR receives the
 in the previous step\[char46]  \fBovn\-controller\fR updates OpenFlow
 tables to reflect the update\[char46]
 .RE
-.SS "Life Cycle of a Packet"
+.SS "Architectural Physical Life Cycle of a Packet"
 .PP
 This section describes how a packet travels from one virtual machine or
 container to another through OVN\[char46]  This description focuses on the physical
@@ -521,16 +521,29 @@ tunnels as part of the tunnel key\[char46])
 logical input port field
 A field that denotes the logical port from which the packet
 entered the logical datapath\[char46]
-OVN stores this in Nicira extension register number 6\[char46]  (This field is
-passed across tunnels as part of the tunnel key\[char46])
+OVN stores this in Nicira extension register number 6\[char46]
+.IP
+Geneve and STT tunnels pass this field as part of the tunnel key\[char46]
+Although VXLAN tunnels do not explicitly carry a logical input port,
+OVN only uses VXLAN to communicate with gateways that from OVN\(cqs
+perspective consist of only a single logical port, so that OVN can set
+the logical input port field to this one on ingress to the OVN logical
+pipeline\[char46]
 .TP
 logical output port field
 A field that denotes the logical port from which the packet will
 leave the logical datapath\[char46]  This is initialized to 0 at the
 beginning of the logical ingress pipeline\[char46]
-OVN stores this in
-Nicira extension register number 7\[char46]  (This field is passed across
-tunnels as part of the tunnel key\[char46])
+OVN stores this in Nicira extension register number 7\[char46]
+.IP
+Geneve and STT tunnels pass this field as part of the tunnel key\[char46]
+VXLAN tunnels do not transmit the logical output port field\[char46]
+.TP
+conntrack zone field
+A field that denotes the connection tracking zone\[char46]  The value only
+has local significance and is not meaningful between chassis\[char46]
+This is initialized to 0 at the beginning of the logical ingress
+pipeline\[char46]  OVN stores this in Nicira extension register number 5\[char46]
 .TP
 VLAN ID
 The VLAN ID is used as an interface between OVN and containers nested
@@ -605,6 +618,16 @@ packets to remote hypervisors, table 33 handles packets to the local
 hypervisor, and table 34 discards packets whose logical ingress and
 egress port are the same\[char46]
 .IP
+Logical patch ports are a special case\[char46]  Logical patch ports do not
+have a physical location and effectively reside on every hypervisor\[char46]
+Thus, flow table 33, for output to ports on the local hypervisor,
+naturally implements output to unicast logical patch ports too\[char46]
+However, applying the same logic to a logical patch port that is part
+of a logical multicast group yields packet duplication, because each
+hypervisor that contains a logical port in the multicast group will
+also output the packet to the logical patch port\[char46]  Thus, multicast
+groups implement output to logical patch ports in table 32\[char46]
+.IP
 Each flow in table 32 matches on a logical output port for unicast or
 multicast logical ports that include a logical port on a remote
 hypervisor\[char46]  Each flow\(cqs actions implement sending a packet to the port
@@ -649,6 +672,12 @@ actions output the packet to the port attached to the OVN integration
 bridge that represents that logical port\[char46]  If the logical egress port
 is a container nested with a VM, then before sending the packet the
 actions push on a VLAN header with an appropriate VLAN ID\[char46]
+.IP
+If the logical egress port is a logical patch port, then table 64
+outputs to an OVS patch port that represents the logical patch port\[char46]
+The packet re-enters the OpenFlow flow table from the OVS patch port\(cqs
+peer in table 0, which identifies the logical datapath and logical
+input port based on the OVS patch port\(cqs OpenFlow port number\[char46]
 .RE
 .SS "Life Cycle of a VTEP gateway"
 .PP

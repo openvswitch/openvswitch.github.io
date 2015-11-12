@@ -247,6 +247,9 @@ optional string, either \fBtrue\fR or \fBfalse\fR
 \fBother_config : flow-limit\fR
 optional string, containing an integer, at least 0
 .TQ 2.75in
+\fBother_config : max-idle\fR
+optional string, containing an integer, at least 500
+.TQ 2.75in
 \fBother_config : n-dpdk-rxqs\fR
 optional string, containing an integer, at least 1
 .TQ 2.75in
@@ -399,9 +402,18 @@ functions use the above config option during hot upgrades\[char46]
 The maximum
 number of flows allowed in the datapath flow table\[char46]  Internally OVS
 will choose a flow limit which will likely be lower than this number,
-based on real time network conditions\[char46]
+based on real time network conditions\[char46] Tweaking this value is
+discouraged unless you know exactly what you\(cqre doing\[char46]
 .IP
 The default is 200000\[char46]
+.IP "\fBother_config : max-idle\fR: optional string, containing an integer, at least 500"
+The maximum time (in ms) that idle flows will remain cached in the
+datapath\[char46] Internally OVS will check the validity and activity for
+datapath flows regularly and may expire flows quicker than this
+number, based on real time network conditions\[char46] Tweaking this
+value is discouraged unless you know exactly what you\(cqre doing\[char46]
+.IP
+The default is 10000\[char46]
 .IP "\fBother_config : n-dpdk-rxqs\fR: optional string, containing an integer, at least 1"
 Specifies the maximum number of rx queues to be created for each dpdk
 interface\[char46]  If not specified or specified to 0, one rx queue will
@@ -2822,15 +2834,15 @@ Reports whether the BFD session believes this \fBInterface\fR may be used to for
 means the local session is signaling \fBUP\fR, and the remote
 system isn\(cqt signaling a problem such as concatenated path down\[char46]
 .IP "\fBbfd_status : diagnostic\fR: optional string"
-In case of a problem, set to an error message that reports what the
-local BFD session thinks is wrong\[char46]  The error messages are defined
-in section 4\[char46]1 of [RFC 5880]\[char46]
+A diagnostic code specifying the local system\(cqs reason for the
+last change in session state\[char46] The error messages are defined in
+section 4\[char46]1 of [RFC 5880]\[char46]
 .IP "\fBbfd_status : remote_state\fR: optional string, one of \fBdown\fR, \fBinit\fR, \fBup\fR, or \fBadmin_down\fR"
 Reports the state of the remote endpoint\(cqs BFD session\[char46]
 .IP "\fBbfd_status : remote_diagnostic\fR: optional string"
-In case of a problem, set to an error message that reports what the
-remote endpoint\(cqs BFD session thinks is wrong\[char46]  The error messages
-are defined in section 4\[char46]1 of [RFC 5880]\[char46]
+A diagnostic code specifying the remote system\(cqs reason for the
+last change in session state\[char46] The error messages are defined in
+section 4\[char46]1 of [RFC 5880]\[char46]
 .IP "\fBbfd_status : flap_count\fR: optional string, containing an integer, at least 0"
 Counts the number of \fBbfd_status:forwarding\fR
 flaps since start\[char46]  A flap is considered as a change of the
@@ -4747,14 +4759,13 @@ system description of their peer\[char46] In the OVS context, OVS operates as
 the AA client and the AA server resides on a switch at the edge of the
 SPB network\[char46]
 .PP
-Once AA discovery has been completed the AAC then uses the
-second new TLV to deliver identifier mappings from the AAC to the AAS\[char46] A primary
-feature of Auto Attach is to facilitate the mapping of VLANs defined
-outside the SPB network onto service ids (ISIDs) defined within the SPM
-network\[char46] By doing so individual external VLANs can be mapped onto
-specific SPB network services\[char46] These VLAN id to ISID mappings can be
-configured and managed locally using new options added to the ovs-vsctl
-command\[char46]
+Once AA discovery has been completed the AAC then uses the second new TLV
+to deliver identifier mappings from the AAC to the AAS\[char46] A primary feature
+of Auto Attach is to facilitate the mapping of VLANs defined outside the
+SPB network onto service ids (ISIDs) defined within the SPM network\[char46] By
+doing so individual external VLANs can be mapped onto specific SPB
+network services\[char46] These VLAN id to ISID mappings can be configured and
+managed locally using new options added to the ovs-vsctl command\[char46]
 .PP
 The Auto Attach OVS feature does not provide a full implementation of
 the LLDP protocol\[char46] Support for the mandatory TLVs as defined by the LLDP
@@ -4779,4 +4790,5 @@ identify the bridge in the network\[char46]
 The system_description string is exported in LLDP messages\[char46]  It should
 describe the type of software and hardware\[char46]
 .IP "\fBmappings\fR: map of integer-integer pairs, key in range 0 to 16,777,215, value in range 0 to 4,095"
-A mapping from SPB network Individual Service Identifier (ISID) to VLAN id\[char46]
+A mapping from SPB network Individual Service Identifier (ISID) to VLAN
+id\[char46]
