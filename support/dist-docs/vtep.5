@@ -1,6 +1,6 @@
 '\" p
 .\" -*- nroff -*-
-.TH "vtep" 5 " DB Schema 1.4.1" "Open vSwitch 2.4.90" "Open vSwitch Manual"
+.TH "vtep" 5 " DB Schema 1.4.1" "Open vSwitch 2.5.90" "Open vSwitch Manual"
 .fp 5 L CR              \\" Make fixed-width font available as \\fL.
 .de TQ
 .  br
@@ -638,7 +638,7 @@ can enable the VTEP to choose a functioning service node among a set of
 service nodes providing high availability\[char46] It also enables the NVC to
 report the health status of tunnels\[char46]
 .PP
-In most cases the BFD peer of a hardware VTEP will be an Open vSwitch
+In many cases the BFD peer of a hardware VTEP will be an Open vSwitch
 instance\[char46] The Open vSwitch implementation of BFD aims to comply
 faithfully with the requirements put forth in RFC 5880\[char46]  Open vSwitch
 does not implement the optional Authentication or ``Echo Mode\(cq\(cq
@@ -671,8 +671,8 @@ for transmitted BFD packets\[char46]  The default is \fB169\[char46]254\[char46]
 The NVC sets up key-value pairs in the \fBbfd_params\fR
 column to enable and configure BFD\[char46]
 .IP "\fBbfd_params : enable\fR: optional string, either \fBtrue\fR or \fBfalse\fR"
-True to enable BFD on this tunnel\[char46]
-The default is False\[char46]
+True to enable BFD on this \fBTunnel\fR\[char46]  If not
+specified, BFD will not be enabled by default\[char46]
 .IP "\fBbfd_params : min_rx\fR: optional string, containing an integer, at least 1"
 The shortest interval, in milliseconds, at which this BFD session
 offers to receive BFD control messages\[char46]  The remote endpoint may
@@ -685,17 +685,22 @@ transmitted at a slower rate if the remote endpoint is not willing to
 receive as quickly as specified\[char46]  Defaults to \fB100\fR\[char46]
 .IP "\fBbfd_params : decay_min_rx\fR: optional string, containing an integer"
 An alternate receive interval, in milliseconds, that must be greater
-than or equal to \fBbfd:min_rx\fR\[char46]  The
-implementation switches from \fBbfd:min_rx\fR to \fBbfd:decay_min_rx\fR when there is no obvious incoming
-data traffic at the interface, to reduce the CPU and bandwidth cost
-of monitoring an idle interface\[char46]  This feature may be disabled by
-setting a value of 0\[char46]  This feature is reset whenever \fBbfd:decay_min_rx\fR or \fBbfd:min_rx\fR
-changes\[char46]
+than or equal to \fBbfd_params:min_rx\fR\[char46]  The
+implementation should switch from \fBbfd_params:min_rx\fR
+to \fBbfd_params:decay_min_rx\fR when there is no obvious
+incoming data traffic at the tunnel, to reduce the CPU and bandwidth
+cost of monitoring an idle tunnel\[char46]  This feature may be disabled by
+setting a value of 0\[char46]  This feature is reset whenever
+\fBbfd_params:decay_min_rx\fR or
+\fBbfd_params:min_rx\fR changes\[char46]
 .IP "\fBbfd_params : forwarding_if_rx\fR: optional string, either \fBtrue\fR or \fBfalse\fR"
-True to consider the interface capable of packet I/O as long as it
-continues to receive any packets (not just BFD packets)\[char46]  This
-prevents link congestion that causes consecutive BFD control packets
-to be lost from marking the interface down\[char46]
+When \fBtrue\fR, traffic received on the \fBTunnel\fR
+is used to indicate the capability of packet I/O\[char46]
+BFD control packets are still transmitted and received\[char46] At least one
+BFD control packet must be received every
+100 * \fBbfd_params:min_rx\fR amount of time\[char46]
+Otherwise, even if traffic is received, the
+\fBbfd_params:forwarding\fR will be \fBfalse\fR\[char46]
 .IP "\fBbfd_params : cpath_down\fR: optional string, either \fBtrue\fR or \fBfalse\fR"
 Set to true to notify the remote endpoint that traffic should not be
 forwarded to this system for some reason other than a connectivity
@@ -712,29 +717,29 @@ column to report the status of BFD on this tunnel\[char46]  When BFD is
 not enabled, with \fBbfd_params:enable\fR, the
 HSC clears all key-value pairs from \fBbfd_status\fR\[char46]
 .IP "\fBbfd_status : enabled\fR: optional string, either \fBtrue\fR or \fBfalse\fR"
-Set to true if the BFD session has been successfully
-enabled\[char46] Set to false if the VTEP cannot support BFD or has
-insufficient resources to enable BFD on this tunnel\[char46] The NVC
-will disable the BFD monitoring on the other side of the tunnel
-once this value is set to false\[char46]
+Set to true if the BFD session has been successfully enabled\[char46]
+Set to false if the VTEP cannot support BFD or has insufficient
+resources to enable BFD on this tunnel\[char46] The NVC will disable
+the BFD monitoring on the other side of the tunnel once this
+value is set to false\[char46]
 .IP "\fBbfd_status : state\fR: optional string, one of \fBdown\fR, \fBinit\fR, \fBup\fR, or \fBadmin_down\fR"
 Reports the state of the BFD session\[char46]  The BFD session is fully
 healthy and negotiated if \fBUP\fR\[char46]
 .IP "\fBbfd_status : forwarding\fR: optional string, either \fBtrue\fR or \fBfalse\fR"
-Reports whether the BFD session believes this tunnel
+Reports whether the BFD session believes this  \fBTunnel\fR
 may be used to forward traffic\[char46]  Typically this means the local session
 is signaling \fBUP\fR, and the remote system isn\(cqt signaling a
 problem such as concatenated path down\[char46]
 .IP "\fBbfd_status : diagnostic\fR: optional string"
-In case of a problem, set to an error message that reports what the
-local BFD session thinks is wrong\[char46]  The error messages are defined
-in section 4\[char46]1 of [RFC 5880]\[char46]
+A diagnostic code specifying the local system\(cqs reason for the
+last change in session state\[char46] The error messages are defined in
+section 4\[char46]1 of [RFC 5880]\[char46]
 .IP "\fBbfd_status : remote_state\fR: optional string, one of \fBdown\fR, \fBinit\fR, \fBup\fR, or \fBadmin_down\fR"
 Reports the state of the remote endpoint\(cqs BFD session\[char46]
 .IP "\fBbfd_status : remote_diagnostic\fR: optional string"
-In case of a problem, set to an error message that reports what the
-remote endpoint\(cqs BFD session thinks is wrong\[char46]  The error messages
-are defined in section 4\[char46]1 of [RFC 5880]\[char46]
+A diagnostic code specifying the remote system\(cqs reason for the
+last change in session state\[char46] The error messages are defined in
+section 4\[char46]1 of [RFC 5880]\[char46]
 .IP "\fBbfd_status : info\fR: optional string"
 A short message providing further information about the BFD status
 (possibly including reasons why BFD could not be enabled)\[char46]

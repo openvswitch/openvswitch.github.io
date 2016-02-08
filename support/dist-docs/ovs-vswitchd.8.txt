@@ -134,8 +134,12 @@ OPTIONS
               When --pidfile is not specified, this option has no effect.
 
        --detach
-              Causes ovs-vswitchd to detach itself from the foreground session
-              and run as a  background  process.  ovs-vswitchd  detaches  only
+              Runs  ovs-vswitchd  as a background process.  The process forks,
+              and in the child it starts a new session,  closes  the  standard
+              file descriptors (which has the side effect of disabling logging
+              to the console), and changes its current directory to  the  root
+              (unless --no-chdir is specified).  After the child completes its
+              initialization, the parent exits.   ovs-vswitchd  detaches  only
               after  it  has  connected to the database, retrieved the initial
               configuration, and set up that configuration.
 
@@ -258,7 +262,9 @@ OPTIONS
 
               ·      syslog,  console,  or file, to limit the log level change
                      to only to the system log, to the console, or to a  file,
-                     respectively.
+                     respectively.   (If  --detach  is specified, ovs-vswitchd
+                     closes its standard file descriptors, so logging  to  the
+                     console will have no effect.)
 
                      On  Windows platform, syslog is accepted as a word and is
                      only useful along with the  --syslog-target  option  (the
@@ -660,6 +666,31 @@ RUNTIME MANAGEMENT COMMANDS
        dpctl/del-flows [dp]
               Deletes all flow entries from datapath dp's flow table.
 
+   CONNECTION TRACKING TABLE DEBUGGING COMMANDS
+       The following commands are primarily useful for debugging  the  connec‐
+       tion tracking entries in the datapath.
+
+       The  dp argument to each of these commands is optional when exactly one
+       datapath exists, in which case that datapath is the default.  When mul‐
+       tiple datapaths exist, then a datapath name is required.
+
+       N.B.(Linux  specific): the system datapaths (i.e. the Linux kernel mod‐
+       ule Open vSwitch datapaths) share a single  connection  tracking  table
+       (which is also used by other kernel subsystems, such as iptables, nfta‐
+       bles and the regular host stack).  Therefore, the following commands do
+       not apply specifically to one datapath.
+
+       dpctl/dump-conntrack [-m | --more] [-s | --statistics] [dp] [zone=zone]
+              Prints  to the console all the connection entries in the tracker
+              used by dp.  If zone=zone is specified, only shows  the  connec‐
+              tions  in  zone.   With  --more,  some  implementation  specific
+              details are included. With --statistics timeouts and  timestamps
+              are added to the output.
+
+       dpctl/flush-conntrack [dp] [zone=zone]
+              Flushes  all  the  connection entries in the tracker used by dp.
+              If zone=zone is specified, only flushes the connections in zone.
+
    DPIF-NETDEV COMMANDS
        These commands are used to expose internal information (mostly  statis‐
        tics)  about  the  ``dpif-netdev'' userspace datapath. If there is only
@@ -969,13 +1000,19 @@ RUNTIME MANAGEMENT COMMANDS
        ovs/route/del ipv4_address/plen
               Delete ipv4_address/plen route from OVS routing table.
 
+       tnl/neigh/show
+
        tnl/arp/show
               OVS builds ARP cache by  snooping  are  messages.  This  command
               shows ARP cache table.
 
+       tnl/neigh/set bridge ip mac
+
        tnl/arp/set bridge ip mac
               Adds  or  modifies  an  ARP cache entry in bridge, mapping ip to
               mac.
+
+       tnl/neigh/flush
 
        tnl/arp/flush
               Flush ARP table.
@@ -1045,4 +1082,4 @@ SEE ALSO
 
 
 
-Open vSwitch                        2.4.90                     ovs-vswitchd(8)
+Open vSwitch                        2.5.90                     ovs-vswitchd(8)

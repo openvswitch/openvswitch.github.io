@@ -135,8 +135,12 @@ ovs-vswitchd(8)               Open vSwitch Manual              ovs-vswitchd(8)
               When <b>-</b><b>-</b><b>p</b><b>i</b><b>d</b><b>f</b><b>i</b><b>l</b><b>e</b> is not specified, this option has no effect.
 
        <b>-</b><b>-</b><b>d</b><b>e</b><b>t</b><b>a</b><b>c</b><b>h</b>
-              Causes <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>d</b> to detach itself from the foreground session
-              and run as a  background  process.  <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>d</b>  detaches  only
+              Runs  <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>d</b>  as a background process.  The process forks,
+              and in the child it starts a new session,  closes  the  standard
+              file descriptors (which has the side effect of disabling logging
+              to the console), and changes its current directory to  the  root
+              (unless <b>-</b><b>-</b><b>n</b><b>o</b><b>-</b><b>c</b><b>h</b><b>d</b><b>i</b><b>r</b> is specified).  After the child completes its
+              initialization, the parent exits.   <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>d</b>  detaches  only
               after  it  has  connected to the database, retrieved the initial
               configuration, and set up that configuration.
 
@@ -259,7 +263,9 @@ ovs-vswitchd(8)               Open vSwitch Manual              ovs-vswitchd(8)
 
               ·      <b>s</b><b>y</b><b>s</b><b>l</b><b>o</b><b>g</b>,  <b>c</b><b>o</b><b>n</b><b>s</b><b>o</b><b>l</b><b>e</b>,  or <b>f</b><b>i</b><b>l</b><b>e</b>, to limit the log level change
                      to only to the system log, to the console, or to a  file,
-                     respectively.
+                     respectively.   (If  <b>-</b><b>-</b><b>d</b><b>e</b><b>t</b><b>a</b><b>c</b><b>h</b>  is specified, <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>d</b>
+                     closes its standard file descriptors, so logging  to  the
+                     console will have no effect.)
 
                      On  Windows platform, <b>s</b><b>y</b><b>s</b><b>l</b><b>o</b><b>g</b> is accepted as a word and is
                      only useful along with the  <b>-</b><b>-</b><b>s</b><b>y</b><b>s</b><b>l</b><b>o</b><b>g</b><b>-</b><b>t</b><b>a</b><b>r</b><b>g</b><b>e</b><b>t</b>  option  (the
@@ -661,6 +667,31 @@ ovs-vswitchd(8)               Open vSwitch Manual              ovs-vswitchd(8)
        <b>d</b><b>p</b><b>c</b><b>t</b><b>l</b><b>/</b><b>d</b><b>e</b><b>l</b><b>-</b><b>f</b><b>l</b><b>o</b><b>w</b><b>s</b> [<u>d</u><u>p</u>]
               Deletes all flow entries from datapath <u>d</u><u>p</u>'s flow table.
 
+   <b>C</b><b>O</b><b>N</b><b>N</b><b>E</b><b>C</b><b>T</b><b>I</b><b>O</b><b>N</b> <b>T</b><b>R</b><b>A</b><b>C</b><b>K</b><b>I</b><b>N</b><b>G</b> <b>T</b><b>A</b><b>B</b><b>L</b><b>E</b> <b>D</b><b>E</b><b>B</b><b>U</b><b>G</b><b>G</b><b>I</b><b>N</b><b>G</b> <b>C</b><b>O</b><b>M</b><b>M</b><b>A</b><b>N</b><b>D</b><b>S</b>
+       The following commands are primarily useful for debugging  the  connec‐
+       tion tracking entries in the datapath.
+
+       The  <u>d</u><u>p</u> argument to each of these commands is optional when exactly one
+       datapath exists, in which case that datapath is the default.  When mul‐
+       tiple datapaths exist, then a datapath name is required.
+
+       <b>N</b><b>.</b><b>B</b><b>.</b>(Linux  specific): the <u>s</u><u>y</u><u>s</u><u>t</u><u>e</u><u>m</u> datapaths (i.e. the Linux kernel mod‐
+       ule Open vSwitch datapaths) share a single  connection  tracking  table
+       (which is also used by other kernel subsystems, such as iptables, nfta‐
+       bles and the regular host stack).  Therefore, the following commands do
+       not apply specifically to one datapath.
+
+       <b>d</b><b>p</b><b>c</b><b>t</b><b>l</b><b>/</b><b>d</b><b>u</b><b>m</b><b>p</b><b>-</b><b>c</b><b>o</b><b>n</b><b>n</b><b>t</b><b>r</b><b>a</b><b>c</b><b>k</b> [<b>-</b><b>m</b> | <b>-</b><b>-</b><b>m</b><b>o</b><b>r</b><b>e</b>] [<b>-</b><b>s</b> | <b>-</b><b>-</b><b>s</b><b>t</b><b>a</b><b>t</b><b>i</b><b>s</b><b>t</b><b>i</b><b>c</b><b>s</b>] [<u>d</u><u>p</u>] [<b>z</b><b>o</b><b>n</b><b>e</b><b>=</b><u>z</u><u>o</u><u>n</u><u>e</u>]
+              Prints  to the console all the connection entries in the tracker
+              used by <u>d</u><u>p</u>.  If <b>z</b><b>o</b><b>n</b><b>e</b><b>=</b><u>z</u><u>o</u><u>n</u><u>e</u> is specified, only shows  the  connec‐
+              tions  in  <b>z</b><b>o</b><b>n</b><b>e</b>.   With  <b>-</b><b>-</b><b>m</b><b>o</b><b>r</b><b>e</b>,  some  implementation  specific
+              details are included. With <b>-</b><b>-</b><b>s</b><b>t</b><b>a</b><b>t</b><b>i</b><b>s</b><b>t</b><b>i</b><b>c</b><b>s</b> timeouts and  timestamps
+              are added to the output.
+
+       <b>d</b><b>p</b><b>c</b><b>t</b><b>l</b><b>/</b><b>f</b><b>l</b><b>u</b><b>s</b><b>h</b><b>-</b><b>c</b><b>o</b><b>n</b><b>n</b><b>t</b><b>r</b><b>a</b><b>c</b><b>k</b> <b>[</b><u>d</u><u>p</u>] [<b>z</b><b>o</b><b>n</b><b>e</b><b>=</b><u>z</u><u>o</u><u>n</u><u>e</u>]
+              Flushes  all  the  connection entries in the tracker used by <u>d</u><u>p</u>.
+              If <b>z</b><b>o</b><b>n</b><b>e</b><b>=</b><u>z</u><u>o</u><u>n</u><u>e</u> is specified, only flushes the connections in <b>z</b><b>o</b><b>n</b><b>e</b>.
+
    <b>D</b><b>P</b><b>I</b><b>F</b><b>-</b><b>N</b><b>E</b><b>T</b><b>D</b><b>E</b><b>V</b> <b>C</b><b>O</b><b>M</b><b>M</b><b>A</b><b>N</b><b>D</b><b>S</b>
        These commands are used to expose internal information (mostly  statis‐
        tics)  about  the  ``dpif-netdev'' userspace datapath. If there is only
@@ -970,13 +1001,19 @@ ovs-vswitchd(8)               Open vSwitch Manual              ovs-vswitchd(8)
        <b>o</b><b>v</b><b>s</b><b>/</b><b>r</b><b>o</b><b>u</b><b>t</b><b>e</b><b>/</b><b>d</b><b>e</b><b>l</b> <b>i</b><b>p</b><b>v</b><b>4</b><b>_</b><b>a</b><b>d</b><b>d</b><b>r</b><b>e</b><b>s</b><b>s</b><b>/</b><b>p</b><b>l</b><b>e</b><b>n</b>
               Delete ipv4_address/plen route from OVS routing table.
 
+       <b>t</b><b>n</b><b>l</b><b>/</b><b>n</b><b>e</b><b>i</b><b>g</b><b>h</b><b>/</b><b>s</b><b>h</b><b>o</b><b>w</b>
+
        <b>t</b><b>n</b><b>l</b><b>/</b><b>a</b><b>r</b><b>p</b><b>/</b><b>s</b><b>h</b><b>o</b><b>w</b>
               OVS builds ARP cache by  snooping  are  messages.  This  command
               shows ARP cache table.
 
+       <b>t</b><b>n</b><b>l</b><b>/</b><b>n</b><b>e</b><b>i</b><b>g</b><b>h</b><b>/</b><b>s</b><b>e</b><b>t</b> <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u> <u>i</u><u>p</u> <u>m</u><u>a</u><u>c</u>
+
        <b>t</b><b>n</b><b>l</b><b>/</b><b>a</b><b>r</b><b>p</b><b>/</b><b>s</b><b>e</b><b>t</b> <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u> <u>i</u><u>p</u> <u>m</u><u>a</u><u>c</u>
               Adds  or  modifies  an  ARP cache entry in <u>b</u><u>r</u><u>i</u><u>d</u><u>g</u><u>e</u>, mapping <u>i</u><u>p</u> to
               <u>m</u><u>a</u><u>c</u>.
+
+       <b>t</b><b>n</b><b>l</b><b>/</b><b>n</b><b>e</b><b>i</b><b>g</b><b>h</b><b>/</b><b>f</b><b>l</b><b>u</b><b>s</b><b>h</b>
 
        <b>t</b><b>n</b><b>l</b><b>/</b><b>a</b><b>r</b><b>p</b><b>/</b><b>f</b><b>l</b><b>u</b><b>s</b><b>h</b>
               Flush ARP table.
@@ -1046,5 +1083,5 @@ ovs-vswitchd(8)               Open vSwitch Manual              ovs-vswitchd(8)
 
 
 
-Open vSwitch                        2.4.90                     ovs-vswitchd(8)
+Open vSwitch                        2.5.90                     ovs-vswitchd(8)
 </pre></body></html>

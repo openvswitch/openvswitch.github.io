@@ -12,14 +12,17 @@ SYNOPSIS
        ovsdb-client [options] list-tables [server] [database]
        ovsdb-client [options] list-columns [server] [database] [table]
        ovsdb-client [options] transact [server] transaction
-       ovsdb-client [options] dump [server] [database]
+       ovsdb-client [options] dump [server] [database] [table [column...]]
        ovsdb-client  [options] monitor [server] [database] table [column[,col‐
        umn]...]...
        ovsdb-client [options] monitor [server] [database] ALL
+       ovsdb-client [options] monitor2 [server] [database] table [column[,col‐
+       umn]...]...
+       ovsdb-client [options] monitor2 [server] [database] ALL
        ovsdb-client help
 
        Output formatting options:
-              [--format=format]  [--data=format]   [--no-heading]   [--pretty]
+              [--format=format]   [--data=format]   [--no-heading]  [--pretty]
               [--bare] [--no-heading] [--timestamp]
 
        Daemon options:
@@ -42,55 +45,55 @@ SYNOPSIS
 
 
 DESCRIPTION
-       The ovsdb-client program is a command-line client for interacting  with
-       a  running  ovsdb-server  process.   Each  command connects to an OVSDB
+       The  ovsdb-client program is a command-line client for interacting with
+       a running ovsdb-server process.  Each  command  connects  to  an  OVSDB
        server,   which   is   unix:/usr/local/var/run/openvswitch/db.sock   by
        default, or may be specified as server in one of the following forms:
 
               ssl:ip:port
                      The specified SSL port on the host at the given ip, which
-                     must be expressed as an IP address (not a  DNS  name)  in
-                     IPv4  or  IPv6 address format.  If ip is an IPv6 address,
-                     then wrap ip with square brackets, e.g.:  ssl:[::1]:6640.
-                     The  --private-key,  --certificate, and --ca-cert options
+                     must  be  expressed  as an IP address (not a DNS name) in
+                     IPv4 or IPv6 address format.  If ip is an  IPv6  address,
+                     then  wrap ip with square brackets, e.g.: ssl:[::1]:6640.
+                     The --private-key, --certificate, and  --ca-cert  options
                      are mandatory when this form is used.
 
               tcp:ip:port
                      Connect to the given TCP port on ip, where ip can be IPv4
-                     or  IPv6  address. If ip is an IPv6 address, then wrap ip
+                     or IPv6 address. If ip is an IPv6 address, then  wrap  ip
                      with square brackets, e.g.: tcp:[::1]:6640.
 
               unix:file
-                     On POSIX, connect to the Unix domain server socket  named
+                     On  POSIX, connect to the Unix domain server socket named
                      file.
 
-                     On  Windows,  connect to a localhost TCP port whose value
+                     On Windows, connect to a localhost TCP port  whose  value
                      is written in file.
 
               pssl:port[:ip]
-                     Listen on the  given  SSL  port  for  a  connection.   By
-                     default,  connections are not bound to a particular local
-                     IP address and it listens only on  IPv4  (but  not  IPv6)
-                     addresses,  but specifying ip limits connections to those
+                     Listen  on  the  given  SSL  port  for  a connection.  By
+                     default, connections are not bound to a particular  local
+                     IP  address  and  it  listens only on IPv4 (but not IPv6)
+                     addresses, but specifying ip limits connections to  those
                      from the given ip, either IPv4 or IPv6 address.  If ip is
                      an IPv6 address, then wrap ip with square brackets, e.g.:
-                     pssl:6640:[::1].  The --private-key,  --certificate,  and
+                     pssl:6640:[::1].   The  --private-key, --certificate, and
                      --ca-cert options are mandatory when this form is used.
 
               ptcp:port[:ip]
-                     Listen  on  the  given  TCP  port  for  a connection.  By
-                     default, connections are not bound to a particular  local
-                     IP  address  and  it  listens only on IPv4 (but not IPv6)
-                     addresses, but ip may be specified  to  listen  only  for
+                     Listen on the  given  TCP  port  for  a  connection.   By
+                     default,  connections are not bound to a particular local
+                     IP address and it listens only on  IPv4  (but  not  IPv6)
+                     addresses,  but  ip  may  be specified to listen only for
                      connections to the given ip, either IPv4 or IPv6 address.
                      If ip is an IPv6 address, then wrap ip with square brack‐
                      ets, e.g.: ptcp:6640:[::1].
 
               punix:file
-                     On  POSIX,  listen on the Unix domain server socket named
+                     On POSIX, listen on the Unix domain server  socket  named
                      file for a connection.
 
-                     On Windows, listen on a kernel chosen  TCP  port  on  the
+                     On  Windows,  listen  on  a kernel chosen TCP port on the
                      localhost. The kernel chosen TCP port value is written in
                      file.
 
@@ -100,55 +103,58 @@ DESCRIPTION
        The following commands are implemented:
 
        list-dbs [server]
-              Connects to server, retrieves the list of known  databases,  and
-              prints  them  one  per  line.  These database names are the ones
+              Connects  to  server, retrieves the list of known databases, and
+              prints them one per line.  These database  names  are  the  ones
               that may be used for database in the following commands.
 
        get-schema [server] [database]
-              Connects to server,  retrieves  the  schema  for  database,  and
+              Connects  to  server,  retrieves  the  schema  for database, and
               prints it in JSON format.
 
        get-schema-version [server] [database]
-              Connects  to  server,  retrieves  the  schema  for database, and
-              prints its version number on stdout.  A  schema  version  number
+              Connects to server,  retrieves  the  schema  for  database,  and
+              prints  its  version  number on stdout.  A schema version number
               has the form x.y.z.  See ovs-vswitchd.conf.db(5) for details.
 
-              Schema  version  numbers  and  Open  vSwitch version numbers are
+              Schema version numbers and  Open  vSwitch  version  numbers  are
               independent.
 
               If database was created before schema versioning was introduced,
-              then  it  will  not  have a version number and this command will
+              then it will not have a version number  and  this  command  will
               print a blank line.
 
        list-tables [server] [database]
-              Connects to server,  retrieves  the  schema  for  database,  and
-              prints  a  table listing the name of each table within the data‐
+              Connects  to  server,  retrieves  the  schema  for database, and
+              prints a table listing the name of each table within  the  data‐
               base.
 
        list-columns [server] [database] table
-              Connects to server,  retrieves  the  schema  for  database,  and
+              Connects  to  server,  retrieves  the  schema  for database, and
               prints a table listing the name and type of each column.  If ta‐
-              ble is specified, only columns in that table are listed;  other‐
+              ble  is specified, only columns in that table are listed; other‐
               wise, the tables include columns in all tables.
 
        transact [server] transaction
-              Connects  to  server,  sends it the specified transaction, which
-              must be a JSON array containing one or more valid  OVSDB  opera‐
+              Connects to server, sends it the  specified  transaction,  which
+              must  be  a JSON array containing one or more valid OVSDB opera‐
               tions, and prints the received reply on stdout.
 
-       dump [server] [database]
-              Connects  to  server, retrieves all of the data in database, and
-              prints it on stdout as a series of tables.
+       dump [server] [database] [table [column...]]
+              Connects to server, retrieves all of the data in  database,  and
+              prints  it  on  stdout as a series of tables. If table is speci‐
+              fied, only that table is retrieved.  If at least one  column  is
+              specified, only those columns are retrieved.
 
        monitor [server] [database] table [column[,column]...]...
-              Connects to server and monitors the contents of table  in  data‐
-              base.   By  default,  the initial contents of table are printed,
+       monitor2 [server] [database] table [column[,column]...]...
+              Connects  to  server and monitors the contents of table in data‐
+              base.  By default, the initial contents of  table  are  printed,
               followed by each change as it occurs.  If at least one column is
               specified, only those columns are monitored.  The following col‐
               umn names have special meanings:
 
               !initial
-                     Do not print the initial contents of the  specified  col‐
+                     Do  not  print the initial contents of the specified col‐
                      umns.
 
               !insert
@@ -160,63 +166,74 @@ DESCRIPTION
               !modify
                      Do not print modifications to existing rows.
 
-              Multiple  [column[,column]...]  groups may be specified as sepa‐
-              rate arguments, e.g. to apply different reporting parameters  to
-              each  group.   Whether multiple groups or only a single group is
-              specified, any given column may only be mentioned  once  on  the
+              Multiple [column[,column]...] groups may be specified  as  sepa‐
+              rate  arguments, e.g. to apply different reporting parameters to
+              each group.  Whether multiple groups or only a single  group  is
+              specified,  any  given  column may only be mentioned once on the
               command line.
 
-              If  --detach  is  used  with monitor, then ovsdb-client detaches
-              after it has successfully received and printed the initial  con‐
-              tents of table.
+              If --detach is used with monitor or mointor2, then  ovsdb-client
+              detaches after it has successfully received and printed the ini‐
+              tial contents of table.
+
+              The monitor command uses RFC 7047 "monitor"  method  to  open  a
+              monitor  session  with the server. The monitor2 command uses RFC
+              7047  extension  "monitor2"  method.  See  ovsdb-server(1)   for
+              details.
 
        monitor [server] [database] ALL
+       monitor2 [server] [database] ALL
               Connects  to  server  and monitors the contents of all tables in
               database.  Prints initial values and all kinds of changes to all
               columns   in   the   database.    The   --detach  option  causes
               ovsdb-client to detach after it successfully receives and prints
               the initial database contents.
 
+              The  monitor  command  uses  RFC 7047 "monitor" method to open a
+              monitor session with the server. The monitor2 command  uses  RFC
+              7047   extension  "monitor2"  method.  See  ovsdb-server(1)  for
+              details.
+
 OPTIONS
    Output Formatting Options
-       Much  of  the  output  from ovsdb-client is in the form of tables.  The
+       Much of the output from ovsdb-client is in the  form  of  tables.   The
        following options controlling output formatting:
 
        -f format
        --format=format
-              Sets the type of table formatting.  The following types of  for‐
+              Sets  the type of table formatting.  The following types of for‐
               mat are available:
 
               table (default)
                      2-D text tables with aligned columns.
 
-              list   A  list  with one column per line and rows separated by a
+              list   A list with one column per line and rows separated  by  a
                      blank line.
 
               html   HTML tables.
 
               csv    Comma-separated values as defined in RFC 4180.
 
-              json   JSON format as defined in RFC  4627.   The  output  is  a
-                     sequence  of  JSON  objects, each of which corresponds to
-                     one table.  Each JSON object has  the  following  members
+              json   JSON  format  as  defined  in  RFC 4627.  The output is a
+                     sequence of JSON objects, each of  which  corresponds  to
+                     one  table.   Each  JSON object has the following members
                      with the noted values:
 
                      caption
-                            The  table's  caption.   This member is omitted if
+                            The table's caption.  This member  is  omitted  if
                             the table has no caption.
 
                      headings
-                            An array with one element per table column.   Each
+                            An  array with one element per table column.  Each
                             array element is a string giving the corresponding
                             column's heading.
 
-                     data   An array with one element  per  table  row.   Each
-                            element  is also an array with one element per ta‐
-                            ble column.  The  elements  of  this  second-level
-                            array  are  the  cells  that constitute the table.
-                            Cells that represent OVSDB data or data types  are
-                            expressed  in  the  format  described in the OVSDB
+                     data   An  array  with  one  element per table row.  Each
+                            element is also an array with one element per  ta‐
+                            ble  column.   The  elements  of this second-level
+                            array are the cells  that  constitute  the  table.
+                            Cells  that represent OVSDB data or data types are
+                            expressed in the format  described  in  the  OVSDB
                             specification; other cells are simply expressed as
                             text strings.
 
@@ -226,18 +243,18 @@ OPTIONS
               ing types of format are available:
 
               string (default)
-                     The simple format described in the Database  Values  sec‐
+                     The  simple  format described in the Database Values sec‐
                      tion of ovs-vsctl(8).
 
-              bare   The  simple  format with punctuation stripped off: [] and
-                     {} are omitted around  sets,  maps,  and  empty  columns,
-                     items  within  sets  and  maps  are  space-separated, and
-                     strings are never quoted.  This format may be easier  for
+              bare   The simple format with punctuation stripped off:  []  and
+                     {}  are  omitted  around  sets,  maps, and empty columns,
+                     items within  sets  and  maps  are  space-separated,  and
+                     strings  are never quoted.  This format may be easier for
                      scripts to parse.
 
               json   JSON.
 
-              The  json  output  format  always  outputs cells in JSON format,
+              The json output format always  outputs  cells  in  JSON  format,
               ignoring this option.
 
        --no-heading
@@ -245,26 +262,27 @@ OPTIONS
               the first row of table output.
 
        --pretty
-              By  default, JSON in output is printed as compactly as possible.
-              This option causes JSON in output to be printed in a more  read‐
-              able  fashion.   Members  of  objects and elements of arrays are
+              By default, JSON in output is printed as compactly as  possible.
+              This  option causes JSON in output to be printed in a more read‐
+              able fashion.  Members of objects and  elements  of  arrays  are
               printed one per line, with indentation.
 
-              This option does not affect JSON  in  tables,  which  is  always
+              This  option  does  not  affect  JSON in tables, which is always
               printed compactly.
 
        --bare Equivalent to --format=list --data=bare --no-headings.
 
        --timestamp
-              For  the monitor command, adds a timestamp to each table update.
-              Most output formats add the timestamp on a line of its own  just
-              above the table.  The JSON output format puts the timestamp in a
-              member of the top-level JSON object named time.
+              For the monitor and monitor2 commands, add a timestamp  to  each
+              table  update.   Most output formats add the timestamp on a line
+              of its own just above the table.  The JSON  output  format  puts
+              the  timestamp  in  a  member of the top-level JSON object named
+              time.
 
    Daemon Options
-       The daemon options apply only to the monitor command.  With  any  other
-       command, they have no effect.  The following options are valid on POSIX
-       based platforms.
+       The daemon options apply only to the  monitor  and  monitor2  commands.
+       With any other command, they have no effect.  The following options are
+       valid on POSIX based platforms.
 
        --pidfile[=pidfile]
               Causes a file (by default, ovsdb-client.pid) to be created indi‐
@@ -283,8 +301,12 @@ OPTIONS
               When --pidfile is not specified, this option has no effect.
 
        --detach
-              Causes ovsdb-client to detach itself from the foreground session
-              and run as a background process.
+              Runs ovsdb-client as a background process.  The  process  forks,
+              and  in  the  child it starts a new session, closes the standard
+              file descriptors (which has the side effect of disabling logging
+              to  the  console), and changes its current directory to the root
+              (unless --no-chdir is specified).  After the child completes its
+              initialization, the parent exits.
 
        --monitor
               Creates  an  additional process to monitor the ovsdb-client dae‐
@@ -343,7 +365,9 @@ OPTIONS
 
               ·      syslog,  console,  or file, to limit the log level change
                      to only to the system log, to the console, or to a  file,
-                     respectively.
+                     respectively.   (If  --detach  is specified, ovsdb-client
+                     closes its standard file descriptors, so logging  to  the
+                     console will have no effect.)
 
                      On  Windows platform, syslog is accepted as a word and is
                      only useful along with the  --syslog-target  option  (the
@@ -483,4 +507,4 @@ SEE ALSO
 
 
 
-Open vSwitch                        2.4.90                     ovsdb-client(1)
+Open vSwitch                        2.5.90                     ovsdb-client(1)

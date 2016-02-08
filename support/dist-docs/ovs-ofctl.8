@@ -4,7 +4,7 @@
 .  ns
 .  IP "\\$1"
 ..
-.TH ovs\-ofctl 8 "2.4.90" "Open vSwitch" "Open vSwitch Manual"
+.TH ovs\-ofctl 8 "2.5.90" "Open vSwitch" "Open vSwitch Manual"
 .ds PN ovs\-ofctl
 .
 .SH NAME
@@ -109,8 +109,13 @@ algorithm described for the \fBFlow_Table\fR table in
 \fBovs-vswitchd.conf.db\fR(5).
 .IP \fBnoevict\fR
 Refuse to add the new flow.  (Eviction might still be enabled through
-the \fBoverflow_policy\fR oclumn in the \fBFlow_Table\fR table
+the \fBoverflow_policy\fR column in the \fBFlow_Table\fR table
 documented in \fBovs-vswitchd.conf.db\fR(5).)
+.IP \fBvacancy:\fIlow\fB,\fIhigh\fR
+Enables sending vacancy events to controllers using \fBTABLE_STATUS\fR
+messages, based on percentage thresholds \fIlow\fR and \fIhigh\fR.
+.IP \fBnovacancy\fR
+Disables vacancy events.
 .RE
 .
 .TP
@@ -251,6 +256,17 @@ all queues on all ports.  If only \fIqueue\fR is omitted, then
 statistics are printed for all queues on \fIport\fR; if only
 \fIport\fR is omitted, then statistics are printed for \fIqueue\fR on
 every port where it exists.
+.
+.IP "\fBqueue\-get\-config \fIswitch [\fIport \fR[\fIqueue\fR]]"
+Prints to the console the configuration of \fIqueue\fR on \fIport\fR
+in \fIswitch\fR.  If \fIport\fR is omitted or \fBANY\fR, reports
+queues for all port.  If \fIqueue\fR is omitted or \fBANY\fR, reports
+all queues.  For OpenFlow 1.3 and earlier, the output always includes
+all queues, ignoring \fIqueue\fR if specified.
+.IP
+This command has limited usefulness, because ports often have no
+configured queues and because the OpenFlow protocol provides only very
+limited information about the configuration of a queue.
 .
 .SS "OpenFlow 1.1+ Group Table Commands"
 .
@@ -432,21 +448,23 @@ Remove buckets to an existing group present in the \fIswitch\fR's group table.
 If no \fIcommand_bucket_id\fR is present in the group specification then all
 buckets of the group are removed.
 .
-.SS "OpenFlow Switch Geneve Option Table Commands"
+.SS "OpenFlow Switch Tunnel TLV Table Commands"
 .
-Open vSwitch maintains a mapping table between Geneve options (defined
-by <class, type, length>) and an NXM field \fBtun_metadata\fIn\fR,
+Open vSwitch maintains a mapping table between tunnel option TLVs (defined
+by <class, type, length>) and NXM fields \fBtun_metadata\fIn\fR,
 where \fIn\fR ranges from 0 to 63, that can be operated on for the
-purposes of matches, actions, etc. This mapping must be explicitly
-specified by the user through the following commands.
+purposes of matches, actions, etc. This TLV table can be used for
+Geneve option TLVs or other protocols with options in same TLV format
+as Geneve options. This mapping must be explicitly specified by the user
+through the following commands.
 
-A Geneve option mapping is specified with the syntax
+A TLV mapping is specified with the syntax
 \fB{class=\fIclass\fB,type=\fItype\fB,len=\fIlength\fB}->tun_metadata\fIn\fR.
 When an option mapping exists for a given \fBtun_metadata\fIn\fR,
 matching on the defined field becomes possible, e.g.:
 
 .RS
-ovs-ofctl add-geneve-map br0 "{class=0xffff,type=0,len=4}->tun_metadata0"
+ovs-ofctl add-tlv-map br0 "{class=0xffff,type=0,len=4}->tun_metadata0"
 .PP
 ovs-ofctl add-flow br0 tun_metadata0=1234,actions=controller
 .RE
@@ -454,23 +472,23 @@ ovs-ofctl add-flow br0 tun_metadata0=1234,actions=controller
 A mapping should not be changed while it is in active
 use by a flow. The result of doing so is undefined.
 
-Currently, the Geneve mapping table is shared between all OpenFlow
+Currently, the TLV mapping table is shared between all OpenFlow
 switches in a given instance of Open vSwitch. This restriction will
 be lifted in the future to allow for easier management.
 
 These commands are Nicira extensions to OpenFlow and require Open vSwitch
 2.5 or later.
 
-.IP "\fBadd\-geneve\-map \fIswitch option\fR[\fB,\fIoption\fR]..."
+.IP "\fBadd\-TLV\-map \fIswitch option\fR[\fB,\fIoption\fR]..."
 Add each \fIoption\fR to \fIswitch\fR's tables. Duplicate fields are
 rejected.
 .
-.IP "\fBdel\-geneve\-map \fIswitch \fR[\fIoption\fR[\fB,\fIoption\fR]]..."
-Delete each \fIoption\fR from \fIswitch\fR's table, or all Geneve option
+.IP "\fBdel\-TLV\-map \fIswitch \fR[\fIoption\fR[\fB,\fIoption\fR]]..."
+Delete each \fIoption\fR from \fIswitch\fR's table, or all option TLV
 mapping if no \fIoption\fR is specified.
 Fields that aren't mapped are ignored.
 .
-.IP "\fBdump\-geneve\-map \fIswitch\fR"
+.IP "\fBdump\-TLV\-map \fIswitch\fR"
 Show the currently mapped fields in the switch's option table as well
 as switch capabilities.
 .
@@ -519,6 +537,8 @@ If \fBinvalid_ttl\fR is passed, \fBovs\-ofctl\fR sends an OpenFlow ``set
 configuration'' message at connection setup time that requests
 \fBINVALID_TTL_TO_CONTROLLER\fR, so that \fBovs\-ofctl monitor\fR can
 receive ``packet-in'' messages when TTL reaches zero on \fBdec_ttl\fR action.
+Only OpenFlow 1.1 and 1.2 support \fBinvalid_ttl\fR; Open vSwitch also
+implements it for OpenFlow 1.0 as an extension.
 .IP
 \fBwatch:\fR[\fB\fIspec\fR...] causes \fBovs\-ofctl\fR to send a
 ``monitor request'' Nicira extension message to the switch at
@@ -1111,7 +1131,11 @@ When \fBdl_type\fR specifies either ARP or RARP, \fBarp_sha\fR and
 address is specified as 6 pairs of hexadecimal digits delimited by colons
 (e.g. \fB00:0A:E4:25:6B:B0\fR), with a wildcard mask following the slash.
 .
-
+.IP \fBarp_op=\fIopcode\fR
+When \fBdl_type\fR specifies either ARP or RARP, \fBarp_op\fR matches the
+ARP opcode.  Only ARP opcodes between 1 and 255 should be specified for
+matching.
+.
 .IP \fBipv6_src=\fIipv6\fR[\fB/\fInetmask\fR]
 .IQ \fBipv6_dst=\fIipv6\fR[\fB/\fInetmask\fR]
 When \fBdl_type\fR is 0x86dd (possibly via shorthand, e.g., \fBipv6\fR
@@ -1258,8 +1282,10 @@ a shorthand, it is possible to specify only the field name to
 simply match on an option being present.
 .IP
 Tunnel metadata fields can be dynamically assigned onto the data
-contained in the options of Geneve packets using the commands
-described in the section \fBOpenFlow Switch Geneve Option Table
+contained in the option TLVs of packets (e.g. Geneve variable
+options stores zero or more options in TLV format and tunnel
+metadata can be assigned onto these option TLVs) using the
+commands described in the section \fBOpenFlow Switch Tunnel TLV Table
 Commands\fR. Once assigned, the length of the field is variable
 according to the size of the option. Before updating a mapping in
 the option table, flows with references to it should be removed,
@@ -1358,14 +1384,20 @@ flow.
 .IP
 The following flags describe the state of the tracking:
 .RS
-.IP "\fB0x80: trk\fR"
-This packet is tracked, meaning that it has previously traversed the connection
-tracker. If this flag is not set, then no other flags will be set. If this flag
-is set, then the packet is tracked and other flags may also be set.
-.IP "\fB0x40: rpl\fR"
+.IP "\fB0x01: new\fR"
+This is the beginning of a new connection. This flag may only be present for
+uncommitted connections.
+.IP "\fB0x02: est\fR"
+This is part of an already existing connection. This flag may only be present
+for committed connections.
+.IP "\fB0x04: rel\fR"
+This is a connection that is related to an existing connection, for
+instance ICMP "destination unreachable" messages or FTP data connections. This
+flag may only be present for committed connections.
+.IP "\fB0x08: rpl\fR"
 The flow is in the reply direction, meaning it did not initiate the
 connection. This flag may only be present for committed connections.
-.IP "\fB0x20: inv\fR"
+.IP "\fB0x10: inv\fR"
 The state is invalid, meaning that the connection tracker couldn't identify the
 connection. This flag is a catch-all for any problems that the connection
 tracker may have, for example:
@@ -1379,16 +1411,10 @@ modules are not loaded.
 .PP
 - Packets are unexpected length for protocol.
 .RE
-.IP "\fB0x01: new\fR"
-This is the beginning of a new connection. This flag may only be present for
-uncommitted connections.
-.IP "\fB0x02: est\fR"
-This is part of an already existing connection. This flag may only be present
-for committed connections.
-.IP "\fB0x04: rel\fR"
-This is a connection that is related to an existing connection, for
-instance ICMP "destination unreachable" messages or FTP data connections. This
-flag may only be present for committed connections.
+.IP "\fB0x20: trk\fR"
+This packet is tracked, meaning that it has previously traversed the connection
+tracker. If this flag is not set, then no other flags will be set. If this flag
+is set, then the packet is tracked and other flags may also be set.
 .PP
 This field was introduced in Open vSwitch 2.5.
 .RE
@@ -1745,8 +1771,6 @@ same IP message.
 .IP
 Currently, connection tracking is only available on Linux kernels with the
 nf_conntrack module loaded.
-.
-.RE
 .
 .IP \fBdec_ttl\fR
 .IQ \fBdec_ttl(\fIid1\fR[\fB,\fIid2\fR]...\fB)\fR
@@ -2352,7 +2376,7 @@ the same way.)
 Conjunctive flows can be a useful building block for negation, that
 is, inequality matches like \fBtcp_src\fR \[!=] 80.  To implement an
 inequality match, convert it to a pair of range matches, e.g. 0 \[<=]
-\fBtcp_src\ < 80 and 80 < \fBtcp_src\fR \[<=] 65535, then convert each
+\fBtcp_src\fR < 80 and 80 < \fBtcp_src\fR \[<=] 65535, then convert each
 of the range matches into a collection of bitwise matches as explained
 above in the description of \fBtcp_src\fR.
 .IP \(bu
@@ -2482,12 +2506,19 @@ check is expensive so it is best to avoid it.)
 .
 .PP
 The \fBdump\-flows\fR, \fBdump\-aggregate\fR, \fBdel\-flow\fR 
-and \fBdel\-flows\fR commands support one additional optional field:
+and \fBdel\-flows\fR commands support these additional optional fields:
 .
 .TP
 \fBout_port=\fIport\fR
 If set, a matching flow must include an output action to \fIport\fR,
 which must be an OpenFlow port number or name (e.g. \fBlocal\fR).
+.
+.TP
+\fBout_group=\fIport\fR
+If set, a matching flow must include an \fBgroup\fR action naming
+\fIgroup\fR, which must be an OpenFlow group number.  This field
+is supported in Open vSwitch 2.5 and later and requires OpenFlow 1.1
+or later.
 .
 .SS "Table Entry Output"
 .
@@ -2944,10 +2975,13 @@ overwrite the pidfile.
 .IP
 When \fB\-\-pidfile\fR is not specified, this option has no effect.
 .
-.TP
-\fB\-\-detach\fR
-Causes \fB\*(PN\fR to detach itself from the foreground session and
-run as a background process. \*(DD
+.IP \fB\-\-detach\fR
+Runs \fB\*(PN\fR as a background process.  The process forks, and in
+the child it starts a new session, closes the standard file
+descriptors (which has the side effect of disabling logging to the
+console), and changes its current directory to the root (unless
+\fB\-\-no\-chdir\fR is specified).  After the child completes its
+initialization, the parent exits.  \*(DD
 .
 .TP
 \fB\-\-monitor\fR
@@ -3062,7 +3096,9 @@ module.
 .IP \(bu
 \fBsyslog\fR, \fBconsole\fR, or \fBfile\fR, to limit the log level
 change to only to the system log, to the console, or to a file,
-respectively.
+respectively.  (If \fB\-\-detach\fR is specified, \fB\*(PN\fR closes
+its standard file descriptors, so logging to the console will have no
+effect.)
 .IP
 On Windows platform, \fBsyslog\fR is accepted as a word and is only
 useful along with the \fB\-\-syslog\-target\fR option (the word has no

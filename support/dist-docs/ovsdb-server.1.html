@@ -170,8 +170,12 @@ ovsdb-server(1)               Open vSwitch Manual              ovsdb-server(1)
               When <b>-</b><b>-</b><b>p</b><b>i</b><b>d</b><b>f</b><b>i</b><b>l</b><b>e</b> is not specified, this option has no effect.
 
        <b>-</b><b>-</b><b>d</b><b>e</b><b>t</b><b>a</b><b>c</b><b>h</b>
-              Causes <b>o</b><b>v</b><b>s</b><b>d</b><b>b</b><b>-</b><b>s</b><b>e</b><b>r</b><b>v</b><b>e</b><b>r</b> to detach itself from the foreground session
-              and run as a  background  process.  <b>o</b><b>v</b><b>s</b><b>d</b><b>b</b><b>-</b><b>s</b><b>e</b><b>r</b><b>v</b><b>e</b><b>r</b>  detaches  only
+              Runs  <b>o</b><b>v</b><b>s</b><b>d</b><b>b</b><b>-</b><b>s</b><b>e</b><b>r</b><b>v</b><b>e</b><b>r</b>  as a background process.  The process forks,
+              and in the child it starts a new session,  closes  the  standard
+              file descriptors (which has the side effect of disabling logging
+              to the console), and changes its current directory to  the  root
+              (unless <b>-</b><b>-</b><b>n</b><b>o</b><b>-</b><b>c</b><b>h</b><b>d</b><b>i</b><b>r</b> is specified).  After the child completes its
+              initialization, the parent exits.   <b>o</b><b>v</b><b>s</b><b>d</b><b>b</b><b>-</b><b>s</b><b>e</b><b>r</b><b>v</b><b>e</b><b>r</b>  detaches  only
               after it starts listening on all configured remotes.
 
        <b>-</b><b>-</b><b>m</b><b>o</b><b>n</b><b>i</b><b>t</b><b>o</b><b>r</b>
@@ -246,7 +250,9 @@ ovsdb-server(1)               Open vSwitch Manual              ovsdb-server(1)
 
               ·      <b>s</b><b>y</b><b>s</b><b>l</b><b>o</b><b>g</b>,  <b>c</b><b>o</b><b>n</b><b>s</b><b>o</b><b>l</b><b>e</b>,  or <b>f</b><b>i</b><b>l</b><b>e</b>, to limit the log level change
                      to only to the system log, to the console, or to a  file,
-                     respectively.
+                     respectively.   (If  <b>-</b><b>-</b><b>d</b><b>e</b><b>t</b><b>a</b><b>c</b><b>h</b>  is specified, <b>o</b><b>v</b><b>s</b><b>d</b><b>b</b><b>-</b><b>s</b><b>e</b><b>r</b><b>v</b><b>e</b><b>r</b>
+                     closes its standard file descriptors, so logging  to  the
+                     console will have no effect.)
 
                      On  Windows platform, <b>s</b><b>y</b><b>s</b><b>l</b><b>o</b><b>g</b> is accepted as a word and is
                      only useful along with the  <b>-</b><b>-</b><b>s</b><b>y</b><b>s</b><b>l</b><b>o</b><b>g</b><b>-</b><b>t</b><b>a</b><b>r</b><b>g</b><b>e</b><b>t</b>  option  (the
@@ -639,6 +645,83 @@ ovsdb-server(1)               Open vSwitch Manual              ovsdb-server(1)
               unique among all active monitors.  <b>o</b><b>v</b><b>s</b><b>d</b><b>b</b><b>-</b><b>s</b><b>e</b><b>r</b><b>v</b><b>e</b><b>r</b> rejects  attempt
               to create two monitors with the same identifier.
 
+       4.1.12. Monitor2
+              A new monitor method added in Open vSwitch version 2.5. Monitor2
+              allows  for  more  efficient  update  notifications   (described
+              below).
+
+              The  monitor  method  described in Section 4.1.5 also applies to
+              monitor2, with the following exceptions.
+
+              ·      RPC request method becomes "monitor2".
+
+              ·      Replay result follows <lt;table-updates2>gt;, described in Sec‐
+                     tion 4.1.13.
+
+              ·      Subsequent  changes  are  sent  to  the  client using the
+                     "update2"  monitor  notification,  described  in  Section
+                     4.1.13
+
+              Both  monitor and monitor2 sessions can exist concurrently. How‐
+              ever, monitor and monitor2 shares the same <lt;json-value>gt;  parame‐
+              ter space; it must be unique among all monitor and monitor2 ses‐
+              sions.
+
+       4.1.13. Update2 notification
+              The "update2" notification is sent by the server to  the  client
+              to report changes in tables that are being monitored following a
+              "monitor2" request as described above. The notification has  the
+              following members:
+              "method": "update2"
+              "params": [<lt;json-value>gt;, <lt;table-updates2>gt;]
+              "id": null
+
+              The  <lt;json-value>gt; in "params" is the same as the value passed as
+              the <lt;json-value>gt;  in "params" for  the  corresponding  "monitor"
+              request.   <lt;table-updates2>gt;  is an object that maps from a table
+              name to a <lt;table-update2>gt;.  A <lt;table-update2>gt; is an object  that
+              maps  from row's UUID to a <lt;row-update2>gt; object. A <lt;row-update2>gt;
+              is an object with one of the following members:
+
+              "initial": <lt;row>gt;
+                     present for "initial" updates
+
+              "insert": <lt;row>gt;
+                     present for "insert" updates
+
+              "delete": <lt;row>gt;
+                     present for "delete" updates
+
+              "modify": <lt;row>gt;
+                     present for "modify" updates
+
+              The format of <lt;row>gt; is described in Section 5.1.
+
+              <lt;row>gt; is always a null object for a "delete"  update.  In  "ini‐
+              tial"  and  "insert"  updates,  <lt;row>gt; omits columns whose values
+              equal the default value of the column type.
+
+              For a "modify" update, <lt;row>gt; contains only the columns that  are
+              modified.   <lt;row>gt;  stores the difference between the old and new
+              value for those columns, as described below.
+
+              For columns with single value, the difference is  the  value  of
+              the new column.
+
+              The  difference  between  two  sets  are  all elements that only
+              belong to one of the sets.
+
+              The difference between two maps are all  key-value  pairs  whose
+              keys  appears  in only one of the maps, plus the key-value pairs
+              whose keys appear in both maps but with different  values.   For
+              the  latter elements, <lt;row>gt; includes the value from the new col‐
+              umn.
+
+              Initial views of rows are not  presented  in  update2  notifica‐
+              tions,  but  in the response object to the monitor2 request. The
+              formatting of the <lt;table-updates2>gt; object, however, is the  same
+              in either case.
+
        5.1. Notation
               For  <lt;condition>gt;,  RFC  7047  only  allows  the  use  of <b>!</b><b>=</b>, <b>=</b><b>=</b>,
               <b>i</b><b>n</b><b>c</b><b>l</b><b>u</b><b>d</b><b>e</b><b>s</b>, and <b>e</b><b>x</b><b>c</b><b>l</b><b>u</b><b>d</b><b>e</b><b>s</b> operators with set types.   Open  vSwitch
@@ -677,5 +760,5 @@ ovsdb-server(1)               Open vSwitch Manual              ovsdb-server(1)
 
 
 
-Open vSwitch                        2.4.90                     ovsdb-server(1)
+Open vSwitch                        2.5.90                     ovsdb-server(1)
 </pre></body></html>

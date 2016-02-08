@@ -1,6 +1,6 @@
 '\" p
 .\" -*- nroff -*-
-.TH "ovn-nb" 5 " DB Schema 2.0.0" "Open vSwitch 2.4.90" "Open vSwitch Manual"
+.TH "ovn-nb" 5 " DB Schema 2.0.1" "Open vSwitch 2.5.90" "Open vSwitch Manual"
 .fp 5 L CR              \\" Make fixed-width font available as \\fL.
 .de TQ
 .  br
@@ -162,7 +162,7 @@ map of string-string pairs
 .RS .25in
 .TQ 2.50in
 \fBoptions : router-port\fR
-optional string, containing an uuid
+optional string
 .RE
 .TQ .25in
 \fIOptions for localnet ports:\fR
@@ -266,9 +266,9 @@ If a given logical switch has multiple \fBrouter\fR ports, the
 \fBLogical_Router_Port\fR rows that they reference must be
 all on the same \fBLogical_Router\fR (for different
 subnets)\[char46]
-.IP "\fBoptions : router-port\fR: optional string, containing an uuid"
-Required\[char46]  The UUID of the \fBLogical_Router_Port\fR to
-which this logical switch port is connected\[char46]
+.IP "\fBoptions : router-port\fR: optional string"
+Required\[char46]  The \fBname\fR of the \fBLogical_Router_Port\fR to which this logical switch port is
+connected\[char46]
 .ST "Options for localnet ports:"
 These options apply when \fBtype\fR is
 \fBlocalnet\fR\[char46]
@@ -347,6 +347,9 @@ responses to ARP requests without traversing the physical
 network\[char46]  The OVN logical router connected to the logical switch,
 if any, uses this information to avoid issuing ARP requests for
 logical switch ports\[char46]
+.IP
+Note that the order here is important\[char46] The Ethernet address must
+be listed before the IP address\[char46]
 .TP
 \fBunknown\fR
 This indicates that the logical port has an unknown set of Ethernet
@@ -433,6 +436,9 @@ available in both directions)\[char46]
 By default all traffic is allowed\[char46]  When writing a more
 restrictive policy, it is important to remember to allow flows
 such as ARP and IPv6 neighbor discovery packets\[char46]
+.IP
+Note that you can not create an ACL matching on a port with
+type=router\[char46]
 .IP "\fBaction\fR: string, one of \fBallow\-related\fR, \fBdrop\fR, \fBallow\fR, or \fBreject\fR"
 The action to take when the ACL rule matches:
 .RS
@@ -499,7 +505,7 @@ logical router port\[char46]
 .SS "Summary:
 .TQ 3.00in
 \fBname\fR
-string
+string (must be unique within table)
 .TQ 3.00in
 \fBnetwork\fR
 string
@@ -524,11 +530,12 @@ optional \fBLogical_Router_Port\fR
 map of string-string pairs
 .RE
 .SS "Details:
-.IP "\fBname\fR: string"
-A name for the logical router port\[char46]  This name has no special meaning or purpose
-other than to provide convenience for human interaction with the ovn-nb
-database\[char46]  There is no requirement for the name to be unique\[char46]  The
-logical router port\(cqs UUID should be used as the unique identifier\[char46]
+.IP "\fBname\fR: string (must be unique within table)"
+A name for the logical router port\[char46]
+.IP
+In addition to provide convenience for human interaction with the
+ovn-nb database, this column is used as reference by its patch port in
+\fBLogical_Port\fR or another logical router port in \fBLogical_Router_Port\fR\[char46]
 .IP "\fBnetwork\fR: string"
 The IP address of the router and the netmask\[char46]  For example,
 \fB192\[char46]168\[char46]0\[char46]1/24\fR indicates that the router\(cqs IP address is
@@ -546,7 +553,10 @@ A given router port serves one of two purposes:
 .RS
 .IP \(bu
 To attach a logical switch to a logical router\[char46]  A logical router
-port of this type is referenced by exactly one \fBLogical_Port\fR of type \fBrouter\fR\[char46]  The \fBpeer\fR column is empty\[char46]
+port of this type is referenced by exactly one \fBLogical_Port\fR of type \fBrouter\fR\[char46]  The value of
+\fBname\fR is set as \fBrouter\-port\fR in column
+\fBoptions\fR of \fBLogical_Port\fR\[char46]
+In this case \fBpeer\fR column is empty\[char46]
 .IP \(bu
 To connect one logical router to another\[char46]  This requires a pair of
 logical router ports, each connected to a different router\[char46]  Each
@@ -555,7 +565,7 @@ the router port\[char46]
 .RE
 .IP "\fBpeer\fR: optional \fBLogical_Router_Port\fR"
 For a router port used to connect two logical routers, this
-identifies the other router port in the pair\[char46]
+identifies the other router port in the pair by \fBname\fR\[char46]
 .IP
 For a router port attached to a logical switch, this column is empty\[char46]
 .ST "Common Columns:"

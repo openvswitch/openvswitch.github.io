@@ -1,6 +1,6 @@
 '\" p
 .\" -*- nroff -*-
-.TH "ovn-nbctl" 8 "ovn-nbctl" "Open vSwitch 2\[char46]4\[char46]90" "Open vSwitch Manual"
+.TH "ovn-nbctl" 8 "ovn-nbctl" "Open vSwitch 2\[char46]5\[char46]90" "Open vSwitch Manual"
 .fp 5 L CR              \\" Make fixed-width font available as \\fL.
 .de TQ
 .  br
@@ -149,6 +149,326 @@ Set type-specific key-value options for the logical port\[char46]
 .TP
 \fBlport\-get\-options\fR \fIlport\fR
 Get the type-specific options for the logical port\[char46]
+.RE
+.SH "DATABASE COMMANDS"
+.PP
+These commands query and modify the contents of \fBovsdb\fR tables\[char46]
+They are a slight abstraction of the \fBovsdb\fR interface and
+as suchthey operate at a lower level than other \fBovn\-nbctl\fR commands\[char46]
+.PP
+\fIIdentifying Tables, Records, and Columns\fR
+.PP
+Each of these commands has a \fItable\fR parameter to identify a table
+within the database\[char46]  Many of them also take a \fIrecord\fR parameter
+that identifies a particular record within a table\[char46]  The \fIrecord\fR
+parameter may be the UUID for a record, and many tables offer
+additional ways to identify records\[char46]  Some commands also take
+\fIcolumn\fR parameters that identify a particular field within the
+records in a table\[char46]
+.PP
+The following tables are currently defined:
+.RS
+.TP
+\fBLogical_Switch\fR
+An L2 logical switch\[char46]  Records may be identified by name\[char46]
+.TP
+\fBLogical_Port\fR
+A port within an L2 logical switch\[char46]  Records may be identified by name\[char46]
+.TP
+\fBACL\fR
+An ACL rule for a logical switch that points to it through its \fIacls\fR column\[char46]
+.TP
+\fBLogical_Router\fR
+An L3 logical router\[char46]  Records may be identified by name\[char46]
+.TP
+\fBLogical_Router_Port\fR
+A port within an L3 logical router\[char46]  Records may be identified by name\[char46]
+.RE
+.PP
+\fIDatabase Values\fR
+.PP
+Each column in the database accepts a fixed type of data\[char46]  The
+currently defined basic types, and their representations, are:
+.RS
+.TP
+integer
+A decimal integer in the range \-2**63 to 2**63\-1, inclusive\[char46]
+.TP
+real
+A floating-point number\[char46]
+.TP
+Boolean
+True or false, written \fBtrue\fR or \fBfalse\fR, respectively\[char46]
+.TP
+string
+An arbitrary Unicode string, except that null bytes are not allowed\[char46]
+Quotes are optional for most strings that begin with an English letter
+or underscore and consist only of letters, underscores, hyphens, and
+periods\[char46]  However, \fBtrue\fR and \fBfalse\fR and strings that match
+the syntax of UUIDs (see below) must be enclosed in double quotes to
+distinguish them from other basic types\[char46]  When double quotes are used,
+the syntax is that of strings in JSON, e\[char46]g\[char46] backslashes may be used to
+escape special characters\[char46]  The empty string must be represented as a
+pair of double quotes (\fB\(dq\(dq\fR)\[char46]
+.TP
+UUID
+Either a universally unique identifier in the style of RFC 4122,
+e\[char46]g\[char46] \fBf81d4fae\-7dec\-11d0\-a765\-00a0c91e6bf6\fR, or an \fB@\fR\fIname\fR
+defined by a \fBget\fR or \fBcreate\fR command within the same \fBovn\-nbctl\fR
+invocation\[char46]
+.RE
+.PP
+Multiple values in a single column may be separated by spaces or a
+single comma\[char46]  When multiple values are present, duplicates are not
+allowed, and order is not important\[char46]  Conversely, some database
+columns can have an empty set of values, represented as \fB[]\fR, and
+square brackets may optionally enclose other non-empty sets or single
+values as well\[char46]
+.PP
+A few database columns are ``maps\(cq\(cq of key-value pairs, where the key
+and the value are each some fixed database type\[char46]  These are specified
+in the form \fIkey\fR\fB=\fR\fIvalue\fR, where \fIkey\fR and \fIvalue\fR
+follow the syntax for the column\(cqs key type and value type,
+respectively\[char46]  When multiple pairs are present (separated by spaces or
+a comma), duplicate keys are not allowed, and again the order is not
+important\[char46]  Duplicate values are allowed\[char46]  An empty map is represented
+as \fB{}\fR\[char46]  Curly braces may optionally enclose non-empty maps as
+well (but use quotes to prevent the shell from expanding
+\fBother\-config={0=x,1=y}\fR into \fBother\-config=0=x
+other\-config=1=y\fR, which may not have the desired effect)\[char46]
+.PP
+\fIDatabase Command Syntax\fR
+.RS
+.TP
+[\fB\-\-if\-exists\fR] [\fB\-\-columns=\fR\fIcolumn\fR[\fB,\fR\fIcolumn\fR]\[char46]\[char46]\[char46]] \fBlist\fR \fItable\fR [\fIrecord\fR]\[char46]\[char46]\[char46]
+Lists the data in each specified \fIrecord\fR\[char46]  If no
+records are specified, lists all the records in \fItable\fR\[char46]
+.IP
+If \fB\-\-columns\fR is specified, only the requested columns are
+listed, in the specified order\[char46]  Otherwise, all columns are listed, in
+alphabetical order by column name\[char46]
+.IP
+Without \fB\-\-if\-exists\fR, it is an error if any specified
+\fIrecord\fR does not exist\[char46]  With \fB\-\-if\-exists\fR, the command
+ignores any \fIrecord\fR that does not exist, without producing any
+output\[char46]
+.TP
+[\fB\-\-columns=\fR\fIcolumn\fR[\fB,\fR\fIcolumn\fR]\[char46]\[char46]\[char46]] \fBfind\fR \fItable\fR [\fIcolumn\fR[\fB:\fR\fIkey\fR]\fB=\fR\fIvalue\fR]\[char46]\[char46]\[char46]
+Lists the data in each record in \fItable\fR whose \fIcolumn\fR equals
+\fIvalue\fR or, if \fIkey\fR is specified, whose \fIcolumn\fR contains
+a \fIkey\fR with the specified \fIvalue\fR\[char46]  The following operators
+may be used where \fB=\fR is written in the syntax summary:
+.RS
+.TP
+\fB= != < > <= >=\fR
+Selects records in which \fIcolumn\fR[\fB:\fR\fIkey\fR] equals, does not
+equal, is less than, is greater than, is less than or equal to, or is
+greater than or equal to \fIvalue\fR, respectively\[char46]
+.IP
+Consider \fIcolumn\fR[\fB:\fR\fIkey\fR] and \fIvalue\fR as sets of
+elements\[char46]  Identical sets are considered equal\[char46]  Otherwise, if the
+sets have different numbers of elements, then the set with more
+elements is considered to be larger\[char46]  Otherwise, consider a element
+from each set pairwise, in increasing order within each set\[char46]  The
+first pair that differs determines the result\[char46]  (For a column that
+contains key-value pairs, first all the keys are compared, and values
+are considered only if the two sets contain identical keys\[char46])
+.TP
+\fB{=} {!=}\fR
+Test for set equality or inequality, respectively\[char46]
+.TP
+\fB{<=}\fR
+Selects records in which \fIcolumn\fR[\fB:\fR\fIkey\fR] is a subset of
+\fIvalue\fR\[char46]  For example, \fBflood\-vlans{<=}1,2\fR selects records in
+which the \fBflood\-vlans\fR column is the empty set or contains 1 or 2
+or both\[char46]
+.TP
+\fB{<}\fR
+Selects records in which \fIcolumn\fR[\fB:\fR\fIkey\fR] is a proper
+subset of \fIvalue\fR\[char46]  For example, \fBflood\-vlans{<}1,2\fR selects
+records in which the \fBflood\-vlans\fR column is the empty set or
+contains 1 or 2 but not both\[char46]
+.TP
+\fB{>=} {>}\fR
+Same as \fB{<=}\fR and \fB{<}\fR, respectively, except that the
+relationship is reversed\[char46]  For example, \fBflood\-vlans{>=}1,2\fR
+selects records in which the \fBflood\-vlans\fR column contains both 1
+and 2\[char46]
+.RE
+.IP
+For arithmetic operators (\fB= != < > <= >=\fR), when \fIkey\fR is
+specified but a particular record\(cqs \fIcolumn\fR does not contain
+\fIkey\fR, the record is always omitted from the results\[char46]  Thus, the
+condition \fBother\-config:mtu!=1500\fR matches records that have a
+\fBmtu\fR key whose value is not 1500, but not those that lack an
+\fBmtu\fR key\[char46]
+.IP
+For the set operators, when \fIkey\fR is specified but a particular
+record\(cqs \fIcolumn\fR does not contain \fIkey\fR, the comparison is
+done against an empty set\[char46]  Thus, the condition
+\fBother\-config:mtu{!=}1500\fR matches records that have a \fBmtu\fR
+key whose value is not 1500 and those that lack an \fBmtu\fR key\[char46]
+.IP
+Don\(cqt forget to escape \fB<\fR or \fB>\fR from interpretation by the
+shell\[char46]
+.IP
+If \fB\-\-columns\fR is specified, only the requested columns are
+listed, in the specified order\[char46]  Otherwise all columns are listed, in
+alphabetical order by column name\[char46]
+.IP
+The UUIDs shown for rows created in the same \fBovn\-nbctl\fR
+invocation will be wrong\[char46]
+.TP
+[\fB\-\-if\-exists\fR] [\fB\-\-id=@\fR\fIname\fR] \fBget\fR \fItable record\fR [\fIcolumn\fR[\fB:\fR\fIkey\fR]]\[char46]\[char46]\[char46]
+Prints the value of each specified \fIcolumn\fR in the given
+\fIrecord\fR in \fItable\fR\[char46]  For map columns, a \fIkey\fR may
+optionally be specified, in which case the value associated with
+\fIkey\fR in the column is printed, instead of the entire map\[char46]
+.IP
+Without \fB\-\-if\-exists\fR, it is an error if \fIrecord\fR does not
+exist or \fIkey\fR is specified, if \fIkey\fR does not exist in
+\fIrecord\fR\[char46]  With \fB\-\-if\-exists\fR, a missing \fIrecord\fR
+yields no output and a missing \fIkey\fR prints a blank line\[char46]
+.IP
+If \fB@\fR\fIname\fR is specified, then the UUID for \fIrecord\fR may be
+referred to by that name later in the same \fBovn\-nbctl\fR
+invocation in contexts where a UUID is expected\[char46]
+.IP
+Both \fB\-\-id\fR and the \fIcolumn\fR arguments are optional, but
+usually at least one or the other should be specified\[char46]  If both are
+omitted, then \fBget\fR has no effect except to verify that
+\fIrecord\fR exists in \fItable\fR\[char46]
+.IP
+\fB\-\-id\fR and \fB\-\-if\-exists\fR cannot be used together\[char46]
+.TP
+[\fB\-\-if\-exists\fR] \fBset\fR \fItable record column\fR[\fB:\fR\fIkey\fR]\fB=\fR\fIvalue\fR\[char46]\[char46]\[char46]
+Sets the value of each specified \fIcolumn\fR in the given
+\fIrecord\fR in \fItable\fR to \fIvalue\fR\[char46]  For map columns, a
+\fIkey\fR may optionally be specified, in which case the value
+associated with \fIkey\fR in that column is changed (or added, if none
+exists), instead of the entire map\[char46]
+.IP
+Without \fB\-\-if\-exists\fR, it is an error if \fIrecord\fR does not
+exist\[char46]  With \fB\-\-if\-exists\fR, this command does nothing if
+\fIrecord\fR does not exist\[char46]
+.TP
+[\fB\-\-if\-exists\fR] \fBadd\fR \fItable record column\fR [\fIkey\fR\fB=\fR]\fIvalue\fR\[char46]\[char46]\[char46]
+Adds the specified value or key-value pair to \fIcolumn\fR in
+\fIrecord\fR in \fItable\fR\[char46]  If \fIcolumn\fR is a map, then \fIkey\fR
+is required, otherwise it is prohibited\[char46]  If \fIkey\fR already exists
+in a map column, then the current \fIvalue\fR is not replaced (use the
+\fBset\fR command to replace an existing value)\[char46]
+.IP
+Without \fB\-\-if\-exists\fR, it is an error if \fIrecord\fR does not
+exist\[char46]  With \fB\-\-if\-exists\fR, this command does nothing if
+\fIrecord\fR does not exist\[char46]
+.TP
+[\fB\-\-if\-exists\fR] \fBremove\fR \fItable record column value\fR\[char46]\[char46]\[char46]
+.IP
+[\fB\-\-if\-exists\fR] \fBremove\fR \fItable record column key\fR\[char46]\[char46]\[char46]
+.IP
+[\fB\-\-if\-exists\fR] \fBremov\fR \fItable record column key\fR\fB=\fR\fIvalue\fR\[char46]\[char46]\[char46]
+Removes the specified values or key-value pairs from \fIcolumn\fR in
+\fIrecord\fR in \fItable\fR\[char46]  The first form applies to columns that
+are not maps: each specified \fIvalue\fR is removed from the column\[char46]
+The second and third forms apply to map columns: if only a \fIkey\fR
+is specified, then any key-value pair with the given \fIkey\fR is
+removed, regardless of its value; if a \fIvalue\fR is given then a
+pair is removed only if both key and value match\[char46]
+.IP
+It is not an error if the column does not contain the specified key or
+value or pair\[char46]
+.IP
+Without \fB\-\-if\-exists\fR, it is an error if \fIrecord\fR does not
+exist\[char46]  With \fB\-\-if\-exists\fR, this command does nothing if
+\fIrecord\fR does not exist\[char46]
+.TP
+[\fB\-\-if\-exists\fR] \fBclear\fR \fItable record column\fR\[char46]\[char46]\[char46]
+Sets each \fIcolumn\fR in \fIrecord\fR in \fItable\fR to the empty set
+or empty map, as appropriate\[char46]  This command applies only to columns
+that are allowed to be empty\[char46]
+.IP
+Without \fB\-\-if\-exists\fR, it is an error if \fIrecord\fR does not
+exist\[char46]  With \fB\-\-if\-exists\fR, this command does nothing if
+\fIrecord\fR does not exist\[char46]
+.TP
+[\fB\-\-id=@\fR\fIname\fR] \fBcreate\fR \fItable column\fR[\fB:\fR\fIkey\fR]\fB=\fR\fIvalue\fR\[char46]\[char46]\[char46]
+Creates a new record in \fItable\fR and sets the initial values of
+each \fIcolumn\fR\[char46]  Columns not explicitly set will receive their
+default values\[char46]  Outputs the UUID of the new row\[char46]
+.IP
+If \fB@\fR\fIname\fR is specified, then the UUID for the new row may be
+referred to by that name elsewhere in the same \fB\e*(PN\fR
+invocation in contexts where a UUID is expected\[char46]  Such references may
+precede or follow the \fBcreate\fR command\[char46]
+.RS
+.TP
+Caution (ovs-vsctl as exmaple)
+Records in the Open vSwitch database are significant only when they
+can be reached directly or indirectly from the \fBOpen_vSwitch\fR
+table\[char46]  Except for records in the \fBQoS\fR or \fBQueue\fR tables,
+records that are not reachable from the \fBOpen_vSwitch\fR table are
+automatically deleted from the database\[char46]  This deletion happens
+immediately, without waiting for additional \fBovs\-vsctl\fR commands
+or other database activity\[char46]  Thus, a \fBcreate\fR command must
+generally be accompanied by additional commands \fIwithin the same\fR
+\fBovs\-vsctl\fR \fIinvocation\fR to add a chain of references to the
+newly created record from the top-level \fBOpen_vSwitch\fR record\[char46]
+The \fBEXAMPLES\fR section gives some examples that show how to do
+this\[char46]
+.RE
+.TP
+[\fB\-\-if\-exists\fR] \fBdestroy\fR \fItable record\fR\[char46]\[char46]\[char46]
+Deletes each specified \fIrecord\fR from \fItable\fR\[char46]  Unless
+\fB\-\-if\-exists\fR is specified, each \fIrecord\fRs must exist\[char46]
+.TP
+\fB\-\-all destroy\fR \fItable\fR
+Deletes all records from the \fItable\fR\[char46]
+.RS
+.TP
+Caution (ovs-vsctl as exmaple)
+The \fBdestroy\fR command is only useful for records in the \fBQoS\fR
+or \fBQueue\fR tables\[char46]  Records in other tables are automatically
+deleted from the database when they become unreachable from the
+\fBOpen_vSwitch\fR table\[char46]  This means that deleting the last reference
+to a record is sufficient for deleting the record itself\[char46]  For records
+in these tables, \fBdestroy\fR is silently ignored\[char46]  See the
+\fBEXAMPLES\fR section below for more information\[char46]
+.RE
+.TP
+\fBwait\-until\fR \fItable record\fR [\fIcolumn\fR[\fB:\fR\fIkey\fR]\fB=\fR\fIvalue\fR]\[char46]\[char46]\[char46]
+Waits until \fItable\fR contains a record named \fIrecord\fR whose
+\fIcolumn\fR equals \fIvalue\fR or, if \fIkey\fR is specified, whose
+\fIcolumn\fR contains a \fIkey\fR with the specified \fIvalue\fR\[char46]  Any
+of the operators \fB!=\fR, \fB<\fR, \fB>\fR, \fB<=\fR, or \fB>=\fR may
+be substituted for \fB=\fR to test for inequality, less than, greater
+than, less than or equal to, or greater than or equal to,
+respectively\[char46]  (Don\(cqt forget to escape \fB<\fR or \fB>\fR from
+interpretation by the shell\[char46])
+.IP
+If no \fIcolumn\fR[\fB:\fR\fIkey\fR]\fB=\fR\fIvalue\fR arguments are given,
+this command waits only until \fIrecord\fR exists\[char46]  If more than one
+such argument is given, the command waits until all of them are
+satisfied\[char46]
+.RS
+.TP
+Caution (ovs-vsctl as exmaple)
+Usually \fBwait\-until\fR should be placed at the beginning of a set
+of \fBovs\-vsctl\fR commands\[char46]  For example, \fBwait\-until bridge br0
+\-\- get bridge br0 datapath_id\fR waits until a bridge named
+\fBbr0\fR is created, then prints its \fBdatapath_id\fR column,
+whereas \fBget bridge br0 datapath_id \-\- wait\-until bridge br0\fR
+will abort if no bridge named \fBbr0\fR exists when \fBovs\-vsctl\fR
+initially connects to the database\[char46]
+.RE
+.IP
+Consider specifying \fB\-\-timeout=0\fR along with
+\fB\-\-wait\-until\fR, to prevent \fBovn\-nbctl\fR from terminating
+after waiting only at most 5 seconds\[char46]
+.TP
+\fBcomment\fR [\fIarg\fR]\[char46]\[char46]\[char46]
+This command has no effect on behavior, but any database log record
+created by the command will include the command and its arguments\[char46]
 .RE
 .SH "OPTIONS"
 .RS

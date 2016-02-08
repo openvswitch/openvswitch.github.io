@@ -169,8 +169,12 @@ OPTIONS
               When --pidfile is not specified, this option has no effect.
 
        --detach
-              Causes ovsdb-server to detach itself from the foreground session
-              and run as a  background  process.  ovsdb-server  detaches  only
+              Runs  ovsdb-server  as a background process.  The process forks,
+              and in the child it starts a new session,  closes  the  standard
+              file descriptors (which has the side effect of disabling logging
+              to the console), and changes its current directory to  the  root
+              (unless --no-chdir is specified).  After the child completes its
+              initialization, the parent exits.   ovsdb-server  detaches  only
               after it starts listening on all configured remotes.
 
        --monitor
@@ -245,7 +249,9 @@ OPTIONS
 
               ·      syslog,  console,  or file, to limit the log level change
                      to only to the system log, to the console, or to a  file,
-                     respectively.
+                     respectively.   (If  --detach  is specified, ovsdb-server
+                     closes its standard file descriptors, so logging  to  the
+                     console will have no effect.)
 
                      On  Windows platform, syslog is accepted as a word and is
                      only useful along with the  --syslog-target  option  (the
@@ -638,6 +644,83 @@ SPECIFICATIONS
               unique among all active monitors.  ovsdb-server rejects  attempt
               to create two monitors with the same identifier.
 
+       4.1.12. Monitor2
+              A new monitor method added in Open vSwitch version 2.5. Monitor2
+              allows  for  more  efficient  update  notifications   (described
+              below).
+
+              The  monitor  method  described in Section 4.1.5 also applies to
+              monitor2, with the following exceptions.
+
+              ·      RPC request method becomes "monitor2".
+
+              ·      Replay result follows <table-updates2>, described in Sec‐
+                     tion 4.1.13.
+
+              ·      Subsequent  changes  are  sent  to  the  client using the
+                     "update2"  monitor  notification,  described  in  Section
+                     4.1.13
+
+              Both  monitor and monitor2 sessions can exist concurrently. How‐
+              ever, monitor and monitor2 shares the same <json-value>  parame‐
+              ter space; it must be unique among all monitor and monitor2 ses‐
+              sions.
+
+       4.1.13. Update2 notification
+              The "update2" notification is sent by the server to  the  client
+              to report changes in tables that are being monitored following a
+              "monitor2" request as described above. The notification has  the
+              following members:
+              "method": "update2"
+              "params": [<json-value>, <table-updates2>]
+              "id": null
+
+              The  <json-value> in "params" is the same as the value passed as
+              the <json-value>  in "params" for  the  corresponding  "monitor"
+              request.   <table-updates2>  is an object that maps from a table
+              name to a <table-update2>.  A <table-update2> is an object  that
+              maps  from row's UUID to a <row-update2> object. A <row-update2>
+              is an object with one of the following members:
+
+              "initial": <row>
+                     present for "initial" updates
+
+              "insert": <row>
+                     present for "insert" updates
+
+              "delete": <row>
+                     present for "delete" updates
+
+              "modify": <row>
+                     present for "modify" updates
+
+              The format of <row> is described in Section 5.1.
+
+              <row> is always a null object for a "delete"  update.  In  "ini‐
+              tial"  and  "insert"  updates,  <row> omits columns whose values
+              equal the default value of the column type.
+
+              For a "modify" update, <row> contains only the columns that  are
+              modified.   <row>  stores the difference between the old and new
+              value for those columns, as described below.
+
+              For columns with single value, the difference is  the  value  of
+              the new column.
+
+              The  difference  between  two  sets  are  all elements that only
+              belong to one of the sets.
+
+              The difference between two maps are all  key-value  pairs  whose
+              keys  appears  in only one of the maps, plus the key-value pairs
+              whose keys appear in both maps but with different  values.   For
+              the  latter elements, <row> includes the value from the new col‐
+              umn.
+
+              Initial views of rows are not  presented  in  update2  notifica‐
+              tions,  but  in the response object to the monitor2 request. The
+              formatting of the <table-updates2> object, however, is the  same
+              in either case.
+
        5.1. Notation
               For  <condition>,  RFC  7047  only  allows  the  use  of !=, ==,
               includes, and excludes operators with set types.   Open  vSwitch
@@ -676,4 +759,4 @@ SEE ALSO
 
 
 
-Open vSwitch                        2.4.90                     ovsdb-server(1)
+Open vSwitch                        2.5.90                     ovsdb-server(1)

@@ -1,6 +1,6 @@
 '\" p
 .\" -*- nroff -*-
-.TH "ovn-northd" 8 "ovn-northd" "Open vSwitch 2\[char46]4\[char46]90" "Open vSwitch Manual"
+.TH "ovn-northd" 8 "ovn-northd" "Open vSwitch 2\[char46]5\[char46]90" "Open vSwitch Manual"
 .fp 5 L CR              \\" Make fixed-width font available as \\fL.
 .de TQ
 .  br
@@ -156,6 +156,39 @@ This table implements switching behavior\[char46]  It contains these logical
 flows:
 .RS
 .IP \(bu
+Priority\-150 flows that matches ARP requests to each known IP address
+\fIA\fR of logical port \fIP\fR, and respond with ARP
+replies directly with corresponding Ethernet address \fIE\fR:
+.IP
+.nf
+\fB
+.br
+\fBeth\[char46]dst = eth\[char46]src;
+.br
+\fBeth\[char46]src = \fIE\fB;
+.br
+\fBarp\[char46]op = 2; /* ARP reply\[char46] */
+.br
+\fBarp\[char46]tha = arp\[char46]sha;
+.br
+\fBarp\[char46]sha = \fIE\fB;
+.br
+\fBarp\[char46]tpa = arp\[char46]spa;
+.br
+\fBarp\[char46]spa = \fIA\fB;
+.br
+\fBoutport = \fIP\fB;
+.br
+\fBinport = \(dq\(dq; /* Allow sending out inport\[char46] */
+.br
+\fBoutput;
+.br
+\fB
+.fi
+.IP
+These flows are omitted for logical ports (other than router ports)
+that are down\[char46]
+.IP \(bu
 A priority\-100 flow that outputs all packets with an Ethernet broadcast
 or multicast \fBeth\[char46]dst\fR to the \fBMC_FLOOD\fR
 multicast group, which \fBovn\-northd\fR populates with all
@@ -257,7 +290,7 @@ router\(cqs IP address in \fIA\fR\(cqs network:
 .br
 \fBicmp4\[char46]type = 0;
 .br
-\fBinport = \e\(dq\e\(dq; /* Allow sending out inport\[char46] */
+\fBinport = \(dq\(dq; /* Allow sending out inport\[char46] */
 .br
 \fBnext;
 .br
@@ -294,7 +327,7 @@ following actions:
 .br
 \fBoutport = \fIP\fB;
 .br
-\fBinport = \e\(dq\e\(dq; /* Allow sending out inport\[char46] */
+\fBinport = \(dq\(dq; /* Allow sending out inport\[char46] */
 .br
 \fBoutput;
 .br

@@ -1,7 +1,7 @@
 <html><head>
   <meta charset="UTF-8"></head>
   <link rel="stylesheet" type="text/css" href="style.css">
-  <title>INSTALL.DPDK.md (Open vSwitch 2.4.90)</title>
+  <title>INSTALL.DPDK.md (Open vSwitch 2.5.90)</title>
 </head><body>
 <h1>Using Open vSwitch with DPDK</h1>
 
@@ -19,7 +19,7 @@ and <code>make</code>.</p>
 
 <h2>Building and Installing:</h2>
 
-<p>Required: DPDK 2.1
+<p>Required: DPDK 2.2
 Optional (if building with vhost-cuse): <code>fuse</code>, <code>fuse-devel</code> (<code>libfuse-dev</code>
 on Debian/Ubuntu)</p>
 
@@ -27,7 +27,7 @@ on Debian/Ubuntu)</p>
 <li>Configure build &amp; install DPDK:</li>
 <li><p>Set <code>$DPDK_DIR</code></p>
 
-<pre><code> export DPDK_DIR=/usr/src/dpdk-2.1
+<pre><code> export DPDK_DIR=/usr/src/dpdk-2.2
  cd $DPDK_DIR
 </code></pre></li>
 <li><p>Update <code>config/common_linuxapp</code> so that DPDK generate single lib file.
@@ -292,9 +292,9 @@ ovs-appctl dpif-netdev/pmd-stats-show
 </code></pre></li>
 <li><p>DPDK port Rx Queues</p>
 
-<p><code>ovs-vsctl set Open_vSwitch . other_config:n-dpdk-rxqs=&lt;integer&gt;</code></p>
+<p><code>ovs-vsctl set Interface &lt;DPDK interface&gt; options:n_rxq=&lt;integer&gt;</code></p>
 
-<p>The command above sets the number of rx queues for each DPDK interface.
+<p>The command above sets the number of rx queues for DPDK interface.
 The rx queues are assigned to pmd threads on the same NUMA node in a
 round-robin fashion.  For more information, please refer to the
 Open_vSwitch TABLE section in</p>
@@ -459,7 +459,7 @@ the vswitchd.</p>
 
 <h2>DPDK vhost:</h2>
 
-<p>DPDK 2.1 supports two types of vhost:</p>
+<p>DPDK 2.2 supports two types of vhost:</p>
 
 <ol>
 <li>vhost-user</li>
@@ -482,7 +482,7 @@ with OVS.</p>
 <h2>DPDK vhost-user Prerequisites:</h2>
 
 <ol>
-<li><p>DPDK 2.1 with vhost support enabled as documented in the &ldquo;Building and
+<li><p>DPDK 2.2 with vhost support enabled as documented in the &ldquo;Building and
 Installing section&rdquo;</p></li>
 <li><p>QEMU version v2.1.0+</p>
 
@@ -553,6 +553,22 @@ to QEMU:</p>
 share=on
 -numa node,memdev=mem -mem-prealloc
 </code></pre></li>
+<li><p>Optional: Enable multiqueue support
+The vhost-user interface must be configured in Open vSwitch with the
+desired amount of queues with:</p>
+
+<pre><code>ovs-vsctl set Interface vhost-user-2 options:n_rxq=&lt;requested queues&gt;
+</code></pre>
+
+<p>QEMU needs to be configured as well.
+The $q below should match the queues requested in OVS (if $q is more,
+packets will not be received).
+The $v is the number of vectors, which is &lsquo;$q x 2 + 2&rsquo;.</p>
+
+<pre><code>-chardev socket,id=char2,path=/usr/local/var/run/openvswitch/vhost-user-2
+-netdev type=vhost-user,id=mynet2,chardev=char2,vhostforce,queues=$q
+-device virtio-net-pci,mac=00:00:00:00:00:02,netdev=mynet2,mq=on,vectors=$v
+</code></pre></li>
 </ol>
 
 
@@ -564,7 +580,7 @@ with OVS.</p>
 <h2>DPDK vhost-cuse Prerequisites:</h2>
 
 <ol>
-<li><p>DPDK 2.1 with vhost support enabled as documented in the &ldquo;Building and
+<li><p>DPDK 2.2 with vhost support enabled as documented in the &ldquo;Building and
 Installing section&rdquo;
 As an additional step, you must enable vhost-cuse in DPDK by setting the
 following additional flag in <code>config/common_linuxapp</code>:</p>

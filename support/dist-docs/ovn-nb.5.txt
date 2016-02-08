@@ -84,7 +84,7 @@ Logical_Port TABLE
        Options:
          options                     map of string-string pairs
          Options for router ports:
-            options : router-port    optional string, containing an uuid
+            options : router-port    optional string
          Options for localnet ports:
             options : network_name   optional string
          Options for vtep ports:
@@ -152,8 +152,8 @@ Logical_Port TABLE
        cal_Router_Port  rows that they reference must be all on the same Logi‐
        cal_Router (for different subnets).
 
-       options : router-port: optional string, containing an uuid
-              Required.  The UUID of the  Logical_Router_Port  to  which  this
+       options : router-port: optional string
+              Required.  The name of the  Logical_Router_Port  to  which  this
               logical switch port is connected.
 
      Options for localnet ports:
@@ -247,22 +247,25 @@ Logical_Port TABLE
                      the logical switch, if  any,  uses  this  information  to
                      avoid issuing ARP requests for logical switch ports.
 
+                     Note  that  the  order  here  is  important. The Ethernet
+                     address must be listed before the IP address.
+
               unknown
-                     This  indicates  that the logical port has an unknown set
-                     of Ethernet addresses.  When an OVN logical  switch  pro‐
-                     cesses  a  unicast  Ethernet  frame whose destination MAC
+                     This indicates that the logical port has an  unknown  set
+                     of  Ethernet  addresses.  When an OVN logical switch pro‐
+                     cesses a unicast Ethernet  frame  whose  destination  MAC
                      address is not in any logical port’s addresses column, it
-                     delivers  it  to the port (or ports) whose addresses col‐
+                     delivers it to the port (or ports) whose  addresses  col‐
                      umns include unknown.
 
        port_security: set of strings
-              A set of L2 (Ethernet) addresses from which the logical port  is
-              allowed  to  send  packets and to which it is allowed to receive
-              packets.  If this column is empty, all addresses are  permitted.
+              A  set of L2 (Ethernet) addresses from which the logical port is
+              allowed to send packets and to which it is  allowed  to  receive
+              packets.   If this column is empty, all addresses are permitted.
               Logical ports are always allowed to receive packets addressed to
               multicast and broadcast addresses.
 
-              Each member of the set  is  an  Ethernet  address  in  the  form
+              Each  member  of  the  set  is  an  Ethernet address in the form
               xx:xx:xx:xx:xx:xx.
 
               This specification will be extended to support L3 port security.
@@ -273,18 +276,18 @@ Logical_Port TABLE
               See External IDs at the beginning of this document.
 
 ACL TABLE
-       Each  row  in  this  table represents one ACL rule for a logical switch
-       that points to it through its acls column.  The action column  for  the
-       highest-priority  matching  row  in  this  table  determines a packet’s
+       Each row in this table represents one ACL rule  for  a  logical  switch
+       that  points  to it through its acls column.  The action column for the
+       highest-priority matching row  in  this  table  determines  a  packet’s
        treatment.   If  no  row  matches,  packets  are  allowed  by  default.
-       (Default-deny  treatment  is possible: add a rule with priority 0, 0 as
+       (Default-deny treatment is possible: add a rule with priority 0,  0  as
        match, and deny as action.)
 
    Summary:
        priority                      integer, in range 0 to 32,767
        direction                     string, either to-lport or from-lport
        match                         string
-       action                        string,  one  of   allow-related,   drop,
+       action                        string,   one   of  allow-related,  drop,
                                      allow, or reject
        log                           boolean
        Common Columns:
@@ -293,11 +296,11 @@ ACL TABLE
    Details:
        priority: integer, in range 0 to 32,767
               The ACL rule’s priority.  Rules with numerically higher priority
-              take precedence over those with lower.  If two  ACL  rules  with
+              take  precedence  over  those with lower.  If two ACL rules with
               the same priority both match, then the one actually applied to a
               packet is undefined.
 
-              Return traffic from an allow-related flow is always allowed  and
+              Return  traffic from an allow-related flow is always allowed and
               cannot be changed through an ACL.
 
        direction: string, either to-lport or from-lport
@@ -307,20 +310,23 @@ ACL TABLE
                      from a logical port.  These rules are applied to the log‐
                      ical switch’s ingress pipeline.
 
-              ·      to-lport:  Used to implement filters on traffic forwarded
-                     to a logical port.  These rules are applied to the  logi‐
+              ·      to-lport: Used to implement filters on traffic  forwarded
+                     to  a logical port.  These rules are applied to the logi‐
                      cal switch’s egress pipeline.
 
        match: string
-              The  packets  that  the ACL should match, in the same expression
-              language used for the match column in the OVN  Southbound  data‐
-              base’s  Logical_Flow  table.   The  outport logical port is only
-              available in the to-lport direction (the inport is available  in
+              The packets that the ACL should match, in  the  same  expression
+              language  used  for the match column in the OVN Southbound data‐
+              base’s Logical_Flow table.  The outport  logical  port  is  only
+              available  in the to-lport direction (the inport is available in
               both directions).
 
               By default all traffic is allowed.  When writing a more restric‐
-              tive policy, it is important to remember to allow flows such  as
+              tive  policy, it is important to remember to allow flows such as
               ARP and IPv6 neighbor discovery packets.
+
+              Note that you can not create an ACL  matching  on  a  port  with
+              type=router.
 
        action: string, one of allow-related, drop, allow, or reject
               The action to take when the ACL rule matches:
@@ -384,7 +390,7 @@ Logical_Router_Port TABLE
        port.
 
    Summary:
-       name                          string
+       name                          string (must be unique within table)
        network                       string
        mac                           string
        enabled                       optional boolean
@@ -394,17 +400,18 @@ Logical_Router_Port TABLE
          external_ids                map of string-string pairs
 
    Details:
-       name: string
-              A  name  for  the logical router port.  This name has no special
-              meaning or purpose other than to provide convenience  for  human
-              interaction  with  the ovn-nb database.  There is no requirement
-              for the name to be  unique.   The  logical  router  port’s  UUID
-              should be used as the unique identifier.
+       name: string (must be unique within table)
+              A name for the logical router port.
+
+              In  addition  to  provide convenience for human interaction with
+              the ovn-nb database, this column is used  as  reference  by  its
+              patch  port  in  Logical_Port  or another logical router port in
+              Logical_Router_Port.
 
        network: string
-              The  IP  address  of  the  router and the netmask.  For example,
-              192.168.0.1/24  indicates  that  the  router’s  IP  address   is
-              192.168.0.1  and  that packets destined to 192.168.0.x should be
+              The IP address of the router  and  the  netmask.   For  example,
+              192.168.0.1/24   indicates  that  the  router’s  IP  address  is
+              192.168.0.1 and that packets destined to 192.168.0.x  should  be
               routed to this port.
 
        mac: string
@@ -413,27 +420,29 @@ Logical_Router_Port TABLE
        enabled: optional boolean
               This column is used to administratively set port state.  If this
               column is empty or is set to true, the port is enabled.  If this
-              column is set to false, the port is disabled.  A  disabled  port
+              column  is  set to false, the port is disabled.  A disabled port
               has all ingress and egress traffic dropped.
 
      Attachment:
        A given router port serves one of two purposes:
 
-              ·      To  attach a logical switch to a logical router.  A logi‐
+              ·      To attach a logical switch to a logical router.  A  logi‐
                      cal router port of this type is referenced by exactly one
-                     Logical_Port of type router.  The peer column is empty.
+                     Logical_Port of type router.  The value of name is set as
+                     router-port  in  column options of Logical_Port.  In this
+                     case peer column is empty.
 
-              ·      To  connect one logical router to another.  This requires
-                     a pair of logical router ports, each connected to a  dif‐
-                     ferent  router.   Each  router port in the pair specifies
-                     the other in its peer column.  No  Logical_Switch  refers
+              ·      To connect one logical router to another.  This  requires
+                     a  pair of logical router ports, each connected to a dif‐
+                     ferent router.  Each router port in  the  pair  specifies
+                     the  other  in its peer column.  No Logical_Switch refers
                      to the router port.
 
        peer: optional Logical_Router_Port
-              For  a  router  port  used  to connect two logical routers, this
-              identifies the other router port in the pair.
+              For a router port used to  connect  two  logical  routers,  this
+              identifies the other router port in the pair by name.
 
-              For a router port attached to a logical switch, this  column  is
+              For  a  router port attached to a logical switch, this column is
               empty.
 
      Common Columns:
@@ -443,4 +452,4 @@ Logical_Router_Port TABLE
 
 
 
-Open vSwitch 2.4.90             DB Schema 2.0.0                      ovn-nb(5)
+Open vSwitch 2.5.90             DB Schema 2.0.1                      ovn-nb(5)
