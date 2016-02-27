@@ -1,0 +1,164 @@
+'\" p
+.\" -*- nroff -*-
+.TH "ovn-controller" 8 "ovn-controller" "Open vSwitch 2\[char46]5\[char46]1" "Open vSwitch Manual"
+.fp 5 L CR              \\" Make fixed-width font available as \\fL.
+.de TQ
+.  br
+.  ns
+.  TP "\\$1"
+..
+.de ST
+.  PP
+.  RS -0.15in
+.  I "\\$1"
+.  RE
+..
+.SH "NAME"
+.PP
+ovn-controller \- Open Virtual Network local controller
+.SH "SYNOPSIS"
+.PP
+\fBovn\-controller\fR [\fIoptions\fR] [\fIovs-database\fR]
+.SH "DESCRIPTION"
+.PP
+\fBovn\-controller\fR is the local controller daemon for
+OVN, the Open Virtual Network\[char46]  It connects up to the OVN
+Southbound database (see \fBovn\-sb\fR(5)) over the OVSDB
+protocol, and down to the Open vSwitch database (see
+\fBovs\-vswitchd\[char46]conf\[char46]db\fR(5)) over the OVSDB protocol and
+to \fBovs\-vswitchd\fR(8) via OpenFlow\[char46]  Each hypervisor and
+software gateway in an OVN deployment runs its own independent
+copy of \fBovn\-controller\fR; thus,
+\fBovn\-controller\fR\(cqs downward connections are
+machine-local and do not run over a physical network\[char46]
+.SH "CONFIGURATION"
+.PP
+\fBovn\-controller\fR retrieves most of its configuration
+information from the local Open vSwitch\(cqs ovsdb-server instance\[char46]
+The default location is \fBdb\[char46]sock\fR in the local Open
+vSwitch\(cqs \(dqrun\(dq directory\[char46]  It may be overridden by specifying the
+\fIovs-database\fR argument in one of the following forms:
+.RS
+.IP \(bu
+\fBssl:\fIip\fB:\fIport\fB\fR
+.IP
+The specified SSL \fIport\fR on the host at the given
+\fIip\fR, which must be expressed as an IP address (not a DNS
+name) in IPv4 or IPv6 address format\[char46]  If \fIip\fR is an IPv6
+address, then wrap \fIip\fR with square brackets, e\[char46]g\[char46]:
+\fBssl:[::1]:6640\fR\[char46]  The \fB\-\-private\-key\fR,
+\fB\-\-certificate\fR and either of \fB\-\-ca\-cert\fR
+or \fB\-\-bootstrap\-ca\-cert\fR options are mandatory when this
+form is used\[char46]
+.IP \(bu
+\fBtcp:\fIip\fB:\fIport\fB\fR
+.IP
+Connect to the given TCP \fIport\fR on \fIip\fR, where
+\fIip\fR can be IPv4 or IPv6 address\[char46] If \fIip\fR is an
+IPv6 address, then wrap \fIip\fR with square brackets, e\[char46]g\[char46]:
+\fBtcp:[::1]:6640\fR\[char46]
+.IP \(bu
+\fBunix:\fIfile\fB\fR
+.IP
+On POSIX, connect to the Unix domain server socket named
+\fIfile\fR\[char46]
+.IP
+On Windows, connect to a localhost TCP port whose value is written
+in \fIfile\fR\[char46]
+.RE
+.PP
+\fBovn\-controller\fR assumes it gets configuration
+information from the following keys in the \fBOpen_vSwitch\fR
+table of the local OVS instance:
+.RS
+.TP
+\fBexternal_ids:system\-id\fR
+The chassis name to use in the Chassis table\[char46]
+.TP
+\fBexternal_ids:ovn\-bridge\fR
+The integration bridge to which logical ports are attached\[char46]  The
+default is \fBbr\-int\fR\[char46]  If this bridge does not exist when
+ovn-controller starts, it will be created automatically with the
+default configuration suggested in \fBovn\-architecture\fR(7)\[char46]
+.TP
+\fBexternal_ids:ovn\-remote\fR
+The OVN database that this system should connect to for its
+configuration\[char46]
+.IP
+Currently, \fBovn\-controller\fR does not support changing this
+setting mid-run\[char46]  If the value needs to change, the daemon must be
+restarted\[char46]  (This behavior should be improved\[char46])
+.TP
+\fBexternal_ids:ovn\-encap\-type\fR
+The encapsulation type that a chassis should use to connect to
+this node\[char46]  Multiple encapsulation types may be specified with
+a comma-separated list\[char46]  Each listed encapsulation type will
+be paired with \fBovn\-encap\-ip\fR\[char46]
+.IP
+Supported tunnel types for connecting hypervisors
+are \fBgeneve\fR and \fBstt\fR\[char46]  Gateways may
+use \fBgeneve\fR, \fBvxlan\fR, or
+\fBstt\fR\[char46]
+.IP
+Due to the limited amount of metadata in \fBvxlan\fR,
+the capabilities and performance of connected gateways will be
+reduced versus other tunnel formats\[char46]
+.TP
+\fBexternal_ids:ovn\-encap\-ip\fR
+The IP address that a chassis should use to connect to this node
+using encapsulation types specified by
+\fBexternal_ids:ovn\-encap\-type\fR\[char46]
+.TP
+\fBexternal_ids:ovn\-bridge\-mappings\fR
+A list of key-value pairs that map a physical network name to a local
+ovs bridge that provides connectivity to that network\[char46]  An example
+value mapping two physical network names to two ovs bridges would be:
+\fBphysnet1:br\-eth0,physnet2:br\-eth1\fR\[char46]
+.RE
+.SH "OPEN VSWITCH DATABASE USAGE"
+.PP
+\fBovn\-controller\fR uses a number of \fBexternal\-ids\fR
+keys in the Open vSwitch database to keep track of ports and interfaces\[char46]
+For proper operation, users should not change or clear these keys:
+.RS
+.TP
+\fBexternal_ids:ovn\-chassis\-id\fR in the \fBPort\fR table
+The presence of this key identifies a tunnel port within the
+integration bridge as one created by \fBovn\-controller\fR to
+reach a remote chassis\[char46]  Its value is the chassis ID of the remote
+chassis\[char46]
+.TP
+\fBexternal\-ids:ovn\-localnet\-port\fR in the \fBPort\fR
+table
+The presence of this key identifies a patch port as one created by
+\fBovn\-controller\fR to connect the integration bridge and
+another bridge to implement a \fBlocalnet\fR logical port\[char46]
+Its value is the name of the physical network that the port
+implements\[char46]  See \fBexternal_ids:ovn\-bridge\-mappings\fR,
+above, for more information\[char46]
+.IP
+Each \fBlocalnet\fR logical port is implemented as a pair of
+patch ports, one in the integration bridge, one in a different
+bridge, with the same \fBexternal\-ids:ovn\-localnet\-port\fR
+value\[char46]
+.TP
+\fBexternal\-ids:ovn\-logical\-patch\-port\fR in the
+\fBPort\fR table
+This key identifies a patch port as one created by
+\fBovn\-controller\fR to implement an OVN logical patch port
+within the integration bridge\[char46]  Its value is the name of the OVN
+logical patch port that it implements\[char46]
+.RE
+.SH "RUNTIME MANAGEMENT COMMANDS"
+.PP
+\fBovs\-appctl\fR can send commands to a running
+\fBovn\-controller\fR process\[char46]  The currently supported
+commands are described below\[char46]
+.RS
+.TP
+\fBexit\fR
+Causes \fBovn\-controller\fR to gracefully terminate\[char46]
+.TP
+\fBct\-zone\-list\fR
+Lists each local logical port and its connection tracking zone\[char46]
+.RE

@@ -1,0 +1,880 @@
+'\" p
+.\" -*- nroff -*-
+.TH "ovn-architecture" 7 "OVN Architecture" "Open vSwitch 2\[char46]5\[char46]1" "Open vSwitch Manual"
+.fp 5 L CR              \\" Make fixed-width font available as \\fL.
+.de TQ
+.  br
+.  ns
+.  TP "\\$1"
+..
+.de ST
+.  PP
+.  RS -0.15in
+.  I "\\$1"
+.  RE
+..
+.SH "NAME"
+.PP
+ovn-architecture \- Open Virtual Network architecture
+.SH "DESCRIPTION"
+.PP
+OVN, the Open Virtual Network, is a system to support virtual network
+abstraction\[char46]  OVN complements the existing capabilities of OVS to add
+native support for virtual network abstractions, such as virtual L2 and L3
+overlays and security groups\[char46]  Services such as DHCP are also desirable
+features\[char46]  Just like OVS, OVN\(cqs design goal is to have a production-quality
+implementation that can operate at significant scale\[char46]
+.PP
+An OVN deployment consists of several components:
+.RS
+.IP \(bu
+A \fICloud Management System\fR (\fICMS\fR), which is
+OVN\(cqs ultimate client (via its users and administrators)\[char46]  OVN
+integration requires installing a CMS-specific plugin and
+related software (see below)\[char46]  OVN initially targets OpenStack
+as CMS\[char46]
+.IP
+We generally speak of ``the\(cq\(cq CMS, but one can imagine scenarios in
+which multiple CMSes manage different parts of an OVN deployment\[char46]
+.IP \(bu
+An OVN Database physical or virtual node (or, eventually, cluster)
+installed in a central location\[char46]
+.IP \(bu
+One or more (usually many) \fIhypervisors\fR\[char46]  Hypervisors must run
+Open vSwitch and implement the interface described in
+\fBIntegrationGuide\[char46]md\fR in the OVS source tree\[char46]  Any hypervisor
+platform supported by Open vSwitch is acceptable\[char46]
+.IP \(bu
+Zero or more \fIgateways\fR\[char46]  A gateway extends a tunnel-based
+logical network into a physical network by bidirectionally forwarding
+packets between tunnels and a physical Ethernet port\[char46]  This allows
+non-virtualized machines to participate in logical networks\[char46]  A gateway
+may be a physical host, a virtual machine, or an ASIC-based hardware
+switch that supports the \fBvtep\fR(5) schema\[char46]  (Support for the
+latter will come later in OVN implementation\[char46])
+.IP
+Hypervisors and gateways are together called \fItransport node\fR
+or \fIchassis\fR\[char46]
+.RE
+.PP
+The diagram below shows how the major components of OVN and related
+software interact\[char46]  Starting at the top of the diagram, we have:
+.RS
+.IP \(bu
+The Cloud Management System, as defined above\[char46]
+.IP \(bu
+The \fIOVN/CMS Plugin\fR is the component of the CMS that
+interfaces to OVN\[char46]  In OpenStack, this is a Neutron plugin\[char46]
+The plugin\(cqs main purpose is to translate the CMS\(cqs notion of logical
+network configuration, stored in the CMS\(cqs configuration database in a
+CMS-specific format, into an intermediate representation understood by
+OVN\[char46]
+.IP
+This component is necessarily CMS-specific, so a new plugin needs to be
+developed for each CMS that is integrated with OVN\[char46]  All of the
+components below this one in the diagram are CMS-independent\[char46]
+.IP \(bu
+The \fIOVN Northbound Database\fR receives the intermediate
+representation of logical network configuration passed down by the
+OVN/CMS Plugin\[char46]  The database schema is meant to be ``impedance
+matched\(cq\(cq with the concepts used in a CMS, so that it directly supports
+notions of logical switches, routers, ACLs, and so on\[char46]  See
+\fBovn\-nb\fR(5) for details\[char46]
+.IP
+The OVN Northbound Database has only two clients: the OVN/CMS Plugin
+above it and \fBovn\-northd\fR below it\[char46]
+.IP \(bu
+\fBovn\-northd\fR(8) connects to the OVN Northbound Database
+above it and the OVN Southbound Database below it\[char46]  It translates the
+logical network configuration in terms of conventional network
+concepts, taken from the OVN Northbound Database, into logical
+datapath flows in the OVN Southbound Database below it\[char46]
+.IP \(bu
+The \fIOVN Southbound Database\fR is the center of the system\[char46]
+Its clients are \fBovn\-northd\fR(8) above it and
+\fBovn\-controller\fR(8) on every transport node below it\[char46]
+.IP
+The OVN Southbound Database contains three kinds of data: \fIPhysical
+Network\fR (PN) tables that specify how to reach hypervisor and
+other nodes, \fILogical Network\fR (LN) tables that describe the
+logical network in terms of ``logical datapath flows,\(cq\(cq and
+\fIBinding\fR tables that link logical network components\(cq
+locations to the physical network\[char46]  The hypervisors populate the PN and
+Port_Binding tables, whereas \fBovn\-northd\fR(8) populates the
+LN tables\[char46]
+.IP
+OVN Southbound Database performance must scale with the number of
+transport nodes\[char46]  This will likely require some work on
+\fBovsdb\-server\fR(1) as we encounter bottlenecks\[char46]
+Clustering for availability may be needed\[char46]
+.RE
+.PP
+The remaining components are replicated onto each hypervisor:
+.RS
+.IP \(bu
+\fBovn\-controller\fR(8) is OVN\(cqs agent on each hypervisor and
+software gateway\[char46]  Northbound, it connects to the OVN Southbound
+Database to learn about OVN configuration and status and to
+populate the PN table and the \fBChassis\fR column in
+\fBBinding\fR table with the hypervisor\(cqs status\[char46]
+Southbound, it connects to \fBovs\-vswitchd\fR(8) as an
+OpenFlow controller, for control over network traffic, and to the
+local \fBovsdb\-server\fR(1) to allow it to monitor and
+control Open vSwitch configuration\[char46]
+.IP \(bu
+\fBovs\-vswitchd\fR(8) and \fBovsdb\-server\fR(1) are
+conventional components of Open vSwitch\[char46]
+.RE
+.PP
+.nf
+\fL
+.br
+\fL                                  CMS
+.br
+\fL                                   |
+.br
+\fL                                   |
+.br
+\fL                       +\-\-\-\-\-\-\-\-\-\-\-|\-\-\-\-\-\-\-\-\-\-\-+
+.br
+\fL                       |           |           |
+.br
+\fL                       |     OVN/CMS Plugin    |
+.br
+\fL                       |           |           |
+.br
+\fL                       |           |           |
+.br
+\fL                       |   OVN Northbound DB   |
+.br
+\fL                       |           |           |
+.br
+\fL                       |           |           |
+.br
+\fL                       |       ovn\-northd      |
+.br
+\fL                       |           |           |
+.br
+\fL                       +\-\-\-\-\-\-\-\-\-\-\-|\-\-\-\-\-\-\-\-\-\-\-+
+.br
+\fL                                   |
+.br
+\fL                                   |
+.br
+\fL                         +\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+
+.br
+\fL                         | OVN Southbound DB |
+.br
+\fL                         +\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+
+.br
+\fL                                   |
+.br
+\fL                                   |
+.br
+\fL                +\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+
+.br
+\fL                |                  |                  |
+.br
+\fL  HV 1          |                  |    HV n          |
+.br
+\fL+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-|\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+  \[char46]  +\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-|\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+
+.br
+\fL|               |               |  \[char46]  |               |               |
+.br
+\fL|        ovn\-controller         |  \[char46]  |        ovn\-controller         |
+.br
+\fL|         |          |          |  \[char46]  |         |          |          |
+.br
+\fL|         |          |          |     |         |          |          |
+.br
+\fL|  ovs\-vswitchd   ovsdb\-server  |     |  ovs\-vswitchd   ovsdb\-server  |
+.br
+\fL|                               |     |                               |
+.br
+\fL+\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+     +\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+
+.br
+\fL
+.fi
+.SS "Chassis Setup"
+.PP
+Each chassis in an OVN deployment must be configured with an Open vSwitch
+bridge dedicated for OVN\(cqs use, called the \fIintegration bridge\fR\[char46]
+System startup scripts may create this bridge prior to starting
+\fBovn\-controller\fR if desired\[char46]  If this bridge does not exist when
+ovn-controller starts, it will be created automatically with the default
+configuration suggested below\[char46]  The ports on the integration bridge include:
+.RS
+.IP \(bu
+On any chassis, tunnel ports that OVN uses to maintain logical network
+connectivity\[char46]  \fBovn\-controller\fR adds, updates, and removes
+these tunnel ports\[char46]
+.IP \(bu
+On a hypervisor, any VIFs that are to be attached to logical networks\[char46]
+The hypervisor itself, or the integration between Open vSwitch and the
+hypervisor (described in \fBIntegrationGuide\[char46]md\fR) takes care of
+this\[char46]  (This is not part of OVN or new to OVN; this is pre-existing
+integration work that has already been done on hypervisors that support
+OVS\[char46])
+.IP \(bu
+On a gateway, the physical port used for logical network connectivity\[char46]
+System startup scripts add this port to the bridge prior to starting
+\fBovn\-controller\fR\[char46]  This can be a patch port to another bridge,
+instead of a physical port, in more sophisticated setups\[char46]
+.RE
+.PP
+Other ports should not be attached to the integration bridge\[char46]  In
+particular, physical ports attached to the underlay network (as opposed to
+gateway ports, which are physical ports attached to logical networks) must
+not be attached to the integration bridge\[char46]  Underlay physical ports should
+instead be attached to a separate Open vSwitch bridge (they need not be
+attached to any bridge at all, in fact)\[char46]
+.PP
+The integration bridge should be configured as described below\[char46]
+The effect of each of these settings is documented in
+\fBovs\-vswitchd\[char46]conf\[char46]db\fR(5):
+.RS
+.TP
+\fBfail\-mode=secure\fR
+Avoids switching packets between isolated logical networks before
+\fBovn\-controller\fR starts up\[char46]  See \fBController Failure
+Settings\fR in \fBovs\-vsctl\fR(8) for more information\[char46]
+.TP
+\fBother\-config:disable\-in\-band=true\fR
+Suppresses in-band control flows for the integration bridge\[char46]  It would be
+unusual for such flows to show up anyway, because OVN uses a local
+controller (over a Unix domain socket) instead of a remote controller\[char46]
+It\(cqs possible, however, for some other bridge in the same system to have
+an in-band remote controller, and in that case this suppresses the flows
+that in-band control would ordinarily set up\[char46]  See \fBIn\-Band
+Control\fR in \fBDESIGN\[char46]md\fR for more information\[char46]
+.RE
+.PP
+The customary name for the integration bridge is \fBbr\-int\fR, but
+another name may be used\[char46]
+.SS "Logical Networks"
+.PP
+A \fIlogical network\fR implements the same concepts as physical
+networks, but they are insulated from the physical network with tunnels or
+other encapsulations\[char46]  This allows logical networks to have separate IP and
+other address spaces that overlap, without conflicting, with those used for
+physical networks\[char46]  Logical network topologies can be arranged without
+regard for the topologies of the physical networks on which they run\[char46]
+.PP
+Logical network concepts in OVN include:
+.RS
+.IP \(bu
+\fILogical switches\fR, the logical version of Ethernet switches\[char46]
+.IP \(bu
+\fILogical routers\fR, the logical version of IP routers\[char46]  Logical
+switches and routers can be connected into sophisticated topologies\[char46]
+.IP \(bu
+\fILogical datapaths\fR are the logical version of an OpenFlow
+switch\[char46]  Logical switches and routers are both implemented as logical
+datapaths\[char46]
+.RE
+.SS "Life Cycle of a VIF"
+.PP
+Tables and their schemas presented in isolation are difficult to
+understand\[char46]  Here\(cqs an example\[char46]
+.PP
+A VIF on a hypervisor is a virtual network interface attached either
+to a VM or a container running directly on that hypervisor (This is
+different from the interface of a container running inside a VM)\[char46]
+.PP
+The steps in this example refer often to details of the OVN and OVN
+Northbound database schemas\[char46]  Please see \fBovn\-sb\fR(5) and
+\fBovn\-nb\fR(5), respectively, for the full story on these
+databases\[char46]
+.RS
+.IP 1. .25in
+A VIF\(cqs life cycle begins when a CMS administrator creates a new VIF
+using the CMS user interface or API and adds it to a switch (one
+implemented by OVN as a logical switch)\[char46]  The CMS updates its own
+configuration\[char46]  This includes associating unique, persistent identifier
+\fIvif-id\fR and Ethernet address \fImac\fR with the VIF\[char46]
+.IP 2. .25in
+The CMS plugin updates the OVN Northbound database to include the new
+VIF, by adding a row to the \fBLogical_Port\fR table\[char46]  In the new
+row, \fBname\fR is \fIvif-id\fR, \fBmac\fR is
+\fImac\fR, \fBswitch\fR points to the OVN logical switch\(cqs
+Logical_Switch record, and other columns are initialized appropriately\[char46]
+.IP 3. .25in
+\fBovn\-northd\fR receives the OVN Northbound database update\[char46]  In
+turn, it makes the corresponding updates to the OVN Southbound database,
+by adding rows to the OVN Southbound database \fBLogical_Flow\fR
+table to reflect the new port, e\[char46]g\[char46] add a flow to recognize that packets
+destined to the new port\(cqs MAC address should be delivered to it, and
+update the flow that delivers broadcast and multicast packets to include
+the new port\[char46]  It also creates a record in the \fBBinding\fR table
+and populates all its columns except the column that identifies the
+\fBchassis\fR\[char46]
+.IP 4. .25in
+On every hypervisor, \fBovn\-controller\fR receives the
+\fBLogical_Flow\fR table updates that \fBovn\-northd\fR made
+in the previous step\[char46]  As long as the VM that owns the VIF is powered
+off, \fBovn\-controller\fR cannot do much; it cannot, for example,
+arrange to send packets to or receive packets from the VIF, because the
+VIF does not actually exist anywhere\[char46]
+.IP 5. .25in
+Eventually, a user powers on the VM that owns the VIF\[char46]  On the hypervisor
+where the VM is powered on, the integration between the hypervisor and
+Open vSwitch (described in \fBIntegrationGuide\[char46]md\fR) adds the VIF
+to the OVN integration bridge and stores \fIvif-id\fR in
+\fBexternal\-ids\fR:\fBiface\-id\fR to indicate that the
+interface is an instantiation of the new VIF\[char46]  (None of this code is new
+in OVN; this is pre-existing integration work that has already been done
+on hypervisors that support OVS\[char46])
+.IP 6. .25in
+On the hypervisor where the VM is powered on, \fBovn\-controller\fR
+notices \fBexternal\-ids\fR:\fBiface\-id\fR in the new
+Interface\[char46]  In response, it updates the local hypervisor\(cqs OpenFlow
+tables so that packets to and from the VIF are properly handled\[char46]
+Afterward, in the OVN Southbound DB, it updates the
+\fBBinding\fR table\(cqs \fBchassis\fR column for the
+row that links the logical port from
+\fBexternal\-ids\fR:\fBiface\-id\fR to the hypervisor\[char46]
+.IP 7. .25in
+Some CMS systems, including OpenStack, fully start a VM only when its
+networking is ready\[char46]  To support this, \fBovn\-northd\fR notices
+the \fBchassis\fR column updated for the row in
+\fBBinding\fR table and pushes this upward by updating the
+\fBup\fR column in the OVN
+Northbound database\(cqs \fBLogical_Port\fR table to
+indicate that the VIF is now up\[char46]  The CMS, if it uses this feature, can
+then
+react by allowing the VM\(cqs execution to proceed\[char46]
+.IP 8. .25in
+On every hypervisor but the one where the VIF resides,
+\fBovn\-controller\fR notices the completely populated row in the
+\fBBinding\fR table\[char46]  This provides \fBovn\-controller\fR
+the physical location of the logical port, so each instance updates the
+OpenFlow tables of its switch (based on logical datapath flows in the OVN
+DB \fBLogical_Flow\fR table) so that packets to and from the VIF
+can be properly handled via tunnels\[char46]
+.IP 9. .25in
+Eventually, a user powers off the VM that owns the VIF\[char46]  On the
+hypervisor where the VM was powered off, the VIF is deleted from the OVN
+integration bridge\[char46]
+.IP 10. .25in
+On the hypervisor where the VM was powered off,
+\fBovn\-controller\fR notices that the VIF was deleted\[char46]  In
+response, it removes the \fBChassis\fR column content in the
+\fBBinding\fR table for the logical port\[char46]
+.IP 11. .25in
+On every hypervisor, \fBovn\-controller\fR notices the empty
+\fBChassis\fR column in the \fBBinding\fR table\(cqs row
+for the logical port\[char46]  This means that \fBovn\-controller\fR no
+longer knows the physical location of the logical port, so each instance
+updates its OpenFlow table to reflect that\[char46]
+.IP 12. .25in
+Eventually, when the VIF (or its entire VM) is no longer needed by
+anyone, an administrator deletes the VIF using the CMS user interface or
+API\[char46]  The CMS updates its own configuration\[char46]
+.IP 13. .25in
+The CMS plugin removes the VIF from the OVN Northbound database,
+by deleting its row in the \fBLogical_Port\fR table\[char46]
+.IP 14. .25in
+\fBovn\-northd\fR receives the OVN Northbound update and in turn
+updates the OVN Southbound database accordingly, by removing or updating
+the rows from the OVN Southbound database \fBLogical_Flow\fR table
+and \fBBinding\fR table that were related to the now-destroyed
+VIF\[char46]
+.IP 15. .25in
+On every hypervisor, \fBovn\-controller\fR receives the
+\fBLogical_Flow\fR table updates that \fBovn\-northd\fR made
+in the previous step\[char46]  \fBovn\-controller\fR updates OpenFlow
+tables to reflect the update, although there may not be much to do, since
+the VIF had already become unreachable when it was removed from the
+\fBBinding\fR table in a previous step\[char46]
+.RE
+.SS "Life Cycle of a Container Interface Inside a VM"
+.PP
+OVN provides virtual network abstractions by converting information
+written in OVN_NB database to OpenFlow flows in each hypervisor\[char46]  Secure
+virtual networking for multi-tenants can only be provided if OVN controller
+is the only entity that can modify flows in Open vSwitch\[char46]  When the
+Open vSwitch integration bridge resides in the hypervisor, it is a
+fair assumption to make that tenant workloads running inside VMs cannot
+make any changes to Open vSwitch flows\[char46]
+.PP
+If the infrastructure provider trusts the applications inside the
+containers not to break out and modify the Open vSwitch flows, then
+containers can be run in hypervisors\[char46]  This is also the case when
+containers are run inside the VMs and Open vSwitch integration bridge
+with flows added by OVN controller resides in the same VM\[char46]  For both
+the above cases, the workflow is the same as explained with an example
+in the previous section (\(dqLife Cycle of a VIF\(dq)\[char46]
+.PP
+This section talks about the life cycle of a container interface (CIF)
+when containers are created in the VMs and the Open vSwitch integration
+bridge resides inside the hypervisor\[char46]  In this case, even if a container
+application breaks out, other tenants are not affected because the
+containers running inside the VMs cannot modify the flows in the
+Open vSwitch integration bridge\[char46]
+.PP
+When multiple containers are created inside a VM, there are multiple
+CIFs associated with them\[char46]  The network traffic associated with these
+CIFs need to reach the Open vSwitch integration bridge running in the
+hypervisor for OVN to support virtual network abstractions\[char46]  OVN should
+also be able to distinguish network traffic coming from different CIFs\[char46]
+There are two ways to distinguish network traffic of CIFs\[char46]
+.PP
+One way is to provide one VIF for every CIF (1:1 model)\[char46]  This means that
+there could be a lot of network devices in the hypervisor\[char46]  This would slow
+down OVS because of all the additional CPU cycles needed for the management
+of all the VIFs\[char46]  It would also mean that the entity creating the
+containers in a VM should also be able to create the corresponding VIFs in
+the hypervisor\[char46]
+.PP
+The second way is to provide a single VIF for all the CIFs (1:many model)\[char46]
+OVN could then distinguish network traffic coming from different CIFs via
+a tag written in every packet\[char46]  OVN uses this mechanism and uses VLAN as
+the tagging mechanism\[char46]
+.RS
+.IP 1. .25in
+A CIF\(cqs life cycle begins when a container is spawned inside a VM by
+the either the same CMS that created the VM or a tenant that owns that VM
+or even a container Orchestration System that is different than the CMS
+that initially created the VM\[char46]  Whoever the entity is, it will need to
+know the \fIvif-id\fR that is associated with the network interface
+of the VM through which the container interface\(cqs network traffic is
+expected to go through\[char46]  The entity that creates the container interface
+will also need to choose an unused VLAN inside that VM\[char46]
+.IP 2. .25in
+The container spawning entity (either directly or through the CMS that
+manages the underlying infrastructure) updates the OVN Northbound
+database to include the new CIF, by adding a row to the
+\fBLogical_Port\fR table\[char46]  In the new row, \fBname\fR is
+any unique identifier, \fBparent_name\fR is the \fIvif-id\fR
+of the VM through which the CIF\(cqs network traffic is expected to go
+through and the \fBtag\fR is the VLAN tag that identifies the
+network traffic of that CIF\[char46]
+.IP 3. .25in
+\fBovn\-northd\fR receives the OVN Northbound database update\[char46]  In
+turn, it makes the corresponding updates to the OVN Southbound database,
+by adding rows to the OVN Southbound database\(cqs \fBLogical_Flow\fR
+table to reflect the new port and also by creating a new row in the
+\fBBinding\fR table and populating all its columns except the
+column that identifies the \fBchassis\fR\[char46]
+.IP 4. .25in
+On every hypervisor, \fBovn\-controller\fR subscribes to the
+changes in the \fBBinding\fR table\[char46]  When a new row is created
+by \fBovn\-northd\fR that includes a value in
+\fBparent_port\fR column of \fBBinding\fR table, the
+\fBovn\-controller\fR in the hypervisor whose OVN integration bridge
+has that same value in \fIvif-id\fR in
+\fBexternal\-ids\fR:\fBiface\-id\fR
+updates the local hypervisor\(cqs OpenFlow tables so that packets to and
+from the VIF with the particular VLAN \fBtag\fR are properly
+handled\[char46]  Afterward it updates the \fBchassis\fR column of
+the \fBBinding\fR to reflect the physical location\[char46]
+.IP 5. .25in
+One can only start the application inside the container after the
+underlying network is ready\[char46]  To support this, \fBovn\-northd\fR
+notices the updated \fBchassis\fR column in \fBBinding\fR
+table and updates the \fBup\fR column in the OVN Northbound database\(cqs
+\fBLogical_Port\fR table to indicate that the
+CIF is now up\[char46]  The entity responsible to start the container application
+queries this value and starts the application\[char46]
+.IP 6. .25in
+Eventually the entity that created and started the container, stops it\[char46]
+The entity, through the CMS (or directly) deletes its row in the
+\fBLogical_Port\fR table\[char46]
+.IP 7. .25in
+\fBovn\-northd\fR receives the OVN Northbound update and in turn
+updates the OVN Southbound database accordingly, by removing or updating
+the rows from the OVN Southbound database \fBLogical_Flow\fR table
+that were related to the now-destroyed CIF\[char46]  It also deletes the row in
+the \fBBinding\fR table for that CIF\[char46]
+.IP 8. .25in
+On every hypervisor, \fBovn\-controller\fR receives the
+\fBLogical_Flow\fR table updates that \fBovn\-northd\fR made
+in the previous step\[char46]  \fBovn\-controller\fR updates OpenFlow
+tables to reflect the update\[char46]
+.RE
+.SS "Architectural Physical Life Cycle of a Packet"
+.PP
+This section describes how a packet travels from one virtual machine or
+container to another through OVN\[char46]  This description focuses on the physical
+treatment of a packet; for a description of the logical life cycle of a
+packet, please refer to the \fBLogical_Flow\fR table in
+\fBovn\-sb\fR(5)\[char46]
+.PP
+This section mentions several data and metadata fields, for clarity
+summarized here:
+.RS
+.TP
+tunnel key
+When OVN encapsulates a packet in Geneve or another tunnel, it attaches
+extra data to it to allow the receiving OVN instance to process it
+correctly\[char46]  This takes different forms depending on the particular
+encapsulation, but in each case we refer to it here as the ``tunnel
+key\[char46]\(cq\(cq  See \fBTunnel Encapsulations\fR, below, for details\[char46]
+.TP
+logical datapath field
+A field that denotes the logical datapath through which a packet is being
+processed\[char46]
+OVN uses the field that OpenFlow 1\[char46]1+ simply (and confusingly) calls
+``metadata\(cq\(cq to store the logical datapath\[char46]  (This field is passed across
+tunnels as part of the tunnel key\[char46])
+.TP
+logical input port field
+A field that denotes the logical port from which the packet
+entered the logical datapath\[char46]
+OVN stores this in Nicira extension register number 6\[char46]
+.IP
+Geneve and STT tunnels pass this field as part of the tunnel key\[char46]
+Although VXLAN tunnels do not explicitly carry a logical input port,
+OVN only uses VXLAN to communicate with gateways that from OVN\(cqs
+perspective consist of only a single logical port, so that OVN can set
+the logical input port field to this one on ingress to the OVN logical
+pipeline\[char46]
+.TP
+logical output port field
+A field that denotes the logical port from which the packet will
+leave the logical datapath\[char46]  This is initialized to 0 at the
+beginning of the logical ingress pipeline\[char46]
+OVN stores this in Nicira extension register number 7\[char46]
+.IP
+Geneve and STT tunnels pass this field as part of the tunnel key\[char46]
+VXLAN tunnels do not transmit the logical output port field\[char46]
+.TP
+conntrack zone field
+A field that denotes the connection tracking zone\[char46]  The value only
+has local significance and is not meaningful between chassis\[char46]
+This is initialized to 0 at the beginning of the logical ingress
+pipeline\[char46]  OVN stores this in Nicira extension register number 5\[char46]
+.TP
+VLAN ID
+The VLAN ID is used as an interface between OVN and containers nested
+inside a VM (see \fBLife Cycle of a container interface inside a
+VM\fR, above, for more information)\[char46]
+.RE
+.PP
+Initially, a VM or container on the ingress hypervisor sends a packet on a
+port attached to the OVN integration bridge\[char46]  Then:
+.RS
+.IP 1. .25in
+OpenFlow table 0 performs physical-to-logical translation\[char46]  It matches
+the packet\(cqs ingress port\[char46]  Its actions annotate the packet with
+logical metadata, by setting the logical datapath field to identify the
+logical datapath that the packet is traversing and the logical input
+port field to identify the ingress port\[char46]  Then it resubmits to table 16
+to enter the logical ingress pipeline\[char46]
+.IP
+It\(cqs possible that a single ingress physical port maps to multiple
+logical ports with a type of \fBlocalnet\fR\[char46] The logical datapath
+and logical input port fields will be reset and the packet will be
+resubmitted to table 16 multiple times\[char46]
+.IP
+Packets that originate from a container nested within a VM are treated
+in a slightly different way\[char46]  The originating container can be
+distinguished based on the VIF-specific VLAN ID, so the
+physical-to-logical translation flows additionally match on VLAN ID and
+the actions strip the VLAN header\[char46]  Following this step, OVN treats
+packets from containers just like any other packets\[char46]
+.IP
+Table 0 also processes packets that arrive from other chassis\[char46]  It
+distinguishes them from other packets by ingress port, which is a
+tunnel\[char46]  As with packets just entering the OVN pipeline, the actions
+annotate these packets with logical datapath and logical ingress port
+metadata\[char46]  In addition, the actions set the logical output port field,
+which is available because in OVN tunneling occurs after the logical
+output port is known\[char46]  These three pieces of information are obtained
+from the tunnel encapsulation metadata (see \fBTunnel
+Encapsulations\fR for encoding details)\[char46]  Then the actions resubmit
+to table 33 to enter the logical egress pipeline\[char46]
+.IP 2. .25in
+OpenFlow tables 16 through 31 execute the logical ingress pipeline from
+the \fBLogical_Flow\fR table in the OVN Southbound database\[char46]
+These tables are expressed entirely in terms of logical concepts like
+logical ports and logical datapaths\[char46]  A big part of
+\fBovn\-controller\fR\(cqs job is to translate them into equivalent
+OpenFlow (in particular it translates the table numbers:
+\fBLogical_Flow\fR tables 0 through 15 become OpenFlow tables 16
+through 31)\[char46]  For a given packet, the logical ingress pipeline
+eventually executes zero or more \fBoutput\fR actions:
+.RS
+.IP \(bu
+If the pipeline executes no \fBoutput\fR actions at all, the
+packet is effectively dropped\[char46]
+.IP \(bu
+Most commonly, the pipeline executes one \fBoutput\fR action,
+which \fBovn\-controller\fR implements by resubmitting the
+packet to table 32\[char46]
+.IP \(bu
+If the pipeline can execute more than one \fBoutput\fR action,
+then each one is separately resubmitted to table 32\[char46]  This can be
+used to send multiple copies of the packet to multiple ports\[char46]  (If
+the packet was not modified between the \fBoutput\fR actions,
+and some of the copies are destined to the same hypervisor, then
+using a logical multicast output port would save bandwidth between
+hypervisors\[char46])
+.RE
+.IP 3. .25in
+OpenFlow tables 32 through 47 implement the \fBoutput\fR action
+in the logical ingress pipeline\[char46]  Specifically, table 32 handles
+packets to remote hypervisors, table 33 handles packets to the local
+hypervisor, and table 34 discards packets whose logical ingress and
+egress port are the same\[char46]
+.IP
+Logical patch ports are a special case\[char46]  Logical patch ports do not
+have a physical location and effectively reside on every hypervisor\[char46]
+Thus, flow table 33, for output to ports on the local hypervisor,
+naturally implements output to unicast logical patch ports too\[char46]
+However, applying the same logic to a logical patch port that is part
+of a logical multicast group yields packet duplication, because each
+hypervisor that contains a logical port in the multicast group will
+also output the packet to the logical patch port\[char46]  Thus, multicast
+groups implement output to logical patch ports in table 32\[char46]
+.IP
+Each flow in table 32 matches on a logical output port for unicast or
+multicast logical ports that include a logical port on a remote
+hypervisor\[char46]  Each flow\(cqs actions implement sending a packet to the port
+it matches\[char46]  For unicast logical output ports on remote hypervisors,
+the actions set the tunnel key to the correct value, then send the
+packet on the tunnel port to the correct hypervisor\[char46]  (When the remote
+hypervisor receives the packet, table 0 there will recognize it as a
+tunneled packet and pass it along to table 33\[char46])  For multicast logical
+output ports, the actions send one copy of the packet to each remote
+hypervisor, in the same way as for unicast destinations\[char46]  If a
+multicast group includes a logical port or ports on the local
+hypervisor, then its actions also resubmit to table 33\[char46]  Table 32 also
+includes a fallback flow that resubmits to table 33 if there is no
+other match\[char46]
+.IP
+Flows in table 33 resemble those in table 32 but for logical ports that
+reside locally rather than remotely\[char46]  For unicast logical output ports
+on the local hypervisor, the actions just resubmit to table 34\[char46]  For
+multicast output ports that include one or more logical ports on the
+local hypervisor, for each such logical port \fIP\fR, the actions
+change the logical output port to \fIP\fR, then resubmit to table
+34\[char46]
+.IP
+Table 34 matches and drops packets for which the logical input and
+output ports are the same\[char46]  It resubmits other packets to table 48\[char46]
+.IP 4. .25in
+OpenFlow tables 48 through 63 execute the logical egress pipeline from
+the \fBLogical_Flow\fR table in the OVN Southbound database\[char46]
+The egress pipeline can perform a final stage of validation before
+packet delivery\[char46]  Eventually, it may execute an \fBoutput\fR
+action, which \fBovn\-controller\fR implements by resubmitting to
+table 64\[char46]  A packet for which the pipeline never executes
+\fBoutput\fR is effectively dropped (although it may have been
+transmitted through a tunnel across a physical network)\[char46]
+.IP
+The egress pipeline cannot change the logical output port or cause
+further tunneling\[char46]
+.IP 5. .25in
+OpenFlow table 64 performs logical-to-physical translation, the
+opposite of table 0\[char46]  It matches the packet\(cqs logical egress port\[char46]  Its
+actions output the packet to the port attached to the OVN integration
+bridge that represents that logical port\[char46]  If the logical egress port
+is a container nested with a VM, then before sending the packet the
+actions push on a VLAN header with an appropriate VLAN ID\[char46]
+.IP
+If the logical egress port is a logical patch port, then table 64
+outputs to an OVS patch port that represents the logical patch port\[char46]
+The packet re-enters the OpenFlow flow table from the OVS patch port\(cqs
+peer in table 0, which identifies the logical datapath and logical
+input port based on the OVS patch port\(cqs OpenFlow port number\[char46]
+.RE
+.SS "Life Cycle of a VTEP gateway"
+.PP
+A gateway is a chassis that forwards traffic between the OVN-managed
+part of a logical network and a physical VLAN,  extending a
+tunnel-based logical network into a physical network\[char46]
+.PP
+The steps below refer often to details of the OVN and VTEP database
+schemas\[char46]  Please see \fBovn\-sb\fR(5), \fBovn\-nb\fR(5)
+and \fBvtep\fR(5), respectively, for the full story on these
+databases\[char46]
+.RS
+.IP 1. .25in
+A VTEP gateway\(cqs life cycle begins with the administrator registering
+the VTEP gateway as a \fBPhysical_Switch\fR table entry in the
+\fBVTEP\fR database\[char46]  The \fBovn\-controller\-vtep\fR
+connected to this VTEP database, will recognize the new VTEP gateway
+and create a new \fBChassis\fR table entry for it in the
+\fBOVN_Southbound\fR database\[char46]
+.IP 2. .25in
+The administrator can then create a new \fBLogical_Switch\fR
+table entry, and bind a particular vlan on a VTEP gateway\(cqs port to
+any VTEP logical switch\[char46]  Once a VTEP logical switch is bound to
+a VTEP gateway, the \fBovn\-controller\-vtep\fR will detect
+it and add its name to the \fIvtep_logical_switches\fR
+column of the \fBChassis\fR table in the \fB
+OVN_Southbound\fR database\[char46]  Note, the \fItunnel_key\fR
+column of VTEP logical switch is not filled at creation\[char46]  The
+\fBovn\-controller\-vtep\fR will set the column when the
+correponding vtep logical switch is bound to an OVN logical network\[char46]
+.IP 3. .25in
+Now, the administrator can use the CMS to add a VTEP logical switch
+to the OVN logical network\[char46]  To do that, the CMS must first create a
+new \fBLogical_Port\fR table entry in the \fB
+OVN_Northbound\fR database\[char46]  Then, the \fItype\fR column
+of this entry must be set to \(dqvtep\(dq\[char46]  Next, the \fI
+vtep-logical-switch\fR and \fIvtep-physical-switch\fR keys
+in the \fIoptions\fR column must also be specified, since
+multiple VTEP gateways can attach to the same VTEP logical switch\[char46]
+.IP 4. .25in
+The newly created logical port in the \fBOVN_Northbound\fR
+database and its configuration will be passed down to the \fB
+OVN_Southbound\fR database as a new \fBPort_Binding\fR
+table entry\[char46]  The \fBovn\-controller\-vtep\fR will recognize the
+change and bind the logical port to the corresponding VTEP gateway
+chassis\[char46]  Configuration of binding the same VTEP logical switch to
+a different OVN logical networks is not allowed and a warning will be
+generated in the log\[char46]
+.IP 5. .25in
+Beside binding to the VTEP gateway chassis, the \fB
+ovn\-controller\-vtep\fR will update the \fItunnel_key\fR
+column of the VTEP logical switch to the corresponding \fB
+Datapath_Binding\fR table entry\(cqs \fItunnel_key\fR for the
+bound OVN logical network\[char46]
+.IP 6. .25in
+Next, the \fBovn\-controller\-vtep\fR will keep reacting to the
+configuration change in the \fBPort_Binding\fR in the
+\fBOVN_Northbound\fR database, and updating the
+\fBUcast_Macs_Remote\fR table in the \fBVTEP\fR database\[char46]
+This allows the VTEP gateway to understand where to forward the unicast
+traffic coming from the extended external network\[char46]
+.IP 7. .25in
+Eventually, the VTEP gateway\(cqs life cycle ends when the administrator
+unregisters the VTEP gateway from the \fBVTEP\fR database\[char46]
+The \fBovn\-controller\-vtep\fR will recognize the event and
+remove all related configurations (\fBChassis\fR table entry
+and port bindings) in the \fBOVN_Southbound\fR database\[char46]
+.IP 8. .25in
+When the \fBovn\-controller\-vtep\fR is terminated, all related
+configurations in the \fBOVN_Southbound\fR database and
+the \fBVTEP\fR database will be cleaned, including
+\fBChassis\fR table entries for all registered VTEP gateways
+and their port bindings, and all \fBUcast_Macs_Remote\fR table
+entries and the \fBLogical_Switch\fR tunnel keys\[char46]
+.RE
+.SH "DESIGN DECISIONS"
+.SS "Tunnel Encapsulations"
+.PP
+OVN annotates logical network packets that it sends from one hypervisor to
+another with the following three pieces of metadata, which are encoded in
+an encapsulation-specific fashion:
+.RS
+.IP \(bu
+24-bit logical datapath identifier, from the \fBtunnel_key\fR
+column in the OVN Southbound \fBDatapath_Binding\fR table\[char46]
+.IP \(bu
+15-bit logical ingress port identifier\[char46]  ID 0 is reserved for internal
+use within OVN\[char46]  IDs 1 through 32767, inclusive, may be assigned to
+logical ports (see the \fBtunnel_key\fR column in the OVN
+Southbound \fBPort_Binding\fR table)\[char46]
+.IP \(bu
+16-bit logical egress port identifier\[char46]  IDs 0 through 32767 have the same
+meaning as for logical ingress ports\[char46]  IDs 32768 through 65535,
+inclusive, may be assigned to logical multicast groups (see the
+\fBtunnel_key\fR column in the OVN Southbound
+\fBMulticast_Group\fR table)\[char46]
+.RE
+.PP
+For hypervisor-to-hypervisor traffic, OVN supports only Geneve and STT
+encapsulations, for the following reasons:
+.RS
+.IP \(bu
+Only STT and Geneve support the large amounts of metadata (over 32 bits
+per packet) that OVN uses (as described above)\[char46]
+.IP \(bu
+STT and Geneve use randomized UDP or TCP source ports that allows
+efficient distribution among multiple paths in environments that use ECMP
+in their underlay\[char46]
+.IP \(bu
+NICs are available to offload STT and Geneve encapsulation and
+decapsulation\[char46]
+.RE
+.PP
+Due to its flexibility, the preferred encapsulation between hypervisors is
+Geneve\[char46]  For Geneve encapsulation, OVN transmits the logical datapath
+identifier in the Geneve VNI\[char46]
+OVN transmits the logical ingress and logical egress ports in a TLV with
+class 0x0102, type 0, and a 32-bit value encoded as follows, from MSB to
+LSB:
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "rsv" width .25
+B1: box "ingress port" width .75
+B2: box "egress port" width .75
+"1" at B0.n above
+"0" at B0.s below
+"15" at B1.n above
+"" at B1.s below
+"16" at B2.n above
+"" at B2.s below
+line <-> invis "" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.RS
+.IP \(bu
+1 bits: rsv (0)
+.IP \(bu
+15 bits: ingress port
+.IP \(bu
+16 bits: egress port
+.RE
+\}
+.PP
+Environments whose NICs lack Geneve offload may prefer STT encapsulation
+for performance reasons\[char46]  For STT encapsulation, OVN encodes all three
+pieces of logical metadata in the STT 64-bit tunnel ID as follows, from MSB
+to LSB:
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "reserved" width .5
+B1: box "ingress port" width .75
+B2: box "egress port" width .75
+B3: box "datapath" width 1.25
+"9" at B0.n above
+"0" at B0.s below
+"15" at B1.n above
+"" at B1.s below
+"16" at B2.n above
+"" at B2.s below
+"24" at B3.n above
+"" at B3.s below
+line <-> invis "" above from B0.nw + (0,textht) to B3.ne + (0,textht)
+]
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.RS
+.IP \(bu
+9 bits: reserved (0)
+.IP \(bu
+15 bits: ingress port
+.IP \(bu
+16 bits: egress port
+.IP \(bu
+24 bits: datapath
+.RE
+\}
+.PP
+For connecting to gateways, in addition to Geneve and STT, OVN supports
+VXLAN, because only VXLAN support is common on top-of-rack (ToR) switches\[char46]
+Currently, gateways have a feature set that matches the capabilities as
+defined by the VTEP schema, so fewer bits of metadata are necessary\[char46]  In
+the future, gateways that do not support encapsulations with large amounts
+of metadata may continue to have a reduced feature set\[char46]

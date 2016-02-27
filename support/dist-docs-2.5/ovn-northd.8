@@ -1,0 +1,538 @@
+'\" p
+.\" -*- nroff -*-
+.TH "ovn-northd" 8 "ovn-northd" "Open vSwitch 2\[char46]5\[char46]1" "Open vSwitch Manual"
+.fp 5 L CR              \\" Make fixed-width font available as \\fL.
+.de TQ
+.  br
+.  ns
+.  TP "\\$1"
+..
+.de ST
+.  PP
+.  RS -0.15in
+.  I "\\$1"
+.  RE
+..
+.SH "NAME"
+.PP
+ovn-northd \- Open Virtual Network central control daemon
+.SH "SYNOPSIS"
+.PP
+\fBovn\-northd\fR [\fIoptions\fR]
+.SH "DESCRIPTION"
+.PP
+\fBovn\-northd\fR is a centralized daemon responsible for
+translating the high-level OVN configuration into logical
+configuration consumable by daemons such as
+\fBovn\-controller\fR\[char46]  It translates the logical network
+configuration in terms of conventional network concepts, taken
+from the OVN Northbound Database (see \fBovn\-nb\fR(5)),
+into logical datapath flows in the OVN Southbound Database (see
+\fBovn\-sb\fR(5)) below it\[char46]
+.SH "CONFIGURATION"
+.PP
+\fBovn\-northd\fR requires a connection to the Northbound
+and Southbound databases\[char46]  The default is \fBdb\[char46]sock\fR
+in the local Open vSwitch\(cqs \(dqrun\(dq directory\[char46]  This may be
+overridden with the following commands:
+.RS
+.IP \(bu
+\fB\-\-ovnnb\-db=\fIdatabase\fB\fR
+.IP
+The database containing the OVN Northbound Database\[char46]
+.IP \(bu
+\fB\-\-ovsnb\-db=\fIdatabase\fB\fR
+.IP
+The database containing the OVN Southbound Database\[char46]
+.RE
+.PP
+The \fIdatabase\fR argument must take one of the following forms:
+.RS
+.IP \(bu
+\fBssl:\fIip\fB:\fIport\fB\fR
+.IP
+The specified SSL \fIport\fR on the host at the given
+\fIip\fR, which must be expressed as an IP address (not a DNS
+name) in IPv4 or IPv6 address format\[char46]  If \fIip\fR is an IPv6
+address, then wrap \fIip\fR with square brackets, e\[char46]g\[char46]:
+\fBssl:[::1]:6640\fR\[char46]  The \fB\-\-private\-key\fR,
+\fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR options are
+mandatory when this form is used\[char46]
+.IP \(bu
+\fBtcp:\fIip\fB:\fIport\fB\fR
+.IP
+Connect to the given TCP \fIport\fR on \fIip\fR, where
+\fIip\fR can be IPv4 or IPv6 address\[char46] If \fIip\fR is an
+IPv6 address, then wrap \fIip\fR with square brackets, e\[char46]g\[char46]:
+\fBtcp:[::1]:6640\fR\[char46]
+.IP \(bu
+\fBunix:\fIfile\fB\fR
+.IP
+On POSIX, connect to the Unix domain server socket named
+\fIfile\fR\[char46]
+.IP
+On Windows, connect to a localhost TCP port whose value is written
+in \fIfile\fR\[char46]
+.RE
+.SH "RUNTIME MANAGEMENT COMMANDS"
+.PP
+\fBovs\-appctl\fR can send commands to a running
+\fBovn\-northd\fR process\[char46]  The currently supported commands
+are described below\[char46]
+.RS
+.TP
+\fBexit\fR
+Causes \fBovn\-northd\fR to gracefully terminate\[char46]
+.RE
+.SH "LOGICAL FLOW TABLE STRUCTURE"
+.PP
+One of the main purposes of \fBovn\-northd\fR is to populate the
+\fBLogical_Flow\fR table in the \fBOVN_Southbound\fR
+database\[char46]  This section describes how \fBovn\-northd\fR does this
+for switch and router logical datapaths\[char46]
+.SS "Logical Switch Datapaths"
+.ST "Ingress Table 0: Admission Control and Ingress Port Security"
+.PP
+Ingress table 0 contains these logical flows:
+.RS
+.IP \(bu
+Priority 100 flows to drop packets with VLAN tags or multicast Ethernet
+source addresses\[char46]
+.IP \(bu
+Priority 50 flows that implement ingress port security for each enabled
+logical port\[char46]  For logical ports on which port security is enabled,
+these match the \fBinport\fR and the valid \fBeth\[char46]src\fR
+address(es) and advance only those packets to the next flow table\[char46]  For
+logical ports on which port security is not enabled, these advance all
+packets that match the \fBinport\fR\[char46]
+.RE
+.PP
+There are no flows for disabled logical ports because the default-drop
+behavior of logical flow tables causes packets that ingress from them to
+be dropped\[char46]
+.ST "Ingress Table 1: \fBfrom\-lport\fR Pre-ACLs"
+.PP
+Ingress table 1 prepares flows for possible stateful ACL processing
+in table 2\[char46]  It contains a priority\-0 flow that simply moves
+traffic to table 2\[char46]  If stateful ACLs are used in the logical
+datapath, a priority\-100 flow is added that sends IP packets to
+the connection tracker before advancing to table 2\[char46]
+.ST "Ingress table 2: \fBfrom\-lport\fR ACLs"
+.PP
+Logical flows in this table closely reproduce those in the
+\fBACL\fR table in the \fBOVN_Northbound\fR database
+for the \fBfrom\-lport\fR direction\[char46]  \fBallow\fR
+ACLs translate into logical flows with the \fBnext;\fR
+action, \fBallow\-related\fR ACLs translate into logical
+flows with the \fBct_next;\fR action, other ACLs translate
+to \fBdrop;\fR\[char46]  The \fBpriority\fR values from the
+\fBACL\fR table are used directly\[char46]
+.PP
+Ingress table 2 also contains a priority 0 flow with action
+\fBnext;\fR, so that ACLs allow packets by default\[char46]  If the
+logical datapath has a statetful ACL, the following flows will
+also be added:
+.RS
+.IP \(bu
+A priority\-1 flow to commit IP traffic to the connection
+tracker\[char46]  This is needed for the default allow policy because,
+while the initiater\(cqs direction may not have any stateful rules,
+the server\(cqs may and then its return traffic would not be known
+and marked as invalid\[char46]
+.IP \(bu
+A priority\-65535 flow that allows any traffic that has been
+committed to the connection tracker (i\[char46]e\[char46], established flows)\[char46]
+.IP \(bu
+A priority\-65535 flow that allows any traffic that is considered
+related to a committed flow in the connection tracker (e\[char46]g\[char46], an
+ICMP Port Unreachable from a non-listening UDP port)\[char46]
+.IP \(bu
+A priority\-65535 flow that drops all traffic marked by the
+connection tracker as invalid\[char46]
+.RE
+.ST "Ingress Table 3: Destination Lookup"
+.PP
+This table implements switching behavior\[char46]  It contains these logical
+flows:
+.RS
+.IP \(bu
+A priority\-100 flow that outputs all packets with an Ethernet broadcast
+or multicast \fBeth\[char46]dst\fR to the \fBMC_FLOOD\fR
+multicast group, which \fBovn\-northd\fR populates with all
+enabled logical ports\[char46]
+.IP \(bu
+One priority\-50 flow that matches each known Ethernet address against
+\fBeth\[char46]dst\fR and outputs the packet to the single associated
+output port\[char46]
+.IP \(bu
+One priority\-0 fallback flow that matches all packets and outputs them
+to the \fBMC_UNKNOWN\fR multicast group, which
+\fBovn\-northd\fR populates with all enabled logical ports that
+accept unknown destination packets\[char46]  As a small optimization, if no
+logical ports accept unknown destination packets,
+\fBovn\-northd\fR omits this multicast group and logical flow\[char46]
+.RE
+.ST "Egress Table 0: \fBto\-lport\fR Pre-ACLs"
+.PP
+This is similar to ingress table 1 except for \fBto\-lport\fR
+traffic\[char46]
+.ST "Egress Table 1: \fBto\-lport\fR ACLs"
+.PP
+This is similar to ingress table 2 except for \fBto\-lport\fR ACLs\[char46]
+.ST "Egress Table 2: Egress Port Security"
+.PP
+This is similar to the ingress port security logic in ingress table 0,
+but with important differences\[char46]  Most obviously, \fBoutport\fR and
+\fBeth\[char46]dst\fR are checked instead of \fBinport\fR and
+\fBeth\[char46]src\fR\[char46]  Second, packets directed to broadcast or multicast
+\fBeth\[char46]dst\fR are always accepted instead of being subject to the
+port security rules; this is implemented through a priority\-100 flow that
+matches on \fBeth\[char46]mcast\fR with action \fBoutput;\fR\[char46]
+Finally, to ensure that even broadcast and multicast packets are not
+delivered to disabled logical ports, a priority\-150 flow for each
+disabled logical \fBoutport\fR overrides the priority\-100 flow
+with a \fBdrop;\fR action\[char46]
+.SS "Logical Router Datapaths"
+.ST "Ingress Table 0: L2 Admission Control"
+.PP
+This table drops packets that the router shouldn\(cqt see at all based on
+their Ethernet headers\[char46]  It contains the following flows:
+.RS
+.IP \(bu
+Priority\-100 flows to drop packets with VLAN tags or multicast Ethernet
+source addresses\[char46]
+.IP \(bu
+For each enabled router port \fIP\fR with Ethernet address
+\fIE\fR, a priority\-50 flow that matches \fBinport ==
+\fIP\fB && (eth\[char46]mcast || eth\[char46]dst ==
+\fIE\fB\fR), with action \fBnext;\fR\[char46]
+.RE
+.PP
+Other packets are implicitly dropped\[char46]
+.ST "Ingress Table 1: IP Input"
+.PP
+This table is the core of the logical router datapath functionality\[char46]  It
+contains the following flows to implement very basic IP host
+functionality\[char46]
+.RS
+.IP \(bu
+L3 admission control: A priority\-100 flow drops packets that match
+any of the following:
+.RS
+.IP \(bu
+\fBip4\[char46]src[28\[char46]\[char46]31] == 0xe\fR (multicast source)
+.IP \(bu
+\fBip4\[char46]src == 255\[char46]255\[char46]255\[char46]255\fR (broadcast source)
+.IP \(bu
+\fBip4\[char46]src == 127\[char46]0\[char46]0\[char46]0/8 || ip4\[char46]dst == 127\[char46]0\[char46]0\[char46]0/8\fR
+(localhost source or destination)
+.IP \(bu
+\fBip4\[char46]src == 0\[char46]0\[char46]0\[char46]0/8 || ip4\[char46]dst == 0\[char46]0\[char46]0\[char46]0/8\fR (zero
+network source or destination)
+.IP \(bu
+\fBip4\[char46]src\fR is any IP address owned by the router\[char46]
+.IP \(bu
+\fBip4\[char46]src\fR is the broadcast address of any IP network
+known to the router\[char46]
+.RE
+.IP \(bu
+ICMP echo reply\[char46]  These flows reply to ICMP echo requests received
+for the router\(cqs IP address\[char46]  Let \fIA\fR be an IP address or
+broadcast address owned by a router port\[char46]  Then, for each
+\fIA\fR, a priority\-90 flow matches on \fBip4\[char46]dst ==
+\fIA\fB\fR and \fBicmp4\[char46]type == 8 && icmp4\[char46]code
+== 0\fR (ICMP echo request)\[char46]  These flows use the following
+actions where, if \fIA\fR is unicast, then \fIS\fR is
+\fIA\fR, and if \fIA\fR is broadcast, \fIS\fR is the
+router\(cqs IP address in \fIA\fR\(cqs network:
+.IP
+.nf
+\fB
+.br
+\fBip4\[char46]dst = ip4\[char46]src;
+.br
+\fBip4\[char46]src = \fIS\fB;
+.br
+\fBip\[char46]ttl = 255;
+.br
+\fBicmp4\[char46]type = 0;
+.br
+\fBinport = \(dq\(dq; /* Allow sending out inport\[char46] */
+.br
+\fBnext;
+.br
+\fB
+.fi
+.IP
+Similar flows match on \fBip4\[char46]dst == 255\[char46]255\[char46]255\[char46]255\fR and
+each individual \fBinport\fR, and use the same actions in
+which \fIS\fR is a function of \fBinport\fR\[char46]
+.IP \(bu
+ARP reply\[char46]  These flows reply to ARP requests for the router\(cqs own IP
+address\[char46]  For each router port \fIP\fR that owns IP address
+\fIA\fR and Ethernet address \fIE\fR, a priority\-90 flow
+matches \fBinport == \fIP\fB && arp\[char46]tpa ==
+\fIA\fB && arp\[char46]op == 1\fR (ARP request) with the
+following actions:
+.IP
+.nf
+\fB
+.br
+\fBeth\[char46]dst = eth\[char46]src;
+.br
+\fBeth\[char46]src = \fIE\fB;
+.br
+\fBarp\[char46]op = 2; /* ARP reply\[char46] */
+.br
+\fBarp\[char46]tha = arp\[char46]sha;
+.br
+\fBarp\[char46]sha = \fIE\fB;
+.br
+\fBarp\[char46]tpa = arp\[char46]spa;
+.br
+\fBarp\[char46]spa = \fIA\fB;
+.br
+\fBoutport = \fIP\fB;
+.br
+\fBinport = \(dq\(dq; /* Allow sending out inport\[char46] */
+.br
+\fBoutput;
+.br
+\fB
+.fi
+.IP \(bu
+UDP port unreachable\[char46]  Priority\-80 flows generate ICMP port
+unreachable messages in reply to UDP datagrams directed to the
+router\(cqs IP address\[char46]  The logical router doesn\(cqt accept any UDP
+traffic so it always generates such a reply\[char46]
+.IP
+These flows should not match IP fragments with nonzero offset\[char46]
+.IP
+Details TBD\[char46]  Not yet implemented\[char46]
+.IP \(bu
+TCP reset\[char46]  Priority\-80 flows generate TCP reset messages in reply to
+TCP datagrams directed to the router\(cqs IP address\[char46]  The logical
+router doesn\(cqt accept any TCP traffic so it always generates such a
+reply\[char46]
+.IP
+These flows should not match IP fragments with nonzero offset\[char46]
+.IP
+Details TBD\[char46]  Not yet implemented\[char46]
+.IP \(bu
+Protocol unreachable\[char46]  Priority\-70 flows generate ICMP protocol
+unreachable messages in reply to packets directed to the router\(cqs IP
+address on IP protocols other than UDP, TCP, and ICMP\[char46]
+.IP
+These flows should not match IP fragments with nonzero offset\[char46]
+.IP
+Details TBD\[char46]  Not yet implemented\[char46]
+.IP \(bu
+Drop other IP traffic to this router\[char46]  These flows drop any other
+traffic destined to an IP address of this router that is not already
+handled by one of the flows above, which amounts to ICMP (other than
+echo requests) and fragments with nonzero offsets\[char46]  For each IP address
+\fIA\fR owned by the router, a priority\-60 flow matches
+\fBip4\[char46]dst == \fIA\fB\fR and drops the traffic\[char46]
+.RE
+.PP
+The flows above handle all of the traffic that might be directed to the
+router itself\[char46]  The following flows (with lower priorities) handle the
+remaining traffic, potentially for forwarding:
+.RS
+.IP \(bu
+Drop Ethernet local broadcast\[char46]  A priority\-50 flow with match
+\fBeth\[char46]bcast\fR drops traffic destined to the local Ethernet
+broadcast address\[char46]  By definition this traffic should not be forwarded\[char46]
+.IP \(bu
+Drop IP multicast\[char46]  A priority\-50 flow with match
+\fBip4\[char46]mcast\fR drops IP multicast traffic\[char46]
+.IP \(bu
+ICMP time exceeded\[char46]  For each router port \fIP\fR, whose IP
+address is \fIA\fR, a priority\-40 flow with match \fBinport
+== \fIP\fB && ip\[char46]ttl == {0, 1} &&
+!ip\[char46]later_frag\fR matches packets whose TTL has expired, with the
+following actions to send an ICMP time exceeded reply:
+.IP
+.nf
+\fB
+.br
+\fBicmp4 {
+.br
+\fB    icmp4\[char46]type = 11; /* Time exceeded\[char46] */
+.br
+\fB    icmp4\[char46]code = 0;  /* TTL exceeded in transit\[char46] */
+.br
+\fB    ip4\[char46]dst = ip4\[char46]src;
+.br
+\fB    ip4\[char46]src = \fIA\fB;
+.br
+\fB    ip\[char46]ttl = 255;
+.br
+\fB    next;
+.br
+\fB};
+.br
+\fB
+.fi
+.IP
+Not yet implemented\[char46]
+.IP \(bu
+TTL discard\[char46]  A priority\-30 flow with match \fBip\[char46]ttl == {0,
+1}\fR and actions \fBdrop;\fR drops other packets whose TTL
+has expired, that should not receive a ICMP error reply (i\[char46]e\[char46] fragments
+with nonzero offset)\[char46]
+.IP \(bu
+Next table\[char46]  A priority\-0 flows match all packets that aren\(cqt already
+handled and uses actions \fBnext;\fR to feed them to the ingress
+table for routing\[char46]
+.RE
+.ST "Ingress Table 2: IP Routing"
+.PP
+A packet that arrives at this table is an IP packet that should be routed
+to the address in \fBip4\[char46]dst\fR\[char46]  This table implements IP
+routing, setting \fBreg0\fR to the next-hop IP address (leaving
+\fBip4\[char46]dst\fR, the packet\(cqs final destination, unchanged) and
+advances to the next table for ARP resolution\[char46]
+.PP
+This table contains the following logical flows:
+.RS
+.IP \(bu
+Routing table\[char46]  For each route to IPv4 network \fIN\fR with
+netmask \fIM\fR, a logical flow with match \fBip4\[char46]dst ==
+\fIN\fB/\fIM\fB\fR, whose priority is the number of
+1-bits in \fIM\fR, has the following actions:
+.IP
+.nf
+\fB
+.br
+\fBip\[char46]ttl\-\-;
+.br
+\fBreg0 = \fIG\fB;
+.br
+\fBnext;
+.br
+\fB
+.fi
+.IP
+(Ingress table 1 already verified that \fBip\[char46]ttl\-\-;\fR will
+not yield a TTL exceeded error\[char46])
+.IP
+If the route has a gateway, \fIG\fR is the gateway IP address,
+otherwise it is \fBip4\[char46]dst\fR\[char46]
+.IP \(bu
+Destination unreachable\[char46]  For each router port \fIP\fR, which
+owns IP address \fIA\fR, a priority\-0 logical flow with match
+\fBin_port == \fIP\fB && !ip\[char46]later_frag &&
+!icmp\fR has the following actions:
+.IP
+.nf
+\fB
+.br
+\fBicmp4 {
+.br
+\fB    icmp4\[char46]type = 3; /* Destination unreachable\[char46] */
+.br
+\fB    icmp4\[char46]code = 0; /* Network unreachable\[char46] */
+.br
+\fB    ip4\[char46]dst = ip4\[char46]src;
+.br
+\fB    ip4\[char46]src = \fIA\fB;
+.br
+\fB    ip\[char46]ttl = 255;
+.br
+\fB    next(2);
+.br
+\fB};
+.br
+\fB
+.fi
+.IP
+(The \fB!icmp\fR check prevents recursion if the destination
+unreachable message itself cannot be routed\[char46])
+.IP
+These flows are omitted if the logical router has a default route,
+that is, a route with netmask 0\[char46]0\[char46]0\[char46]0\[char46]
+.RE
+.ST "Ingress Table 3: ARP Resolution"
+.PP
+Any packet that reaches this table is an IP packet whose next-hop IP
+address is in \fBreg0\fR\[char46]  (\fBip4\[char46]dst\fR is the final
+destination\[char46])  This table resolves the IP address in \fBreg0\fR
+into an output port in \fBoutport\fR and an Ethernet address in
+\fBeth\[char46]dst\fR, using the following flows:
+.RS
+.IP \(bu
+Known MAC bindings\[char46]  For each IP address \fIA\fR whose host is
+known to have Ethernet address \fIHE\fR and reside on router
+port \fIP\fR with Ethernet address \fIPE\fR, a priority\-200
+flow with match \fBreg0 == \fIA\fB\fR has the following
+actions:
+.IP
+.nf
+\fB
+.br
+\fBeth\[char46]src = \fIPE\fB;
+.br
+\fBeth\[char46]dst = \fIHE\fB;
+.br
+\fBoutport = \fIP\fB;
+.br
+\fBoutput;
+.br
+\fB
+.fi
+.IP
+MAC bindings can be known statically based on data in the
+\fBOVN_Northbound\fR database\[char46]  For router ports connected to
+logical switches, MAC bindings can be known statically from the
+\fBaddresses\fR column in the \fBLogical_Port\fR table\[char46]
+For router ports connected to other logical routers, MAC bindings can
+be known statically from the \fBmac\fR and
+\fBnetwork\fR column in the \fBLogical_Router_Port\fR
+table\[char46]
+.IP \(bu
+Unknown MAC bindings\[char46]  For each non-gateway route to IPv4 network
+\fIN\fR with netmask \fIM\fR on router port \fIP\fR
+that owns IP address \fIA\fR and Ethernet address \fIE\fR,
+a logical flow with match \fBip4\[char46]dst ==
+\fIN\fB/\fIM\fB\fR, whose priority is the number of
+1-bits in \fIM\fR, has the following actions:
+.IP
+.nf
+\fB
+.br
+\fBarp {
+.br
+\fB    eth\[char46]dst = ff:ff:ff:ff:ff:ff;
+.br
+\fB    eth\[char46]src = \fIE\fB;
+.br
+\fB    arp\[char46]sha = \fIE\fB;
+.br
+\fB    arp\[char46]tha = 00:00:00:00:00:00;
+.br
+\fB    arp\[char46]spa = \fIA\fB;
+.br
+\fB    arp\[char46]tpa = ip4\[char46]dst;
+.br
+\fB    arp\[char46]op = 1;  /* ARP request\[char46] */
+.br
+\fB    outport = \fIP\fB;
+.br
+\fB    output;
+.br
+\fB};
+.br
+\fB
+.fi
+.IP
+TBD: How to install MAC bindings when an ARP response comes back\[char46]
+(Implement a \(dqlearn\(dq action?)
+.IP
+Not yet implemented\[char46]
+.RE
+.ST "Egress Table 0: Delivery"
+.PP
+Packets that reach this table are ready for delivery\[char46]  It contains
+priority\-100 logical flows that match packets on each enabled logical
+router port, with action \fBoutput;\fR\[char46]
