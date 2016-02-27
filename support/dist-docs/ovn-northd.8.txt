@@ -124,15 +124,17 @@ LOGICAL FLOW TABLE STRUCTURE
               ·      A  priority-65535  flow  that drops all traffic marked by
                      the connection tracker as invalid.
 
-     Ingress Table 3: Destination Lookup
+     Ingress Table 3: ARP responder
 
-       This table implements switching behavior.  It  contains  these  logical
-       flows:
+       This table implements ARP responder for known IPs.  It  contains  these
+       logical flows:
 
-              ·      Priority-150  flows  that  matches  ARP  requests to each
-                     known IP address A of logical port P,  and  respond  with
-                     ARP  replies directly with corresponding Ethernet address
-                     E:
+              ·      Priority-100  flows to skip ARP responder if inport is of
+                     type localnet, and advances directly to table 3.
+
+              ·      Priority-50 flows that matches ARP requests to each known
+                     IP  address  A  of  logical  port P, and respond with ARP
+                     replies directly with corresponding Ethernet address E:
 
                      eth.dst = eth.src;
                      eth.src = E;
@@ -147,6 +149,14 @@ LOGICAL FLOW TABLE STRUCTURE
 
                      These flows are omitted for  logical  ports  (other  than
                      router ports) that are down.
+
+              ·      One priority-0 fallback flow that matches all packets and
+                     advances to table 4.
+
+     Ingress Table 4: Destination Lookup
+
+       This table implements switching behavior.  It  contains  these  logical
+       flows:
 
               ·      A priority-100 flow that outputs all packets with an Eth‐
                      ernet broadcast or multicast eth.dst to the MC_FLOOD mul‐

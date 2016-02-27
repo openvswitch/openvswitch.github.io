@@ -8,13 +8,13 @@
 <p>This tutorial is intended to give you a tour of the basic OVN features using
 <code>ovs-sandbox</code> as a simulated test environment.  It’s assumed that you have an
 understanding of OVS before going through this tutorial. Detail about OVN is
-covered in <a href="http://openvswitch.org/support/dist-docs/ovn-architecture.7.html">ovn-architecture(7)</a>, but this tutorial lets you quickly see it in
+covered in [ovn-architecture(7)], but this tutorial lets you quickly see it in
 action.</p>
 
 <h2>Getting Started</h2>
 
 <p>For some general information about <code>ovs-sandbox</code>, see the “Getting Started”
-section of <a href="https://github.com/openvswitch/ovs/blob/master/tutorial/Tutorial.md">Tutorial.md</a>.</p>
+section of [Tutorial.md].</p>
 
 <p><code>ovs-sandbox</code> does not include OVN support by default.  To enable OVN, you must
 pass the <code>--ovn</code> flag.  For example, if running it straight from the ovs git
@@ -28,14 +28,13 @@ environment:</p>
 
 <ol>
 <li><p>Creates the <code>OVN_Northbound</code> and <code>OVN_Southbound</code> databases as described in
- <a href="http://openvswitch.org/support/dist-docs/ovn-nb.5.html">ovn-nb(5)</a> and <a href="http://openvswitch.org/support/dist-docs/ovn-sb.5.html">ovn-sb(5)</a>.</p></li>
-<li><p>Creates the <code>hardware_vtep</code> database as described in <a href="http://openvswitch.org/support/dist-docs/vtep.5.html">vtep(5)</a>.</p></li>
-<li><p>Runs the <a href="http://openvswitch.org/support/dist-docs/ovn-northd">ovn-northd(8)</a>, <a href="http://openvswitch.org/support/dist-docs/ovn-controller.8.html">ovn-controller(8)</a>, and <a href="http://openvswitch.org/support/dist-docs/ovn-controller-vtep.8.html">ovn-controller-vtep(8)</a>
+ [ovn-nb(5)] and [ovn-sb(5)].</p></li>
+<li><p>Creates the <code>hardware_vtep</code> database as described in [vtep(5)].</p></li>
+<li><p>Runs the [ovn-northd(8)], [ovn-controller(8)], and [ovn-controller-vtep(8)]
  daemons.</p></li>
 <li><p>Makes OVN and VTEP utilities available for use in the environment,
- including <a href="http://openvswitch.org/support/dist-docs/vtep-ctl.8.html">vtep-ctl(8)</a>, <a href="http://openvswitch.org/support/dist-docs/ovn-nbctl.8.html">ovn-nbctl(8)</a>, and <a href="http://openvswitch.org/support/dist-docs/ovn-sbctl.8.html">ovn-sbctl(8)</a>.</p></li>
+ including [vtep-ctl(8)], [ovn-nbctl(8)], and [ovn-sbctl(8)].</p></li>
 </ol>
-
 
 <p>Note that each of these demos assumes you start with a fresh sandbox
 environment.  Re-run <code>ovs-sandbox</code> before starting each section.</p>
@@ -479,7 +478,6 @@ to <code>br-eth1</code>.</p>
 <li>4 = lport2, which is the logical port named <code>provnet1-2-port1</code></li>
 </ul>
 
-
 <p>We get those port numbers using <code>ovs-ofctl</code>:</p>
 
 <pre><code>$ ovs-ofctl show br-int
@@ -689,7 +687,6 @@ groups.  ACLs are implemented using conntrack integration with OVS.</p>
 <li>Drop other incoming IP traffic.</li>
 </ul>
 
-
 <p>The following script applies this policy to our environment.</p>
 
 <p><a href="https://github.com/openvswitch/ovs/blob/master/tutorial/ovn/env6/add-acls.sh">View ovn/env6/add-acls.sh</a>.</p>
@@ -707,8 +704,8 @@ from-lport  1002 (inport == “sw0-port1” &amp;&amp; ip) allow-related
 </code></pre>
 
 <p>Now that we have ACLs configured, there are new entries in the logical flow
-table in the stages <code>switch_in_pre_acl</code>, switch_in_acl<code>,</code>switch_out_pre_acl<code>,
-and</code>switch_out_acl`.</p>
+table in the stages <code>switch_in_pre_acl</code>, switch<em>in</em>acl<code>,</code>switch<em>out</em>pre<em>acl<code>,
+and</code>switch</em>out_acl`.</p>
 
 <pre><code>$ ovn-sbctl lflow-list
 </code></pre>
@@ -757,4 +754,79 @@ though.</p>
 <p><a href="http://blog.russellbryant.net/2015/10/22/openstack-security-groups-using-ovn-acls/">This blog post</a> discusses OVN ACLs from an OpenStack
 perspective and also provides an example of what the resulting OpenFlow flows
 look like.</p>
+
+<h2>7) Container Ports</h2>
+
+<p>OVN supports containers running directly on the hypervisors and running
+containers inside VMs. This example shows how OVN supports network
+virtualization to containers when run inside VMs. Details about how to use
+docker containers in OVS can be found <a href="http://openvswitch.org/support/dist-docs/INSTALL.Docker.md.txt">here</a>.</p>
+
+<p>To support container traffic created inside a VM and to distinguish network
+traffic coming from different container vifs, for each container a logical
+port needs to be created with parent name set to the VM's logical port and
+the tag set to the vlan tag of the container vif.</p>
+
+<p>Start with a simple logical switch with 3 logical ports.</p>
+
+<p><a href="https://github.com/openvswitch/ovs/blob/master/tutorial/ovn/env7/setup.sh">View ovn/env7/setup.sh</a>.</p>
+
+<pre><code>$ ovn/env7/setup.sh
+</code></pre>
+
+<p>Lets create a container vif attached to the logical port 'sw0-port1' and
+another container vif attached to the logical port 'sw0-port2'.</p>
+
+<p><a href="https://github.com/openvswitch/ovs/blob/master/tutorial/ovn/env7/add-container-ports.sh">View ovn/env7/add-container-ports.sh</a></p>
+
+<pre><code>$ ovn/env7/add-container-ports.sh
+</code></pre>
+
+<p>Run the <code>ovn-nbctl</code> command to see the logical ports</p>
+
+<pre><code>$ovn-nbctl show
+</code></pre>
+
+<p>As you can see a logical port 'csw0-cport1' is created on a logical
+switch 'csw0' whose parent is 'sw0-port1' and it has tag set to 42.
+And a logical port 'csw0-cport2' is created on the logical switch 'csw0'
+whose parent is 'sw0-port2' and it has tag set to 43.</p>
+
+<p>Bridge 'br-vmport1' represents the ovs bridge running inside the VM
+connected to the logical port 'sw0-port1'. In this tutorial the ovs port
+to 'sw0-port1' is created as a patch port with its peer connected to the
+ovs bridge 'br-vmport1'. An ovs port 'cport1' is added to 'br-vmport1'
+which represents the container interface connected to the ovs bridge
+and vlan tag set to 42. Similarly 'br-vmport2' represents the ovs bridge
+for the logical port 'sw0-port2' and 'cport2' connected to 'br-vmport2'
+with vlan tag set to 43.</p>
+
+<p>This first trace shows a packet from 'csw0-port1' with a destination mac
+address of 'csw0-port2'. You can see ovs bridge of the vm 'br-vmport1' tags
+the traffic with vlan id 42 and the traffic reaches to the br-int because
+of the patch port. As you can see below <code>ovn-controller</code> has added a flow
+to strip the vlan tag and set the reg6 and metadata appropriately.</p>
+
+<pre><code>$ ovs-ofctl -O OpenFlow13 dump-flows br-int
+OFPST_FLOW reply (OF1.3) (xid=0x2):
+cookie=0x0, duration=2767.032s, table=0, n_packets=0, n_bytes=0, priority=150,in_port=3,dl_vlan=42 actions=pop_vlan,set_field:0x3-&gt;reg5,set_field:0x2-&gt;metadata,set_field:0x1-&gt;reg6,resubmit(,16)
+cookie=0x0, duration=2767.002s, table=0, n_packets=0, n_bytes=0, priority=150,in_port=4,dl_vlan=43 actions=pop_vlan,set_field:0x4-&gt;reg5,set_field:0x2-&gt;metadata,set_field:0x2-&gt;reg6,resubmit(,16)
+cookie=0x0, duration=2767.032s, table=0, n_packets=0, n_bytes=0, priority=100,in_port=3 actions=set_field:0x1-&gt;reg5,set_field:0x1-&gt;metadata,set_field:0x1-&gt;reg6,resubmit(,16)
+cookie=0x0, duration=2767.001s, table=0, n_packets=0, n_bytes=0, priority=100,in_port=4 actions=set_field:0x2-&gt;reg5,set_field:0x1-&gt;metadata,set_field:0x2-&gt;reg6,resubmit(,16)
+</code></pre>
+
+<p><a href="https://github.com/openvswitch/ovs/blob/master/tutorial/ovn/env7/packet1.sh">View ovn/env7/packet1.sh</a>.</p>
+
+<pre><code>$ ovn/env5/packet1.sh
+</code></pre>
+
+<p>The second trace shows a packet from 'csw0-port2' to 'csw0-port1'.</p>
+
+<p><a href="https://github.com/openvswitch/ovs/blob/master/tutorial/ovn/env7/packet2.sh">View ovn/env7/packet2.sh</a>.</p>
+
+<pre><code>$ ovn/env5/packet1.sh
+</code></pre>
+
+<p>You can extend this setup by adding additional container ports with two
+hypervisors. Please see the tutorial 3 above.</p>
 </body></html>

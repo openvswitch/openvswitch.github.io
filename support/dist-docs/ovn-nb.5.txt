@@ -44,6 +44,17 @@ TABLE SUMMARY
 Logical_Switch TABLE
        Each row represents one L2 logical switch.
 
+       There  are two kinds of logical switches, that is, ones that fully vir‐
+       tualize the network (overlay logical switches) and  ones  that  provide
+       simple  connectivity  to a physical network (bridged logical switches).
+       They work in the same way when providing connectivity  between  logical
+       ports  on  same  chasis, but differently when connecting remote logical
+       ports.  Overlay logical switches connect remote logical ports  by  tun‐
+       nels,  while  bridged  logical  switches provide connectivity to remote
+       ports by bridging the packets to directly connected physical L2 segment
+       with  the  help of localnet ports.  Each bridged logical switch has one
+       and only one localnet port, which has only one special address unknown.
+
    Summary:
        name                          string
        ports                         set of Logical_Ports
@@ -54,9 +65,9 @@ Logical_Switch TABLE
    Details:
        name: string
               A name for the logical switch.  This name has no special meaning
-              or purpose other than to provide convenience for human  interac‐
-              tion  with the ovn-nb database.  There is no requirement for the
-              name to be unique.  The logical switch’s UUID should be used  as
+              or  purpose other than to provide convenience for human interac‐
+              tion with the ovn-nb database.  There is no requirement for  the
+              name  to be unique.  The logical switch’s UUID should be used as
               the unique identifier.
 
        ports: set of Logical_Ports
@@ -66,7 +77,7 @@ Logical_Switch TABLE
               logical port.
 
        acls: set of ACLs
-              Access control rules that apply to packets  within  the  logical
+              Access  control  rules  that apply to packets within the logical
               switch.
 
      Common Columns:
@@ -92,6 +103,9 @@ Logical_Port TABLE
                                      optional string
             options : vtep-logical-switch
                                      optional string
+         VMI (or VIF) Options:
+            options : policing_rate  optional string
+            options : policing_burst optional string
        Containers:
          parent_name                 optional string
          tag                         optional integer, in range 1 to 4,095
@@ -110,8 +124,8 @@ Logical_Port TABLE
        name: string (must be unique within table)
               The logical port name.
 
-              For  entities (VMs or containers) that are spawned in the hyper‐
-              visor, the name used here must match those used  in  the  exter‐
+              For entities (VMs or containers) that are spawned in the  hyper‐
+              visor,  the  name  used here must match those used in the exter‐
               nal_ids:iface-id in the Open_vSwitch database’s Interface table,
               because hypervisors use external_ids:iface-id as a lookup key to
               identify the network interface of that entity.
@@ -130,11 +144,10 @@ Logical_Port TABLE
               router A connection to a logical router.
 
               localnet
-                     A connection to a locally accessible  network  from  each
-                     ovn-controller  instance.  A logical switch can only have
-                     a single localnet port attached and at most  one  regular
-                     logical  port.  This is used to model direct connectivity
-                     to an existing network.
+                     A  connection  to  a locally accessible network from each
+                     ovn-controller instance.  A logical switch can only  have
+                     a  single  localnet port attached.  This is used to model
+                     direct connectivity to an existing network.
 
               vtep   A port to a logical switch on a VTEP gateway.
 
@@ -173,6 +186,17 @@ Logical_Port TABLE
 
        options : vtep-logical-switch: optional string
               Required.  A logical switch name connected by the VTEP gateway.
+
+     VMI (or VIF) Options:
+       These options apply to logical ports with type having (empty string)
+
+       options : policing_rate: optional string
+              If set, indicates the maximum  rate  for  data  sent  from  this
+              interface, in kbps. Data exceeding this rate is dropped.
+
+       options : policing_burst: optional string
+              If set, indicates the maximum burst size for data sent from this
+              interface, in kb.
 
      Containers:
        When a large number of containers are nested within a VM, it may be too
@@ -225,30 +249,51 @@ Logical_Port TABLE
 
               Each element in the set must take one of the following forms:
 
-              xx:xx:xx:xx:xx:xx
-                     An  Ethernet  address  owned by the logical port.  Like a
-                     physical Ethernet NIC, a logical port  ordinarily  has  a
-                     single fixed Ethernet address.
+              Ethernet address followed by zero or more IPv4 or IPv6 addresses
+              (or both)
+                     An Ethernet address defined is owned by the logical port.
+                     Like  a  physical Ethernet NIC, a logical port ordinarily
+                     has a single fixed Ethernet address.
 
-                     When  a  OVN  logical switch processes a unicast Ethernet
-                     frame whose destination  MAC  address  is  in  a  logical
-                     port’s  addresses  column,  it  delivers  it only to that
-                     port, as if a MAC learning process had learned  that  MAC
+                     When a OVN logical switch processes  a  unicast  Ethernet
+                     frame  whose  destination  MAC  address  is  in a logical
+                     port’s addresses column, it  delivers  it  only  to  that
+                     port,  as  if a MAC learning process had learned that MAC
                      address on the port.
 
-              xx:xx:xx:xx:xx:xx a.b.c.d
-                     This  form  has all the effects of the previous form.  It
-                     also indicates that the logical port owns the given  IPv4
-                     address.
+                     If IPv4 or IPv6 address(es) (or  both)  are  defined,  it
+                     indicates  that  the  logical  port  owns  the  given  IP
+                     addresses.
 
-                     The  OVN  logical switch uses this information to synthe‐
-                     size responses to ARP  requests  without  traversing  the
-                     physical  network.   The  OVN logical router connected to
-                     the logical switch, if  any,  uses  this  information  to
-                     avoid issuing ARP requests for logical switch ports.
+                     If IPv4 address(es) are defined, the OVN  logical  switch
+                     uses  this  information  to  synthesize  responses to ARP
+                     requests without traversing the physical network. The OVN
+                     logical  router  connected to the logical switch, if any,
+                     uses this information to avoid issuing ARP  requests  for
+                     logical switch ports.
 
                      Note  that  the  order  here  is  important. The Ethernet
-                     address must be listed before the IP address.
+                     address must be  listed  before  the  IP  address(es)  if
+                     defined.
+
+                     Examples:
+
+                     80:fa:5b:06:72:b7
+                            This  indicates  that  the  logical  port owns the
+                            above mac address.
+
+                     80:fa:5b:06:72:b7 10.0.0.4 20.0.0.4
+                            This indicates that the logical port owns the  mac
+                            address and two IPv4 addresses.
+
+                     80:fa:5b:06:72:b7 fdaa:15f2:72cf:0:f816:3eff:fe20:3f41
+                            This  indicates that the logical port owns the mac
+                            address and 1 IPv6 address.
+
+                     80:fa:5b:06:72:b7                                10.0.0.4
+                     fdaa:15f2:72cf:0:f816:3eff:fe20:3f41
+                            This  indicates that the logical port owns the mac
+                            address and 1 IPv4 address and 1 IPv6 address.
 
               unknown
                      This indicates that the logical port has an  unknown  set
@@ -327,6 +372,10 @@ ACL TABLE
 
               Note that you can not create an ACL  matching  on  a  port  with
               type=router.
+
+              Note  that  when localnet port exists in a lswitch, for to-lport
+              direction, the inport works only if the to-lport is  located  on
+              the same chassis as the inport.
 
        action: string, one of allow-related, drop, allow, or reject
               The action to take when the ACL rule matches:
