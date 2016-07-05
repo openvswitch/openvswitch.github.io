@@ -1,6 +1,6 @@
 '\" p
 .\" -*- nroff -*-
-.TH "ovs-vswitchd.conf.db" 5 " DB Schema 7.12.1" "Open vSwitch 2.5.90" "Open vSwitch Manual"
+.TH "ovs-vswitchd.conf.db" 5 " DB Schema 7.13.0" "Open vSwitch 2.5.90" "Open vSwitch Manual"
 .fp 5 L CR              \\" Make fixed-width font available as \\fL.
 .de TQ
 .  br
@@ -238,6 +238,9 @@ optional string
 \fBexternal_ids : xs-system-uuid\fR
 optional string
 .TQ 2.75in
+\fBexternal_ids : hostname\fR
+optional string
+.TQ 2.75in
 \fBother_config : stats-update-interval\fR
 optional string, containing an integer, at least 5,000
 .TQ 2.75in
@@ -250,7 +253,31 @@ optional string, containing an integer, at least 0
 \fBother_config : max-idle\fR
 optional string, containing an integer, at least 500
 .TQ 2.75in
+\fBother_config : dpdk-init\fR
+optional string, either \fBtrue\fR or \fBfalse\fR
+.TQ 2.75in
+\fBother_config : dpdk-lcore-mask\fR
+optional string, containing an integer, at least 1
+.TQ 2.75in
 \fBother_config : pmd-cpu-mask\fR
+optional string
+.TQ 2.75in
+\fBother_config : dpdk-alloc-mem\fR
+optional string, containing an integer, at least 0
+.TQ 2.75in
+\fBother_config : dpdk-socket-mem\fR
+optional string
+.TQ 2.75in
+\fBother_config : dpdk-hugepage-dir\fR
+optional string
+.TQ 2.75in
+\fBother_config : dpdk-extra\fR
+optional string
+.TQ 2.75in
+\fBother_config : cuse-dev-name\fR
+optional string
+.TQ 2.75in
+\fBother_config : vhost-sock-dir\fR
 optional string
 .TQ 2.75in
 \fBother_config : n-handler-threads\fR
@@ -348,6 +375,8 @@ On a Citrix XenServer, this will likely be the same as
 .IP "\fBexternal_ids : xs-system-uuid\fR: optional string"
 The Citrix XenServer universally unique identifier for the physical
 host as displayed by \fBxe host\-list\fR\[char46]
+.IP "\fBexternal_ids : hostname\fR: optional string"
+The hostname for the host running Open vSwitch\[char46]
 .IP "\fBother_config : stats-update-interval\fR: optional string, containing an integer, at least 5,000"
 Interval for updating statistics to the database, in milliseconds\[char46]
 This option will affect the update of the \fBstatistics\fR
@@ -411,6 +440,34 @@ number, based on real time network conditions\[char46] Tweaking this
 value is discouraged unless you know exactly what you\(cqre doing\[char46]
 .IP
 The default is 10000\[char46]
+.IP "\fBother_config : dpdk-init\fR: optional string, either \fBtrue\fR or \fBfalse\fR"
+Set this value to \fBtrue\fR to enable runtime support for
+DPDK ports\[char46] The vswitch must have compile-time support for DPDK as
+well\[char46]
+.IP
+The default value is \fBfalse\fR\[char46] Changing this value requires
+restarting the daemon
+.IP
+If this value is \fBfalse\fR at startup, any dpdk ports which
+are configured in the bridge will fail due to memory errors\[char46]
+.IP "\fBother_config : dpdk-lcore-mask\fR: optional string, containing an integer, at least 1"
+Specifies the CPU cores where dpdk lcore threads should be spawned\[char46]
+The DPDK lcore threads are used for DPDK library tasks, such as
+library internal message processing, logging, etc\[char46] Value should be in
+the form of a hex string (so \(cq0x123\(cq) similar to the \(cqtaskset\(cq mask
+input\[char46]
+.IP
+The lowest order bit corresponds to the first CPU core\[char46]  A set bit
+means the corresponding core is available and an lcore thread will be
+created and pinned to it\[char46]  If the input does not cover all cores,
+those uncovered cores are considered not set\[char46]
+.IP
+For performance reasons, it is best to set this to a single core on
+the system, rather than allow lcore threads to float\[char46]
+.IP
+If not specified, the value will be determined by choosing the lowest
+CPU core from initial cpu affinity list\[char46] Otherwise, the value will be
+passed directly to the DPDK library\[char46]
 .IP "\fBother_config : pmd-cpu-mask\fR: optional string"
 Specifies CPU mask for setting the cpu affinity of PMD (Poll
 Mode Driver) threads\[char46]  Value should be in the form of hex string,
@@ -424,6 +481,47 @@ those uncovered cores are considered not set\[char46]
 .IP
 If not specified, one pmd thread will be created for each numa node
 and pinned to any available core on the numa node by default\[char46]
+.IP "\fBother_config : dpdk-alloc-mem\fR: optional string, containing an integer, at least 0"
+Specifies the amount of memory to preallocate from the hugepage pool,
+regardless of socket\[char46] It is recommended that dpdk-socket-mem is used
+instead\[char46]
+.IP
+If not specified, the value is 0\[char46] Changing this value requires
+restarting the daemon\[char46]
+.IP "\fBother_config : dpdk-socket-mem\fR: optional string"
+Specifies the amount of memory to preallocate from the hugepage pool,
+on a per-socket basis\[char46]
+.IP
+The specifier is a comma-separated string, in ascending order of CPU
+socket (ex: 1024,2048,4096,8192 would set socket 0 to preallocate
+1024MB, socket 1 to preallocate 2048MB, etc\[char46])
+.IP
+If not specified, the default value is 1024,0\[char46] Changing this value
+requires restarting the daemon\[char46]
+.IP "\fBother_config : dpdk-hugepage-dir\fR: optional string"
+Specifies the path to the hugetlbfs mount point\[char46]
+.IP
+If not specified, this will be guessed by the DPDK library (default
+is /dev/hugepages)\[char46] Changing this value requires restarting the
+daemon\[char46]
+.IP "\fBother_config : dpdk-extra\fR: optional string"
+Specifies additional eal command line arguments for DPDK\[char46]
+.IP
+The default is empty\[char46] Changing this value requires restarting the
+daemon
+.IP "\fBother_config : cuse-dev-name\fR: optional string"
+Specifies the name of the vhost-cuse character device to open for
+vhost-cuse support\[char46]
+.IP
+The default is vhost-net\[char46] Changing this value requires restarting
+the daemon\[char46]
+.IP "\fBother_config : vhost-sock-dir\fR: optional string"
+Specifies the path to the vhost-user unix domain socket files\[char46] This
+path must exist and be a subdirectory tree of the Open vSwitch
+run directory\[char46]
+.IP
+Defaults to the working directory of the application\[char46] Changing this
+value requires restarting the daemon\[char46]
 .IP "\fBother_config : n-handler-threads\fR: optional string, containing an integer, at least 1"
 Specifies the number of threads for software datapaths to use for
 handling new flows\[char46]  The default the number of online CPU cores minus
@@ -694,7 +792,7 @@ optional string, either \fBtrue\fR or \fBfalse\fR
 optional string, containing an integer, in range 0 to 4,294,967,295
 .TQ 2.75in
 \fBprotocols\fR
-set of strings, one of \fBOpenFlow11\fR, \fBOpenFlow10\fR, \fBOpenFlow13\fR, \fBOpenFlow12\fR, \fBOpenFlow15\fR, or \fBOpenFlow14\fR
+set of strings, one of \fBOpenFlow11\fR, \fBOpenFlow10\fR, \fBOpenFlow13\fR, \fBOpenFlow12\fR, \fBOpenFlow15\fR, \fBOpenFlow14\fR, or \fBOpenFlow16\fR
 .RE
 .TQ .25in
 \fISpanning Tree Configuration:\fR
@@ -843,11 +941,14 @@ map of string-string pairs
 .SS "Details:
 .ST "Core Features:"
 .IP "\fBname\fR: immutable string (must be unique within table)"
-Bridge identifier\[char46]  Should be alphanumeric and no more than about 8
-bytes long\[char46]  Must be unique among the names of ports, interfaces, and
-bridges on a host\[char46]
+Bridge identifier\[char46]  Must be unique among the names of ports,
+interfaces, and bridges on a host\[char46]
 .IP
-Forward and backward slashes are prohibited in bridge names\[char46]
+The name must be alphanumeric and must not contain forward or
+backward slashes\[char46]  The name of a bridge is also the name of an \fBInterface\fR (and a \fBPort\fR) within the bridge, so
+the restrictions on the \fBname\fR column
+in the \fBInterface\fR table, particularly on length, also
+apply to bridge names\[char46]  Refer to the documentation for \fBInterface\fR names for details\[char46]
 .IP "\fBports\fR: set of \fBPort\fRs"
 Ports included in the bridge\[char46]
 .IP "\fBmirrors\fR: set of \fBMirror\fRs"
@@ -981,19 +1082,14 @@ that will be used by flows set up by in-band control on this bridge\[char46]
 If unset, or if the port used by an in-band control flow does not have
 QoS configured, or if the port does not have a queue with the specified
 ID, the default queue is used instead\[char46]
-.IP "\fBprotocols\fR: set of strings, one of \fBOpenFlow11\fR, \fBOpenFlow10\fR, \fBOpenFlow13\fR, \fBOpenFlow12\fR, \fBOpenFlow15\fR, or \fBOpenFlow14\fR"
+.IP "\fBprotocols\fR: set of strings, one of \fBOpenFlow11\fR, \fBOpenFlow10\fR, \fBOpenFlow13\fR, \fBOpenFlow12\fR, \fBOpenFlow15\fR, \fBOpenFlow14\fR, or \fBOpenFlow16\fR"
 List of OpenFlow protocols that may be used when negotiating
 a connection with a controller\[char46]  OpenFlow 1\[char46]0, 1\[char46]1, 1\[char46]2, and
 1\[char46]3 are enabled by default if this column is empty\[char46]
 .IP
-OpenFlow 1\[char46]4 is not enabled by default because its implementation is
-missing features\[char46]
-.IP
-OpenFlow 1\[char46]5 has the same risks as OpenFlow 1\[char46]4, but it is even more
-experimental because the OpenFlow 1\[char46]5 specification is still under
-development and thus subject to change\[char46]  Pass
-\fB\-\-enable\-of15\fR to \fBovs\-vswitchd\fR to allow
-OpenFlow 1\[char46]5 to be enabled\[char46]
+OpenFlow 1\[char46]4, 1\[char46]5, and 1\[char46]6 are not enabled by default because their
+implementations are missing features\[char46]  In addition, the OpenFlow 1\[char46]6
+specification is still under development and thus subject to change\[char46]
 .ST "Spanning Tree Configuration:"
 The IEEE 802\[char46]1D Spanning Tree Protocol (STP) is a network protocol
 that ensures loop-free topologies\[char46]  It allows redundant links to
@@ -1494,10 +1590,12 @@ map of string-string pairs
 .RE
 .SS "Details:
 .IP "\fBname\fR: immutable string (must be unique within table)"
-Port name\[char46]  Should be alphanumeric and no more than about 8
-bytes long\[char46]  May be the same as the interface name, for
-non-bonded ports\[char46]  Must otherwise be unique among the names of
-ports, interfaces, and bridges on a host\[char46]
+Port name\[char46]  For a non-bonded port, this should be the same as its
+interface\(cqs name\[char46]  Port names must otherwise be unique among the names of
+ports, interfaces, and bridges on a host\[char46]  Because port and interfaces
+names are usually the same, the restrictions on the \fBname\fR column in the \fBInterface\fR
+table, particularly on length, also apply to port names\[char46]  Refer to the
+documentation for \fBInterface\fR names for details\[char46]
 .IP "\fBinterfaces\fR: set of 1 or more \fBInterface\fRs"
 The port\(cqs interfaces\[char46]  If there is more than one, this is a
 bonded Port\[char46]
@@ -2114,6 +2212,9 @@ optional string
 .TQ 2.50in
 \fBbfd : bfd_dst_ip\fR
 optional string
+.TQ 2.50in
+\fBbfd : oam\fR
+optional string
 .RE
 .TQ .25in
 \fIBFD Status:\fR
@@ -2238,13 +2339,6 @@ optional string
 optional string
 .RE
 .TQ .25in
-\fIVLAN Splinters:\fR
-.RS .25in
-.TQ 2.75in
-\fBother_config : enable-vlan-splinters\fR
-optional string, either \fBtrue\fR or \fBfalse\fR
-.RE
-.TQ .25in
 \fIAuto Attach Configuration:\fR
 .RS .25in
 .TQ 2.75in
@@ -2264,10 +2358,28 @@ map of string-string pairs
 .SS "Details:
 .ST "Core Features:"
 .IP "\fBname\fR: immutable string (must be unique within table)"
-Interface name\[char46]  Should be alphanumeric and no more than about 8 bytes
-long\[char46]  May be the same as the port name, for non-bonded ports\[char46]  Must
-otherwise be unique among the names of ports, interfaces, and bridges
-on a host\[char46]
+Interface name\[char46]  Should be alphanumeric\[char46]  For non-bonded port, this
+should be the same as the port name\[char46]  It must otherwise be unique
+among the names of ports, interfaces, and bridges on a host\[char46]
+.IP
+The maximum length of an interface name depends on the underlying
+datapath:
+.RS
+.IP \(bu
+The names of interfaces implemented as Linux and BSD network
+devices, including interfaces with type \fBinternal\fR,
+\fBtap\fR, or \fBsystem\fR plus the different types
+of tunnel ports, are limited to 15 bytes\[char46] Windows limits these
+names to 255 bytes\[char46]
+.IP \(bu
+The names of patch ports are not used in the underlying datapath,
+so operating system restrictions do not apply\[char46]  Thus, they may have
+arbitrary length\[char46]
+.RE
+.IP
+Regardless of other restrictions, OpenFlow only supports 15-byte
+names, which means that \fBovs\-ofctl\fR and OpenFlow
+controllers will show names truncated to 15 bytes\[char46]
 .IP "\fBifindex\fR: optional integer, in range 0 to 4,294,967,295"
 A positive interface index as defined for SNMP MIB-II in RFCs 1213 and
 2863, if the interface has one, otherwise 0\[char46]  The ifindex is useful for
@@ -2359,26 +2471,26 @@ imprecisely for internal interfaces\[char46]
 A TUN/TAP device managed by Open vSwitch\[char46]
 .TP
 \fBgeneve\fR
-An Ethernet over Geneve (\fBhttp://tools\[char46]ietf\[char46]org/html/draft\-ietf\-nvo3\-geneve\-00\fR)
-IPv4 tunnel\[char46]
+An Ethernet over Geneve (\fBhttp://tools\[char46]ietf\[char46]org/html/draft\-ietf\-nvo3\-geneve\fR)
+IPv4/IPv6 tunnel\[char46]
 A description of how to match and set Geneve options can be found
 in the \fBovs\-ofctl\fR manual page\[char46]
 .TP
 \fBgre\fR
-An Ethernet over RFC 2890 Generic Routing Encapsulation over IPv4
+An Ethernet over RFC 2890 Generic Routing Encapsulation over IPv4/IPv6
 tunnel\[char46]
 .TP
 \fBipsec_gre\fR
-An Ethernet over RFC 2890 Generic Routing Encapsulation over IPv4
+An Ethernet over RFC 2890 Generic Routing Encapsulation over IPv4/IPv6
 IPsec tunnel\[char46]
 .TP
 \fBvxlan\fR
 An Ethernet tunnel over the UDP-based VXLAN protocol described in
 RFC 7348\[char46]
 .IP
-Open vSwitch uses UDP destination port 4789\[char46]  The source port used for
-VXLAN traffic varies on a per-flow basis and is in the ephemeral port
-range\[char46]
+Open vSwitch uses IANA-assigned UDP destination port 4789\[char46]  The
+source port used for VXLAN traffic varies on a per-flow basis
+and is in the ephemeral port range\[char46]
 .TP
 \fBlisp\fR
 A layer 3 tunnel over the experimental, UDP-based Locator/ID
@@ -2403,9 +2515,8 @@ any sort of connection state between endpoints\[char46]
 Since the STT protocol does not engage in the usual TCP 3-way handshake,
 so it will have difficulty traversing stateful firewalls\[char46]
 The protocol is documented at
-http://www\[char46]ietf\[char46]org/archive/id/draft-davie-stt\-06\[char46]txt
-All traffic uses a default destination port of 7471\[char46] STT is only
-available in kernel datapath on kernel 3\[char46]5 or newer\[char46]
+https://tools\[char46]ietf\[char46]org/html/draft-davie-stt
+All traffic uses a default destination port of 7471\[char46]
 .TP
 \fBpatch\fR
 A pair of virtual devices that act as a patch cable\[char46]
@@ -2428,17 +2539,17 @@ a port defines one and another port defines the other\[char46]
 Required\[char46]  The remote tunnel endpoint, one of:
 .RS
 .IP \(bu
-An IPv4 address (not a DNS name), e\[char46]g\[char46] \fB192\[char46]168\[char46]0\[char46]123\fR\[char46]
+An IPv4 or IPv6 address (not a DNS name), e\[char46]g\[char46] \fB192\[char46]168\[char46]0\[char46]123\fR\[char46]
 Only unicast endpoints are supported\[char46]
 .IP \(bu
 The word \fBflow\fR\[char46]  The tunnel accepts packets from any
 remote tunnel endpoint\[char46]  To process only packets from a specific
 remote tunnel endpoint, the flow entries may match on the
-\fBtun_src\fR field\[char46]  When sending packets to a
-\fBremote_ip=flow\fR tunnel, the flow actions must
-explicitly set the \fBtun_dst\fR field to the IP address of
-the desired remote tunnel endpoint, e\[char46]g\[char46] with a
-\fBset_field\fR action\[char46]
+\fBtun_src\fR or \fBtun_ipv6_src\fRfield\[char46]  When
+sending packets to a \fBremote_ip=flow\fR tunnel, the flow
+actions must explicitly set the \fBtun_dst\fR or
+\fBtun_ipv6_dst\fR field to the IP address of the desired
+remote tunnel endpoint, e\[char46]g\[char46] with a \fBset_field\fR action\[char46]
 .RE
 .IP
 The remote tunnel endpoint for any packet received from a tunnel
@@ -2450,17 +2561,17 @@ match\[char46]  Default is to match all addresses\[char46]  If specified, may be
 of:
 .RS
 .IP \(bu
-An IPv4 address (not a DNS name), e\[char46]g\[char46] \fB192\[char46]168\[char46]12\[char46]3\fR\[char46]
+An IPv4/IPv6 address (not a DNS name), e\[char46]g\[char46] \fB192\[char46]168\[char46]12\[char46]3\fR\[char46]
 .IP \(bu
 The word \fBflow\fR\[char46]  The tunnel accepts packets sent to any
 of the local IP addresses of the system running OVS\[char46]  To process
 only packets sent to a specific IP address, the flow entries may
-match on the \fBtun_dst\fR field\[char46]  When sending packets to a
-\fBlocal_ip=flow\fR tunnel, the flow actions may
-explicitly set the \fBtun_src\fR field to the desired IP
-address, e\[char46]g\[char46] with a \fBset_field\fR action\[char46]  However, while
-routing the tunneled packet out, the local system may override the
-specified address with the local IP address configured for the
+match on the \fBtun_dst\fR or \fBtun_ipv6_dst\fR field\[char46]
+When sending packets to a \fBlocal_ip=flow\fR tunnel, the flow
+actions may explicitly set the \fBtun_src\fR or \fBtun_ipv6_src\fR
+field to the desired IP address, e\[char46]g\[char46] with a \fBset_field\fR action\[char46]
+However, while routing the tunneled packet out, the local system may
+override the specified address with the local IP address configured for the
 outgoing system interface\[char46]
 .IP
 This option is valid only for tunnels also configured with the
@@ -2468,8 +2579,8 @@ This option is valid only for tunnels also configured with the
 .RE
 .IP
 The tunnel destination IP address for any packet received from a
-tunnel is available in the \fBtun_dst\fR field for matching in
-the flow table\[char46]
+tunnel is available in the \fBtun_dst\fR or \fBtun_ipv6_dst\fR
+field for matching in the flow table\[char46]
 .IP "\fBoptions : in_key\fR: optional string"
 Optional\[char46]  The key that received packets must contain, one of:
 .RS
@@ -2636,7 +2747,7 @@ adapter\[char46]
 .IP "\fBstatus : firmware_version\fR: optional string"
 The version string of the network adapter\(cqs firmware, if available\[char46]
 .IP "\fBstatus : source_ip\fR: optional string"
-The source IP address used for an IPv4 tunnel end-point, such as
+The source IP address used for an IPv4/IPv6 tunnel end-point, such as
 \fBgre\fR\[char46]
 .IP "\fBstatus : tunnel_egress_iface\fR: optional string"
 Egress interface for tunnels\[char46]  Currently only relevant for tunnels
@@ -2700,8 +2811,8 @@ packets received in excess of the configured rate\[char46]  Due to its
 simplicity, policing is usually less accurate and less effective than
 egress QoS (which is configured using the \fBQoS\fR and \fBQueue\fR tables)\[char46]
 .PP
-Policing is currently implemented only on Linux\[char46]  The Linux
-implementation uses a simple ``token bucket\(cq\(cq approach:
+Policing is currently implemented on Linux and OVS with DPDK\[char46] Both
+implementations use a simple ``token bucket\(cq\(cq approach:
 .RS
 .IP \(bu
 The size of the bucket corresponds to \fBingress_policing_burst\fR\[char46]  Initially the bucket is full\[char46]
@@ -2736,7 +2847,7 @@ received faster than this rate is dropped\[char46]  Set to \fB0\fR
 (the default) to disable policing\[char46]
 .IP "\fBingress_policing_burst\fR: integer, at least 0"
 Maximum burst size for data received on this interface, in kb\[char46]  The
-default burst size if set to \fB0\fR is 1000 kb\[char46]  This value
+default burst size if set to \fB0\fR is 8000 kbit\[char46]  This value
 has no effect if \fBingress_policing_rate\fR
 is \fB0\fR\[char46]
 .IP
@@ -2744,7 +2855,7 @@ Specifying a larger burst size lets the algorithm be more forgiving,
 which is important for protocols like TCP that react severely to
 dropped packets\[char46]  The burst size should be at least the size of the
 interface\(cqs MTU\[char46]  Specifying a value that is numerically at least as
-large as 10% of \fBingress_policing_rate\fR helps TCP come
+large as 80% of \fBingress_policing_rate\fR helps TCP come
 closer to achieving the full rate\[char46]
 .ST "Bidirectional Forwarding Detection (BFD):"
 BFD, defined in RFC 5880 and RFC 5881, allows point-to-point
@@ -2829,6 +2940,11 @@ transmitted BFD packets\[char46]  The default is \fB169\[char46]254\[char46]1\[c
 .IP "\fBbfd : bfd_dst_ip\fR: optional string"
 Set to an IPv4 address to set the IP address used as destination
 for transmitted BFD packets\[char46]  The default is \fB169\[char46]254\[char46]1\[char46]0\fR\[char46]
+.IP "\fBbfd : oam\fR: optional string"
+Some tunnel protocols (such as Geneve) include a bit in the header
+to indicate that the encapsulated packet is an OAM frame\[char46] By setting
+this to true, BFD packets will be marked as OAM if encapsulated in
+one of these tunnels\[char46]
 .ST "BFD Status:"
 The switch sets key-value pairs in the \fBbfd_status\fR
 column to report the status of BFD on this interface\[char46]  When BFD is
@@ -3074,53 +3190,6 @@ The VM to which this interface belongs\[char46] On XenServer, this will be the
 same as \fBexternal_ids:xs-vm-uuid\fR\[char46]
 .IP "\fBexternal_ids : xs-vm-uuid\fR: optional string"
 The VM to which this interface belongs\[char46]
-.ST "VLAN Splinters:"
-The ``VLAN splinters\(cq\(cq feature increases Open vSwitch compatibility
-with buggy network drivers in old versions of Linux that do not
-properly support VLANs when VLAN devices are not used, at some cost
-in memory and performance\[char46]
-.PP
-When VLAN splinters are enabled on a particular interface, Open vSwitch
-creates a VLAN device for each in-use VLAN\[char46]  For sending traffic tagged
-with a VLAN on the interface, it substitutes the VLAN device\[char46]  Traffic
-received on the VLAN device is treated as if it had been received on
-the interface on the particular VLAN\[char46]
-.PP
-VLAN splinters consider a VLAN to be in use if:
-.RS
-.IP \(bu
-The VLAN is the \fBtag\fR value in any \fBPort\fR record\[char46]
-.IP \(bu
-The VLAN is listed within the \fBtrunks\fR
-column of the \fBPort\fR record of an interface on which
-VLAN splinters are enabled\[char46]
-An empty \fBtrunks\fR does not influence the
-in-use VLANs: creating 4,096 VLAN devices is impractical because it
-will exceed the current 1,024 port per datapath limit\[char46]
-.IP \(bu
-An OpenFlow flow within any bridge matches the VLAN\[char46]
-.RE
-.PP
-The same set of in-use VLANs applies to every interface on which VLAN
-splinters are enabled\[char46]  That is, the set is not chosen separately for
-each interface but selected once as the union of all in-use VLANs based
-on the rules above\[char46]
-.PP
-It does not make sense to enable VLAN splinters on an interface for an
-access port, or on an interface that is not a physical port\[char46]
-.PP
-VLAN splinters are deprecated\[char46]  When broken device drivers are no
-longer in widespread use, we will delete this feature\[char46]
-.IP "\fBother_config : enable-vlan-splinters\fR: optional string, either \fBtrue\fR or \fBfalse\fR"
-Set to \fBtrue\fR to enable VLAN splinters on this interface\[char46]
-Defaults to \fBfalse\fR\[char46]
-.IP
-VLAN splinters increase kernel and userspace memory overhead, so do
-not use them unless they are needed\[char46]
-.IP
-VLAN splinters do not support 802\[char46]1p priority tags\[char46]  Received
-priorities will appear to be 0, regardless of their actual values,
-and priorities on transmitted packets will also be cleared to 0\[char46]
 .ST "Auto Attach Configuration:"
 Auto Attach configuration for a particular interface\[char46]
 .IP "\fBlldp : enable\fR: optional string, either \fBtrue\fR or \fBfalse\fR"
@@ -3275,6 +3344,7 @@ receive the same treatment with or without prefix tracking\[char46]
 .IP
 The supported fields are: \fBtun_id\fR,
 \fBtun_src\fR, \fBtun_dst\fR,
+\fBtun_ipv6_src\fR, \fBtun_ipv6_dst\fR,
 \fBnw_src\fR, \fBnw_dst\fR (or aliases
 \fBip_src\fR and \fBip_dst\fR),
 \fBipv6_src\fR, and \fBipv6_dst\fR\[char46]  (Using this
@@ -3327,6 +3397,16 @@ map of integer-\fBQueue\fR pairs, key in range 0 to 4,294,967,295
 optional string, containing an integer
 .RE
 .TQ .25in
+\fIConfiguration for egress-policer QoS:\fR
+.RS .25in
+.TQ 2.75in
+\fBother_config : cir\fR
+optional string, containing an integer
+.TQ 2.75in
+\fBother_config : cbs\fR
+optional string, containing an integer
+.RE
+.TQ .25in
 \fICommon Columns:\fR
 .RS .25in
 .TQ 2.75in
@@ -3347,37 +3427,48 @@ Linux ``hierarchy token bucket\(cq\(cq classifier\[char46]  See tc-htb(8) (also 
 \fBhttp://linux\[char46]die\[char46]net/man/8/tc\-htb\fR) and the HTB manual
 (\fBhttp://luxik\[char46]cdi\[char46]cz/~devik/qos/htb/manual/userg\[char46]htm\fR)
 for information on how this classifier works and how to configure it\[char46]
-.RE
-.RS
 .TP
 \fBlinux\-hfsc\fR
 Linux \(dqHierarchical Fair Service Curve\(dq classifier\[char46]
 See \fBhttp://linux\-ip\[char46]net/articles/hfsc\[char46]en/\fR for
 information on how this classifier works\[char46]
-.RE
-.RS
 .TP
 \fBlinux\-sfq\fR
 Linux ``Stochastic Fairness Queueing\(cq\(cq classifier\[char46] See
 \fBtc\-sfq\fR(8) (also at
 \fBhttp://linux\[char46]die\[char46]net/man/8/tc\-sfq\fR) for information on
 how this classifier works\[char46]
-.RE
-.RS
 .TP
 \fBlinux\-codel\fR
 Linux ``Controlled Delay\(cq\(cq classifier\[char46] See \fBtc\-codel\fR(8)
 (also at
 \fBhttp://man7\[char46]org/linux/man\-pages/man8/tc\-codel\[char46]8\[char46]html\fR)
 for information on how this classifier works\[char46]
-.RE
-.RS
 .TP
 \fBlinux\-fq_codel\fR
 Linux ``Fair Queuing with Controlled Delay\(cq\(cq classifier\[char46] See
 \fBtc\-fq_codel\fR(8) (also at
 \fBhttp://man7\[char46]org/linux/man\-pages/man8/tc\-fq_codel\[char46]8\[char46]html\fR)
 for information on how this classifier works\[char46]
+.TP
+\fBlinux\-noop\fR
+Linux ``No operation\[char46]\(cq\(cq  By default, Open vSwitch manages quality of
+service on all of its configured ports\[char46]  This can be helpful, but
+sometimes administrators prefer to use other software to manage QoS\[char46]
+This \fBtype\fR prevents Open vSwitch from changing the QoS
+configuration for a port\[char46]
+.TP
+\fBegress\-policer\fR
+A DPDK egress policer algorithm using the DPDK
+rte_meter library\[char46] The rte_meter library provides an implementation
+which allows the metering and policing of traffic\[char46] The implementation
+in OVS essentially creates a single token bucket used to police
+traffic\[char46] It should be noted that when the rte_meter is configured as
+part of QoS there will be a performance overhead as the rte_meter
+itself will consume CPU cycles in order to police traffic\[char46] These CPU
+cycles ordinarily are used for packet proccessing\[char46] As such the drop
+in performance will be noticed in terms of overall aggregate traffic
+throughput\[char46]
 .RE
 .IP "\fBqueues\fR: map of integer-\fBQueue\fR pairs, key in range 0 to 4,294,967,295"
 A map from queue numbers to \fBQueue\fR records\[char46]  The
@@ -3402,6 +3493,30 @@ Maximum rate shared by all queued traffic, in bit/s\[char46]  Optional\[char46] 
 specified, for physical interfaces, the default is the link rate\[char46]  For
 other interfaces or if the link rate cannot be determined, the default
 is currently 100 Mbps\[char46]
+.ST "Configuration for egress-policer QoS:"
+\fBQoS\fR \fBtype\fR
+\fBegress\-policer\fR provides egress policing for userspace
+port types with DPDK\[char46]
+It has the following key-value pairs defined\[char46]
+.IP "\fBother_config : cir\fR: optional string, containing an integer"
+The Committed Information Rate (CIR) is measured in bytes of IP
+packets per second, i\[char46]e\[char46] it includes the IP header, but not link
+specific (e\[char46]g\[char46] Ethernet) headers\[char46] This represents the bytes per second
+rate at which the token bucket will be updated\[char46] The cir value is
+calculated by (pps x packet data size)\[char46]  For example assuming a user
+wishes to limit a stream consisting of 64 byte packets to 1 million
+packets per second the CIR would be set to to to 46000000\[char46] This value
+can be broken into \(cq1,000,000 x 46\(cq\[char46] Where 1,000,000 is the policing
+rate for the number of packets per second and 46 represents the size
+of the packet data for a 64 byte ip packet\[char46]
+.IP "\fBother_config : cbs\fR: optional string, containing an integer"
+The Committed Burst Size (CBS) is measured in bytes and represents a
+token bucket\[char46] At a minimum this value should be be set to the expected
+largest size packet in the traffic stream\[char46] In practice larger values
+may be used to increase the size of the token bucket\[char46] If a packet can
+be transmitted then the cbs will be decremented by the number of
+bytes/tokens of the packet\[char46] If there are not enough tokens in the cbs
+bucket the packet will be dropped\[char46]
 .ST "Common Columns:"
 The overall purpose of these columns is described under \fBCommon
 Columns\fR at the beginning of this document\[char46]
@@ -3553,6 +3668,9 @@ optional weak reference to \fBPort\fR
 .TQ 2.75in
 \fBoutput_vlan\fR
 optional integer, in range 1 to 4,095
+.TQ 2.75in
+\fBsnaplen\fR
+optional integer, in range 14 to 65,535
 .RE
 .TQ .25in
 \fIStatistics: Mirror counters:\fR
@@ -3648,6 +3766,13 @@ in the appropriate \fBBridge\fR table or tables\[char46]
 .IP
 Mirroring to a GRE tunnel has fewer caveats than mirroring to a
 VLAN and should generally be preferred\[char46]
+.IP "\fBsnaplen\fR: optional integer, in range 14 to 65,535"
+Maximum per-packet number of bytes to mirror\[char46]
+.IP
+A mirrored packet with size larger than \fBsnaplen\fR
+will be truncated in datapath to \fBsnaplen\fR bytes
+before sending to the mirror output port\[char46]  If omitted, packets
+are not truncated\[char46]
 .ST "Statistics: Mirror counters:"
 Key-value pairs that report mirror statistics\[char46]  The update period
 is controlled by \fBother_config:stats-update-interval\fR in the \fBOpen_vSwitch\fR table\[char46]
@@ -4268,6 +4393,20 @@ additional amount of time, Open vSwitch assumes the connection has been
 broken and attempts to reconnect\[char46]  Default is implementation-specific\[char46]
 A value of 0 disables inactivity probes\[char46]
 .ST "Status:"
+Key-value pair of \fBis_connected\fR is always updated\[char46]
+Other key-value pairs in the status columns may be updated depends
+on the \fBtarget\fR type\[char46]
+.PP
+When \fBtarget\fR specifies a connection method that
+listens for inbound connections (e\[char46]g\[char46] \fBptcp:\fR or
+\fBpunix:\fR), both \fBn_connections\fR and
+\fBis_connected\fR may also be updated while the
+remaining key-value pairs are omitted\[char46]
+.PP
+On the other hand, when \fBtarget\fR specifies an
+outbound connection, all key-value pairs may be updated, except
+the above-mentioned two key-value pairs associated with inbound
+connection targets\[char46] They are omitted\[char46]
 .IP "\fBis_connected\fR: boolean"
 \fBtrue\fR if currently connected to this manager,
 \fBfalse\fR otherwise\[char46]
@@ -4322,14 +4461,10 @@ listens for inbound connections (e\[char46]g\[char46] \fBptcp:\fR or
 \fBpssl:\fR) and more than one connection is actually active,
 the value is the number of active connections\[char46]  Otherwise, this
 key-value pair is omitted\[char46]
-.IP
-When multiple connections are active, status columns and key-value
-pairs (other than this one) report the status of one arbitrarily
-chosen connection\[char46]
 .IP "\fBstatus : bound_port\fR: optional string, containing an integer"
 When \fBtarget\fR is \fBptcp:\fR or
 \fBpssl:\fR, this is the TCP port on which the OVSDB server is
-listening\[char46]  (This is is particularly useful when \fBtarget\fR specifies a port of 0, allowing the kernel to
+listening\[char46]  (This is particularly useful when \fBtarget\fR specifies a port of 0, allowing the kernel to
 choose any available port\[char46])
 .ST "Connection Parameters:"
 Additional configuration for a connection between the manager
@@ -4557,6 +4692,12 @@ optional integer, in range 0 to 4,200
 .TQ 3.00in
 \fBcache_max_flows\fR
 optional integer, in range 0 to 4,294,967,295
+.TQ 3.00in
+\fBother_config : enable-tunnel-sampling\fR
+optional string, either \fBtrue\fR or \fBfalse\fR
+.TQ 3.00in
+\fBother_config : virtual_obs_id\fR
+optional string
 .TQ .25in
 \fIPer-Bridge Sampling:\fR
 .RS .25in
@@ -4569,9 +4710,6 @@ optional integer, in range 0 to 4,294,967,295
 .TQ 2.75in
 \fBobs_point_id\fR
 optional integer, in range 0 to 4,294,967,295
-.TQ 2.75in
-\fBother_config : enable-tunnel-sampling\fR
-optional string, either \fBtrue\fR or \fBfalse\fR
 .TQ 2.75in
 \fBother_config : enable-input-sampling\fR
 optional string, either \fBtrue\fR or \fBfalse\fR
@@ -4598,23 +4736,9 @@ defaults to 0\[char46]  If 0, caching is disabled\[char46]
 The maximum number of IPFIX flow records that can be cached at a
 time\[char46]  If not specified, defaults to 0\[char46]  If 0, caching is
 disabled\[char46]
-.ST "Per-Bridge Sampling:"
-These values affect only per-bridge sampling\[char46]  See above for a
-description of the differences between per-bridge and flow-based
-sampling\[char46]
-.IP "\fBsampling\fR: optional integer, in range 1 to 4,294,967,295"
-The rate at which packets should be sampled and sent to each target
-collector\[char46]  If not specified, defaults to 400, which means one out of
-400 packets, on average, will be sent to each target collector\[char46]
-.IP "\fBobs_domain_id\fR: optional integer, in range 0 to 4,294,967,295"
-The IPFIX Observation Domain ID sent in each IPFIX packet\[char46]  If not
-specified, defaults to 0\[char46]
-.IP "\fBobs_point_id\fR: optional integer, in range 0 to 4,294,967,295"
-The IPFIX Observation Point ID sent in each IPFIX flow record\[char46]  If not
-specified, defaults to 0\[char46]
 .IP "\fBother_config : enable-tunnel-sampling\fR: optional string, either \fBtrue\fR or \fBfalse\fR"
 Set to \fBtrue\fR to enable sampling and reporting tunnel
-header 7-tuples in IPFIX flow records\[char46]  Tunnel sampling is disabled
+header 7-tuples in IPFIX flow records\[char46]  Tunnel sampling is enabled
 by default\[char46]
 .IP
 The following enterprise entities report the sampled tunnel info:
@@ -4697,6 +4821,49 @@ description: The destination port identifier in the tunnel
 transport header\[char46] For the transport protocols UDP, TCP, and SCTP,
 this is the destination port number given in the respective header\[char46]
 .RE
+.IP
+Before Open vSwitch 2\[char46]5\[char46]90, \fBother_config:enable-tunnel-sampling\fR was only supported with per-bridge
+sampling, and ignored otherwise\[char46]  Open vSwitch 2\[char46]5\[char46]90 and later support
+\fBother_config:enable-tunnel-sampling\fR for
+per-bridge and per-flow sampling\[char46]
+.IP "\fBother_config : virtual_obs_id\fR: optional string"
+A string that accompanies each IPFIX flow record\[char46]  Its intended use is
+for the ``virtual observation ID,\(cq\(cq an identifier of a virtual
+observation point that is locally unique in a virtual network\[char46]  It
+describes a location in the virtual network where IP packets can be
+observed\[char46]  The maximum length is 254 bytes\[char46]  If not specified, the
+field is omitted from the IPFIX flow record\[char46]
+.IP
+The following enterprise entity reports the specified virtual
+observation ID:
+.RS
+.TP
+virtualObsID:
+ID: 898, and enterprise ID 6876 (VMware)\[char46]
+.IP
+type: variable-length string\[char46]
+.IP
+data type semantics: identifier\[char46]
+.IP
+description: A virtual observation domain ID that is locally
+unique in a virtual network\[char46]
+.RE
+.IP
+This feature was introduced in Open vSwitch 2\[char46]5\[char46]90\[char46]
+.ST "Per-Bridge Sampling:"
+These values affect only per-bridge sampling\[char46]  See above for a
+description of the differences between per-bridge and flow-based
+sampling\[char46]
+.IP "\fBsampling\fR: optional integer, in range 1 to 4,294,967,295"
+The rate at which packets should be sampled and sent to each target
+collector\[char46]  If not specified, defaults to 400, which means one out of
+400 packets, on average, will be sent to each target collector\[char46]
+.IP "\fBobs_domain_id\fR: optional integer, in range 0 to 4,294,967,295"
+The IPFIX Observation Domain ID sent in each IPFIX packet\[char46]  If not
+specified, defaults to 0\[char46]
+.IP "\fBobs_point_id\fR: optional integer, in range 0 to 4,294,967,295"
+The IPFIX Observation Point ID sent in each IPFIX flow record\[char46]  If not
+specified, defaults to 0\[char46]
 .IP "\fBother_config : enable-input-sampling\fR: optional string, either \fBtrue\fR or \fBfalse\fR"
 By default, Open vSwitch samples and reports flows at bridge port input
 in IPFIX flow records\[char46]  Set this column to \fBfalse\fR to

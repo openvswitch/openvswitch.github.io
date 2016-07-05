@@ -21,6 +21,7 @@ ovsdb\-server \- Open vSwitch database server
 [\fB\-\-overwrite\-pidfile\fR]
 [\fB\-\-detach\fR]
 [\fB\-\-no\-chdir\fR]
+[\fB\-\-no\-self\-confinement\fR]
 .IP "Service options:"
 [\fB\-\-service\fR]
 [\fB\-\-service\-monitor\fR]
@@ -30,6 +31,8 @@ ovsdb\-server \- Open vSwitch database server
 [\fB\-\-verbose[=\fImodule\fR[\fB:\fIdestination\fR[\fB:\fIlevel\fR]]]]\&...
 .br
 [\fB\-\-log\-file\fR[\fB=\fIfile\fR]]
+.IP "Syncing options:"
+[\fB\-\-sync\-from=\fIserver\fR]
 .IP "Public key infrastructure options:"
 [\fB\-\-private\-key=\fIprivkey.pem\fR]
 .br
@@ -216,6 +219,18 @@ is not a good directory to use.
 This option has no effect when \fB\-\-detach\fR is not specified.
 .
 .TP
+\fB\-\-no\-self\-confinement\fR
+By default daemon will try to self-confine itself to work with
+files under well-know, at build-time whitelisted directories.  It
+is better to stick with this default behavior and not to use this
+flag unless some other Access Control is used to confine daemon.
+Note that in contrast to other access control implementations that
+are typically enforced from kernel-space (e.g. DAC or MAC),
+self-confinement is imposed from the user-space daemon itself and
+hence should not be considered as a full confinement strategy, but
+instead should be viewed as an additional layer of security.
+.
+.TP
 \fB\-\-user\fR
 Causes \fB\*(PN\fR to run as a different user specified in "user:group", thus
 dropping most of the root privileges. Short forms "user" and ":group" are also
@@ -350,6 +365,15 @@ interfering with local syslog traffic and there are some security
 considerations that apply to UDP sockets, but do not apply to UNIX domain
 sockets.
 .RE
+.SS "Syncing Options"
+The following options allow \fBovsdb\-server\fR to synchronize  its  databases
+with another running \fBovsdb\-server\fR.
+.TP
+\fB\-\-sync\-from=\fIserver\fR
+Causes  \fBovsdb\-server\fR to synchronize its databases with the databases in
+\fIserver\fR.  Every transaction committed by \fIserver\fR  will  be  replicated
+to \fBovsdb\-server\fR. \fIserver\fR is an active connection method in one of
+the forms documented in \fBovsdb\-client(1).
 .SS "Public Key Infrastructure Options"
 The options described below for configuring the SSL public key
 infrastructure accept a special syntax for obtaining their
@@ -463,8 +487,11 @@ These commands are specific to \fBovsdb\-server\fR.
 Causes \fBovsdb\-server\fR to gracefully terminate.
 .IP "\fBovsdb\-server/compact\fR [\fIdb\fR]\&..."
 Compacts each database \fIdb\fR in-place.  If no \fIdb\fR is
-specified, compacts every database in-place.  Databases are also
-automatically compacted occasionally.
+specified, compacts every database in-place.  A database is also
+compacted automatically when a transaction is logged if it is over 4
+times as large as its previous compacted size (and at least 10 MB),
+but not before 100 commits have been added or 10 minutes have elapsed
+since the last compaction.
 .
 .IP "\fBovsdb\-server/reconnect\fR"
 Makes \fBovsdb\-server\fR drop all of the JSON\-RPC
@@ -654,6 +681,12 @@ A map or set contains a duplicate key.
 RFC 7047 requires the "version" field in <database-schema>.  Current
 versions of \fBovsdb\-server\fR allow it to be omitted (future
 versions are likely to require it).
+.IP
+RFC 7047 allows columns that contain weak references to be immutable.
+This raises the issue of the behavior of the weak reference when the
+rows that it references are deleted.  Since version 2.6,
+\fBovsdb\-server\fR forces columns that contain weak references to be
+mutable.
 .
 .IP "4. Wire Protocol"
 The original OVSDB specifications included the following reason,

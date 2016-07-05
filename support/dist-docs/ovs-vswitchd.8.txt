@@ -111,8 +111,8 @@ OPTIONS
               unsuccessful.
 
    DPDK Options
-       --dpdk Initialize ovs-vswitchd DPDK datapath.   Refer  to  INSTALL.DPDK
-              for details.
+       For details on initializing the ovs-vswitchd DPDK  datapath,  refer  to
+       INSTALL.DPDK.md or ovs-vswitchd.conf.db(5) for details.
 
    Daemon Options
        The following options are valid on POSIX based platforms.
@@ -169,34 +169,46 @@ OPTIONS
 
               This option has no effect when --detach is not specified.
 
-       --user Causes ovs-vswitchd to run as  a  different  user  specified  in
-              "user:group",  thus  dropping most of the root privileges. Short
+       --no-self-confinement
+              By default daemon will try to self-confine itself to  work  with
+              files  under  well-know,  at build-time whitelisted directories.
+              It is better to stick with this default behavior and not to  use
+              this  flag  unless  some other Access Control is used to confine
+              daemon.  Note that in contrast to other access control implemen‐
+              tations  that are typically enforced from kernel-space (e.g. DAC
+              or MAC), self-confinement is imposed from the user-space  daemon
+              itself  and hence should not be considered as a full confinement
+              strategy, but instead should be viewed as an additional layer of
+              security.
+
+       --user Causes  ovs-vswitchd  to  run  as  a different user specified in
+              "user:group", thus dropping most of the root  privileges.  Short
               forms "user" and ":group" are also allowed, with current user or
               group are assumed respectively. Only daemons started by the root
               user accepts this argument.
 
               On   Linux,   daemons   will   be   granted   CAP_IPC_LOCK   and
-              CAP_NET_BIND_SERVICES  before  dropping root privileges. Daemons
-              interact with datapath, such as ovs-vswitchd,  will  be  granted
-              two    additional   capabilities,   namely   CAP_NET_ADMIN   and
-              CAP_NET_RAW. The capability change will apply even if  new  user
+              CAP_NET_BIND_SERVICES before dropping root  privileges.  Daemons
+              interact  with  datapath,  such as ovs-vswitchd, will be granted
+              two   additional   capabilities,   namely   CAP_NET_ADMIN    and
+              CAP_NET_RAW.  The  capability change will apply even if new user
               is "root".
 
               On Windows, this option is not currently supported. For security
-              reasons, specifying this option will cause  the  daemon  process
+              reasons,  specifying  this  option will cause the daemon process
               not to start.
 
    Service Options
        The following options are valid only on Windows platform.
 
        --service
-              Causes  ovs-vswitchd  to run as a service in the background. The
-              service should already have been created through external  tools
+              Causes ovs-vswitchd to run as a service in the  background.  The
+              service  should already have been created through external tools
               like SC.exe.
 
        --service-monitor
               Causes the ovs-vswitchd service to be automatically restarted by
-              the Windows services manager if the service dies  or  exits  for
+              the  Windows  services  manager if the service dies or exits for
               unexpected reasons.
 
               When --service is not specified, this option has no effect.
@@ -210,40 +222,40 @@ OPTIONS
        -c cert.pem
        --certificate=cert.pem
               Specifies a PEM file containing a certificate that certifies the
-              private  key specified on -p or --private-key to be trustworthy.
+              private key specified on -p or --private-key to be  trustworthy.
               The certificate must be signed by the certificate authority (CA)
               that the peer in SSL connections will use to verify it.
 
        -C cacert.pem
        --ca-cert=cacert.pem
-              Specifies   a  PEM  file  containing  the  CA  certificate  that
-              ovs-vswitchd should use to verify certificates presented  to  it
-              by  SSL peers.  (This may be the same certificate that SSL peers
-              use to verify the certificate specified on -c or  --certificate,
-              or  it  may  be  a different one, depending on the PKI design in
+              Specifies  a  PEM  file  containing  the  CA  certificate   that
+              ovs-vswitchd  should  use to verify certificates presented to it
+              by SSL peers.  (This may be the same certificate that SSL  peers
+              use  to verify the certificate specified on -c or --certificate,
+              or it may be a different one, depending on  the  PKI  design  in
               use.)
 
        -C none
        --ca-cert=none
-              Disables verification of certificates presented  by  SSL  peers.
-              This  introduces a security risk, because it means that certifi‐
+              Disables  verification  of  certificates presented by SSL peers.
+              This introduces a security risk, because it means that  certifi‐
               cates cannot be verified to be those of known trusted hosts.
 
        --bootstrap-ca-cert=cacert.pem
               When cacert.pem exists, this option has the same effect as -C or
               --ca-cert.  If it does not exist, then ovs-vswitchd will attempt
-              to obtain the CA certificate from the SSL peer on its first  SSL
+              to  obtain the CA certificate from the SSL peer on its first SSL
               connection and save it to the named PEM file.  If it is success‐
-              ful, it will immediately drop the connection and reconnect,  and
+              ful,  it will immediately drop the connection and reconnect, and
               from then on all SSL connections must be authenticated by a cer‐
               tificate signed by the CA certificate thus obtained.
 
-              This option exposes the SSL connection  to  a  man-in-the-middle
-              attack  obtaining the initial CA certificate, but it may be use‐
+              This  option  exposes  the SSL connection to a man-in-the-middle
+              attack obtaining the initial CA certificate, but it may be  use‐
               ful for bootstrapping.
 
               This option is only useful if the SSL peer sends its CA certifi‐
-              cate  as  part  of  the SSL certificate chain.  The SSL protocol
+              cate as part of the SSL certificate  chain.   The  SSL  protocol
               does not require the server to send the CA certificate.
 
               This option is mutually exclusive with -C and --ca-cert.
@@ -251,35 +263,35 @@ OPTIONS
    Logging Options
        -v[spec]
        --verbose=[spec]
-              Sets logging levels.  Without any spec, sets the log  level  for
-              every  module and destination to dbg.  Otherwise, spec is a list
+              Sets  logging  levels.  Without any spec, sets the log level for
+              every module and destination to dbg.  Otherwise, spec is a  list
               of words separated by spaces or commas or colons, up to one from
               each category below:
 
-              ·      A  valid  module name, as displayed by the vlog/list com‐
+              ·      A valid module name, as displayed by the  vlog/list  com‐
                      mand on ovs-appctl(8), limits the log level change to the
                      specified module.
 
-              ·      syslog,  console,  or file, to limit the log level change
-                     to only to the system log, to the console, or to a  file,
-                     respectively.   (If  --detach  is specified, ovs-vswitchd
-                     closes its standard file descriptors, so logging  to  the
+              ·      syslog, console, or file, to limit the log  level  change
+                     to  only to the system log, to the console, or to a file,
+                     respectively.  (If --detach  is  specified,  ovs-vswitchd
+                     closes  its  standard file descriptors, so logging to the
                      console will have no effect.)
 
-                     On  Windows platform, syslog is accepted as a word and is
-                     only useful along with the  --syslog-target  option  (the
+                     On Windows platform, syslog is accepted as a word and  is
+                     only  useful  along  with the --syslog-target option (the
                      word has no effect otherwise).
 
-              ·      off,  emer,  err,  warn, info, or dbg, to control the log
-                     level.  Messages of the given severity or higher will  be
-                     logged,  and  messages of lower severity will be filtered
-                     out.  off filters out all  messages.   See  ovs-appctl(8)
+              ·      off, emer, err, warn, info, or dbg, to  control  the  log
+                     level.   Messages of the given severity or higher will be
+                     logged, and messages of lower severity will  be  filtered
+                     out.   off  filters  out all messages.  See ovs-appctl(8)
                      for a definition of each log level.
 
               Case is not significant within spec.
 
-              Regardless  of  the  log  levels set for file, logging to a file
-              will not take place unless --log-file  is  also  specified  (see
+              Regardless of the log levels set for file,  logging  to  a  file
+              will  not  take  place  unless --log-file is also specified (see
               below).
 
               For compatibility with older versions of OVS, any is accepted as
@@ -287,77 +299,77 @@ OPTIONS
 
        -v
        --verbose
-              Sets the maximum logging verbosity level, equivalent  to  --ver‐
+              Sets  the  maximum logging verbosity level, equivalent to --ver‐
               bose=dbg.
 
        -vPATTERN:destination:pattern
        --verbose=PATTERN:destination:pattern
-              Sets  the  log  pattern  for  destination  to pattern.  Refer to
+              Sets the log pattern  for  destination  to  pattern.   Refer  to
               ovs-appctl(8) for a description of the valid syntax for pattern.
 
        -vFACILITY:facility
        --verbose=FACILITY:facility
-              Sets the RFC5424 facility of the log message.  facility  can  be
-              one  of kern, user, mail, daemon, auth, syslog, lpr, news, uucp,
-              clock, ftp, ntp, audit, alert, clock2, local0,  local1,  local2,
-              local3,  local4, local5, local6 or local7. If this option is not
-              specified, daemon is used as the default for  the  local  system
-              syslog  and local0 is used while sending a message to the target
+              Sets  the  RFC5424  facility of the log message. facility can be
+              one of kern, user, mail, daemon, auth, syslog, lpr, news,  uucp,
+              clock,  ftp,  ntp, audit, alert, clock2, local0, local1, local2,
+              local3, local4, local5, local6 or local7. If this option is  not
+              specified,  daemon  is  used as the default for the local system
+              syslog and local0 is used while sending a message to the  target
               provided via the --syslog-target option.
 
        --log-file[=file]
-              Enables logging to a file.  If file is  specified,  then  it  is
-              used  as  the exact name for the log file.  The default log file
-              name   used   if   file   is    omitted    is    //var/log/open‐
+              Enables  logging  to  a  file.  If file is specified, then it is
+              used as the exact name for the log file.  The default  log  file
+              name    used    if    file   is   omitted   is   //var/log/open‐
               vswitch/ovs-vswitchd.log.
 
        --syslog-target=host:port
-              Send  syslog  messages  to  UDP port on host, in addition to the
-              system syslog.  The host must be a numerical IP address,  not  a
+              Send syslog messages to UDP port on host,  in  addition  to  the
+              system  syslog.   The host must be a numerical IP address, not a
               hostname.
 
        --syslog-method=method
               Specify method how syslog messages should be sent to syslog dae‐
               mon.  Following forms are supported:
 
-              ·      libc, use libc syslog() function.  This  is  the  default
-                     behavior.   Downside  of  using this options is that libc
-                     adds fixed prefix to every message before it is  actually
-                     sent  to  the  syslog  daemon  over  /dev/log UNIX domain
+              ·      libc,  use  libc  syslog() function.  This is the default
+                     behavior.  Downside of using this options  is  that  libc
+                     adds  fixed prefix to every message before it is actually
+                     sent to the  syslog  daemon  over  /dev/log  UNIX  domain
                      socket.
 
               ·      unix:file, use UNIX domain socket directly.  It is possi‐
                      ble to specify arbitrary message format with this option.
-                     However, rsyslogd 8.9 and older versions use  hard  coded
-                     parser  function  anyway  that  limits UNIX domain socket
-                     use.  If you want to use arbitrary  message  format  with
+                     However,  rsyslogd  8.9 and older versions use hard coded
+                     parser function anyway that  limits  UNIX  domain  socket
+                     use.   If  you  want to use arbitrary message format with
                      older rsyslogd versions, then use UDP socket to localhost
                      IP address instead.
 
               ·      udp:ip:port, use UDP socket.  With this method it is pos‐
-                     sible  to  use  arbitrary  message format also with older
-                     rsyslogd.  When sending syslog messages over  UDP  socket
-                     extra  precaution  needs  to  be  taken into account, for
-                     example, syslog daemon needs to be configured  to  listen
-                     on  the  specified  UDP  port,  accidental iptables rules
-                     could be interfering with local syslog traffic and  there
-                     are  some security considerations that apply to UDP sock‐
+                     sible to use arbitrary message  format  also  with  older
+                     rsyslogd.   When  sending syslog messages over UDP socket
+                     extra precaution needs to  be  taken  into  account,  for
+                     example,  syslog  daemon needs to be configured to listen
+                     on the specified  UDP  port,  accidental  iptables  rules
+                     could  be interfering with local syslog traffic and there
+                     are some security considerations that apply to UDP  sock‐
                      ets, but do not apply to UNIX domain sockets.
 
    Other Options
        --unixctl=socket
-              Sets the name of the control socket on which  ovs-vswitchd  lis‐
-              tens  for  runtime  management  commands (see RUNTIME MANAGEMENT
+              Sets  the  name of the control socket on which ovs-vswitchd lis‐
+              tens for runtime management  commands  (see  RUNTIME  MANAGEMENT
               COMMANDS, below).  If socket does not begin with /, it is inter‐
-              preted  as  relative  to //var/run/openvswitch.  If --unixctl is
-              not  used  at  all,  the  default  socket   is   //var/run/open‐
-              vswitch/ovs-vswitchd.pid.ctl,   where   pid   is  ovs-vswitchd's
+              preted as relative to //var/run/openvswitch.   If  --unixctl  is
+              not   used   at  all,  the  default  socket  is  //var/run/open‐
+              vswitch/ovs-vswitchd.pid.ctl,  where   pid   is   ovs-vswitchd's
               process ID.
 
-              On Windows, uses a kernel chosen TCP port on  the  localhost  to
-              listen  for  runtime management commands.  The kernel chosen TCP
-              port value is written in a file whose absolute path  is  pointed
-              by  socket. If --unixctl is not used at all, the file is created
+              On  Windows,  uses  a kernel chosen TCP port on the localhost to
+              listen for runtime management commands.  The kernel  chosen  TCP
+              port  value  is written in a file whose absolute path is pointed
+              by socket. If --unixctl is not used at all, the file is  created
               as ovs-vswitchd.ctl in the configured OVS_RUNDIR directory.
 
               Specifying none for socket disables the control socket feature.
@@ -376,6 +388,10 @@ RUNTIME MANAGEMENT COMMANDS
 
    GENERAL COMMANDS
        exit   Causes ovs-vswitchd to gracefully terminate.
+
+       qos/show-types interface
+              Queries  the  interface  for  a list of Quality of Service types
+              that are configurable via Open vSwitch for the given interface.
 
        qos/show interface
               Queries the kernel for Quality of Service configuration and sta‐

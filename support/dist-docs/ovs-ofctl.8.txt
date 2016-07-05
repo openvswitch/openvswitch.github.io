@@ -254,6 +254,26 @@ DESCRIPTION
               only very limited  information  about  the  configuration  of  a
               queue.
 
+       dump-ipfix-bridge switch
+              Prints to the console the statistics of bridge IPFIX for switch.
+              If bridge IPFIX is configured on the  switch,  IPFIX  statistics
+              can be retrieved.  Otherwise, error message will be printed.
+
+              This command uses an Open vSwitch extension that is only in Open
+              vSwitch 2.6 and later.
+
+       dump-ipfix-flow switch
+              Prints to the console the statistics  of  flow-based  IPFIX  for
+              switch.   If  flow-based IPFIX is configured on the switch, sta‐
+              tistics of all the collector set  ids  on  the  switch  will  be
+              printed.  Otherwise, print error message.
+
+              Refer to ovs-vswitchd.conf.db(5) for more details on configuring
+              flow based IPFIX and collector set ids.
+
+              This command uses an Open vSwitch extension that is only in Open
+              vSwitch 2.6 and later.
+
    OpenFlow 1.1+ Group Table Commands
        The  following  commands  work only with switches that support OpenFlow
        1.1 or later.  Because support for OpenFlow  1.1  and  later  is  still
@@ -400,10 +420,14 @@ DESCRIPTION
        add-groups switch file
               Add each group entry to switch's tables.
 
-       mod-group switch group
-       mod-group switch - < file
+       [--may-create] mod-group switch group
+       [--may-create] mod-group switch - < file
               Modify  the  action  buckets in entries from switch's tables for
-              each group entry.
+              each group entry.  If a specified group does not already  exist,
+              then  without  --may-create,  this  command  has no effect; with
+              --may-create, it creates a new group.  The  --may-create  option
+              uses  an  Open vSwitch extension to OpenFlow only implemented in
+              Open vSwitch 2.6 and later.
 
        del-groups switch
        del-groups switch [group]
@@ -454,16 +478,16 @@ DESCRIPTION
        vSwitch 2.5 or later.
 
 
-       add-TLV-map switch option[,option]...
+       add-tlv-map switch option[,option]...
               Add  each  option  to  switch's  tables.  Duplicate  fields  are
               rejected.
 
-       del-TLV-map switch [option[,option]]...
+       del-tlv-map switch [option[,option]]...
               Delete  each  option from switch's table, or all option TLV map‐
               ping if no option is specified.  Fields that aren't  mapped  are
               ignored.
 
-       dump-TLV-map switch
+       dump-tlv-map switch
               Show the currently mapped fields in the switch's option table as
               well as switch capabilities.
 
@@ -1002,7 +1026,11 @@ DESCRIPTION
               Examples:
 
               vlan_tci=0
-                     Match only packets without an 802.1Q header.
+                     Match packets without an 802.1Q header.
+
+              vlan_tci=0x1000/0x1000
+                     Match packets with an 802.1Q header, regardless  of  VLAN
+                     and priority values.
 
               vlan_tci=0xf123
                      Match packets tagged with priority 7 in VLAN 0x123.
@@ -1025,7 +1053,7 @@ DESCRIPTION
                      Match packets with no 802.1Q header or tagged with VLAN 0
                      and priority 0.
 
-              Some  of  these matching possibilities can also be achieved with
+              Some of these matching possibilities can also be  achieved  with
               dl_vlan and dl_vlan_pcp.
 
        ip_frag=frag_type
@@ -1042,159 +1070,161 @@ DESCRIPTION
               later  Matches only fragments with nonzero offset.
 
               not_later
-                     Matches non-fragmented packets and  fragments  with  zero
+                     Matches  non-fragmented  packets  and fragments with zero
                      offset.
 
-              The  ip_frag  match type is likely to be most useful in nx-match
-              mode.  See the description of the set-frags command, above,  for
+              The ip_frag match type is likely to be most useful  in  nx-match
+              mode.   See the description of the set-frags command, above, for
               more details.
 
        arp_spa=ip[/netmask]
        arp_tpa=ip[/netmask]
-              When  dl_type  specifies either ARP or RARP, arp_spa and arp_tpa
-              match the source and  target  IPv4  address,  respectively.   An
-              address  may  be  specified  as an IP address or host name (e.g.
-              192.168.1.1 or www.example.com).  The  optional  netmask  allows
-              restricting  a match to an IPv4 address prefix.  The netmask may
-              be specified as a dotted quad  (e.g.  192.168.1.0/255.255.255.0)
+              When dl_type specifies either ARP or RARP, arp_spa  and  arp_tpa
+              match  the  source  and  target  IPv4 address, respectively.  An
+              address may be specified as an IP address  or  host  name  (e.g.
+              192.168.1.1  or  www.example.com).   The optional netmask allows
+              restricting a match to an IPv4 address prefix.  The netmask  may
+              be  specified  as a dotted quad (e.g. 192.168.1.0/255.255.255.0)
               or as a CIDR block (e.g. 192.168.1.0/24).
 
        arp_sha=xx:xx:xx:xx:xx:xx
        arp_tha=xx:xx:xx:xx:xx:xx
-              When  dl_type  specifies either ARP or RARP, arp_sha and arp_tha
-              match the source and target hardware address, respectively.   An
-              address  is specified as 6 pairs of hexadecimal digits delimited
+              When dl_type specifies either ARP or RARP, arp_sha  and  arp_tha
+              match  the source and target hardware address, respectively.  An
+              address is specified as 6 pairs of hexadecimal digits  delimited
               by colons (e.g. 00:0A:E4:25:6B:B0).
 
        arp_sha=xx:xx:xx:xx:xx:xx/xx:xx:xx:xx:xx:xx
        arp_tha=xx:xx:xx:xx:xx:xx/xx:xx:xx:xx:xx:xx
-              When dl_type specifies either ARP or RARP, arp_sha  and  arp_tha
-              match  the source and target hardware address, respectively.  An
-              address is specified as 6 pairs of hexadecimal digits  delimited
+              When  dl_type  specifies either ARP or RARP, arp_sha and arp_tha
+              match the source and target hardware address, respectively.   An
+              address  is specified as 6 pairs of hexadecimal digits delimited
               by colons (e.g. 00:0A:E4:25:6B:B0), with a wildcard mask follow‐
               ing the slash.
 
        arp_op=opcode
-              When dl_type specifies either ARP or RARP,  arp_op  matches  the
+              When  dl_type  specifies  either ARP or RARP, arp_op matches the
               ARP opcode.  Only ARP opcodes between 1 and 255 should be speci‐
               fied for matching.
 
        ipv6_src=ipv6[/netmask]
        ipv6_dst=ipv6[/netmask]
-              When dl_type is 0x86dd (possibly via shorthand,  e.g.,  ipv6  or
-              tcp6),  matches IPv6 source (or destination) address ipv6, which
-              may be specified as defined in RFC 2373.  The  preferred  format
-              is  x:x:x:x:x:x:x:x,  where  x are the hexadecimal values of the
+              When  dl_type  is  0x86dd (possibly via shorthand, e.g., ipv6 or
+              tcp6), matches IPv6 source (or destination) address ipv6,  which
+              may  be  specified as defined in RFC 2373.  The preferred format
+              is x:x:x:x:x:x:x:x, where x are the hexadecimal  values  of  the
               eight 16-bit pieces of the address.  A single instance of :: may
-              be  used  to  indicate multiple groups of 16-bits of zeros.  The
-              optional netmask allows restricting a match to an  IPv6  address
-              prefix.   A  netmask  is  specified  as  an  IPv6  address (e.g.
-              2001:db8:3c4d:1::/ffff:ffff:ffff:ffff::) or a CIDR  block  (e.g.
+              be used to indicate multiple groups of 16-bits  of  zeros.   The
+              optional  netmask  allows restricting a match to an IPv6 address
+              prefix.  A  netmask  is  specified  as  an  IPv6  address  (e.g.
+              2001:db8:3c4d:1::/ffff:ffff:ffff:ffff::)  or  a CIDR block (e.g.
               2001:db8:3c4d:1::/64).  Open vSwitch 1.8 and later support arbi‐
-              trary masks; earlier versions support only CIDR masks, that  is,
-              CIDR  block  and  IPv6  addresses  that  are  equivalent to CIDR
+              trary  masks; earlier versions support only CIDR masks, that is,
+              CIDR block and  IPv6  addresses  that  are  equivalent  to  CIDR
               blocks.
 
        ipv6_label=label
-              When dl_type is 0x86dd (possibly via shorthand,  e.g.,  ipv6  or
+              When  dl_type  is  0x86dd (possibly via shorthand, e.g., ipv6 or
               tcp6), matches IPv6 flow label label.
 
        nd_target=ipv6[/netmask]
               When dl_type, nw_proto, and icmp_type specify IPv6 Neighbor Dis‐
-              covery (ICMPv6 type 135 or  136),  matches  the  target  address
-              ipv6.   ipv6  is  in  the  same format described earlier for the
+              covery  (ICMPv6  type  135  or  136), matches the target address
+              ipv6.  ipv6 is in the same  format  described  earlier  for  the
               ipv6_src and ipv6_dst fields.
 
        nd_sll=xx:xx:xx:xx:xx:xx
-              When dl_type, nw_proto,  and  icmp_type  specify  IPv6  Neighbor
-              Solicitation  (ICMPv6  type  135), matches the source link-layer
+              When  dl_type,  nw_proto,  and  icmp_type  specify IPv6 Neighbor
+              Solicitation (ICMPv6 type 135), matches  the  source  link-layer
               address option.  An address is specified as 6 pairs of hexadeci‐
               mal digits delimited by colons.
 
        nd_tll=xx:xx:xx:xx:xx:xx
-              When  dl_type,  nw_proto,  and  icmp_type  specify IPv6 Neighbor
-              Advertisement (ICMPv6 type 136), matches the  target  link-layer
+              When dl_type, nw_proto,  and  icmp_type  specify  IPv6  Neighbor
+              Advertisement  (ICMPv6  type 136), matches the target link-layer
               address option.  An address is specified as 6 pairs of hexadeci‐
               mal digits delimited by colons.
 
        mpls_bos=bos
-              When dl_type is 0x8847 or 0x8848 (possibly via  shorthand  e.g.,
-              mpls  or  mplsm),  matches the bottom-of-stack bit of the outer-
+              When  dl_type  is 0x8847 or 0x8848 (possibly via shorthand e.g.,
+              mpls or mplsm), matches the bottom-of-stack bit  of  the  outer-
               most MPLS label stack entry. Valid values are 0 and 1.
 
-              If 1 then for a packet with a well-formed MPLS label  stack  the
-              bottom-of-stack  bit  indicates that the outer label stack entry
-              is also the inner-most label stack entry and thus that  is  that
-              there  is  only one label stack entry present.  Conversely, if 0
-              then for a packet with a well-formed MPLS label stack  the  bot‐
-              tom-of-stack  bit  indicates that the outer label stack entry is
+              If  1  then for a packet with a well-formed MPLS label stack the
+              bottom-of-stack bit indicates that the outer label  stack  entry
+              is  also  the inner-most label stack entry and thus that is that
+              there is only one label stack entry present.  Conversely,  if  0
+              then  for  a packet with a well-formed MPLS label stack the bot‐
+              tom-of-stack bit indicates that the outer label stack  entry  is
               not the inner-most label stack entry and thus there is more than
               one label stack entry present.
 
        mpls_label=label
-              When  dl_type  is 0x8847 or 0x8848 (possibly via shorthand e.g.,
-              mpls or mplsm), matches the label of the outer MPLS label  stack
-              entry.  The  label is a 20-bit value that is decimal by default;
+              When dl_type is 0x8847 or 0x8848 (possibly via  shorthand  e.g.,
+              mpls  or mplsm), matches the label of the outer MPLS label stack
+              entry. The label is a 20-bit value that is decimal  by  default;
               use a 0x prefix to specify them in hexadecimal.
 
        mpls_tc=tc
-              When dl_type is 0x8847 or 0x8848 (possibly via  shorthand  e.g.,
-              mpls  or  mplsm),  matches  the  traffic-class of the outer MPLS
-              label stack entry. Valid values are between  0  (lowest)  and  7
+              When  dl_type  is 0x8847 or 0x8848 (possibly via shorthand e.g.,
+              mpls or mplsm), matches the  traffic-class  of  the  outer  MPLS
+              label  stack  entry.  Valid  values are between 0 (lowest) and 7
               (highest).
 
        tun_id=tunnel-id[/mask]
        tunnel_id=tunnel-id[/mask]
-              Matches  tunnel  identifier tunnel-id.  Only packets that arrive
+              Matches tunnel identifier tunnel-id.  Only packets  that  arrive
               over a tunnel that carries a key (e.g. GRE with the RFC 2890 key
-              extension  and  a  nonzero key value) will have a nonzero tunnel
-              ID.  If mask is omitted, tunnel-id is the  exact  tunnel  ID  to
+              extension and a nonzero key value) will have  a  nonzero  tunnel
+              ID.   If  mask  is  omitted, tunnel-id is the exact tunnel ID to
               match; if mask is specified, then a 1-bit in mask indicates that
-              the corresponding bit in tunnel-id must  match  exactly,  and  a
+              the  corresponding  bit  in  tunnel-id must match exactly, and a
               0-bit wildcards that bit.
 
        tun_flags=flags
-              Matches  flags indicating various aspects of the tunnel encapsu‐
+              Matches flags indicating various aspects of the tunnel  encapsu‐
               lation. Currently, there is only one flag defined:
 
-              oam: The tunnel protocol indicated that this is an  OAM  control
+              oam:  The  tunnel protocol indicated that this is an OAM control
               packet.
 
               Flags can be prefixed by + or - to indicate that the flag should
-              be matched as either present or not  present,  respectively.  In
-              addition,  flags can be specified without a prefix and separated
+              be  matched  as  either present or not present, respectively. In
+              addition, flags can be specified without a prefix and  separated
               by | to indicate an exact match.
 
-              Note that it is possible for newer version of  Open  vSwitch  to
+              Note  that  it  is possible for newer version of Open vSwitch to
               introduce additional flags with varying meaning. It is therefore
-              not recommended to use an exact match on this  field  since  the
+              not  recommended  to  use an exact match on this field since the
               behavior of these new flags is unknown and should be ignored.
 
               For non-tunneled packets, the value is 0.
 
               This field was introduced in Open vSwitch 2.5.
 
-       tun_src=ip[/netmask]
-       tun_dst=ip[/netmask]
-              Matches  tunnel  IPv4  source  (or destination) address ip. Only
-              packets that arrive over  a  tunnel  will  have  nonzero  tunnel
-              addresses.   The  address  may  be specified as an IP address or
-              host name (e.g. 192.168.1.1 or www.example.com).   The  optional
-              netmask  allows  restricting  a  match to a masked IPv4 address.
-              The  netmask  may  be  specified  as   a   dotted   quad   (e.g.
-              192.168.1.0/255.255.255.0)    or   as   a   CIDR   block   (e.g.
+       tun_src=ipv4[/netmask]
+       tun_dst=ipv4[/netmask]
+       tun_ipv6_src=ipv6[/netmask]
+       tun_ipv6_dst=ipv6[/netmask]
+              Matches tunnel IP source (or destination) address ip. Only pack‐
+              ets   that  arrive  over  a  tunnel  will  have  nonzero  tunnel
+              addresses.  The address may be specified as  an  IP  address  or
+              host  name  (e.g. 192.168.1.1 or www.example.com).  The optional
+              netmask allows restricting a match to a masked IP address.   The
+              netmask    may   be   specified   as   a   dotted   quad   (e.g.
+              192.168.1.0/255.255.255.0)   or   as   a   CIDR   block    (e.g.
               192.168.1.0/24).
 
        tun_gbp_id=value[/mask]
        tun_gbp_flags=value[/mask]
-              Matches the group policy  identifier  and  flags  in  the  VXLAN
-              header.  Only  packets  that arrive over a VXLAN tunnel with the
-              "gbp" extension enabled can have this field set. The fields  may
+              Matches  the  group  policy  identifier  and  flags in the VXLAN
+              header. Only packets that arrive over a VXLAN  tunnel  with  the
+              "gbp"  extension enabled can have this field set. The fields may
               also  be  referred  to  by  NXM_NX_TUN_GBP_ID[]  (16  bits)  and
-              NXM_NX_TUN_GBP_FLAGS[] (8 bits) in the context of field  manipu‐
-              lation  actions.  If these fields are set and the packet matched
+              NXM_NX_TUN_GBP_FLAGS[]  (8 bits) in the context of field manipu‐
+              lation actions. If these fields are set and the  packet  matched
               by the flow is encapsulated in a VXLAN-GBP tunnel, then the pol‐
-              icy  identifier  and  flags  are  transmitted to the destination
+              icy identifier and flags  are  transmitted  to  the  destination
               VXLAN tunnel endpoint.
 
               The tun_gbp_flags field has the following format:
@@ -1203,78 +1233,78 @@ DESCRIPTION
                 |-|D|-|-|A|-|-|-|
                 +-+-+-+-+-+-+-+-+
 
-                D := Don't Learn bit. When set, this bit  indicates  that  the
-                egress  tunnel  endpoint  MUST NOT learn the source address of
+                D  :=  Don't  Learn bit. When set, this bit indicates that the
+                egress tunnel endpoint MUST NOT learn the  source  address  of
                 the encapsulated frame.
 
-                A := Indicates that the group policy has already been  applied
-                to  this  packet. Policies MUST NOT be applied by devices when
+                A  := Indicates that the group policy has already been applied
+                to this packet. Policies MUST NOT be applied by  devices  when
                 the A bit is set.
 
-              For more information, please see the corresponding  IETF  draft:
+              For  more  information, please see the corresponding IETF draft:
               https://tools.ietf.org/html/draft-smith-vxlan-group-policy
 
        tun_metadataidx[=value[/mask]]
-              Matches  value  either  exactly  or with optional mask in tunnel
-              metadata field number idx (numbered from 0 to 63).  The  act  of
-              specifying  a  field  implies  a  match on the existence of that
+              Matches value either exactly or with  optional  mask  in  tunnel
+              metadata  field  number idx (numbered from 0 to 63).  The act of
+              specifying a field implies a match  on  the  existence  of  that
               field in the packet in addition to the masked value. As a short‐
-              hand,  it  is  possible to specify only the field name to simply
+              hand, it is possible to specify only the field  name  to  simply
               match on an option being present.
 
               Tunnel metadata fields can be dynamically assigned onto the data
-              contained  in  the  option TLVs of packets (e.g. Geneve variable
-              options stores zero or more options in  TLV  format  and  tunnel
-              metadata  can be assigned onto these option TLVs) using the com‐
-              mands described in the section OpenFlow Switch Tunnel TLV  Table
-              Commands.  Once  assigned,  the  length of the field is variable
-              according to the size of the option. Before updating  a  mapping
-              in  the  option  table,  flows  with  references to it should be
+              contained in the option TLVs of packets  (e.g.  Geneve  variable
+              options  stores  zero  or  more options in TLV format and tunnel
+              metadata can be assigned onto these option TLVs) using the  com‐
+              mands  described in the section OpenFlow Switch Tunnel TLV Table
+              Commands. Once assigned, the length of  the  field  is  variable
+              according  to  the size of the option. Before updating a mapping
+              in the option table, flows  with  references  to  it  should  be
               removed, otherwise the result is non-deterministic.
 
               These fields were introduced in Open vSwitch 2.5.
 
        regidx=value[/mask]
-              Matches value either exactly or with optional mask  in  register
-              number  idx.   The  valid  range  of  idx depends on the switch.
+              Matches  value  either exactly or with optional mask in register
+              number idx.  The valid range  of  idx  depends  on  the  switch.
               value and mask are 32-bit integers, by default in decimal (use a
-              0x  prefix  to  specify hexadecimal).  Arbitrary mask values are
+              0x prefix to specify hexadecimal).  Arbitrary  mask  values  are
               allowed: a 1-bit in mask indicates that the corresponding bit in
               value must match exactly, and a 0-bit wildcards that bit.
 
-              When  a  packet  enters an OpenFlow switch, all of the registers
+              When a packet enters an OpenFlow switch, all  of  the  registers
               are set to 0.  Only explicit actions change register values.
 
        xregidx=value[/mask]
-              Matches value either exactly or with  optional  mask  in  64-bit
-              ``extended  register''  number idx.  Each of the 64-bit extended
-              registers overlays two of the 32-bit registers:  xreg0  overlays
-              reg0  and reg1, with reg0 supplying the most-significant bits of
-              xreg0 and reg1 the least-significant.  xreg1 similarly  overlays
+              Matches  value  either  exactly  or with optional mask in 64-bit
+              ``extended register'' number idx.  Each of the  64-bit  extended
+              registers  overlays  two of the 32-bit registers: xreg0 overlays
+              reg0 and reg1, with reg0 supplying the most-significant bits  of
+              xreg0  and reg1 the least-significant.  xreg1 similarly overlays
               reg2 and reg3, and so on.
 
-              These  fields were added in Open vSwitch 2.3 to conform with the
-              OpenFlow 1.5 specification.  OpenFlow  1.5  calls  these  fields
-              just  the  ``packet  registers,''  but  Open vSwitch already had
-              32-bit registers by that name, which is why Open vSwitch  refers
+              These fields were added in Open vSwitch 2.3 to conform with  the
+              OpenFlow  1.5  specification.   OpenFlow  1.5 calls these fields
+              just the ``packet registers,''  but  Open  vSwitch  already  had
+              32-bit  registers by that name, which is why Open vSwitch refers
               to the standard registers as ``extended registers''.
 
        pkt_mark=value[/mask]
-              Matches  packet  metadata  mark  value  either  exactly  or with
-              optional mask. The mark is associated data that  may  be  passed
-              into  other system components in order to facilitate interaction
-              between subsystems.  On Linux this corresponds to the  skb  mark
+              Matches packet  metadata  mark  value  either  exactly  or  with
+              optional  mask.  The  mark is associated data that may be passed
+              into other system components in order to facilitate  interaction
+              between  subsystems.   On Linux this corresponds to the skb mark
               but the exact implementation is platform-dependent.
 
        actset_output=port
-              Matches  the  output  port currently in the OpenFlow action set,
-              where port may be an  OpenFlow  port  number  or  keyword  (e.g.
-              LOCAL).   If there is no output port in the OpenFlow action set,
-              or if the output port will be ignored (e.g. because there is  an
+              Matches the output port currently in the  OpenFlow  action  set,
+              where  port  may  be  an  OpenFlow  port number or keyword (e.g.
+              LOCAL).  If there is no output port in the OpenFlow action  set,
+              or  if the output port will be ignored (e.g. because there is an
               output group in the OpenFlow action set), then the value will be
               UNSET.
 
-              This field was introduced in Open vSwitch 2.4  to  conform  with
+              This  field  was  introduced in Open vSwitch 2.4 to conform with
               the OpenFlow 1.5 specification.
 
        conj_id=value
@@ -1285,41 +1315,41 @@ DESCRIPTION
 
        ct_state=flags/mask
        ct_state=[+flag...][-flag...]
-              Bitwise match on connection state flags. This is used  with  the
+              Bitwise  match  on connection state flags. This is used with the
               ct action (see below).
 
               The ct_state field provides information from a connection track‐
-              ing module. It describes whether the packet has previously  tra‐
-              versed  the  connection tracker (tracked, or trk) and, if it has
-              been tracked, any additional  information  that  the  connection
-              tracker  was  able to provide about the connection that the cur‐
+              ing  module. It describes whether the packet has previously tra‐
+              versed the connection tracker (tracked, or trk) and, if  it  has
+              been  tracked,  any  additional  information that the connection
+              tracker was able to provide about the connection that  the  cur‐
               rent packet belongs to.
 
-              Individual packets may be in one of  two  states:  Untracked  or
-              tracked.  When the ct action is executed on a packet, it becomes
-              tracked for the the remainder of OpenFlow  pipeline  processing.
+              Individual  packets  may  be  in one of two states: Untracked or
+              tracked. When the ct action is executed on a packet, it  becomes
+              tracked  for  the the remainder of OpenFlow pipeline processing.
               Once a packet has become tracked, the state of its corresponding
-              connection may be determined. Note that  the  ct_state  is  only
+              connection  may  be  determined.  Note that the ct_state is only
               significant for the current ct_zone.
 
-              Connections  may be in one of two states: uncommitted or commit‐
-              ted. Connections are uncommitted by default. To determine  ongo‐
-              ing  information about a connection, like whether the connection
-              is established or not, the connection must  be  committed.  When
+              Connections may be in one of two states: uncommitted or  commit‐
+              ted.  Connections are uncommitted by default. To determine ongo‐
+              ing information about a connection, like whether the  connection
+              is  established  or  not, the connection must be committed. When
               the ct action is executed on a packet with the commit parameter,
-              the connection will become committed and  will  remain  in  this
-              state  until  the  end  of the connection. Committed connections
+              the  connection  will  become  committed and will remain in this
+              state until the end of  the  connection.  Committed  connections
               store state beyond the duration of packet processing.
 
-              The flags and mask are 32-bit numbers written in decimal  or  in
-              hexadecimal  prefixed  by  0x.  Each 1-bit in mask requires that
-              the corresponding bit in flags must match.  Each 0-bit  in  mask
+              The  flags  and mask are 32-bit numbers written in decimal or in
+              hexadecimal prefixed by 0x.  Each 1-bit in  mask  requires  that
+              the  corresponding  bit in flags must match.  Each 0-bit in mask
               causes the corresponding bit to be ignored.
 
-              Alternatively,  the  flags  can  be  specified by their symbolic
-              names (listed below), each preceded by either + for a flag  that
-              must  be  set,  or  - for a flag that must be unset, without any
-              other delimiters between the flags.   Flags  not  mentioned  are
+              Alternatively, the flags can  be  specified  by  their  symbolic
+              names  (listed below), each preceded by either + for a flag that
+              must be set, or - for a flag that must  be  unset,  without  any
+              other  delimiters  between  the  flags.  Flags not mentioned are
               wildcarded.   For  example,  tcp,ct_state=+trk-new  matches  TCP
               packets that have been run through the connection tracker and do
               not establish a new connection.
@@ -1327,7 +1357,7 @@ DESCRIPTION
               The following flags describe the state of the tracking:
 
               0x01: new
-                     This  is the beginning of a new connection. This flag may
+                     This is the beginning of a new connection. This flag  may
                      only be present for uncommitted connections.
 
               0x02: est
@@ -1335,40 +1365,49 @@ DESCRIPTION
                      may only be present for committed connections.
 
               0x04: rel
-                     This  is a connection that is related to an existing con‐
+                     This is a connection that is related to an existing  con‐
                      nection, for instance ICMP "destination unreachable" mes‐
-                     sages  or  FTP  data  connections.  This flag may only be
+                     sages or FTP data connections.  This  flag  may  only  be
                      present for committed connections.
 
               0x08: rpl
-                     The flow is in the reply direction, meaning  it  did  not
-                     initiate  the  connection.  This flag may only be present
+                     The  flow  is  in the reply direction, meaning it did not
+                     initiate the connection. This flag may  only  be  present
                      for committed connections.
 
               0x10: inv
                      The state is invalid, meaning that the connection tracker
-                     couldn't  identify  the connection. This flag is a catch-
-                     all for any problems  that  the  connection  tracker  may
+                     couldn't identify the connection. This flag is  a  catch-
+                     all  for  any  problems  that  the connection tracker may
                      have, for example:
 
-                     -  L3/L4 protocol handler is not loaded/unavailable. With
+                     - L3/L4 protocol handler is not loaded/unavailable.  With
                      the  Linux  kernel  datapath,  this  may  mean  that  the
-                     "nf_conntrack_ipv4"  or  "nf_conntrack_ipv6"  modules are
+                     "nf_conntrack_ipv4" or  "nf_conntrack_ipv6"  modules  are
                      not loaded.
 
-                     - L3/L4 protocol handler determines that  the  packet  is
+                     -  L3/L4  protocol  handler determines that the packet is
                      malformed.
 
                      - Packets are unexpected length for protocol.
 
               0x20: trk
-                     This  packet  is  tracked, meaning that it has previously
-                     traversed the connection tracker. If  this  flag  is  not
-                     set,  then  no  other  flags will be set. If this flag is
-                     set, then the packet is tracked and other flags may  also
+                     This packet is tracked, meaning that  it  has  previously
+                     traversed  the  connection  tracker.  If this flag is not
+                     set, then no other flags will be set.  If  this  flag  is
+                     set,  then the packet is tracked and other flags may also
                      be set.
 
-              This field was introduced in Open vSwitch 2.5.
+              0x40: snat
+                     This packet was transformed by source address/port trans‐
+                     lation by a preceding ct action.
+
+              0x80: dnat
+                     This  packet  was transformed by destination address/port
+                     translation by a preceding ct action.
+
+              This field was introduced in Open vSwitch  2.5.   The  snat  and
+              dnat bits were added in Open vSwitch 2.6.
 
        The  following  fields  are  associated with the connection tracker and
        will only be populated for tracked packets. The ct action will populate
@@ -1438,26 +1477,34 @@ DESCRIPTION
                      This  form  of  output uses an OpenFlow extension that is
                      not supported by standard OpenFlow switches.
 
+              output(port=port,max_len=nbytes)
+                     Outputs the packet to the OpenFlow port number read  from
+                     port,  with  maximum packet size set to nbytes.  port may
+                     be OpenFlow port number, local, or in_port.   Patch  port
+                     is  not  supported.   Packets  larger than nbytes will be
+                     trimmed to  nbytes  while  packets  smaller  than  nbytes
+                     remains the original size.
+
               group:group_id
-                     Outputs the packet to the OpenFlow group group_id.  Group
-                     tables  are  only  supported  in OpenFlow 1.1+. See Group
+                     Outputs  the packet to the OpenFlow group group_id. Group
+                     tables are only supported in  OpenFlow  1.1+.  See  Group
                      Syntax for more details.
 
               normal Subjects the packet to the device's normal L2/L3 process‐
-                     ing.   (This  action  is  not implemented by all OpenFlow
+                     ing.  (This action is not  implemented  by  all  OpenFlow
                      switches.)
 
-              flood  Outputs the packet on all  switch  physical  ports  other
-                     than  the  port on which it was received and any ports on
-                     which flooding is disabled  (typically,  these  would  be
-                     ports  disabled  by  the IEEE 802.1D spanning tree proto‐
+              flood  Outputs  the  packet  on  all switch physical ports other
+                     than the port on which it was received and any  ports  on
+                     which  flooding  is  disabled  (typically, these would be
+                     ports disabled by the IEEE 802.1D  spanning  tree  proto‐
                      col).
 
-              all    Outputs the packet on all  switch  physical  ports  other
+              all    Outputs  the  packet  on  all switch physical ports other
                      than the port on which it was received.
 
-              local  Outputs  the  packet  on the ``local port,'' which corre‐
-                     sponds to the network device that has the  same  name  as
+              local  Outputs the packet on the ``local  port,''  which  corre‐
+                     sponds  to  the  network device that has the same name as
                      the bridge.
 
               in_port
@@ -1465,54 +1512,54 @@ DESCRIPTION
                      received.
 
               controller(key=value...)
-                     Sends the packet and its metadata to  the  OpenFlow  con‐
-                     troller  as  a ``packet in'' message.  The supported key-
+                     Sends  the  packet  and its metadata to the OpenFlow con‐
+                     troller as a ``packet in'' message.  The  supported  key-
                      value pairs are:
 
                      max_len=nbytes
-                            Limit to nbytes the number of bytes of the  packet
-                            to  send to the controller.  By default the entire
+                            Limit  to nbytes the number of bytes of the packet
+                            to send to the controller.  By default the  entire
                             packet is sent.
 
                      reason=reason
-                            Specify reason as the reason for sending the  mes‐
-                            sage  in the ``packet in'' message.  The supported
-                            reasons are action (the  default),  no_match,  and
+                            Specify  reason as the reason for sending the mes‐
+                            sage in the ``packet in'' message.  The  supported
+                            reasons  are  action  (the default), no_match, and
                             invalid_ttl.
 
                      id=controller-id
-                            Specify  controller-id,  a  16-bit integer, as the
-                            connection ID of the OpenFlow controller  or  con‐
+                            Specify controller-id, a 16-bit  integer,  as  the
+                            connection  ID  of the OpenFlow controller or con‐
                             trollers to which the ``packet in'' message should
-                            be sent.  The default is zero.  Zero is  also  the
-                            default  connection ID for each controller connec‐
-                            tion, and a given controller connection will  only
-                            have  a  nonzero  connection  ID if its controller
+                            be  sent.   The default is zero.  Zero is also the
+                            default connection ID for each controller  connec‐
+                            tion,  and a given controller connection will only
+                            have a nonzero connection  ID  if  its  controller
                             uses the NXT_SET_CONTROLLER_ID Nicira extension to
                             OpenFlow.
 
                      userdata=hh...
                             Supplies the bytes represented as hex digits hh as
                             additional data to the controller in the packet-in
-                            message.   Pairs of hex digits may be separated by
+                            message.  Pairs of hex digits may be separated  by
                             periods for readability.
 
-                     pause  Causes the switch  to  freeze  the  packet's  trip
-                            through  Open  vSwitch  flow tables and serializes
-                            that state into the packet-in message as a  ``con‐
-                            tinuation,''   an   additional   property  in  the
-                            NXT_PACKET_IN2 message.  The controller can  later
-                            send  the  continuation  back  to the switch in an
-                            NXT_RESUME  message,  which   will   restart   the
-                            packet's  traversal  from  the  point where it was
-                            interrupted.  This permits an OpenFlow  controller
+                     pause  Causes  the  switch  to  freeze  the packet's trip
+                            through Open vSwitch flow  tables  and  serializes
+                            that  state into the packet-in message as a ``con‐
+                            tinuation,''  an  additional   property   in   the
+                            NXT_PACKET_IN2  message.  The controller can later
+                            send the continuation back to  the  switch  in  an
+                            NXT_RESUME   message,   which   will  restart  the
+                            packet's traversal from the  point  where  it  was
+                            interrupted.   This permits an OpenFlow controller
                             to interpose on a packet midway through processing
                             in Open vSwitch.
 
-                     If any reason other  than  action  or  any  nonzero  con‐
+                     If  any  reason  other  than  action  or any nonzero con‐
                      troller-id is supplied, Open vSwitch extension NXAST_CON‐
-                     TROLLER, supported by Open  vSwitch  1.6  and  later,  is
-                     used.   If  userdata is supplied, then NXAST_CONTROLLER2,
+                     TROLLER,  supported  by  Open  vSwitch  1.6 and later, is
+                     used.  If userdata is supplied,  then  NXAST_CONTROLLER2,
                      supported by Open vSwitch 2.6 and later, is used.
 
               controller
@@ -1521,66 +1568,66 @@ DESCRIPTION
                      respectively.
 
               enqueue(port,queue)
-                     Enqueues  the  packet  on the specified queue within port
-                     port, which must be an OpenFlow port  number  or  keyword
-                     (e.g.  LOCAL).  The number of supported queues depends on
-                     the switch; some OpenFlow implementations do not  support
+                     Enqueues the packet on the specified  queue  within  port
+                     port,  which  must  be an OpenFlow port number or keyword
+                     (e.g. LOCAL).  The number of supported queues depends  on
+                     the  switch; some OpenFlow implementations do not support
                      queuing at all.
 
               drop   Discards the packet, so no further processing or forward‐
-                     ing takes place.  If a drop  action  is  used,  no  other
+                     ing  takes  place.   If  a  drop action is used, no other
                      actions may be specified.
 
               mod_vlan_vid:vlan_vid
-                     Modifies  the VLAN id on a packet.  The VLAN tag is added
-                     or modified as necessary to match  the  value  specified.
+                     Modifies the VLAN id on a packet.  The VLAN tag is  added
+                     or  modified  as  necessary to match the value specified.
                      If the VLAN tag is added, a priority of zero is used (see
                      the mod_vlan_pcp action to set this).
 
               mod_vlan_pcp:vlan_pcp
-                     Modifies the VLAN priority on a packet.  The VLAN tag  is
-                     added  or modified as necessary to match the value speci‐
-                     fied.  Valid values are between 0 (lowest) and  7  (high‐
-                     est).   If  the  VLAN tag is added, a vid of zero is used
+                     Modifies  the VLAN priority on a packet.  The VLAN tag is
+                     added or modified as necessary to match the value  speci‐
+                     fied.   Valid  values are between 0 (lowest) and 7 (high‐
+                     est).  If the VLAN tag is added, a vid of  zero  is  used
                      (see the mod_vlan_vid action to set this).
 
               strip_vlan
                      Strips the VLAN tag from a packet if it is present.
 
               push_vlan:ethertype
-                     Push a new VLAN tag onto the packet.  Ethertype  is  used
-                     as  the  Ethertype  for  the  tag.  Only ethertype 0x8100
-                     should be used. (0x88a8 which the spec allows isn't  sup‐
+                     Push  a  new VLAN tag onto the packet.  Ethertype is used
+                     as the Ethertype  for  the  tag.  Only  ethertype  0x8100
+                     should  be used. (0x88a8 which the spec allows isn't sup‐
                      ported at the moment.)  A priority of zero and the tag of
                      zero are used for the new tag.
 
               push_mpls:ethertype
-                     Changes the packet's Ethertype to ethertype,  which  must
+                     Changes  the  packet's Ethertype to ethertype, which must
                      be either 0x8847 or 0x8848, and pushes an MPLS LSE.
 
-                     If  the  packet  does not already contain any MPLS labels
-                     then an initial label stack entry is pushed.   The  label
-                     stack  entry's label is 2 if the packet contains IPv6 and
+                     If the packet does not already contain  any  MPLS  labels
+                     then  an  initial label stack entry is pushed.  The label
+                     stack entry's label is 2 if the packet contains IPv6  and
                      0 otherwise, its default traffic control value is the low
                      3 bits of the packet's DSCP value (0 if the packet is not
-                     IP), and its TTL is copied from the IP  TTL  (64  if  the
+                     IP),  and  its  TTL  is copied from the IP TTL (64 if the
                      packet is not IP).
 
-                     If  the packet does already contain an MPLS label, pushes
+                     If the packet does already contain an MPLS label,  pushes
                      a new outermost label as a copy of the existing outermost
                      label.
 
-                     A  limitation of the implementation is that processing of
-                     actions will stop if push_mpls follows another  push_mpls
+                     A limitation of the implementation is that processing  of
+                     actions  will stop if push_mpls follows another push_mpls
                      unless there is a pop_mpls in between.
 
               pop_mpls:ethertype
-                     Strips  the  outermost MPLS label stack entry.  Currently
-                     the implementation  restricts  ethertype  to  a  non-MPLS
-                     Ethertype  and  thus  pop_mpls  should only be applied to
-                     packets with an MPLS label stack depth of one. A  further
-                     limitation  is  that  processing  of actions will stop if
-                     pop_mpls follows  another  pop_mpls  unless  there  is  a
+                     Strips the outermost MPLS label stack  entry.   Currently
+                     the  implementation  restricts  ethertype  to  a non-MPLS
+                     Ethertype and thus pop_mpls should  only  be  applied  to
+                     packets  with an MPLS label stack depth of one. A further
+                     limitation is that processing of  actions  will  stop  if
+                     pop_mpls  follows  another  pop_mpls  unless  there  is a
                      push_mpls in between.
 
               mod_dl_src:mac
@@ -1602,42 +1649,67 @@ DESCRIPTION
                      Sets the TCP or UDP or SCTP destination port to port.
 
               mod_nw_tos:tos
-                     Sets  the  DSCP bits in the IPv4 ToS/DSCP or IPv6 traffic
+                     Sets the DSCP bits in the IPv4 ToS/DSCP or  IPv6  traffic
                      class field to tos, which must be a multiple of 4 between
-                     0  and  255.   This  action does not modify the two least
+                     0 and 255.  This action does not  modify  the  two  least
                      significant bits of the ToS field (the ECN bits).
 
               mod_nw_ecn:ecn
-                     Sets the ECN bits in the IPv4 ToS or IPv6  traffic  class
-                     field  to  ecn,  which  must  be a value between 0 and 3,
+                     Sets  the  ECN bits in the IPv4 ToS or IPv6 traffic class
+                     field to ecn, which must be a  value  between  0  and  3,
                      inclusive.  This action does not modify the six most sig‐
                      nificant bits of the field (the DSCP bits).
 
                      Requires OpenFlow 1.1 or later.
 
               mod_nw_ttl:ttl
-                     Sets  the  IPv4 TTL or IPv6 hop limit field to ttl, which
-                     is specified as a  decimal  number  between  0  and  255,
-                     inclusive.   Switch  behavior when setting ttl to zero is
+                     Sets the IPv4 TTL or IPv6 hop limit field to  ttl,  which
+                     is  specified  as  a  decimal  number  between 0 and 255,
+                     inclusive.  Switch behavior when setting ttl to  zero  is
                      not well specified, though.
 
                      Requires OpenFlow 1.1 or later.
 
-              The following actions are Nicira vendor extensions that,  as  of
+              The  following  actions are Nicira vendor extensions that, as of
               this writing, are only known to be implemented by Open vSwitch:
 
               resubmit:port
               resubmit([port],[table])
-                     Re-searches  this OpenFlow flow table (or the table whose
-                     number is specified by  table)  with  the  in_port  field
-                     replaced  by port (if port is specified) and executes the
-                     actions found, if any, in addition to any  other  actions
+                     Re-searches this OpenFlow flow table (or the table  whose
+                     number  is  specified  by  table)  with the in_port field
+                     replaced by port (if port is specified) and executes  the
+                     actions  found,  if any, in addition to any other actions
                      in this flow entry.
 
-                     Recursive  resubmit actions are obeyed up to an implemen‐
-                     tation-defined maximum depth.   Open  vSwitch  1.0.1  and
-                     earlier  did  not  support recursion; Open vSwitch before
-                     1.2.90 did not support table.
+                     Recursive resubmit actions are obeyed up  to  implementa‐
+                     tion-defined limits:
+
+                     ·      Open  vSwitch  1.0.1  and  earlier did not support
+                            recursion.
+
+                     ·      Open vSwitch 1.0.2 and 1.0.3 limited recursion  to
+                            8 levels.
+
+                     ·      Open  vSwitch  1.1 and 1.2 limited recursion to 16
+                            levels.
+
+                     ·      Open vSwitch 1.2 through 1.8 limited recursion  to
+                            32 levels.
+
+                     ·      Open  vSwitch 1.9 through 2.0 limited recursion to
+                            64 levels.
+
+                     ·      Open vSwitch 2.1 through 2.5 limited recursion  to
+                            64 levels and impose a total limit of 4,096 resub‐
+                            mits per flow translation  (earlier  versions  did
+                            not impose any total limit).
+
+                     ·      Open vSwitch 2.6 and later imposes the same limits
+                            as 2.5, with one exception: resubmit from table  x
+                            to  any  table  y  >  x does not count against the
+                            recursion limit.
+
+                     Open vSwitch before 1.2.90 did not support table.
 
               set_tunnel:id
               set_tunnel64:id
@@ -1711,7 +1783,7 @@ DESCRIPTION
                             the exec action, and these fields may only be mod‐
                             ified with this option. For example:
 
-                            set_field:value->ct_mark
+                            set_field:value[/mask]->ct_mark
                                    Store a 32-bit metadata value with the con‐
                                    nection.  If  the  connection is committed,
                                    then subsequent lookups for packets in this
@@ -1719,7 +1791,7 @@ DESCRIPTION
                                    field when the packet is sent to  the  con‐
                                    nection tracker with the table specified.
 
-                            set_field:value->ct_label
+                            set_field:value[/mask]->ct_label
                                    Store  a  128-bit  metadata  value with the
                                    connection.  If the connection  is  commit‐
                                    ted, then subsequent lookups for packets in
@@ -1728,7 +1800,7 @@ DESCRIPTION
                                    connection tracker with  the  table  speci‐
                                    fied.
 
-                            The  commit  parameter  should be specified to use
+                            The  commit  parameter  must  be  specified to use
                             exec(...).
 
                      alg=alg
@@ -1742,10 +1814,88 @@ DESCRIPTION
                                    will set the rel flag in the ct_state field
                                    for packets sent through ct.
 
-                            When committing related connections,  the  ct_mark
-                            for  that connection is inherited from the current
-                            ct_mark stored with the original  connection  (ie,
+                            The commit parameter  must  be  specified  to  use
+                            alg=alg.
+
+                            When  committing  related connections, the ct_mark
+                            for that connection is inherited from the  current
+                            ct_mark  stored  with the original connection (ie,
                             the connection created by ct(alg=...)).
+
+                     nat[((src|dst)=addr1[-addr2][:port1[-port2]][,flags])]
+                            Specify address and port translation for the  con‐
+                            nection being tracked.  For new connections either
+                            src or dst argument must be  provided  to  set  up
+                            either  source  address/port translation (SNAT) or
+                            destination   address/port   translation   (DNAT),
+                            respectively.   Setting up address translation for
+                            a new connection takes effect only if  the  commit
+                            flag is also provided for the enclosing ct action.
+                            A bare nat action will only translate  the  packet
+                            being processed in the way the connection has been
+                            set up with an earlier  ct  action.   Also  a  nat
+                            action  with  src or dst, when applied to a packet
+                            belonging to an established (rather than new) con‐
+                            nection, will behave the same as a bare nat.
+
+                            src and dst options take the following arguments:
+
+                            addr1[-addr2]
+                                   The address range from which the translated
+                                   address should be selected.   If  only  one
+                                   address  is  given,  then that address will
+                                   always be selected, otherwise  the  address
+                                   selection  can  be informed by the optional
+                                   persistent flag as described below.  Either
+                                   IPv4 or IPv6 addresses can be provided, but
+                                   both addresses must be of  the  same  type,
+                                   and  the  datapath behavior is undefined in
+                                   case of providing IPv4 address range for an
+                                   IPv6  packet,  or IPv6 address range for an
+                                   IPv4 packet.  IPv6 addresses must be brack‐
+                                   eted  with  '['  and ']' if a port range is
+                                   also given.
+
+                            port1[-port2]
+                                   The port range from  which  the  translated
+                                   port  should be selected.  If only one port
+                                   number is provided,  then  that  should  be
+                                   selected.   In  case  of a mapping conflict
+                                   the datapath may choose any other  non-con‐
+                                   flicting  port number instead, even when no
+                                   port range is specified.  The  port  number
+                                   selection  can  be informed by the optional
+                                   random and hash flags as described below.
+
+                            The optional flags are:
+
+                            random The selection of the port  from  the  given
+                                   range  should  be done using a fresh random
+                                   number.  This flag  is  mutually  exclusive
+                                   with hash.
+
+                            hash   The  selection  of  the port from the given
+                                   range should be done using a datapath  spe‐
+                                   cific hash of the packet's IP addresses and
+                                   the other, non-mapped  port  number.   This
+                                   flag is mutually exclusive with random.
+
+                            persistent
+                                   The  selection  of  the IP address from the
+                                   given range should be done so that the same
+                                   mapping  can  be  provided after the system
+                                   restarts.
+
+                            If an alg  is  specified  for  the  committing  ct
+                            action  that  also  includes nat with a src or dst
+                            attribute, then the datapath tries to set  up  the
+                            helper  to  be  NAT  aware.  This functionality is
+                            datapath specific and may not be supported by  all
+                            datapaths.
+
+                            nat was introduced in Open vSwitch 2.6.  The first
+                            datapath that implements ct nat support is the one
+                            that ships with Linux 4.6.
 
                      The  ct  action  may  be used as a primitive to construct
                      stateful firewalls by selectively committing  some  traf‐
@@ -2211,7 +2361,16 @@ DESCRIPTION
                             unsigned 32-bit integer Observation Point ID  sent
                             in every IPFIX flow record.  Defaults to 0.
 
-                     Refer to ovs-vswitchd.conf.db(8) for more details on con‐
+                     sampling_port=port
+                            Sample  packets  on  the  port.   It can be set as
+                            input port or output port.  When  this  option  is
+                            omitted, or specified as NONE, IPFIX does not dif‐
+                            ferentiate  between  ingress  packets  and  egress
+                            packets and does not export egress tunnel informa‐
+                            tion.  This  option  was  added  in  Open  vSwitch
+                            2.5.90.
+
+                     Refer to ovs-vswitchd.conf.db(5) for more details on con‐
                      figuring sample collector sets.
 
                      This action was added in Open vSwitch 1.10.90.
@@ -3014,35 +3173,47 @@ OPTIONS
 
               This option has no effect when --detach is not specified.
 
-       --user Causes ovs-ofctl  to  run  as  a  different  user  specified  in
-              "user:group",  thus  dropping most of the root privileges. Short
+       --no-self-confinement
+              By default daemon will try to self-confine itself to  work  with
+              files  under  well-know,  at build-time whitelisted directories.
+              It is better to stick with this default behavior and not to  use
+              this  flag  unless  some other Access Control is used to confine
+              daemon.  Note that in contrast to other access control implemen‐
+              tations  that are typically enforced from kernel-space (e.g. DAC
+              or MAC), self-confinement is imposed from the user-space  daemon
+              itself  and hence should not be considered as a full confinement
+              strategy, but instead should be viewed as an additional layer of
+              security.
+
+       --user Causes  ovs-ofctl  to  run  as  a  different  user  specified in
+              "user:group", thus dropping most of the root  privileges.  Short
               forms "user" and ":group" are also allowed, with current user or
               group are assumed respectively. Only daemons started by the root
               user accepts this argument.
 
               On   Linux,   daemons   will   be   granted   CAP_IPC_LOCK   and
-              CAP_NET_BIND_SERVICES  before  dropping root privileges. Daemons
-              interact with datapath, such as ovs-vswitchd,  will  be  granted
-              two    additional   capabilities,   namely   CAP_NET_ADMIN   and
-              CAP_NET_RAW. The capability change will apply even if  new  user
+              CAP_NET_BIND_SERVICES before dropping root  privileges.  Daemons
+              interact  with  datapath,  such as ovs-vswitchd, will be granted
+              two   additional   capabilities,   namely   CAP_NET_ADMIN    and
+              CAP_NET_RAW.  The  capability change will apply even if new user
               is "root".
 
               On Windows, this option is not currently supported. For security
-              reasons, specifying this option will cause  the  daemon  process
+              reasons,  specifying  this  option will cause the daemon process
               not to start.
 
        --unixctl=socket
-              Sets  the  name of the control socket on which ovs-ofctl listens
-              for runtime management commands  (see  RUNTIME  MANAGEMENT  COM‐
-              MANDS,  below).   If  socket does not begin with /, it is inter‐
-              preted as relative to //var/run/openvswitch.   If  --unixctl  is
-              not   used   at  all,  the  default  socket  is  //var/run/open‐
+              Sets the name of the control socket on which  ovs-ofctl  listens
+              for  runtime  management  commands  (see RUNTIME MANAGEMENT COM‐
+              MANDS, below).  If socket does not begin with /,  it  is  inter‐
+              preted  as  relative  to //var/run/openvswitch.  If --unixctl is
+              not  used  at  all,  the  default  socket   is   //var/run/open‐
               vswitch/ovs-ofctl.pid.ctl, where pid is ovs-ofctl's process ID.
 
-              On Windows, uses a kernel chosen TCP port on  the  localhost  to
-              listen  for  runtime management commands.  The kernel chosen TCP
-              port value is written in a file whose absolute path  is  pointed
-              by  socket. If --unixctl is not used at all, the file is created
+              On  Windows,  uses  a kernel chosen TCP port on the localhost to
+              listen for runtime management commands.  The kernel  chosen  TCP
+              port  value  is written in a file whose absolute path is pointed
+              by socket. If --unixctl is not used at all, the file is  created
               as ovs-ofctl.ctl in the configured OVS_RUNDIR directory.
 
               Specifying none for socket disables the control socket feature.
@@ -3056,55 +3227,55 @@ OPTIONS
        -c cert.pem
        --certificate=cert.pem
               Specifies a PEM file containing a certificate that certifies the
-              private key specified on -p or --private-key to be  trustworthy.
+              private  key specified on -p or --private-key to be trustworthy.
               The certificate must be signed by the certificate authority (CA)
               that the peer in SSL connections will use to verify it.
 
        -C cacert.pem
        --ca-cert=cacert.pem
-              Specifies  a  PEM  file  containing  the  CA  certificate   that
-              ovs-ofctl  should  use to verify certificates presented to it by
+              Specifies   a  PEM  file  containing  the  CA  certificate  that
+              ovs-ofctl should use to verify certificates presented to  it  by
               SSL peers.  (This may be the same certificate that SSL peers use
-              to  verify  the certificate specified on -c or --certificate, or
+              to verify the certificate specified on -c or  --certificate,  or
               it may be a different one, depending on the PKI design in use.)
 
        -C none
        --ca-cert=none
-              Disables verification of certificates presented  by  SSL  peers.
-              This  introduces a security risk, because it means that certifi‐
+              Disables  verification  of  certificates presented by SSL peers.
+              This introduces a security risk, because it means that  certifi‐
               cates cannot be verified to be those of known trusted hosts.
 
        -v[spec]
        --verbose=[spec]
-              Sets logging levels.  Without any spec, sets the log  level  for
-              every  module and destination to dbg.  Otherwise, spec is a list
+              Sets  logging  levels.  Without any spec, sets the log level for
+              every module and destination to dbg.  Otherwise, spec is a  list
               of words separated by spaces or commas or colons, up to one from
               each category below:
 
-              ·      A  valid  module name, as displayed by the vlog/list com‐
+              ·      A valid module name, as displayed by the  vlog/list  com‐
                      mand on ovs-appctl(8), limits the log level change to the
                      specified module.
 
-              ·      syslog,  console,  or file, to limit the log level change
-                     to only to the system log, to the console, or to a  file,
-                     respectively.    (If  --detach  is  specified,  ovs-ofctl
-                     closes its standard file descriptors, so logging  to  the
+              ·      syslog, console, or file, to limit the log  level  change
+                     to  only to the system log, to the console, or to a file,
+                     respectively.   (If  --detach  is  specified,   ovs-ofctl
+                     closes  its  standard file descriptors, so logging to the
                      console will have no effect.)
 
-                     On  Windows platform, syslog is accepted as a word and is
-                     only useful along with the  --syslog-target  option  (the
+                     On Windows platform, syslog is accepted as a word and  is
+                     only  useful  along  with the --syslog-target option (the
                      word has no effect otherwise).
 
-              ·      off,  emer,  err,  warn, info, or dbg, to control the log
-                     level.  Messages of the given severity or higher will  be
-                     logged,  and  messages of lower severity will be filtered
-                     out.  off filters out all  messages.   See  ovs-appctl(8)
+              ·      off, emer, err, warn, info, or dbg, to  control  the  log
+                     level.   Messages of the given severity or higher will be
+                     logged, and messages of lower severity will  be  filtered
+                     out.   off  filters  out all messages.  See ovs-appctl(8)
                      for a definition of each log level.
 
               Case is not significant within spec.
 
-              Regardless  of  the  log  levels set for file, logging to a file
-              will not take place unless --log-file  is  also  specified  (see
+              Regardless of the log levels set for file,  logging  to  a  file
+              will  not  take  place  unless --log-file is also specified (see
               below).
 
               For compatibility with older versions of OVS, any is accepted as
@@ -3112,62 +3283,107 @@ OPTIONS
 
        -v
        --verbose
-              Sets the maximum logging verbosity level, equivalent  to  --ver‐
+              Sets  the  maximum logging verbosity level, equivalent to --ver‐
               bose=dbg.
 
        -vPATTERN:destination:pattern
        --verbose=PATTERN:destination:pattern
-              Sets  the  log  pattern  for  destination  to pattern.  Refer to
+              Sets the log pattern  for  destination  to  pattern.   Refer  to
               ovs-appctl(8) for a description of the valid syntax for pattern.
 
        -vFACILITY:facility
        --verbose=FACILITY:facility
-              Sets the RFC5424 facility of the log message.  facility  can  be
-              one  of kern, user, mail, daemon, auth, syslog, lpr, news, uucp,
-              clock, ftp, ntp, audit, alert, clock2, local0,  local1,  local2,
-              local3,  local4, local5, local6 or local7. If this option is not
-              specified, daemon is used as the default for  the  local  system
-              syslog  and local0 is used while sending a message to the target
+              Sets  the  RFC5424  facility of the log message. facility can be
+              one of kern, user, mail, daemon, auth, syslog, lpr, news,  uucp,
+              clock,  ftp,  ntp, audit, alert, clock2, local0, local1, local2,
+              local3, local4, local5, local6 or local7. If this option is  not
+              specified,  daemon  is  used as the default for the local system
+              syslog and local0 is used while sending a message to the  target
               provided via the --syslog-target option.
 
        --log-file[=file]
-              Enables logging to a file.  If file is  specified,  then  it  is
-              used  as  the exact name for the log file.  The default log file
-              name   used   if   file   is    omitted    is    //var/log/open‐
+              Enables  logging  to  a  file.  If file is specified, then it is
+              used as the exact name for the log file.  The default  log  file
+              name    used    if    file   is   omitted   is   //var/log/open‐
               vswitch/ovs-ofctl.log.
 
        --syslog-target=host:port
-              Send  syslog  messages  to  UDP port on host, in addition to the
-              system syslog.  The host must be a numerical IP address,  not  a
+              Send syslog messages to UDP port on host,  in  addition  to  the
+              system  syslog.   The host must be a numerical IP address, not a
               hostname.
 
        --syslog-method=method
               Specify method how syslog messages should be sent to syslog dae‐
               mon.  Following forms are supported:
 
-              ·      libc, use libc syslog() function.  This  is  the  default
-                     behavior.   Downside  of  using this options is that libc
-                     adds fixed prefix to every message before it is  actually
-                     sent  to  the  syslog  daemon  over  /dev/log UNIX domain
+              ·      libc,  use  libc  syslog() function.  This is the default
+                     behavior.  Downside of using this options  is  that  libc
+                     adds  fixed prefix to every message before it is actually
+                     sent to the  syslog  daemon  over  /dev/log  UNIX  domain
                      socket.
 
               ·      unix:file, use UNIX domain socket directly.  It is possi‐
                      ble to specify arbitrary message format with this option.
-                     However, rsyslogd 8.9 and older versions use  hard  coded
-                     parser  function  anyway  that  limits UNIX domain socket
-                     use.  If you want to use arbitrary  message  format  with
+                     However,  rsyslogd  8.9 and older versions use hard coded
+                     parser function anyway that  limits  UNIX  domain  socket
+                     use.   If  you  want to use arbitrary message format with
                      older rsyslogd versions, then use UDP socket to localhost
                      IP address instead.
 
               ·      udp:ip:port, use UDP socket.  With this method it is pos‐
-                     sible  to  use  arbitrary  message format also with older
-                     rsyslogd.  When sending syslog messages over  UDP  socket
-                     extra  precaution  needs  to  be  taken into account, for
-                     example, syslog daemon needs to be configured  to  listen
-                     on  the  specified  UDP  port,  accidental iptables rules
-                     could be interfering with local syslog traffic and  there
-                     are  some security considerations that apply to UDP sock‐
+                     sible to use arbitrary message  format  also  with  older
+                     rsyslogd.   When  sending syslog messages over UDP socket
+                     extra precaution needs to  be  taken  into  account,  for
+                     example,  syslog  daemon needs to be configured to listen
+                     on the specified  UDP  port,  accidental  iptables  rules
+                     could  be interfering with local syslog traffic and there
+                     are some security considerations that apply to UDP  sock‐
                      ets, but do not apply to UNIX domain sockets.
+
+       --color[=when]
+              Colorize  the  output  (for  some  commands); when can be never,
+              always, or auto (the default).
+
+              Only some commands support output  coloring.   Color  names  and
+              default colors may change in future releases.
+
+              The environment variable OVS_COLORS can be used to specify user-
+              defined colors and other attributes used  to  highlight  various
+              parts of the output. If set, its value is a colon-separated list
+              of         capabilities         that         defaults         to
+              ac:01;31:dr=34:le=31:pm=36:pr=35:sp=33:vl=32. Supported capabil‐
+              ities were initially designed for coloring flows from  ovs-ofctl
+              dump-flows switch command, and they are as follows.
+
+                     ac=01;31
+                            SGR substring for actions= keyword in a flow.  The
+                            default is a bold red text foreground.
+
+                     dr=34  SGR substring for drop keyword.  The default is  a
+                            dark blue text foreground.
+
+                     le=31  SGR  substring  for learn= keyword in a flow.  The
+                            default is a red text foreground.
+
+                     pm=36  SGR substring for flow match attribute names.  The
+                            default is a cyan text foreground.
+
+                     pr=35  SGR substring for keywords in a flow that are fol‐
+                            lowed  by  arguments  inside   parenthesis.    The
+                            default is a magenta text foreground.
+
+                     sp=33  SGR substring for some special keywords in a flow,
+                            notably: table=, priority=, load:, output:, move:,
+                            group:,  CONTROLLER:, set_field:, resubmit:, exit.
+                            The default is a yellow text foreground.
+
+                     vl=32  SGR substring for a lone flow match attribute with
+                            no  field name.  The default is a green text fore‐
+                            ground.
+
+              See the Select Graphic Rendition (SGR) section in the documenta‐
+              tion  of the text terminal that is used for permitted values and
+              their meaning as character attributes.
 
        -h
        --help Prints a brief help message to the console.

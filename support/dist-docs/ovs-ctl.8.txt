@@ -42,36 +42,37 @@ The ``start'' command
               If  the  database does exist, but it has an obsolete version, it
               upgrades it to the latest schema.
 
-       3.     Starts ovsdb-server.
+       3.     Starts ovsdb-server, unless the --no-ovsdb-server command option
+              is given.
 
        4.     Initializes a few values inside the database.
 
-       5.     If the --delete-bridges option was  used,  deletes  all  of  the
+       5.     If  the  --delete-bridges  option  was  used, deletes all of the
               bridges from the database.
 
-       6.     If  the  --delete-transient-ports  option  was used, deletes all
+       6.     If the --delete-transient-ports option  was  used,  deletes  all
               ports that have other_config:transient set to true.
 
-       The start command skips the following step if ovs-vswitchd  is  already
-       running:
+       The  start  command skips the following step if ovs-vswitchd is already
+       running, or if the --no-ovs-vswitchd command option is given:
 
        7.     Starts ovs-vswitchd.
 
    Options
-       Several  command-line  options  influence the start command's behavior.
+       Several command-line options influence the  start  command's  behavior.
        Some form of the following option should ordinarily be specified:
 
        --system-id=uuid
        --system-id=random
-              This specifies a unique system identifier to store  into  exter‐
-              nal-ids:system-id  in the database's Open_vSwitch table.  Remote
+              This  specifies  a unique system identifier to store into exter‐
+              nal-ids:system-id in the database's Open_vSwitch table.   Remote
               managers that talk to the Open vSwitch database server over net‐
-              work  protocols  use this value to identify and distinguish Open
-              vSwitch instances, so it should be unique (at least) within  OVS
+              work protocols use this value to identify and  distinguish  Open
+              vSwitch  instances, so it should be unique (at least) within OVS
               instances that will connect to a single controller.
 
               When random is specified, ovs-ctl will generate a random ID that
-              persists from one run to  another  (stored  in  a  file).   When
+              persists  from  one  run  to  another  (stored in a file).  When
               another string is specified ovs-ctl uses it literally.
 
        The following options should be specified if the defaults are not suit‐
@@ -79,56 +80,76 @@ The ``start'' command
 
        --system-type=type
        --system-version=version
-              Sets the value to store in the  system-type  and  system-version
-              columns,  respectively,  in  the  database's Open_vSwitch table.
-              Remote managers may use these values to determine  the  kind  of
-              system  to  which  they  are connected (primarily for display to
+              Sets  the  value  to store in the system-type and system-version
+              columns, respectively, in  the  database's  Open_vSwitch  table.
+              Remote  managers  may  use these values to determine the kind of
+              system to which they are connected  (primarily  for  display  to
               human administrators).
 
-              When not specified, ovs-ctl uses values from the  optional  sys‐
-              tem-type.conf  and  system-version.conf files(see section FILES)
-              or it uses the lsb_release program, if present, to provide  rea‐
+              When  not  specified, ovs-ctl uses values from the optional sys‐
+              tem-type.conf and system-version.conf files(see  section  FILES)
+              or  it uses the lsb_release program, if present, to provide rea‐
               sonable defaults.
 
        The following options are also likely to be useful:
 
        --external-id="name=value"
-              Sets  external-ids:name  to value in the database's Open_vSwitch
+              Sets external-ids:name to value in the  database's  Open_vSwitch
               table.  Specifying this option multiple times adds multiple key-
               value pairs.
 
        --delete-bridges
-              Ordinarily  Open vSwitch bridges persist from one system boot to
-              the next, as long as the database is preserved.   Some  environ‐
-              ments  instead  expect to re-create all of the bridges and other
-              configuration state on every boot.  This option  supports  that,
+              Ordinarily Open vSwitch bridges persist from one system boot  to
+              the  next,  as long as the database is preserved.  Some environ‐
+              ments instead expect to re-create all of the bridges  and  other
+              configuration  state  on every boot.  This option supports that,
               by deleting all Open vSwitch bridges after starting ovsdb-server
               but before starting ovs-vswitchd.
 
        --delete-transient-ports
               Deletes all ports that have the other_config:transient value set
-              to  true.  This  is important on certain environments where some
-              ports are going to be recreated after reboot,  but  other  ports
+              to true. This is important on certain  environments  where  some
+              ports  are  going  to be recreated after reboot, but other ports
               need to be persisted in the database.
 
        The following options are less important:
 
        --daemon-cwd=directory
-              Specifies  the  current  working  directory that the OVS daemons
-              should run from.  The default is / (the root directory) if  this
-              option  is  not  specified.  (This option is useful because most
-              systems create core files in a process's current working  direc‐
-              tory  and  because  a  file system that is in use as a process's
+              Specifies the current working directory  that  the  OVS  daemons
+              should  run from.  The default is / (the root directory) if this
+              option is not specified.  (This option is  useful  because  most
+              systems  create core files in a process's current working direc‐
+              tory and because a file system that is in  use  as  a  process's
               current working directory cannot be unmounted.)
 
        --no-force-corefiles
-              By default, ovs-ctl enables core  dumps  for  the  OVS  daemons.
+              By  default,  ovs-ctl  enables  core  dumps for the OVS daemons.
               This option disables that behavior.
 
        --no-mlockall
               By default ovs-ctl passes --mlockall to ovs-vswitchd, requesting
               that it lock all of its virtual memory, preventing it from being
               paged to disk.  This option suppresses that behavior.
+
+       --no-self-confinement
+              Disable self-confinement for ovs-vswitchd and ovsdb-server  dae‐
+              mons.   This  flag  may be used when, for example, OpenFlow con‐
+              troller creates its Unix Domain Socket outside OVS run directory
+              and  OVS needs to connect to it.  It is better to stick with the
+              default behavior and not to use this flag, unless:
+
+              ·      You have Open vSwitch running under SELinux  or  AppArmor
+                     Mandatory  Access  Control  that  would  prevent OVS from
+                     messing with sockets outside ordinary OVS directories.
+
+              ·      You believe that relying  on  protocol  handshakes  (e.g.
+                     OpenFlow)  is enough to prevent OVS to adversely interact
+                     with other daemons running on your system.
+
+              ·      You don't have much worries of remote OVSDB  exploits  in
+                     the  first place, because, perhaps, OVSDB manager is run‐
+                     ning on the same host as OVS  and  share  similar  attack
+                     vectors.
 
        --ovsdb-server-priority=niceness
        --ovs-vswitchd-priority=niceness
@@ -180,7 +201,9 @@ The ``start'' command
               relative to dbdir.
 
 The ``stop'' command
-       The stop command does not unload the Open vSwitch kernel modules.
+       The  stop  command  does not unload the Open vSwitch kernel modules. It
+       can take the same --no-ovsdb-server and  --no-ovs-vswitchd  options  as
+       that of the start command.
 
        This  command does nothing and finishes successfully if the OVS daemons
        aren't running.
@@ -237,57 +260,71 @@ The ``force-reload-kmod'' command
               installation.)
 
        force-kmod-reload internally stops and starts OVS, so it accepts all of
-       the options accepted by the start command.
+       the  options  accepted  by   the   start   command   except   for   the
+       --no-ovs-vswitchd option.
 
 The ``load-kmod'' command
-       The load-kmod command loads the openvswitch kernel modules if they  are
-       not  already  loaded.  This  operation also occurs as part of the start
+       The  load-kmod command loads the openvswitch kernel modules if they are
+       not already loaded. This operation also occurs as  part  of  the  start
        command. The motivation for providing the load-kmod command is to allow
        errors when loading modules to be handled separatetly from other errors
        that may occur when running the start command.
 
-       By default the load-kmod command attempts to load the openvswitch  ker‐
+       By  default the load-kmod command attempts to load the openvswitch ker‐
        nel module.
 
 The ``enable-protocol'' command
-       The  enable-protocol  command  checks  for rules related to a specified
-       protocol in the system's iptables(8) configuration.  If  there  are  no
-       rules  specifically related to that protocol, then it inserts a rule to
+       The enable-protocol command checks for rules  related  to  a  specified
+       protocol  in  the  system's iptables(8) configuration.  If there are no
+       rules specifically related to that protocol, then it inserts a rule  to
        accept the specified protocol.
 
        More specifically:
 
-       ·      If iptables is not installed or not enabled, this  command  does
+       ·      If  iptables  is not installed or not enabled, this command does
               nothing, assuming that lack of filtering means that the protocol
               is enabled.
 
-       ·      If the INPUT chain has a rule that matches the specified  proto‐
+       ·      If  the INPUT chain has a rule that matches the specified proto‐
               col, then this command does nothing, assuming that whatever rule
               is installed reflects the system administrator's decisions.
 
-       ·      Otherwise, this command installs a rule that accepts traffic  of
+       ·      Otherwise,  this command installs a rule that accepts traffic of
               the specified protocol.
 
-       This  command normally completes successfully, even if it does nothing.
-       Only the failure of an attempt to insert a rule normally causes  it  to
-       return  an  exit  code other than 0.  The following options control the
+       This command normally completes successfully, even if it does  nothing.
+       Only  the  failure of an attempt to insert a rule normally causes it to
+       return an exit code other than 0.  The following  options  control  the
        protocol to be enabled:
 
        --protocol=protocol
-              The name of the IP protocol to be enabled, such as gre  or  tcp.
+              The  name  of the IP protocol to be enabled, such as gre or tcp.
               The default is gre.
 
        --sport=sport
        --dport=dport
-              TCP  or  UDP  source  or  destination  port to match.  These are
+              TCP or UDP source or  destination  port  to  match.   These  are
               optional and allowed only with --protocol=tcp or --protocol=udp.
 
 The ``help'' command
        Prints a usage message and exits successfully.
 
 OPTIONS
-       In addition to the options listed for each command above,  this  option
-       controls the behavior of several of ovs-ctl's commands.
+       In addition to the options listed for each command above, these options
+       control the behavior of several of ovs-ctl's commands.
+
+       By default, ovs-ctl will control the ovsdb-server, and the ovs-vswitchd
+       daemons.  The following options restrict that control to exclude one or
+       the other:
+
+       --no-ovsdb-server
+              Specifies that the ovs-ctl commands  start,  stop,  and  restart
+              should not modify the running status of ovsdb-server.
+
+       --no-ovs-vswitchd
+              Specifies  that  the  ovs-ctl  commands start, stop, and restart
+              should not modify the running status of ovs-vswitchd.  It is  an
+              error to include this option with the force-reload-kmod command.
 
 EXIT STATUS
        ovs-ctl  exits  with  status  0 on success and nonzero on failure.  The

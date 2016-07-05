@@ -25,130 +25,258 @@ This utility can be used to manage the OVN northbound database\[char46]
 .SH "GENERAL COMMANDS"
 .RS
 .TP
-\fBshow [\fIlswitch\fB]\fR
+\fBshow [\fIswitch\fB | \fIrouter\fB]\fR
 Prints a brief overview of the database contents\[char46]  If
-\fIlswitch\fR is provided, only records related to that
-logical switch are shown\[char46]
+\fIswitch\fR is provided, only records related to that
+logical switch are shown\[char46] If
+\fIrouter\fR is provided, only records related to that
+logical router are shown\[char46]
 .RE
 .SH "LOGICAL SWITCH COMMANDS"
 .RS
 .TP
-\fBlswitch\-add\fR [\fIlswitch\fR]
-Creates a new logical switch named \fIlswitch\fR\[char46]  If
-\fIlswitch\fR is not provided, the switch will not have a
-name so other commands must refer to this switch by its UUID\[char46]
-Initially the switch will have no ports\[char46]
+\fBls\-add\fR
+Creates a new, unnamed logical switch, which initially has no ports\[char46]
+The switch does not have a name, other commands must refer to this
+switch by its UUID\[char46]
 .TP
-\fBlswitch\-del\fR \fIlswitch\fR
-Deletes \fIlswitch\fR\[char46]
+[\fB\-\-may\-exist\fR | \fB\-\-add\-duplicate\fR] \fBls\-add\fR \fIswitch\fR
+Creates a new logical switch named \fIswitch\fR, which
+initially has no ports\[char46]
+.IP
+The OVN northbound database schema does not require logical switch
+names to be unique, but the whole point to the names is to provide an
+easy way for humans to refer to the switches, making duplicate names
+unhelpful\[char46]  Thus, without any options, this command regards it as an
+error if \fIswitch\fR is a duplicate name\[char46]  With
+\fB\-\-may\-exist\fR, adding a duplicate name succeeds but does
+not create a new logical switch\[char46]  With \fB\-\-add\-duplicate\fR,
+the command really creates a new logical switch with a duplicate
+name\[char46]  It is an error to specify both options\[char46]  If there are multiple
+logical switches with a duplicate name, configure the logical switches
+using the UUID instead of the \fIswitch\fR name\[char46]
 .TP
-\fBlswitch\-list\fR
+[\fB\-\-if\-exists\fR] \fBls\-del\fR \fIswitch\fR
+Deletes \fIswitch\fR\[char46]  It is an error if \fIswitch\fR does
+not exist, unless \fB\-\-if\-exists\fR is specified\[char46]
+.TP
+\fBls\-list\fR
 Lists all existing switches on standard output, one per line\[char46]
 .RE
-.SH "ACL COMMANDS"
+.SH "LOGICAL SWITCH ACL COMMANDS"
 .RS
 .TP
-[\fB\-\-log\fR] \fBacl\-add\fR \fIlswitch\fR \fIdirection\fR \fIpriority\fR \fImatch\fR \fIaction\fR
-Adds the specified ACL to \fIlswitch\fR\[char46]
+[\fB\-\-log\fR] \fBacl\-add\fR \fIswitch\fR \fIdirection\fR \fIpriority\fR \fImatch\fR \fIaction\fR
+Adds the specified ACL to \fIswitch\fR\[char46]
 \fIdirection\fR must be either \fBfrom\-lport\fR or
 \fBto\-lport\fR\[char46]  \fIpriority\fR must be between
 \fB1\fR and \fB65534\fR, inclusive\[char46]  If
 \fB\-\-log\fR is specified, packet logging is enabled for the
 ACL\[char46]  A full description of the fields are in \fBovn\-nb\fR(5)\[char46]
 .TP
-\fBacl\-del\fR \fIlswitch\fR [\fIdirection\fR [\fIpriority\fR \fImatch\fR]]
-Deletes ACLs from \fIlswitch\fR\[char46]  If only
-\fIlswitch\fR is supplied, all the ACLs from the logical
+\fBacl\-del\fR \fIswitch\fR [\fIdirection\fR [\fIpriority\fR \fImatch\fR]]
+Deletes ACLs from \fIswitch\fR\[char46]  If only
+\fIswitch\fR is supplied, all the ACLs from the logical
 switch are deleted\[char46]  If \fIdirection\fR is also specified,
 then all the flows in that direction will be deleted from the
 logical switch\[char46]  If all the fields are given, then a single flow
 that matches all the fields will be deleted\[char46]
 .TP
-\fBacl\-list\fR \fIlswitch\fR
-Lists the ACLs on \fIlswitch\fR\[char46]
+\fBacl\-list\fR \fIswitch\fR
+Lists the ACLs on \fIswitch\fR\[char46]
 .RE
-.SH "LOGICAL PORT COMMANDS"
+.SH "LOGICAL SWITCH PORT COMMANDS"
 .RS
 .TP
-\fBlport\-add\fR \fIlswitch\fR \fIlport\fR
-Creates on \fIlswitch\fR a new logical port named
-\fIlport\fR\[char46]
+[\fB\-\-may\-exist\fR] \fBlsp\-add\fR \fIswitch\fR \fIport\fR
+Creates on \fIlswitch\fR a new logical switch port named
+\fIport\fR\[char46]
+.IP
+It is an error if a logical port named \fIport\fR already
+exists, unless \fB\-\-may\-exist\fR is specified\[char46]  Regardless of
+\fB\-\-may\-exist\fR, it is an error if the existing port is in
+some logical switch other than \fIswitch\fR or if it has a
+parent port\[char46]
 .TP
-\fBlport\-add\fR \fIlswitch\fR \fIlport\fR \fIparent\fR \fItag\fR
-Creates on \fIlswitch\fR a logical port named \fIlport\fR
-that is a child of \fIparent\fR that is identifed with VLAN ID
-\fItag\fR\[char46]  This is useful in cases such as virtualized
-container environments where Open vSwitch does not have a direct
-connection to the container\(cqs port and it must be shared with
-the virtual machine\(cqs port\[char46]
+[\fB\-\-may\-exist\fR] \fBlsp\-add\fR \fIswitch\fR \fIport\fR \fIparent\fR \fItag\fR
+Creates on \fIswitch\fR a logical switch port named
+\fIport\fR that is a child of \fIparent\fR that is
+identifed with VLAN ID \fItag\fR\[char46]  This is useful in
+cases such as virtualized container environments where Open
+vSwitch does not have a direct connection to the container\(cqs
+port and it must be shared with the virtual machine\(cqs port\[char46]
+.IP
+It is an error if a logical port named \fIport\fR already
+exists, unless \fB\-\-may\-exist\fR is specified\[char46]  Regardless of
+\fB\-\-may\-exist\fR, it is an error if the existing port is not
+in \fIswitch\fR or if it does not have the specified
+\fIparent\fR and \fItag\fR\[char46]
 .TP
-\fBlport\-del\fR \fIlport\fR
-Deletes \fIlport\fR\[char46]
+[\fB\-\-if\-exists\fR] \fBlsp\-del\fR \fIport\fR
+Deletes \fIport\fR\[char46]  It is an error if \fIport\fR does
+not exist, unless \fB\-\-if\-exists\fR is specified\[char46]
 .TP
-\fBlport\-list\fR \fIlswitch\fR
-Lists all the logical ports within \fIlswitch\fR on
+\fBlsp\-list\fR \fIswitch\fR
+Lists all the logical switch ports within \fIswitch\fR on
 standard output, one per line\[char46]
 .TP
-\fBlport\-get\-parent\fR \fIlport\fR
-If set, get the parent port of \fIlport\fR\[char46]  If not set, print
+\fBlsp\-get\-parent\fR \fIport\fR
+If set, get the parent port of \fIport\fR\[char46]  If not set, print
 nothing\[char46]
 .TP
-\fBlport\-get\-tag\fR \fIlport\fR
-If set, get the tag for \fIlport\fR traffic\[char46]  If not set, print
+\fBlsp\-get\-tag\fR \fIport\fR
+If set, get the tag for \fIport\fR traffic\[char46]  If not set, print
 nothing\[char46]
 .TP
-\fBlport\-set\-addresses\fR \fIlport\fR [\fIaddress\fR]\[char46]\[char46]\[char46]
-Sets the addresses associated with \fIlport\fR to
+\fBlsp\-set\-addresses\fR \fIport\fR [\fIaddress\fR]\[char46]\[char46]\[char46]
+Sets the addresses associated with \fIport\fR to
 \fIaddress\fR\[char46]  Each \fIaddress\fR should be either an
 Ethernet address or an Ethernet address followed by an IP address
 (separated by a space and quoted to form a single command-line
 argument)\[char46]  The special form \fBunknown\fR is also valid\[char46]
 Multiple Ethernet addresses or Ethernet+IP pairs may be set\[char46] If no
-\fIaddress\fR argument is given, \fIlport\fR will have no
+\fIaddress\fR argument is given, \fIport\fR will have no
 addresses associated with it\[char46]
 .TP
-\fBlport\-get\-addresses\fR \fIlport\fR
-Lists all the addresses associated with \fIlport\fR on standard
+\fBlsp\-get\-addresses\fR \fIport\fR
+Lists all the addresses associated with \fIport\fR on standard
 output, one per line\[char46]
 .TP
-\fBlport\-set\-port\-security\fR \fIlport\fR [\fIaddrs\fR]\[char46]\[char46]\[char46]
-Sets the port security addresses associated with \fIlport\fR to
+\fBlsp\-set\-port\-security\fR \fIport\fR [\fIaddrs\fR]\[char46]\[char46]\[char46]
+Sets the port security addresses associated with \fIport\fR to
 \fIaddrs\fR\[char46]  Multiple sets of addresses may be set by using
 multiple \fIaddrs\fR arguments\[char46]  If no \fIaddrs\fR argument
-is given, \fIlport\fR will not have port security enabled\[char46]
+is given, \fIport\fR will not have port security enabled\[char46]
 .IP
 Port security limits the addresses from which a logical port may send
 packets and to which it may receive packets\[char46]  See the
-\fBovn\-nb\fR(5) documentation for the \fBport_security\fR column in the \fBLogical_Port\fR table for details\[char46]
+\fBovn\-nb\fR(5) documentation for the \fBport_security\fR column in
+the \fBLogical_Switch_Port\fR table for details\[char46]
 .TP
-\fBlport\-get\-port\-security\fR \fIlport\fR
-Lists all the port security addresses associated with \fIlport\fR
+\fBlsp\-get\-port\-security\fR \fIport\fR
+Lists all the port security addresses associated with \fIport\fR
 on standard output, one per line\[char46]
 .TP
-\fBlport\-get\-up\fR \fIlport\fR
-Prints the state of \fIlport\fR, either \fBup\fR or
+\fBlsp\-get\-up\fR \fIport\fR
+Prints the state of \fIport\fR, either \fBup\fR or
 \fBdown\fR\[char46]
 .TP
-\fBlport\-set\-enabled\fR \fIlport\fR \fIstate\fR
-Set the administrative state of \fIlport\fR, either \fBenabled\fR
+\fBlsp\-set\-enabled\fR \fIport\fR \fIstate\fR
+Set the administrative state of \fIport\fR, either \fBenabled\fR
 or \fBdisabled\fR\[char46]  When a port is disabled, no traffic is allowed into
 or out of the port\[char46]
 .TP
-\fBlport\-get\-enabled\fR \fIlport\fR
-Prints the administrative state of \fIlport\fR, either \fBenabled\fR
+\fBlsp\-get\-enabled\fR \fIport\fR
+Prints the administrative state of \fIport\fR, either \fBenabled\fR
 or \fBdisabled\fR\[char46]
 .TP
-\fBlport\-set\-type\fR \fIlport\fR \fItype\fR
+\fBlsp\-set\-type\fR \fIport\fR \fItype\fR
 Set the type for the logical port\[char46]  No special types have been implemented yet\[char46]
 .TP
-\fBlport\-get\-type\fR \fIlport\fR
+\fBlsp\-get\-type\fR \fIport\fR
 Get the type for the logical port\[char46]
 .TP
-\fBlport\-set\-options\fR \fIlport\fR [\fIkey=value\fR]\[char46]\[char46]\[char46]
+\fBlsp\-set\-options\fR \fIport\fR [\fIkey=value\fR]\[char46]\[char46]\[char46]
 Set type-specific key-value options for the logical port\[char46]
 .TP
-\fBlport\-get\-options\fR \fIlport\fR
+\fBlsp\-get\-options\fR \fIport\fR
 Get the type-specific options for the logical port\[char46]
+.RE
+.SH "LOGICAL ROUTER COMMANDS"
+.RS
+.TP
+\fBlr\-add\fR
+Creates a new, unnamed logical router, which initially has no ports\[char46]
+The router does not have a name, other commands must refer to this
+router by its UUID\[char46]
+.TP
+[\fB\-\-may\-exist\fR | \fB\-\-add\-duplicate\fR] \fBlr\-add\fR \fIrouter\fR
+Creates a new logical router named \fIrouter\fR, which
+initially has no ports\[char46]
+.IP
+The OVN northbound database schema does not require logical router
+names to be unique, but the whole point to the names is to provide an
+easy way for humans to refer to the routers, making duplicate names
+unhelpful\[char46]  Thus, without any options, this command regards it as an
+error if \fIrouter\fR is a duplicate name\[char46]  With
+\fB\-\-may\-exist\fR, adding a duplicate name succeeds but does
+not create a new logical router\[char46]  With \fB\-\-add\-duplicate\fR,
+the command really creates a new logical router with a duplicate
+name\[char46]  It is an error to specify both options\[char46]  If there are multiple
+logical routers with a duplicate name, configure the logical routers
+using the UUID instead of the \fIrouter\fR name\[char46]
+.TP
+[\fB\-\-if\-exists\fR] \fBlr\-del\fR \fIrouter\fR
+Deletes \fIrouter\fR\[char46]  It is an error if \fIrouter\fR does
+not exist, unless \fB\-\-if\-exists\fR is specified\[char46]
+.TP
+\fBlr\-list\fR
+Lists all existing routers on standard output, one per line\[char46]
+.RE
+.SH "LOGICAL ROUTER PORT COMMANDS"
+.RS
+.TP
+[\fB\-\-may\-exist\fR] \fBlrp\-add\fR \fIrouter\fR \fIport\fR \fImac\fR \fInetwork\fR [\fIpeer\fR]
+Creates on \fIrouter\fR a new logical router port named
+\fIport\fR with Ethernet address \fImac\fR and IP
+address/netmask \fInetwork\fR\[char46]  If \fIpeer\fR is
+specified, it identifies a logical router port that connects
+to this one\[char46]
+.IP
+It is an error if a logical router port named \fIport\fR
+already exists, unless \fB\-\-may\-exist\fR is specified\[char46]
+Regardless of \fB\-\-may\-exist\fR, it is an error if the
+existing router port is in some logical router other than
+\fIrouter\fR\[char46]
+.TP
+[\fB\-\-if\-exists\fR] \fBlrp\-del\fR \fIport\fR
+Deletes \fIport\fR\[char46]  It is an error if \fIport\fR does
+not exist, unless \fB\-\-if\-exists\fR is specified\[char46]
+.TP
+\fBlrp\-list\fR \fIrouter\fR
+Lists all the logical router ports within \fIrouter\fR on
+standard output, one per line\[char46]
+.TP
+\fBlrp\-set\-enabled\fR \fIport\fR \fIstate\fR
+Set the administrative state of \fIport\fR, either
+\fBenabled\fR or \fBdisabled\fR\[char46]  When a port is
+disabled, no traffic is allowed into or out of the port\[char46]
+.TP
+\fBlrp\-get\-enabled\fR \fIport\fR
+Prints the administrative state of \fIport\fR, either
+\fBenabled\fR or \fBdisabled\fR\[char46]
+.RE
+.SH "LOGICAL ROUTER STATIC ROUTE COMMANDS"
+.RS
+.TP
+[\fB\-\-may\-exist\fR] \fBlr\-route\-add\fR \fIrouter\fR \fIprefix\fR \fInexthop\fR [\fIport\fR]
+Adds the specified route to \fIrouter\fR\[char46]
+\fIprefix\fR describes an IPv4 or IPv6 prefix for this
+route, such as \fB192\[char46]168\[char46]100\[char46]0/24\fR\[char46]
+\fInexthop\fR specifies the gateway to use for this
+route, which should be the IP address of one of
+\fIrouter\fR logical router ports or the IP address of a
+logical port\[char46]  If \fIport\fR is specified, packets that
+match this route will be sent out that port\[char46]  When
+\fIport\fR is omitted, OVN infers the output port based
+on \fInexthop\fR\[char46]
+.IP
+It is an error if a route with \fIprefix\fR already exists,
+unless \fB\-\-may\-exist\fR is specified\[char46]
+.TP
+[\fB\-\-if\-exists\fR] \fBlr\-route\-del\fR \fIrouter\fR [\fIprefix\fR]
+Deletes routes from \fIrouter\fR\[char46]  If only \fIrouter\fR
+is supplied, all the routes from the logical router are
+deleted\[char46]  If \fIprefix\fR is also specified, then all the
+routes that match the prefix will be deleted from the logical
+router\[char46]
+.IP
+It is an error if \fBprefix\fR is specified and there
+is no matching route entry, unless \fB\-\-if\-exists\fR is
+specified\[char46]
+.TP
+\fBlr\-route\-list\fR \fIrouter\fR
+Lists the routes on \fIrouter\fR\[char46]
 .RE
 .SH "DATABASE COMMANDS"
 .PP
@@ -172,7 +300,7 @@ The following tables are currently defined:
 \fBLogical_Switch\fR
 An L2 logical switch\[char46]  Records may be identified by name\[char46]
 .TP
-\fBLogical_Port\fR
+\fBLogical_Switch_Port\fR
 A port within an L2 logical switch\[char46]  Records may be identified by name\[char46]
 .TP
 \fBACL\fR
@@ -183,6 +311,9 @@ An L3 logical router\[char46]  Records may be identified by name\[char46]
 .TP
 \fBLogical_Router_Port\fR
 A port within an L3 logical router\[char46]  Records may be identified by name\[char46]
+.TP
+\fBLogical_Router_Static_Route\fR
+A static route belonging to an L3 logical router\[char46]
 .RE
 .PP
 \fIDatabase Values\fR

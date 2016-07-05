@@ -294,10 +294,11 @@ configuration\[char46]  This includes associating unique, persistent identifier
 \fIvif-id\fR and Ethernet address \fImac\fR with the VIF\[char46]
 .IP 2. .25in
 The CMS plugin updates the OVN Northbound database to include the new
-VIF, by adding a row to the \fBLogical_Port\fR table\[char46]  In the new
-row, \fBname\fR is \fIvif-id\fR, \fBmac\fR is
-\fImac\fR, \fBswitch\fR points to the OVN logical switch\(cqs
-Logical_Switch record, and other columns are initialized appropriately\[char46]
+VIF, by adding a row to the \fBLogical_Switch_Port\fR
+table\[char46]  In the new row, \fBname\fR is \fIvif-id\fR,
+\fBmac\fR is \fImac\fR, \fBswitch\fR points to
+the OVN logical switch\(cqs Logical_Switch record, and other columns
+are initialized appropriately\[char46]
 .IP 3. .25in
 \fBovn\-northd\fR receives the OVN Northbound database update\[char46]  In
 turn, it makes the corresponding updates to the OVN Southbound database,
@@ -327,22 +328,21 @@ on hypervisors that support OVS\[char46])
 .IP 6. .25in
 On the hypervisor where the VM is powered on, \fBovn\-controller\fR
 notices \fBexternal\-ids\fR:\fBiface\-id\fR in the new
-Interface\[char46]  In response, it updates the local hypervisor\(cqs OpenFlow
-tables so that packets to and from the VIF are properly handled\[char46]
-Afterward, in the OVN Southbound DB, it updates the
+Interface\[char46] In response, in the OVN Southbound DB, it updates the
 \fBBinding\fR table\(cqs \fBchassis\fR column for the
-row that links the logical port from
-\fBexternal\-ids\fR:\fBiface\-id\fR to the hypervisor\[char46]
+row that links the logical port from \fBexternal\-ids\fR:\fB
+iface\-id\fR to the hypervisor\[char46] Afterward, \fBovn\-controller\fR
+updates the local hypervisor\(cqs OpenFlow tables so that packets to and from
+the VIF are properly handled\[char46]
 .IP 7. .25in
 Some CMS systems, including OpenStack, fully start a VM only when its
 networking is ready\[char46]  To support this, \fBovn\-northd\fR notices
 the \fBchassis\fR column updated for the row in
 \fBBinding\fR table and pushes this upward by updating the
-\fBup\fR column in the OVN
-Northbound database\(cqs \fBLogical_Port\fR table to
-indicate that the VIF is now up\[char46]  The CMS, if it uses this feature, can
-then
-react by allowing the VM\(cqs execution to proceed\[char46]
+\fBup\fR column
+in the OVN Northbound database\(cqs \fBLogical_Switch_Port\fR table to indicate that the VIF is now up\[char46]  The CMS,
+if it uses this feature, can then react by allowing the VM\(cqs
+execution to proceed\[char46]
 .IP 8. .25in
 On every hypervisor but the one where the VIF resides,
 \fBovn\-controller\fR notices the completely populated row in the
@@ -372,7 +372,7 @@ anyone, an administrator deletes the VIF using the CMS user interface or
 API\[char46]  The CMS updates its own configuration\[char46]
 .IP 13. .25in
 The CMS plugin removes the VIF from the OVN Northbound database,
-by deleting its row in the \fBLogical_Port\fR table\[char46]
+by deleting its row in the \fBLogical_Switch_Port\fR table\[char46]
 .IP 14. .25in
 \fBovn\-northd\fR receives the OVN Northbound update and in turn
 updates the OVN Southbound database accordingly, by removing or updating
@@ -444,10 +444,11 @@ will also need to choose an unused VLAN inside that VM\[char46]
 The container spawning entity (either directly or through the CMS that
 manages the underlying infrastructure) updates the OVN Northbound
 database to include the new CIF, by adding a row to the
-\fBLogical_Port\fR table\[char46]  In the new row, \fBname\fR is
-any unique identifier, \fBparent_name\fR is the \fIvif-id\fR
-of the VM through which the CIF\(cqs network traffic is expected to go
-through and the \fBtag\fR is the VLAN tag that identifies the
+\fBLogical_Switch_Port\fR table\[char46]  In the new row,
+\fBname\fR is any unique identifier,
+\fBparent_name\fR is the \fIvif-id\fR of the VM
+through which the CIF\(cqs network traffic is expected to go through
+and the \fBtag\fR is the VLAN tag that identifies the
 network traffic of that CIF\[char46]
 .IP 3. .25in
 \fBovn\-northd\fR receives the OVN Northbound database update\[char46]  In
@@ -473,13 +474,13 @@ One can only start the application inside the container after the
 underlying network is ready\[char46]  To support this, \fBovn\-northd\fR
 notices the updated \fBchassis\fR column in \fBBinding\fR
 table and updates the \fBup\fR column in the OVN Northbound database\(cqs
-\fBLogical_Port\fR table to indicate that the
+\fBLogical_Switch_Port\fR table to indicate that the
 CIF is now up\[char46]  The entity responsible to start the container application
 queries this value and starts the application\[char46]
 .IP 6. .25in
 Eventually the entity that created and started the container, stops it\[char46]
 The entity, through the CMS (or directly) deletes its row in the
-\fBLogical_Port\fR table\[char46]
+\fBLogical_Switch_Port\fR table\[char46]
 .IP 7. .25in
 \fBovn\-northd\fR receives the OVN Northbound update and in turn
 updates the OVN Southbound database accordingly, by removing or updating
@@ -539,11 +540,19 @@ OVN stores this in Nicira extension register number 7\[char46]
 Geneve and STT tunnels pass this field as part of the tunnel key\[char46]
 VXLAN tunnels do not transmit the logical output port field\[char46]
 .TP
-conntrack zone field
-A field that denotes the connection tracking zone\[char46]  The value only
-has local significance and is not meaningful between chassis\[char46]
-This is initialized to 0 at the beginning of the logical ingress
-pipeline\[char46]  OVN stores this in Nicira extension register number 5\[char46]
+conntrack zone field for logical ports
+A field that denotes the connection tracking zone for logical ports\[char46]
+The value only has local significance and is not meaningful between
+chassis\[char46]  This is initialized to 0 at the beginning of the logical
+ingress pipeline\[char46]  OVN stores this in Nicira extension register number 5\[char46]
+.TP
+conntrack zone fields for Gateway router
+Fields that denote the connection tracking zones for Gateway routers\[char46]
+These values only have local significance (only on chassis that have
+Gateway routers instantiated) and is not meaningful between
+chassis\[char46]  OVN stores the zone information for DNATting in Nicira
+extension register number 3 and zone information for SNATing in Nicira
+extension register number 4\[char46]
 .TP
 VLAN ID
 The VLAN ID is used as an interface between OVN and containers nested
@@ -587,24 +596,44 @@ logical ports and logical datapaths\[char46]  A big part of
 \fBovn\-controller\fR\(cqs job is to translate them into equivalent
 OpenFlow (in particular it translates the table numbers:
 \fBLogical_Flow\fR tables 0 through 15 become OpenFlow tables 16
-through 31)\[char46]  For a given packet, the logical ingress pipeline
-eventually executes zero or more \fBoutput\fR actions:
+through 31)\[char46]
+.IP
+Most OVN actions have fairly obvious implementations in OpenFlow (with
+OVS extensions), e\[char46]g\[char46] \fBnext;\fR is implemented as
+\fBresubmit\fR, \fB\fIfield\fB =
+\fIconstant\fB;\fR as \fBset_field\fR\[char46]  A few are worth
+describing in more detail:
 .RS
-.IP \(bu
-If the pipeline executes no \fBoutput\fR actions at all, the
-packet is effectively dropped\[char46]
-.IP \(bu
-Most commonly, the pipeline executes one \fBoutput\fR action,
-which \fBovn\-controller\fR implements by resubmitting the
-packet to table 32\[char46]
-.IP \(bu
-If the pipeline can execute more than one \fBoutput\fR action,
-then each one is separately resubmitted to table 32\[char46]  This can be
-used to send multiple copies of the packet to multiple ports\[char46]  (If
-the packet was not modified between the \fBoutput\fR actions,
-and some of the copies are destined to the same hypervisor, then
-using a logical multicast output port would save bandwidth between
-hypervisors\[char46])
+.TP
+\fBoutput:\fR
+Implemented by resubmitting the packet to table 32\[char46]  If the pipeline
+executes more than one \fBoutput\fR action, then each one is
+separately resubmitted to table 32\[char46]  This can be used to send
+multiple copies of the packet to multiple ports\[char46]  (If the packet was
+not modified between the \fBoutput\fR actions, and some of the
+copies are destined to the same hypervisor, then using a logical
+multicast output port would save bandwidth between hypervisors\[char46])
+.TP
+\fBget_arp(\fIP\fB, \fIA\fB);\fR
+Implemented by storing arguments into OpenFlow fields, then
+resubmitting to table 65, which \fBovn\-controller\fR
+populates with flows generated from the \fBMAC_Binding\fR
+table in the OVN Southbound database\[char46]  If there is a match in table
+65, then its actions store the bound MAC in the Ethernet
+destination address field\[char46]
+.IP
+(The OpenFlow actions save and restore the OpenFlow fields used for
+the arguments, so that the OVN actions do not have to be aware of
+this temporary use\[char46])
+.TP
+\fBput_arp(\fIP\fB, \fIA\fB, \fIE\fB);\fR
+Implemented by storing the arguments into OpenFlow fields, then
+outputting a packet to \fBovn\-controller\fR, which updates
+the \fBMAC_Binding\fR table\[char46]
+.IP
+(The OpenFlow actions save and restore the OpenFlow fields used for
+the arguments, so that the OVN actions do not have to be aware of
+this temporary use\[char46])
 .RE
 .IP 3. .25in
 OpenFlow tables 32 through 47 implement the \fBoutput\fR action
@@ -713,7 +742,7 @@ correponding vtep logical switch is bound to an OVN logical network\[char46]
 .IP 3. .25in
 Now, the administrator can use the CMS to add a VTEP logical switch
 to the OVN logical network\[char46]  To do that, the CMS must first create a
-new \fBLogical_Port\fR table entry in the \fB
+new \fBLogical_Switch_Port\fR table entry in the \fB
 OVN_Northbound\fR database\[char46]  Then, the \fItype\fR column
 of this entry must be set to \(dqvtep\(dq\[char46]  Next, the \fI
 vtep-logical-switch\fR and \fIvtep-physical-switch\fR keys

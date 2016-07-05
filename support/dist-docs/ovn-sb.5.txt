@@ -16,8 +16,8 @@ NAME
        northbound to the Cloud Management System, via ovn-northd:
 
    Database Structure
-       The OVN Southbound database contains three classes of data with differ‐
-       ent properties, as described in the sections below.
+       The  OVN  Southbound  database  contains classes of data with different
+       properties, as described in the sections below.
 
      Physical Network (PN) data
 
@@ -59,16 +59,16 @@ NAME
 
        Logical_Flow and Multicast_Group contain LN data.
 
-     Bindings data
+     Logical-physical bindings
 
-       Bindings data link logical and physical components.  They show the cur‐
+       These tables link logical and physical components.  They show the  cur‐
        rent  placement of logical components (such as VMs and VIFs) onto chas‐
        sis, and map logical entities to the values that represent them in tun‐
        nel encapsulations.
 
-       Bindings  change frequently, at least every time a VM powers up or down
-       or migrates, and especially quickly in a  container  environment.   The
-       amount of data per VM (or VIF) is small.
+       These  tables  change frequently, at least every time a VM powers up or
+       down or migrates, and especially quickly in  a  container  environment.
+       The amount of data per VM (or VIF) is small.
 
        Each  chassis  is authoritative about the VMs and VIFs that it hosts at
        any given time and can efficiently flood that state to a central  loca‐
@@ -76,31 +76,42 @@ NAME
 
        The Port_Binding and Datapath_Binding tables contain binding data.
 
+     MAC bindings
+
+       The MAC_Binding table tracks the bindings from IP addresses to Ethernet
+       addresses that are dynamically discovered  using  ARP  (for  IPv4)  and
+       neighbor discovery (for IPv6).  Usually, IP-to-MAC bindings for virtual
+       machines are statically  populated  into  the  Port_Binding  table,  so
+       MAC_Binding  is  primarily  used  to discover bindings on physical net‐
+       works.
+
    Common Columns
-       Some  tables  contain a special column named external_ids.  This column
-       has the same form and  purpose  each  place  that  it  appears,  so  we
+       Some tables contain a special column named external_ids.   This  column
+       has  the  same  form  and  purpose  each  place  that it appears, so we
        describe it here to save space later.
 
               external_ids: map of string-string pairs
-                     Key-value  pairs for use by the software that manages the
-                     OVN  Southbound  database   rather   than   by   ovn-con‐
-                     troller/ovn-controller-vtep.   In  particular, ovn-northd
+                     Key-value pairs for use by the software that manages  the
+                     OVN   Southbound   database   rather   than  by  ovn-con‐
+                     troller/ovn-controller-vtep.  In  particular,  ovn-northd
                      can use key-value pairs in this column to relate entities
                      in the southbound database to higher-level entities (such
-                     as entities in the OVN Northbound database).   Individual
-                     key-value  pairs in this column may be documented in some
-                     cases to aid in understanding  and  troubleshooting,  but
-                     the  reader should not mistake such documentation as com‐
+                     as  entities in the OVN Northbound database).  Individual
+                     key-value pairs in this column may be documented in  some
+                     cases  to  aid  in understanding and troubleshooting, but
+                     the reader should not mistake such documentation as  com‐
                      prehensive.
 
 TABLE SUMMARY
-       The following list summarizes the purpose of each of the tables in  the
-       OVN_Southbound  database.   Each table is described in more detail on a
+       The  following list summarizes the purpose of each of the tables in the
+       OVN_Southbound database.  Each table is described in more detail  on  a
        later page.
 
        Table     Purpose
        Chassis   Physical Network Hypervisor and Gateway Information
        Encap     Encapsulation Types
+       Address_Set
+                 Address Sets
        Logical_Flow
                  Logical Network Flows
        Multicast_Group
@@ -109,22 +120,31 @@ TABLE SUMMARY
                  Physical-Logical Datapath Bindings
        Port_Binding
                  Physical-Logical Port Bindings
+       MAC_Binding
+                 IP to MAC bindings
+       DHCP_Options
+                 DHCP Options supported by native OVN DHCP
 
 Chassis TABLE
-       Each row in this table represents a hypervisor or gateway  (a  chassis)
-       in   the   physical   network   (PN).    Each   chassis,  via  ovn-con‐
-       troller/ovn-controller-vtep, adds and updates its own row, and keeps  a
+       Each  row  in this table represents a hypervisor or gateway (a chassis)
+       in  the  physical   network   (PN).    Each   chassis,   via   ovn-con‐
+       troller/ovn-controller-vtep,  adds and updates its own row, and keeps a
        copy of the remaining rows to determine how to reach other hypervisors.
 
-       When  a  chassis  shuts  down gracefully, it should remove its own row.
-       (This is not critical because  resources  hosted  on  the  chassis  are
-       equally  unreachable  regardless  of whether the row is present.)  If a
-       chassis shuts down permanently without removing its row, some  kind  of
-       manual  or  automatic  cleanup  is  eventually  needed; we can devise a
+       When a chassis shuts down gracefully, it should  remove  its  own  row.
+       (This  is  not  critical  because  resources  hosted on the chassis are
+       equally unreachable regardless of whether the row is  present.)   If  a
+       chassis  shuts  down permanently without removing its row, some kind of
+       manual or automatic cleanup is  eventually  needed;  we  can  devise  a
        process for that as necessary.
 
    Summary:
        name                          string (must be unique within table)
+       hostname                      string
+       external_ids : ovn-bridge-mappings
+                                     optional string
+       Common Columns:
+         external_ids                map of string-string pairs
        Encapsulation Configuration:
          encaps                      set of 1 or more Encaps
        Gateway Configuration:
@@ -132,37 +152,56 @@ Chassis TABLE
 
    Details:
        name: string (must be unique within table)
-              A  chassis  name,  taken  from  external_ids:system-id  in   the
-              Open_vSwitch  database’s  Open_vSwitch table.  OVN does not pre‐
-              scribe a particular format for chassis names.
+              OVN  does  not  prescribe a particular format for chassis names.
+              ovn-controller populates this column using  external_ids:system-
+              id  in the Open_vSwitch database’s Open_vSwitch table.  ovn-con‐
+              troller-vtep populates  this  column  with  name  in  the  hard‐
+              ware_vtep database’s Physical_Switch table.
+
+       hostname: string
+              The hostname of the chassis, if applicable.  ovn-controller will
+              populate this column with the hostname of the host it is running
+              on.  ovn-controller-vtep will leave this column empty.
+
+       external_ids : ovn-bridge-mappings: optional string
+              ovn-controller  populates  this  key with the set of bridge map‐
+              pings it has been configured to use.  Other applications  should
+              treat  this  key  as  read-only.  See ovn-controller(8) for more
+              information.
+
+     Common Columns:
+       The overall purpose of these columns is described under Common  Columns
+       at the beginning of this document.
+
+       external_ids: map of string-string pairs
 
      Encapsulation Configuration:
-       OVN uses encapsulation to transmit logical  dataplane  packets  between
+       OVN  uses  encapsulation  to transmit logical dataplane packets between
        chassis.
 
        encaps: set of 1 or more Encaps
-              Points  to  supported  encapsulation  configurations to transmit
-              logical dataplane packets to this  chassis.   Each  entry  is  a
+              Points to supported  encapsulation  configurations  to  transmit
+              logical  dataplane  packets  to  this  chassis.  Each entry is a
               Encap record that describes the configuration.
 
      Gateway Configuration:
-       A  gateway  is  a chassis that forwards traffic between the OVN-managed
+       A gateway is a chassis that forwards traffic  between  the  OVN-managed
        part of a logical network and a physical VLAN, extending a tunnel-based
-       logical  network into a physical network.  Gateways are typically dedi‐
-       cated nodes that do not host VMs and will  be  controlled  by  ovn-con‐
+       logical network into a physical network.  Gateways are typically  dedi‐
+       cated  nodes  that  do  not host VMs and will be controlled by ovn-con‐
        troller-vtep.
 
        vtep_logical_switches: set of strings
-              Stores  all  VTEP logical switch names connected by this gateway
-              chassis.  The Port_Binding table entry with  options:vtep-physi‐
-              cal-switch  equal  Chassis name, and options:vtep-logical-switch
-              value in Chassis vtep_logical_switches, will be associated  with
+              Stores all VTEP logical switch names connected by  this  gateway
+              chassis.   The Port_Binding table entry with options:vtep-physi‐
+              cal-switch equal Chassis name,  and  options:vtep-logical-switch
+              value  in Chassis vtep_logical_switches, will be associated with
               this Chassis.
 
 Encap TABLE
-       The  encaps column in the Chassis table refers to rows in this table to
-       identify how OVN may transmit logical dataplane packets to  this  chas‐
-       sis.   Each  chassis,  via ovn-controller(8) or ovn-controller-vtep(8),
+       The encaps column in the Chassis table refers to rows in this table  to
+       identify  how  OVN may transmit logical dataplane packets to this chas‐
+       sis.  Each chassis, via  ovn-controller(8)  or  ovn-controller-vtep(8),
        adds and updates its own rows and keeps a copy of the remaining rows to
        determine how to reach other chassis.
 
@@ -173,17 +212,30 @@ Encap TABLE
 
    Details:
        type: string, one of stt, geneve, or vxlan
-              The  encapsulation  to  use to transmit packets to this chassis.
-              Hypervisors must use either geneve or  stt.   Gateways  may  use
+              The encapsulation to use to transmit packets  to  this  chassis.
+              Hypervisors  must  use  either  geneve or stt.  Gateways may use
               vxlan, geneve, or stt.
 
        options: map of string-string pairs
               Options for configuring the encapsulation, e.g. IPsec parameters
-              when IPsec support is  introduced.   No  options  are  currently
+              when  IPsec  support  is  introduced.   No options are currently
               defined.
 
        ip: string
               The IPv4 address of the encapsulation tunnel endpoint.
+
+Address_Set TABLE
+       See the documentation for the Address_Set table in  the  OVN_Northbound
+       database for details.
+
+   Summary:
+       name                          string (must be unique within table)
+       addresses                     set of strings
+
+   Details:
+       name: string (must be unique within table)
+
+       addresses: set of strings
 
 Logical_Flow TABLE
        Each  row  in this table represents one logical flow.  ovn-northd popu‐
@@ -471,6 +523,10 @@ Logical_Flow TABLE
               stant1, constant2, ... }’’ is equivalent to ``field != constant1
               && field != constant2 && ...’’.
 
+              You may refer to a set of IPv4, IPv6, or MAC addresses stored in
+              the Address_Set table by its name.  An Address_Set with  a  name
+              of set1 can be referred to as $set1.
+
               Miscellaneous
 
               Comparisons  may  name  the  symbol  or the constant first, e.g.
@@ -546,6 +602,8 @@ Logical_Flow TABLE
               ·      icmp6.type icmp6.code
 
               ·      nd.target nd.sll nd.tll
+
+              ·      ct_mark ct_label
 
               ·      ct_state, which has the following Boolean subfields:
 
@@ -706,51 +764,199 @@ Logical_Flow TABLE
                    generally useful.
 
               ct_commit;
+              ct_commit(ct_mark=value[/mask]);
+              ct_commit(ct_label=value[/mask]);
+              ct_commit(ct_mark=value[/mask], ct_label=value[/mask]);
                    Commit the flow to the connection tracking entry associated
-                   with it by a previous call to ct_next.
+                   with   it   by   a   previous   call   to   ct_next.   When
+                   ct_mark=value[/mask] and/or ct_label=value[/mask] are  sup‐
+                   plied,  ct_mark  and/or  ct_label will be set to the values
+                   indicated by value[/mask] on the connection tracking entry.
+                   ct_mark  is  a  32-bit  field.   ct_label  is technically a
+                   128-bit field, though OVN currently only  supports  64-bits
+                   and will later be extended to support the full 128-bits.
+
+                   Note  that  if  you want processing to continue in the next
+                   table, you must execute the next  action  after  ct_commit.
+                   You  may  also  leave out next which will commit connection
+                   tracking state, and then drop the packet.   This  could  be
+                   useful  for  setting ct_mark on a connection tracking entry
+                   before dropping a packet, for example.
+
+              ct_dnat;
+              ct_dnat(IP);
+                   ct_dnat sends the packet through the DNAT zone  in  connec‐
+                   tion tracking table to unDNAT any packet that was DNATed in
+                   the opposite direction.  The packet is  then  automatically
+                   sent  to to the next tables as if followed by next; action.
+                   The next tables will see the changes in the  packet  caused
+                   by the connection tracker.
+
+                   ct_dnat(IP)  sends  the  packet  through  the  DNAT zone to
+                   change the destination IP address of the packet to the  one
+                   provided inside the parentheses and commits the connection.
+                   The packet is then automatically sent to the next tables as
+                   if  followed by next; action.  The next tables will see the
+                   changes in the packet caused by the connection tracker.
+
+              ct_snat;
+              ct_snat(IP);
+                   ct_snat sends the packet through the SNAT  zone  to  unSNAT
+                   any  packet  that was SNATed in the opposite direction.  If
+                   the packet needs to be sent to the  next  tables,  then  it
+                   should be followed by a next; action.  The next tables will
+                   not see the changes in the packet caused by the  connection
+                   tracker.
+
+                   ct_snat(IP)  sends  the  packet  through  the  SNAT zone to
+                   change the source IP address of the packet to the one  pro‐
+                   vided  inside  the  parenthesis and commits the connection.
+                   The packet is then automatically sent to the next tables as
+                   if  followed by next; action.  The next tables will see the
+                   changes in the packet caused by the connection tracker.
+
+              arp { action; ... };
+                   Temporarily replaces the IPv4 packet being processed by  an
+                   ARP  packet  and  executes  each  nested  action on the ARP
+                   packet.  Actions following the arp action, if any, apply to
+                   the original, unmodified packet.
+
+                   The  ARP packet that this action operates on is initialized
+                   based on the  IPv4  packet  being  processed,  as  follows.
+                   These are default values that the nested actions will prob‐
+                   ably want to change:
+
+                   ·      eth.src unchanged
+
+                   ·      eth.dst unchanged
+
+                   ·      eth.type = 0x0806
+
+                   ·      arp.op = 1 (ARP request)
+
+                   ·      arp.sha copied from eth.src
+
+                   ·      arp.spa copied from ip4.src
+
+                   ·      arp.tha = 00:00:00:00:00:00
+
+                   ·      arp.tpa copied from ip4.dst
+
+                   The ARP packet has the same VLAN header, if any, as the  IP
+                   packet it replaces.
+
+                   Prerequisite: ip4
+
+              na { action; ... };
+                   Temporarily  replaces the IPv6 packet being processed by an
+                   IPv6 neighbor advertisement (NA) packet and  executes  each
+                   nested  action  on the NA packet.  Actions following the na
+                   action, if any, apply to the original, unmodified packet.
+
+                   The NA packet that this action operates on  is  initialized
+                   based on the IPv6 packet being processed, as follows. These
+                   are default values that the nested  actions  will  probably
+                   want to change:
+
+                   ·      eth.dst exchanged with eth.src
+
+                   ·      eth.type = 0x86dd
+
+                   ·      ip6.dst copied from ip6.src
+
+                   ·      ip6.src copied from nd.target
+
+                   ·      icmp6.type = 136 (Neighbor Advertisement)
+
+                   ·      nd.target unchanged
+
+                   ·      nd.sll = 00:00:00:00:00:00
+
+                   ·      nd.tll copied from eth.dst
+
+                   The ND packet has the same VLAN header, if any, as the IPv6
+                   packet it replaces.
+
+                   Prerequisite: nd
+
+              get_arp(P, A);
+                   Parameters: logical port string field P, 32-bit IP  address
+                   field A.
+
+                   Looks  up A in P’s ARP table.  If an entry is found, stores
+                   its  Ethernet  address   in   eth.dst,   otherwise   stores
+                   00:00:00:00:00:00 in eth.dst.
+
+                   Example: get_arp(outport, ip4.dst);
+
+              put_arp(P, A, E);
+                   Parameters:  logical port string field P, 32-bit IP address
+                   field A, 48-bit Ethernet address field E.
+
+                   Adds or updates the entry for IP address A in logical  port
+                   P’s ARP table, setting its Ethernet address to E.
+
+                   Example: put_arp(inport, arp.spa, arp.sha);
+
+              R = put_dhcp_opts(offerip = IP, D1 = V1, D2 = V2, ..., Dn = Vn);
+                   Parameters:  one or more DHCP option/value pairs, the first
+                   of which must set a value for the offered IP, offerip.
+
+                   Result: stored to a 1-bit subfield R.
+
+                   Valid only in the ingress pipeline.
+
+                   When this action  is  applied  to  a  DHCP  request  packet
+                   (DHCPDISCOVER or DHCPREQUEST), it changes the packet into a
+                   DHCP reply (DHCPOFFER or DHCPACK,  respectively),  replaces
+                   the  options by those specified as parameters, and stores 1
+                   in R.
+
+                   When this action is applied to a non-DHCP packet or a  DHCP
+                   packet  that  is not DHCPDISCOVER or DHCPREQUEST, it leaves
+                   the packet unchanged and stores 0 in R.
+
+                   The contents of the  DHCP_Option  table  control  the  DHCP
+                   option names and values that this action supports.
+
+                   Example: reg0[0] = put_dhcp_opts(offerip = 10.0.0.2, router
+                   = 10.0.0.1, netmask = 255.255.255.0, dns_server = {8.8.8.8,
+                   7.7.7.7});
+
+              ct_lb;
+              ct_lb(ip[:port]...);
+                   With one or more arguments, ct_lb commits the packet to the
+                   connection tracking table and DNATs the  packet’s  destina‐
+                   tion  IP  address (and port) to the IP address or addresses
+                   (and optional ports) specified in the string.  If  multiple
+                   comma-separated  IP  addresses are specified, each is given
+                   equal weight for  picking  the  DNAT  address.   Processing
+                   automatically  moves on to the next table, as if next; were
+                   specified, and later tables act on the packet  as  modified
+                   by  the  connection  tracker.  Connection tracking state is
+                   scoped by the logical port, so overlapping addresses may be
+                   used.
+
+                   Without arguments, ct_lb sends the packet to the connection
+                   tracking table to NAT the packets.  If the packet  is  part
+                   of  an established connection that was previously committed
+                   to the connection tracker via ct_lb(...), it will automati‐
+                   cally get DNATed to the same IP address as the first packet
+                   in that connection.
 
               The following actions will likely be useful later, but they have
               not been thought out carefully.
 
-              arp { action; ... };
-                     Temporarily replaces the IPv4 packet being  processed  by
-                     an  ARP packet and executes each nested action on the ARP
-                     packet.  Actions following the arp action, if any,  apply
-                     to the original, unmodified packet.
-
-                     The  ARP  packet that this action operates on is initial‐
-                     ized based on the IPv4 packet being  processed,  as  fol‐
-                     lows.   These  are default values that the nested actions
-                     will probably want to change:
-
-                     ·      eth.src unchanged
-
-                     ·      eth.dst unchanged
-
-                     ·      eth.type = 0x0806
-
-                     ·      arp.op = 1 (ARP request)
-
-                     ·      arp.sha copied from eth.src
-
-                     ·      arp.spa copied from ip4.src
-
-                     ·      arp.tha = 00:00:00:00:00:00
-
-                     ·      arp.tpa copied from ip4.dst
-
-                     Prerequisite: ip4
-
               icmp4 { action; ... };
-                     Temporarily replaces the IPv4 packet being  processed  by
-                     an  ICMPv4  packet and executes each nested action on the
-                     ICMPv4 packet.  Actions following the  icmp4  action,  if
+                     Temporarily  replaces  the IPv4 packet being processed by
+                     an ICMPv4 packet and executes each nested action  on  the
+                     ICMPv4  packet.   Actions  following the icmp4 action, if
                      any, apply to the original, unmodified packet.
 
-                     The  ICMPv4  packet  that this action operates on is ini‐
-                     tialized based on the IPv4  packet  being  processed,  as
+                     The ICMPv4 packet that this action operates  on  is  ini‐
+                     tialized  based  on  the  IPv4 packet being processed, as
                      follows.   These  are  default  values  that  the  nested
-                     actions will probably want to change.  Ethernet and  IPv4
+                     actions  will probably want to change.  Ethernet and IPv4
                      fields not listed here are not changed:
 
                      ·      ip.proto = 1 (ICMPv4)
@@ -766,7 +972,7 @@ Logical_Flow TABLE
                      Prerequisite: ip4
 
               tcp_reset;
-                     This  action  transforms the current TCP packet according
+                     This action transforms the current TCP  packet  according
                      to the following pseudocode:
 
                      if (tcp.ack) {
@@ -777,7 +983,7 @@ Logical_Flow TABLE
                      }
                      tcp.flags = RST;
 
-                     Then, the action drops all TCP options and payload  data,
+                     Then,  the action drops all TCP options and payload data,
                      and updates the TCP checksum.
 
                      Details TBD.
@@ -788,19 +994,19 @@ Logical_Flow TABLE
               Human-readable name for this flow’s stage in the pipeline.
 
      Common Columns:
-       The  overall purpose of these columns is described under Common Columns
+       The overall purpose of these columns is described under Common  Columns
        at the beginning of this document.
 
        external_ids: map of string-string pairs
 
 Multicast_Group TABLE
-       The rows in this table define multicast groups of logical ports.   Mul‐
-       ticast  groups  allow  a  single  packet transmitted over a tunnel to a
-       hypervisor to be delivered to multiple VMs on  that  hypervisor,  which
+       The  rows in this table define multicast groups of logical ports.  Mul‐
+       ticast groups allow a single packet transmitted  over  a  tunnel  to  a
+       hypervisor  to  be  delivered to multiple VMs on that hypervisor, which
        uses bandwidth more efficiently.
 
-       Each  row in this table defines a logical multicast group numbered tun‐
-       nel_key within datapath, whose logical ports are listed  in  the  ports
+       Each row in this table defines a logical multicast group numbered  tun‐
+       nel_key  within  datapath,  whose logical ports are listed in the ports
        column.
 
    Summary:
@@ -815,21 +1021,21 @@ Multicast_Group TABLE
               The logical datapath in which the multicast group resides.
 
        tunnel_key: integer, in range 32,768 to 65,535
-              The value used to designate this logical egress port  in  tunnel
+              The  value  used to designate this logical egress port in tunnel
               encapsulations.  An index forces the key to be unique within the
               datapath.  The unusual range ensures that multicast group IDs do
               not overlap with logical port IDs.
 
        name: string
               The logical multicast group’s name.  An index forces the name to
-              be unique within the datapath.  Logical  flows  in  the  ingress
-              pipeline  may output to the group just as for individual logical
+              be  unique  within  the  datapath.  Logical flows in the ingress
+              pipeline may output to the group just as for individual  logical
               ports, by assigning the group’s name to outport and executing an
               output action.
 
-              Multicast  group  names  and  logical  port names share a single
-              namespace and thus should not overlap (but the  database  schema
-              cannot  enforce  this).   To  try to avoid conflicts, ovn-northd
+              Multicast group names and logical  port  names  share  a  single
+              namespace  and  thus should not overlap (but the database schema
+              cannot enforce this).  To try  to  avoid  conflicts,  ovn-northd
               uses names that begin with _MC_.
 
        ports: set of 1 or more weak reference to Port_Bindings
@@ -837,14 +1043,14 @@ Multicast_Group TABLE
               ports must be in the datapath logical datapath (but the database
               schema cannot enforce this).
 Datapath_Binding TABLE
-       Each row in this table identifies physical bindings of a logical  data‐
+       Each  row in this table identifies physical bindings of a logical data‐
        path.  A logical datapath implements a logical pipeline among the ports
-       in the Port_Binding table associated with it.  In practice,  the  pipe‐
-       line  in a given logical datapath implements either a logical switch or
+       in  the  Port_Binding table associated with it.  In practice, the pipe‐
+       line in a given logical datapath implements either a logical switch  or
        a logical router.
 
    Summary:
-       tunnel_key                    integer, in range 1 to  16,777,215  (must
+       tunnel_key                    integer,  in  range 1 to 16,777,215 (must
                                      be unique within table)
        OVN_Northbound Relationship:
          external_ids : logical-switch
@@ -855,16 +1061,16 @@ Datapath_Binding TABLE
          external_ids                map of string-string pairs
 
    Details:
-       tunnel_key:  integer,  in  range 1 to 16,777,215 (must be unique within
+       tunnel_key: integer, in range 1 to 16,777,215 (must  be  unique  within
        table)
-              The tunnel key value to which the  logical  datapath  is  bound.
-              The   Tunnel   Encapsulation   section   in  ovn-architecture(7)
-              describes how tunnel keys are  constructed  for  each  supported
+              The  tunnel  key  value  to which the logical datapath is bound.
+              The  Tunnel   Encapsulation   section   in   ovn-architecture(7)
+              describes  how  tunnel  keys  are constructed for each supported
               encapsulation.
 
      OVN_Northbound Relationship:
-       Each  row in Datapath_Binding is associated with some logical datapath.
-       ovn-northd uses these keys to track the association of a logical  data‐
+       Each row in Datapath_Binding is associated with some logical  datapath.
+       ovn-northd  uses these keys to track the association of a logical data‐
        path with concepts in the OVN_Northbound database.
 
        external_ids : logical-switch: optional string, containing an uuid
@@ -878,27 +1084,30 @@ Datapath_Binding TABLE
               ical_Router row in the OVN_Northbound database.
 
      Common Columns:
-       The  overall purpose of these columns is described under Common Columns
+       The overall purpose of these columns is described under Common  Columns
        at the beginning of this document.
 
        external_ids: map of string-string pairs
 
 Port_Binding TABLE
-       Most rows in this table identify the physical  location  of  a  logical
-       port.   (The  exceptions are logical patch ports, which do not have any
+       Most  rows  in  this  table identify the physical location of a logical
+       port.  (The exceptions are logical patch ports, which do not  have  any
        physical location.)
 
-       For every Logical_Port record in  OVN_Northbound  database,  ovn-northd
-       creates  a  record  in  this table.  ovn-northd populates and maintains
-       every column except the chassis column, which it leaves  empty  in  new
-       records.
+       For   every  Logical_Switch_Port  record  in  OVN_Northbound  database,
+       ovn-northd creates a record in this table.   ovn-northd  populates  and
+       maintains every column except the chassis column, which it leaves empty
+       in new records.
 
        ovn-controller/ovn-controller-vtep populates the chassis column for the
-       records that identify the logical ports that are located on its  hyper‐
-       visor/gateway,  which  ovn-controller/ovn-controller-vtep in turn finds
-       out by monitoring the local hypervisor’s Open_vSwitch  database,  which
-       identifies  logical  ports  via  the  conventions described in Integra‐
-       tionGuide.md.
+       records  that identify the logical ports that are located on its hyper‐
+       visor/gateway, which ovn-controller/ovn-controller-vtep in  turn  finds
+       out  by  monitoring the local hypervisor’s Open_vSwitch database, which
+       identifies logical ports via  the  conventions  described  in  Integra‐
+       tionGuide.md.   (The  exceptions are for Port_Binding records with type
+       of gateway, whose  locations  are  identified  by  ovn-northd  via  the
+       options:gateway-chassis  column in this table.  ovn-controller is still
+       responsible to populate the chassis column.)
 
        When a chassis shuts down gracefully, it should clean  up  the  chassis
        column that it previously had populated.  (This is not critical because
@@ -918,7 +1127,13 @@ Port_Binding TABLE
          type                        string
        Patch Options:
          options : peer              optional string
+       L3 Gateway Options:
+         options : peer              optional string
+         options : gateway-chassis   optional string
        Localnet Options:
+         options : network_name      optional string
+         tag                         optional integer, in range 1 to 4,095
+       L2 Gateway Options:
          options : network_name      optional string
          tag                         optional integer, in range 1 to 4,095
        VTEP Options:
@@ -941,13 +1156,39 @@ Port_Binding TABLE
 
        logical_port: string (must be unique within table)
               A logical port, taken from name in the OVN_Northbound database’s
-              Logical_Port  table.  OVN does not prescribe a particular format
-              for the logical port ID.
+              Logical_Switch_Port  table.  OVN does not prescribe a particular
+              format for the logical port ID.
 
        chassis: optional weak reference to Chassis
-              The physical location of  the  logical  port.   To  successfully
-              identify  a chassis, this column must be a Chassis record.  This
-              is populated by ovn-controller/ovn-controller-vtep.
+              The meaning of this column depends on the value of the type col‐
+              umn.  This is the meaning for each type
+
+              (empty string)
+                     The  physical  location of the logical port.  To success‐
+                     fully identify a chassis, this column must be  a  Chassis
+                     record.  This is populated by ovn-controller.
+
+              vtep   The  physical  location of the hardware_vtep gateway.  To
+                     successfully identify a chassis, this column  must  be  a
+                     Chassis   record.    This   is   populated   by  ovn-con‐
+                     troller-vtep.
+
+              localnet
+                     Always empty.  A localnet port is realized on every chas‐
+                     sis  that  has connectivity to the corresponding physical
+                     network.
+
+              gateway
+                     The physical location of the L3 gateway.  To successfully
+                     identify a chassis, this column must be a Chassis record.
+                     This is populated by ovn-controller based on the value of
+                     the options:gateway-chassis column in this table.
+
+              l2gateway
+                     The  physical  location  of this L2 gateway.  To success‐
+                     fully identify a chassis, this column must be  a  Chassis
+                     record.   This is populated by an entity external to OVN,
+                     either manually or by a CMS.
 
        tunnel_key: integer, in range 1 to 32,767
               A number that represents the logical port in the key  (e.g.  STT
@@ -979,14 +1220,25 @@ Port_Binding TABLE
                      datapaths,  e.g. to connect a logical router to a logical
                      switch or to another logical router.
 
+              gateway
+                     One of a pair of logical ports that act as  if  connected
+                     by  a  patch  cable  across multiple chassis.  Useful for
+                     connecting a logical switch with a Gateway router  (which
+                     is only resident on a particular chassis).
+
               localnet
-                     A connection to a locally accessible  network  from  each
-                     ovn-controller  instance.  A logical switch can only have
-                     a single localnet port attached.  This is used  to  model
+                     A  connection  to  a locally accessible network from each
+                     ovn-controller instance.  A logical switch can only  have
+                     a  single  localnet port attached.  This is used to model
                      direct connectivity to an existing network.
 
+              l2gateway
+                     An L2 connection to a physical network.  The chassis this
+                     Port_Binding  is  bound to will serve as an L2 gateway to
+                     the network named by options:network_name.
+
               vtep   A port to a logical switch on a VTEP gateway chassis.  In
-                     order to get this port correctly recognized  by  the  OVN
+                     order  to  get  this port correctly recognized by the OVN
                      controller,    the    options:vtep-physical-switch    and
                      options:vtep-logical-switch must also be defined.
 
@@ -994,10 +1246,22 @@ Port_Binding TABLE
        These options apply to logical ports with type of patch.
 
        options : peer: optional string
-              The logical_port in the Port_Binding record for the  other  side
-              of  the  patch.   The named logical_port must specify this logi‐
+              The  logical_port  in the Port_Binding record for the other side
+              of the patch.  The named logical_port must  specify  this  logi‐
               cal_port in its own peer option.  That is, the two patch logical
               ports must have reversed logical_port and peer values.
+
+     L3 Gateway Options:
+       These options apply to logical ports with type of gateway.
+
+       options : peer: optional string
+              The logical_port in the Port_Binding record for the  other  side
+              of the ’gateway’ port.  The named logical_port must specify this
+              logical_port in its own peer option.  That is, the two ’gateway’
+              logical ports must have reversed logical_port and peer values.
+
+       options : gateway-chassis: optional string
+              The chassis in which the port resides.
 
      Localnet Options:
        These options apply to logical ports with type of localnet.
@@ -1022,6 +1286,27 @@ Port_Binding TABLE
               specific VLAN on a locally accessible network. The  VLAN  ID  is
               used  to  match  incoming  traffic and is also added to outgoing
               traffic.
+
+     L2 Gateway Options:
+       These options apply to logical ports with type of l2gateway.
+
+       options : network_name: optional string
+              Required.    ovn-controller   uses   the   configuration   entry
+              ovn-bridge-mappings to determine how to connect to this network.
+              ovn-bridge-mappings is a list of network names mapped to a local
+              OVS  bridge that provides access to that network.  An example of
+              configuring ovn-bridge-mappings would be:
+
+              $ ovs-vsctl set open . external-ids:ovn-bridge-mappings=physnet1:br-eth0,physnet2:br-eth1
+
+              When a logical switch has a l2gateway port attached, the chassis
+              that  the  l2gateway port is bound to must have a bridge mapping
+              configured to reach the network identified by network_name.
+
+       tag: optional integer, in range 1 to 4,095
+              If set, indicates that the gateway is connected  to  a  specific
+              VLAN  on  the  physical  network.  The  VLAN ID is used to match
+              incoming traffic and is also added to outgoing traffic.
 
      VTEP Options:
        These options apply to logical ports with type of vtep.
@@ -1052,15 +1337,174 @@ Port_Binding TABLE
 
        parent_port: optional string
               This is taken from parent_name in the OVN_Northbound  database’s
-              Logical_Port table.
+              Logical_Switch_Port table.
 
        tag: optional integer, in range 1 to 4,095
               Identifies  the  VLAN tag in the network traffic associated with
               that container’s network interface.
 
               This column is used for a different purpose when type is  local‐
-              net (see Localnet Options, above).
+              net  (see  Localnet Options, above) or l2gateway (see L2 Gateway
+              Options, above).
+
+MAC_Binding TABLE
+       Each row in this table specifies a binding from an  IP  address  to  an
+       Ethernet  address  that  has  been discovered through ARP (for IPv4) or
+       neighbor discovery (for IPv6).  This table is primarily  used  to  dis‐
+       cover  bindings  on  physical  networks, because IP-to-MAC bindings for
+       virtual machines are usually populated statically into the Port_Binding
+       table.
+
+       This  table  expresses  a  functional  relationship:  MAC_Binding(logi‐
+       cal_port, ip) = mac.
+
+       In outline, the lifetime of a logical router’s MAC binding  looks  like
+       this:
+
+              1.
+                On  hypervisor  1,  a  logical router determines that a packet
+                should be forwarded to IP address  A  on  one  of  its  router
+                ports.   It  uses  its  logical flow table to determine that A
+                lacks a static IP-to-MAC binding and  the  get_arp  action  to
+                determine that it lacks a dynamic IP-to-MAC binding.
+
+              2.
+                Using  an OVN logical arp action, the logical router generates
+                and sends a broadcast ARP request  to  the  router  port.   It
+                drops the IP packet.
+
+              3.
+                The  logical  switch  attached to the router port delivers the
+                ARP request to all of its ports.   (It  might  make  sense  to
+                deliver  it  only to ports that have no static IP-to-MAC bind‐
+                ings, but this could also be surprising behavior.)
+
+              4.
+                A host or VM on hypervisor 2  (which  might  be  the  same  as
+                hypervisor  1)  attached  to  the  logical  switch owns the IP
+                address in question.  It composes an ARP reply and unicasts it
+                to the logical router port’s Ethernet address.
+
+              5.
+                The  logical  switch  delivers  the  ARP  reply to the logical
+                router port.
+
+              6.
+                The logical router flow table executes a put_arp  action.   To
+                record the IP-to-MAC binding, ovn-controller adds a row to the
+                MAC_Binding table.
+
+              7.
+                On hypervisor 1, ovn-controller receives the updated MAC_Bind‐
+                ing  table  from the OVN southbound database.  The next packet
+                destined to A through the logical router is sent  directly  to
+                the bound Ethernet address.
+
+   Summary:
+       logical_port                  string
+       ip                            string
+       mac                           string
+
+   Details:
+       logical_port: string
+              The logical port on which the binding was discovered.
+
+       ip: string
+              The bound IP address.
+
+       mac: string
+              The Ethernet address to which the IP is bound.
+
+DHCP_Options TABLE
+       Each  row in this table stores the DHCP Options supported by native OVN
+       DHCP. ovn-northd populates this table with the supported DHCP  options.
+       ovn-controller  looks  up  this table to get the DHCP codes of the DHCP
+       options defined in the "put_dhcp_opts" action.  Please refer to the RFC
+       2132  "https://tools.ietf.org/html/rfc2132"  for  the  possible list of
+       DHCP options that can be defined here.
+
+   Summary:
+       name                          string
+       code                          integer, in range 0 to 254
+       type                          string,  one  of  static_routes,   uint8,
+                                     uint16, bool, ipv4, str, or uint32
+
+   Details:
+       name: string
+              Name of the DHCP option.
+
+              Example. name="router"
+
+       code: integer, in range 0 to 254
+              DHCP option code for the DHCP option as defined in the RFC 2132.
+
+              Example. code=3
+
+       type:  string, one of static_routes, uint8, uint16, bool, ipv4, str, or
+       uint32
+              Data type of the DHCP option code.
+
+              value: bool
+                     This indicates that the value of the  DHCP  option  is  a
+                     bool.
+
+                     Example.       "name=ip_forward_enable",       "code=19",
+                     "type=bool".
+
+                     put_dhcp_opts(..., ip_forward_enable = 1,...)
+
+              value: uint8
+                     This indicates that the value of the DHCP  option  is  an
+                     unsigned int8 (8 bits)
+
+                     Example. "name=default_ttl", "code=23", "type=uint8".
+
+                     put_dhcp_opts(..., default_ttl = 50,...)
+
+              value: uint16
+                     This  indicates  that  the value of the DHCP option is an
+                     unsigned int16 (16 bits).
+
+                     Example. "name=mtu", "code=26", "type=uint16".
+
+                     put_dhcp_opts(..., mtu = 1450,...)
+
+              value: uint32
+                     This indicates that the value of the DHCP  option  is  an
+                     unsigned int32 (32 bits).
+
+                     Example. "name=lease_time", "code=51", "type=uint32".
+
+                     put_dhcp_opts(..., lease_time = 86400,...)
+
+              value: ipv4
+                     This  indicates  that  the value of the DHCP option is an
+                     IPv4 address or addresses.
+
+                     Example. "name=router", "code=3", "type=ipv4".
+
+                     put_dhcp_opts(..., router = 10.0.0.1,...)
+
+                     Example. "name=dns_server", "code=6", "type=ipv4".
+
+                     put_dhcp_opts(..., dns_server = {8.8.8.8 7.7.7.7},...)
+
+              value: static_routes
+                     This indicates that the value of the DHCP option contains
+                     a pair of IPv4 route and next hop addresses.
+
+                     Example.    "name=classless_static_route",    "code=121",
+                     "type=static_routes".
+
+                     put_dhcp_opts(...,        classless_static_route        =
+                     {30.0.0.0/24,10.0.0.4,0.0.0.0/0,10.0.0.1}...)
+
+              value: str
+                     This  indicates  that  the  value of the DHCP option is a
+                     string.
+
+                     Example. "name=host_name", "code=12", "type=str".
 
 
 
-Open vSwitch 2.5.90             DB Schema 1.0.0                      ovn-sb(5)
+Open vSwitch 2.5.90             DB Schema 1.5.0                      ovn-sb(5)

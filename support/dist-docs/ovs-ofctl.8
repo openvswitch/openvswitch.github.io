@@ -268,6 +268,26 @@ This command has limited usefulness, because ports often have no
 configured queues and because the OpenFlow protocol provides only very
 limited information about the configuration of a queue.
 .
+.IP "\fBdump\-ipfix\-bridge \fIswitch
+Prints to the console the statistics of bridge IPFIX for \fIswitch\fR.
+If bridge IPFIX is configured on the \fIswitch\fR, IPFIX statistics
+can be retrieved.  Otherwise, error message will be printed.
+.IP
+This command uses an Open vSwitch extension that is only in Open
+vSwitch 2.6 and later.
+.
+.IP "\fBdump\-ipfix\-flow \fIswitch
+Prints to the console the statistics of flow-based IPFIX for
+\fIswitch\fR.  If flow-based IPFIX is configured on the \fIswitch\fR,
+statistics of all the collector set ids on the \fIswitch\fR will be
+printed.  Otherwise, print error message.
+.IP
+Refer to \fBovs-vswitchd.conf.db\fR(5) for more details on configuring
+flow based IPFIX and collector set ids.
+.IP
+This command uses an Open vSwitch extension that is only in Open
+vSwitch 2.6 and later.
+.
 .SS "OpenFlow 1.1+ Group Table Commands"
 .
 The following commands work only with switches that support OpenFlow
@@ -424,10 +444,14 @@ zero or more groups in the same syntax, one per line.
 .IQ "\fBadd\-groups \fIswitch file\fR"
 Add each group entry to \fIswitch\fR's tables.
 .
-.IP "\fBmod\-group \fIswitch group\fR"
-.IQ "\fBmod\-group \fIswitch \fB\- < \fIfile\fR"
+.IP "[\fB\-\-may\-create\fR] \fBmod\-group \fIswitch group\fR"
+.IQ "[\fB\-\-may\-create\fR] \fBmod\-group \fIswitch \fB\- < \fIfile\fR"
 Modify the action buckets in entries from \fIswitch\fR's tables for
-each group entry.
+each group entry.  If a specified group does not already exist, then
+without \fB\-\-may\-create\fR, this command has no effect; with
+\fB\-\-may\-create\fR, it creates a new group.  The
+\fB\-\-may\-create\fR option uses an Open vSwitch extension to
+OpenFlow only implemented in Open vSwitch 2.6 and later.
 .
 .IP "\fBdel\-groups \fIswitch\fR"
 .IQ "\fBdel\-groups \fIswitch \fR[\fIgroup\fR]"
@@ -479,16 +503,16 @@ be lifted in the future to allow for easier management.
 These commands are Nicira extensions to OpenFlow and require Open vSwitch
 2.5 or later.
 
-.IP "\fBadd\-TLV\-map \fIswitch option\fR[\fB,\fIoption\fR]..."
+.IP "\fBadd\-tlv\-map \fIswitch option\fR[\fB,\fIoption\fR]..."
 Add each \fIoption\fR to \fIswitch\fR's tables. Duplicate fields are
 rejected.
 .
-.IP "\fBdel\-TLV\-map \fIswitch \fR[\fIoption\fR[\fB,\fIoption\fR]]..."
+.IP "\fBdel\-tlv\-map \fIswitch \fR[\fIoption\fR[\fB,\fIoption\fR]]..."
 Delete each \fIoption\fR from \fIswitch\fR's table, or all option TLV
 mapping if no \fIoption\fR is specified.
 Fields that aren't mapped are ignored.
 .
-.IP "\fBdump\-TLV\-map \fIswitch\fR"
+.IP "\fBdump\-tlv\-map \fIswitch\fR"
 Show the currently mapped fields in the switch's option table as well
 as switch capabilities.
 .
@@ -1064,7 +1088,10 @@ header with the CFI bit (with value \fB0x1000\fR) forced to 1.
 Examples:
 .RS
 .IP \fBvlan_tci=0\fR
-Match only packets without an 802.1Q header.
+Match packets without an 802.1Q header.
+.IP \fBvlan_tci=0x1000/0x1000\fR
+Match packets with an 802.1Q header, regardless of VLAN and priority
+values.
 .IP \fBvlan_tci=0xf123\fR
 Match packets tagged with priority 7 in VLAN 0x123.
 .IP \fBvlan_tci=0x1123/0x1fff\fR
@@ -1228,13 +1255,15 @@ For non-tunneled packets, the value is 0.
 .IP
 This field was introduced in Open vSwitch 2.5.
 .
-.IP \fBtun_src=\fIip\fR[\fB/\fInetmask\fR]
-.IQ \fBtun_dst=\fIip\fR[\fB/\fInetmask\fR]
-Matches tunnel IPv4 source (or destination) address \fIip\fR. Only packets
+.IP \fBtun_src=\fIipv4\fR[\fB/\fInetmask\fR]
+.IQ \fBtun_dst=\fIipv4\fR[\fB/\fInetmask\fR]
+.IQ \fBtun_ipv6_src=\fIipv6\fR[\fB/\fInetmask\fR]
+.IQ \fBtun_ipv6_dst=\fIipv6\fR[\fB/\fInetmask\fR]
+Matches tunnel IP source (or destination) address \fIip\fR. Only packets
 that arrive over a tunnel will have nonzero tunnel addresses.
 The address may be specified as an IP address or host name
 (e.g. \fB192.168.1.1\fR or \fBwww.example.com\fR).  The optional
-\fInetmask\fR allows restricting a match to a masked IPv4 address.
+\fInetmask\fR allows restricting a match to a masked IP address.
 The netmask may be specified as a dotted quad
 (e.g. \fB192.168.1.0/255.255.255.0\fR) or as a CIDR block
 (e.g. \fB192.168.1.0/24\fR).
@@ -1415,8 +1444,15 @@ modules are not loaded.
 This packet is tracked, meaning that it has previously traversed the connection
 tracker. If this flag is not set, then no other flags will be set. If this flag
 is set, then the packet is tracked and other flags may also be set.
+.IP "\fB0x40: snat\fR"
+This packet was transformed by source address/port translation by a
+preceding \fBct\fR action.
+.IP "\fB0x80: dnat\fR"
+This packet was transformed by destination address/port translation by
+a preceding \fBct\fR action.
 .PP
-This field was introduced in Open vSwitch 2.5.
+This field was introduced in Open vSwitch 2.5.  The \fBsnat\fR and
+\fBdnat\fR bits were added in Open vSwitch 2.6.
 .RE
 .
 .PP
@@ -1491,6 +1527,13 @@ packet's input port, the packet is not output.
 This form of \fBoutput\fR was added in Open vSwitch 1.3.0.  This form
 of \fBoutput\fR uses an OpenFlow extension that is not supported by
 standard OpenFlow switches.
+.
+.IP \fBoutput(port=\fIport\fR\fB,max_len=\fInbytes\fR)
+Outputs the packet to the OpenFlow port number read from \fIport\fR,
+with maximum packet size set to \fInbytes\fR.  \fIport\fR may be OpenFlow
+port number, \fBlocal\fR, or \fBin_port\fR.  Patch port is not supported.
+Packets larger than \fInbytes\fR will be trimmed to \fInbytes\fR while
+packets smaller than \fInbytes\fR remains the original size.
 .
 .IP \fBgroup:\fIgroup_id\fR
 Outputs the packet to the OpenFlow group \fIgroup_id\fR. Group tables
@@ -1669,10 +1712,30 @@ specified by \fItable\fR) with the \fBin_port\fR field replaced by
 \fIport\fR (if \fIport\fR is specified) and executes the actions
 found, if any, in addition to any other actions in this flow entry.
 .IP
-Recursive \fBresubmit\fR actions are obeyed up to an
-implementation-defined maximum depth.  Open vSwitch 1.0.1 and earlier
-did not support recursion; Open vSwitch before 1.2.90 did not support
-\fItable\fR.
+Recursive \fBresubmit\fR actions are obeyed up to
+implementation-defined limits:
+.RS
+.IP \(bu
+Open vSwitch 1.0.1 and earlier did not support recursion.
+.IP \(bu
+Open vSwitch 1.0.2 and 1.0.3 limited recursion to 8 levels.
+.IP \(bu
+Open vSwitch 1.1 and 1.2 limited recursion to 16 levels.
+.IP \(bu
+Open vSwitch 1.2 through 1.8 limited recursion to 32 levels.
+.IP \(bu
+Open vSwitch 1.9 through 2.0 limited recursion to 64 levels.
+.IP \(bu
+Open vSwitch 2.1 through 2.5 limited recursion to 64 levels and impose
+a total limit of 4,096 resubmits per flow translation (earlier versions
+did not impose any total limit).
+.IP \(bu
+Open vSwitch 2.6 and later imposes the same limits as 2.5, with one
+exception: \fBresubmit\fR from table \fIx\fR to any table \fIy\fR >
+\fIx\fR does not count against the recursion limit.
+.RE
+.IP
+Open vSwitch before 1.2.90 did not support \fItable\fR.
 .
 .IP \fBset_tunnel\fB:\fIid\fR
 .IQ \fBset_tunnel64\fB:\fIid\fR
@@ -1733,19 +1796,19 @@ fields are accepted within the \fBexec\fR action, and these fields may only be
 modified with this option. For example:
 .
 .RS
-.IP \fBset_field:\fIvalue\fR->ct_mark\fR
+.IP \fBset_field:\fIvalue\fR[\fB/\fImask\fR]->ct_mark\fR
 Store a 32-bit metadata value with the connection. If the connection is
 committed, then subsequent lookups for packets in this connection will
 populate the \fBct_mark\fR flow field when the packet is sent to the
 connection tracker with the \fBtable\fR specified.
-.IP \fBset_field:\fIvalue\fR->ct_label\fR
+.IP \fBset_field:\fIvalue\fR[\fB/\fImask\fR]->ct_label\fR
 Store a 128-bit metadata value with the connection.  If the connection is
 committed, then subsequent lookups for packets in this connection will
 populate the \fBct_label\fR flow field when the packet is sent to the
 connection tracker with the \fBtable\fR specified.
 .RE
 .IP
-The \fBcommit\fR parameter should be specified to use \fBexec(...)\fR.
+The \fBcommit\fR parameter must be specified to use \fBexec(...)\fR.
 .
 .IP \fBalg=\fIalg\fR
 Specify application layer gateway \fIalg\fR to track specific connection
@@ -1758,9 +1821,80 @@ connection arrives which is related, the \fBct\fR action will set the
 .RE
 .
 .IP
+The \fBcommit\fR parameter must be specified to use \fBalg=\fIalg\fR.
+.
+.IP
 When committing related connections, the \fBct_mark\fR for that connection is
 inherited from the current \fBct_mark\fR stored with the original connection
 (ie, the connection created by \fBct(alg=...)\fR).
+.
+.IP \fBnat\fR[\fB(\fR(\fBsrc\fR|\fBdst\fR)\fB=\fIaddr1\fR[\fB-\fIaddr2\fR][\fB:\fIport1\fR[\fB-\fIport2\fR]][\fB,\fIflags\fR]\fB)\fR]
+.
+Specify address and port translation for the connection being tracked.
+For new connections either \fBsrc\fR or \fBdst\fR argument must be
+provided to set up either source address/port translation (SNAT) or
+destination address/port translation (DNAT), respectively.  Setting up
+address translation for a new connection takes effect only if the
+\fBcommit\fR flag is also provided for the enclosing \fBct\fR action.
+A bare \fBnat\fR action will only translate the packet being processed
+in the way the connection has been set up with an earlier \fBct\fR
+action.  Also a \fBnat\fR action with \fBsrc\fR or \fBdst\fR, when
+applied to a packet belonging to an established (rather than new)
+connection, will behave the same as a bare \fBnat\fR.
+.IP
+\fBsrc\fR and \fBdst\fR options take the following arguments:
+.RS
+.IP \fIaddr1\fR[\fB-\fIaddr2\fR]
+The address range from which the translated address should be
+selected.  If only one address is given, then that address will always
+be selected, otherwise the address selection can be informed by the
+optional \fBpersistent\fR flag as described below.  Either IPv4 or
+IPv6 addresses can be provided, but both addresses must be of the same
+type, and the datapath behavior is undefined in case of providing IPv4
+address range for an IPv6 packet, or IPv6 address range for an IPv4
+packet.  IPv6 addresses must be bracketed with '[' and ']' if a port
+range is also given.
+.RE
+.
+.RS
+.IP \fIport1\fR[\fB-\fIport2\fR]
+The port range from which the translated port should be selected.  If
+only one port number is provided, then that should be selected.  In
+case of a mapping conflict the datapath may choose any other
+non-conflicting port number instead, even when no port range is
+specified.  The port number selection can be informed by the optional
+\fBrandom\fR and \fBhash\fR flags as described below.
+.RE
+.IP
+The optional flags are:
+.RS
+.IP \fBrandom\fR
+The selection of the port from the given range should be done using a
+fresh random number.  This flag is mutually exclusive with \fBhash\fR.
+.RE
+.
+.RS
+.IP \fBhash\fR
+The selection of the port from the given range should be done using a
+datapath specific hash of the packet's IP addresses and the other,
+non-mapped port number.  This flag is mutually exclusive with
+\fBrandom\fR.
+.RE
+.
+.RS
+.IP \fBpersistent\fR
+The selection of the IP address from the given range should be done so
+that the same mapping can be provided after the system restarts.
+.RE
+.IP
+If an \fBalg\fR is specified for the committing \fBct\fR action that
+also includes \fBnat\fR with a \fBsrc\fR or \fBdst\fR attribute,
+then the datapath tries to set up the helper to be NAT aware.  This
+functionality is datapath specific and may not be supported by all
+datapaths.
+.IP
+\fBnat\fR was introduced in Open vSwitch 2.6.  The first datapath that
+implements \fBct nat\fR support is the one that ships with Linux 4.6.
 .RE
 .IP
 The \fBct\fR action may be used as a primitive to construct stateful firewalls
@@ -2210,9 +2344,15 @@ Observation Domain ID sent in every IPFIX flow record.  Defaults to 0.
 .IP "\fBobs_point_id=\fIid\fR"
 When sending samples to IPFIX collectors, the unsigned 32-bit integer
 Observation Point ID sent in every IPFIX flow record.  Defaults to 0.
+.IP "\fBsampling_port=\fIport\fR"
+Sample packets on the port.  It can be set as input port or output
+port.  When this option is omitted, or specified as \fBNONE\fB, IPFIX
+does not differentiate between ingress packets and egress packets and
+does not export egress tunnel information.  This option was added in
+Open vSwitch 2.5.90.
 .RE
 .IP
-Refer to \fBovs\-vswitchd.conf.db\fR(8) for more details on
+Refer to \fBovs\-vswitchd.conf.db\fR(5) for more details on
 configuring sample collector sets.
 .IP
 This action was added in Open vSwitch 1.10.90.
@@ -3059,6 +3199,18 @@ is not a good directory to use.
 This option has no effect when \fB\-\-detach\fR is not specified.
 .
 .TP
+\fB\-\-no\-self\-confinement\fR
+By default daemon will try to self-confine itself to work with
+files under well-know, at build-time whitelisted directories.  It
+is better to stick with this default behavior and not to use this
+flag unless some other Access Control is used to confine daemon.
+Note that in contrast to other access control implementations that
+are typically enforced from kernel-space (e.g. DAC or MAC),
+self-confinement is imposed from the user-space daemon itself and
+hence should not be considered as a full confinement strategy, but
+instead should be viewed as an additional layer of security.
+.
+.TP
 \fB\-\-user\fR
 Causes \fB\*(PN\fR to run as a different user specified in "user:group", thus
 dropping most of the root privileges. Short forms "user" and ":group" are also
@@ -3226,6 +3378,65 @@ to listen on the specified UDP port, accidental iptables rules could be
 interfering with local syslog traffic and there are some security
 considerations that apply to UDP sockets, but do not apply to UNIX domain
 sockets.
+.RE
+.de IQ
+.  br
+.  ns
+.  IP "\\$1"
+..
+.IP "\fB\-\-color\fR[\fB=\fR\fIwhen\fR]
+.
+Colorize the output (for some commands); \fIwhen\fR can be \fBnever\fR,
+\fBalways\fR, or \fBauto\fR (the default).
+.
+.RS
+.PP
+Only some commands support output coloring.  Color names and default
+colors may change in future releases.
+.PP
+The environment variable \fBOVS_COLORS\fR can be used to specify user-defined
+colors and other attributes used to highlight various parts of the output. If
+set, its value is a colon-separated list of capabilities that defaults to
+\fBac:01;31:dr=34:le=31:pm=36:pr=35:sp=33:vl=32\fR. Supported capabilities were
+initially designed for coloring flows from \fBovs-ofctl dump-flows\fR
+\fIswitch\fR command, and they are as follows.
+.RS
+.TP
+\fBac=01;31\fR
+SGR substring for \fBactions=\fR keyword in a flow.
+The default is a bold red text foreground.
+.TP
+\fBdr=34\fR
+SGR substring for \fBdrop\fR keyword.
+The default is a dark blue text foreground.
+.TP
+\fBle=31\fR
+SGR substring for \fBlearn=\fR keyword in a flow.
+The default is a red text foreground.
+.TP
+\fBpm=36\fR
+SGR substring for flow match attribute names.
+The default is a cyan text foreground.
+.TP
+\fBpr=35\fR
+SGR substring for keywords in a flow that are followed by arguments inside
+parenthesis.
+The default is a magenta text foreground.
+.TP
+\fBsp=33\fR
+SGR substring for some special keywords in a flow, notably: \fBtable=\fR,
+\fBpriority=\fR, \fBload:\fR, \fBoutput:\fR, \fBmove:\fR, \fBgroup:\fR,
+\fBCONTROLLER:\fR, \fBset_field:\fR, \fBresubmit:\fR, \fBexit\fR.
+The default is a yellow text foreground.
+.TP
+\fBvl=32\fR
+SGR substring for a lone flow match attribute with no field name.
+The default is a green text foreground.
+.RE
+.PP
+See the Select Graphic Rendition (SGR) section in the documentation of the text
+terminal that is used for permitted values and their meaning as character
+attributes.
 .RE
 .de IQ
 .  br
