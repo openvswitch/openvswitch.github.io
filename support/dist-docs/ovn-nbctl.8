@@ -16,7 +16,7 @@
 .SH "NAME"
 .PP
 ovn-nbctl \- Open Virtual Network northbound db management utility
-.SH "SYNOPSYS"
+.SH "SYNOPSIS"
 .PP
 \fBovn\-nbctl\fR [\fIoptions\fR] \fIcommand\fR [\fIarg\fR\[char46]\[char46]\[char46]]
 .SH "DESCRIPTION"
@@ -24,6 +24,10 @@ ovn-nbctl \- Open Virtual Network northbound db management utility
 This utility can be used to manage the OVN northbound database\[char46]
 .SH "GENERAL COMMANDS"
 .RS
+.TP
+\fBinit\fR
+Initializes the database, if it is empty\[char46]  If the database has already
+been initialized, this command has no effect\[char46]
 .TP
 \fBshow [\fIswitch\fB | \fIrouter\fB]\fR
 Prints a brief overview of the database contents\[char46]  If
@@ -131,12 +135,12 @@ nothing\[char46]
 \fBlsp\-set\-addresses\fR \fIport\fR [\fIaddress\fR]\[char46]\[char46]\[char46]
 Sets the addresses associated with \fIport\fR to
 \fIaddress\fR\[char46]  Each \fIaddress\fR should be either an
-Ethernet address or an Ethernet address followed by an IP address
-(separated by a space and quoted to form a single command-line
+Ethernet address or an Ethernet address followed by IP addresses
+(separated by space and quoted to form a single command-line
 argument)\[char46]  The special form \fBunknown\fR is also valid\[char46]
-Multiple Ethernet addresses or Ethernet+IP pairs may be set\[char46] If no
-\fIaddress\fR argument is given, \fIport\fR will have no
-addresses associated with it\[char46]
+Multiple Ethernet addresses or Ethernet+IPs combinations may be set\[char46]
+If no \fIaddress\fR argument is given, \fIport\fR will have
+no addresses associated with it\[char46]
 .TP
 \fBlsp\-get\-addresses\fR \fIport\fR
 Lists all the addresses associated with \fIport\fR on standard
@@ -216,12 +220,17 @@ Lists all existing routers on standard output, one per line\[char46]
 .SH "LOGICAL ROUTER PORT COMMANDS"
 .RS
 .TP
-[\fB\-\-may\-exist\fR] \fBlrp\-add\fR \fIrouter\fR \fIport\fR \fImac\fR \fInetwork\fR [\fIpeer\fR]
+[\fB\-\-may\-exist\fR] \fBlrp\-add\fR \fIrouter\fR \fIport\fR \fImac\fR \fInetwork\fR\[char46]\[char46]\[char46] [\fBpeer=\fR\fIpeer\fR]
 Creates on \fIrouter\fR a new logical router port named
-\fIport\fR with Ethernet address \fImac\fR and IP
-address/netmask \fInetwork\fR\[char46]  If \fIpeer\fR is
-specified, it identifies a logical router port that connects
-to this one\[char46]
+\fIport\fR with Ethernet address \fImac\fR and one
+or more IP address/netmask for each \fInetwork\fR\[char46]
+.IP
+The optional argument \fBpeer\fR identifies a logical
+router port that connects to this one\[char46]  The following example
+adds a router port with an IPv4 and IPv6 address with peer
+\fBlr1\fR:
+.IP
+\fBlrp\-add lr0 lrp0 00:11:22:33:44:55 192\[char46]168\[char46]0\[char46]1/24 2001:db8::1/64 peer=lr1\fR
 .IP
 It is an error if a logical router port named \fIport\fR
 already exists, unless \fB\-\-may\-exist\fR is specified\[char46]
@@ -277,6 +286,25 @@ specified\[char46]
 .TP
 \fBlr\-route\-list\fR \fIrouter\fR
 Lists the routes on \fIrouter\fR\[char46]
+.RE
+.SH "DHCP OPTIONS COMMANDS"
+.RS
+.TP
+\fBdhcp\-options\-create\fR \fIcidr\fR [\fIkey=value\fR]
+Creates a new DHCP Options entry in the \fBDHCP_Options\fR table
+with the specified \fBcidr\fR and optional \fBexternal\-ids\fR\[char46]
+.TP
+\fBdhcp\-options\-list\fR
+Lists the DHCP Options entries\[char46]
+.TP
+\fBdhcp\-options\-del\fR \fIdhcp-option\fR
+Deletes the DHCP Options entry referred by \fIdhcp-option\fR UUID\[char46]
+.TP
+\fBdhcp\-options\-set\-options\fR \fIdhcp-option\fR [\fIkey=value\fR]\[char46]\[char46]\[char46]
+Set the DHCP Options for the \fIdhcp-option\fR UUID\[char46]
+.TP
+\fBdhcp\-options\-get\-options\fR \fIdhcp-option\fR
+Lists the DHCP Options for the \fIdhcp-option\fR UUID\[char46]
 .RE
 .SH "DATABASE COMMANDS"
 .PP
@@ -601,39 +629,214 @@ after waiting only at most 5 seconds\[char46]
 This command has no effect on behavior, but any database log record
 created by the command will include the command and its arguments\[char46]
 .RE
+.SH "SYNCHRONIZATION COMMANDS"
+.RS
+.TP
+sync
+Ordinarily, \fB\-\-wait=sb\fR or \fB\-\-wait=hv\fR only waits
+for changes by the current \fBovn\-nbctl\fR invocation to take
+effect\[char46]  This means that, if none of the commands supplied to
+\fBovn\-nbctl\fR change the database, then the command does not
+wait at all\[char46]  With the \fBsync\fR command, however,
+\fBovn\-nbctl\fR waits even for earlier changes to the database
+to propagate down to the southbound database or all of the OVN chassis,
+according to the argument to \fB\-\-wait\fR\[char46]
+.RE
 .SH "OPTIONS"
 .RS
+.TP
+\fB\-\-no\-wait\fR | \fB\-\-wait=none\fR
+.TQ .5in
+\fB\-\-wait=sb\fR
+.TQ .5in
+\fB\-\-wait=hv\fR
+These options control whether and how \fBovn\-nbctl\fR waits
+for the OVN system to become up-to-date with changes made in an
+\fBovn\-nbctl\fR invocation\[char46]
+.IP
+By default, or if \fB\-\-no\-wait\fR or \fB\-\-wait=none\fR,
+\fBovn\-nbctl\fR exits immediately after confirming that
+changes have been committed to the northbound database, without
+waiting\[char46]
+.IP
+With \fB\-\-wait=sb\fR, before \fBovn\-nbctl\fR exits, it
+waits for \fBovn\-northd\fR to bring the southbound database
+up-to-date with the northbound database updates\[char46]
+.IP
+With \fB\-\-wait=hv\fR, before \fBovn\-nbctl\fR exits, it
+additionally waits for all OVN chassis (hypervisors and gateways) to
+become up-to-date with the northbound database updates\[char46]  (This can
+become an indefinite wait if any chassis is malfunctioning\[char46])
+.IP
+Ordinarily, \fB\-\-wait=sb\fR or \fB\-\-wait=hv\fR only
+waits for changes by the current \fBovn\-nbctl\fR invocation to
+take effect\[char46]  This means that, if none of the commands supplied to
+\fBovn\-nbctl\fR change the database, then the command does not
+wait at all\[char46]  Use the \fBsync\fR command to override this
+behavior\[char46]
 .TP
 \fB\-\-db\fR \fIdatabase\fR
 The OVSDB database remote to contact\[char46]  If the \fBOVN_NB_DB\fR
 environment variable is set, its value is used as the default\[char46]
-Otherwise, the default is \fBunix://var/run/openvswitch/db\[char46]sock\fR, but this
+Otherwise, the default is \fBunix:/usr/local/var/run/openvswitch/db\[char46]sock\fR, but this
 default is unlikely to be useful outside of single-machine OVN test
 environments\[char46]
-.TP
-\fB\-h\fR | \fB\-\-help\fR
-.TQ .5in
-\fB\-o\fR | \fB\-\-options\fR
-.TQ .5in
-\fB\-V\fR | \fB\-\-version\fR
 .RE
 .SH "LOGGING OPTIONS"
 .RS
 .TP
-\fB\-v\fR\fIspec\fR, \fB\-\-verbose=\fR\fIspec\fR
+\fB\-v\fR[\fIspec\fR]
 .TQ .5in
-\fB\-v\fR, \fB\-\-verbose\fR
-.TQ .5in
-\fB\-\-log\-file\fR[\fB=\fR\fIfile\fR]
-.TQ .5in
-\fB\-\-syslog\-target=\fR\fIhost\fR\fB:\fR\fIport\fR
+\fB\-\-verbose=\fR[\fIspec\fR]
+Sets logging levels\[char46]  Without any \fIspec\fR, sets the log level for
+every module and destination to \fBdbg\fR\[char46]  Otherwise,
+\fIspec\fR is a list of words separated by spaces or commas or
+colons, up to one from each category below:
+.RS
+.IP \(bu
+A valid module name, as displayed by the \fBvlog/list\fR command
+on \fBovs\-appctl\fR(8), limits the log level change to the
+specified module\[char46]
+.IP \(bu
+\fBsyslog\fR, \fBconsole\fR, or \fBfile\fR, to
+limit the log level change to only to the system log, to the console,
+or to a file, respectively\[char46]  (If \fB\-\-detach\fR is specified,
+the daemon closes its standard file descriptors, so logging to the
+console will have no effect\[char46])
+.IP
+On Windows platform, \fBsyslog\fR is accepted as a word and is
+only useful along with the \fB\-\-syslog\-target\fR option (the
+word has no effect otherwise)\[char46]
+.IP \(bu
+\fBoff\fR, \fBemer\fR, \fBerr\fR,
+\fBwarn\fR, \fBinfo\fR, or \fBdbg\fR, to control
+the log level\[char46]  Messages of the given severity or higher will be
+logged, and messages of lower severity will be filtered out\[char46]
+\fBoff\fR filters out all messages\[char46]  See
+\fBovs\-appctl\fR(8) for a definition of each log level\[char46]
 .RE
-.SH "PKI CONFIGURATION (REQUIRED TO USE SSL)"
+.IP
+Case is not significant within \fIspec\fR\[char46]
+.IP
+Regardless of the log levels set for \fBfile\fR, logging to a file
+will not take place unless \fB\-\-log\-file\fR is also specified (see
+below)\[char46]
+.IP
+For compatibility with older versions of OVS, \fBany\fR is
+accepted as a word but has no effect\[char46]
+.TP
+\fB\-v\fR
+.TQ .5in
+\fB\-\-verbose\fR
+Sets the maximum logging verbosity level, equivalent to
+\fB\-\-verbose=dbg\fR\[char46]
+.TP
+\fB\-vPATTERN:\fR\fIdestination\fR\fB:\fR\fIpattern\fR
+.TQ .5in
+\fB\-\-verbose=PATTERN:\fR\fIdestination\fR\fB:\fR\fIpattern\fR
+Sets the log pattern for \fIdestination\fR to \fIpattern\fR\[char46]
+Refer to \fBovs\-appctl\fR(8) for a description of the valid syntax
+for \fIpattern\fR\[char46]
+.TP
+\fB\-vFACILITY:\fR\fIfacility\fR
+.TQ .5in
+\fB\-\-verbose=FACILITY:\fR\fIfacility\fR
+Sets the RFC5424 facility of the log message\[char46] \fIfacility\fR can be
+one of \fBkern\fR, \fBuser\fR, \fBmail\fR,
+\fBdaemon\fR, \fBauth\fR, \fBsyslog\fR,
+\fBlpr\fR, \fBnews\fR, \fBuucp\fR, \fBclock\fR,
+\fBftp\fR, \fBntp\fR, \fBaudit\fR, \fBalert\fR,
+\fBclock2\fR, \fBlocal0\fR, \fBlocal1\fR,
+\fBlocal2\fR, \fBlocal3\fR, \fBlocal4\fR,
+\fBlocal5\fR, \fBlocal6\fR or \fBlocal7\fR\[char46] If this
+option is not specified, \fBdaemon\fR is used as the default for the
+local system syslog and \fBlocal0\fR is used while sending a message
+to the target provided via the \fB\-\-syslog\-target\fR option\[char46]
+.TP
+\fB\-\-log\-file\fR[\fB=\fR\fIfile\fR]
+Enables logging to a file\[char46]  If \fIfile\fR is specified, then it is
+used as the exact name for the log file\[char46]  The default log file name used if
+\fIfile\fR is omitted is \fB/usr/local/var/log/openvswitch/\fIprogram\fB\[char46]log\fR\[char46]
+.TP
+\fB\-\-syslog\-target=\fR\fIhost\fR\fB:\fR\fIport\fR
+Send syslog messages to UDP \fIport\fR on \fIhost\fR, in addition
+to the system syslog\[char46]  The \fIhost\fR must be a numerical IP address,
+not a hostname\[char46]
+.TP
+\fB\-\-syslog\-method=\fR\fImethod\fR
+Specify \fImethod\fR as how syslog messages should be sent to syslog
+daemon\[char46]  The following forms are supported:
+.RS
+.IP \(bu
+\fBlibc\fR, to use the libc \fBsyslog()\fR function\[char46]
+This is the default behavior\[char46]  Downside of using this options is that
+libc adds fixed prefix to every message before it is actually sent to
+the syslog daemon over \fB/dev/log\fR UNIX domain socket\[char46]
+.IP \(bu
+\fBunix:\fIfile\fB\fR, to use a UNIX domain socket
+directly\[char46]  It is possible to specify arbitrary message format with this
+option\[char46]  However, \fBrsyslogd 8\[char46]9\fR and older versions use hard
+coded parser function anyway that limits UNIX domain socket use\[char46]  If
+you want to use arbitrary message format with older
+\fBrsyslogd\fR versions, then use UDP socket to localhost IP
+address instead\[char46]
+.IP \(bu
+\fBudp:\fIip\fB:\fIport\fB\fR, to use a UDP socket\[char46]
+With this method it is possible to use arbitrary message format also
+with older \fBrsyslogd\fR\[char46]  When sending syslog messages over
+UDP socket extra precaution needs to be taken into account, for
+example, syslog daemon needs to be configured to listen on the
+specified UDP port, accidental iptables rules could be interfering with
+local syslog traffic and there are some security considerations that
+apply to UDP sockets, but do not apply to UNIX domain sockets\[char46]
+.RE
+.RE
+.SS "PKI Options"
+.PP
+PKI configuration is required to use SSL for the connection to the
+database\[char46]
 .RS
 .TP
-\fB\-p\fR, \fB\-\-private\-key=\fR\fIfile\fR  file with private key
+\fB\-p\fR \fIprivkey\[char46]pem\fR
 .TQ .5in
-\fB\-c\fR, \fB\-\-certificate=\fR\fIfile\fR  file with certificate for private key
+\fB\-\-private\-key=\fR\fIprivkey\[char46]pem\fR
+Specifies a PEM file containing the private key used as
+identity for outgoing SSL connections\[char46]
+.TP
+\fB\-c\fR \fIcert\[char46]pem\fR
 .TQ .5in
-\fB\-C\fR, \fB\-\-ca\-cert=\fR\fIfile\fR      file with peer CA certificate
+\fB\-\-certificate=\fR\fIcert\[char46]pem\fR
+Specifies a PEM file containing a certificate that certifies the
+private key specified on \fB\-p\fR or \fB\-\-private\-key\fR to be
+trustworthy\[char46]  The certificate must be signed by the certificate
+authority (CA) that the peer in SSL connections will use to verify it\[char46]
+.TP
+\fB\-C\fR \fIcacert\[char46]pem\fR
+.TQ .5in
+\fB\-\-ca\-cert=\fR\fIcacert\[char46]pem\fR
+Specifies a PEM file containing the CA certificate for
+verifying certificates presented to this program by SSL peers\[char46]  (This
+may be the same certificate that SSL peers use to verify the
+certificate specified on \fB\-c\fR or \fB\-\-certificate\fR, or it may
+be a different one, depending on the PKI design in use\[char46])
+.TP
+\fB\-C none\fR
+.TQ .5in
+\fB\-\-ca\-cert=none\fR
+Disables verification of certificates presented by SSL peers\[char46]  This
+introduces a security risk, because it means that certificates cannot
+be verified to be those of known trusted hosts\[char46]
+.RE
+.SS "Other Options"
+.RS
+.TP
+\fB\-h\fR
+.TQ .5in
+\fB\-\-help\fR
+Prints a brief help message to the console\[char46]
+.TP
+\fB\-V\fR
+.TQ .5in
+\fB\-\-version\fR
+Prints version information to the console\[char46]
 .RE

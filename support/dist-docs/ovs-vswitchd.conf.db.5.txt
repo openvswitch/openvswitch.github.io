@@ -1783,8 +1783,10 @@ Interface TABLE
        Patch Options:
          options : peer              optional string
        PMD (Poll Mode Driver) Options:
-         options : n_rxqs            optional  string,  containing an integer,
+         options : n_rxq             optional  string,  containing an integer,
                                      at least 1
+         other_config : pmd-rxq-affinity
+                                     optional string
        Interface Status:
          admin_state                 optional string, either down or up
          link_state                  optional string, either down or up
@@ -1904,6 +1906,11 @@ Interface TABLE
          external_ids : xs-vm-uuid   optional string
        Auto Attach Configuration:
          lldp : enable               optional string, either true or false
+       Flow control Configuration:
+         options : rx-flow-ctrl      optional string, either true or false
+         options : tx-flow-ctrl      optional string, either true or false
+         options : flow-ctrl-autoneg
+                                     optional string, either true or false
        Common Columns:
          other_config                map of string-string pairs
          external_ids                map of string-string pairs
@@ -2260,28 +2267,44 @@ Interface TABLE
      PMD (Poll Mode Driver) Options:
        Only PMD netdevs support these options.
 
-       options : n_rxqs: optional string, containing an integer, at least 1
+       options : n_rxq: optional string, containing an integer, at least 1
               Specifies  the maximum number of rx queues to be created for PMD
               netdev.  If not specified or specified to 0, one rx  queue  will
-              be created by default.
+              be created by default.  Not supported by DPDK vHost interfaces.
+
+       other_config : pmd-rxq-affinity: optional string
+              Specifies mapping of RX queues of this interface to CPU cores.
+
+              Value should be set in the following form:
+
+              other_config:pmd-rxq-affinity=<rxq-affinity-list>
+
+              where
+
+              ·      <rxq-affinity-list> ::= NULL | <non-empty-list>
+
+              ·      <non-empty-list>  ::= <affinity-pair> | <affinity-pair> ,
+                     <non-empty-list>
+
+              ·      <affinity-pair> ::= <queue-id> : <core-id>
 
      Interface Status:
-       Status  information about interfaces attached to bridges, updated every
-       5 seconds.  Not all interfaces have all of  these  properties;  virtual
-       interfaces  don’t  have a link speed, for example.  Non-applicable col‐
+       Status information about interfaces attached to bridges, updated  every
+       5  seconds.   Not  all interfaces have all of these properties; virtual
+       interfaces don’t have a link speed, for example.   Non-applicable  col‐
        umns will have empty values.
 
        admin_state: optional string, either down or up
               The administrative state of the physical network link.
 
        link_state: optional string, either down or up
-              The observed state of the physical network link.  This is  ordi‐
-              narily  the link’s carrier status.  If the interface’s Port is a
+              The  observed state of the physical network link.  This is ordi‐
+              narily the link’s carrier status.  If the interface’s Port is  a
               bond configured for miimon monitoring, it is instead the network
               link’s miimon status.
 
        link_resets: optional integer
-              The  number of times Open vSwitch has observed the link_state of
+              The number of times Open vSwitch has observed the link_state  of
               this Interface change.
 
        link_speed: optional integer
@@ -2292,64 +2315,64 @@ Interface TABLE
               The duplex mode of the physical network link.
 
        mtu: optional integer
-              The  MTU (maximum transmission unit); i.e. the largest amount of
-              data that can fit into a single Ethernet  frame.   The  standard
-              Ethernet  MTU is 1500 bytes.  Some physical media and many kinds
+              The MTU (maximum transmission unit); i.e. the largest amount  of
+              data  that  can  fit into a single Ethernet frame.  The standard
+              Ethernet MTU is 1500 bytes.  Some physical media and many  kinds
               of virtual interfaces can be configured with higher MTUs.
 
               This column will be empty for an interface that does not have an
               MTU as, for example, some kinds of tunnels do not.
 
        lacp_current: optional boolean
-              Boolean  value  indicating  LACP  status for this interface.  If
+              Boolean value indicating LACP status  for  this  interface.   If
               true, this interface has current LACP information about its LACP
-              partner.   This information may be used to monitor the health of
+              partner.  This information may be used to monitor the health  of
               interfaces in a LACP enabled port.  This column will be empty if
               LACP is not enabled.
 
        status: map of string-string pairs
-              Key-value  pairs that report port status.  Supported status val‐
-              ues are type-dependent; some interfaces may  not  have  a  valid
+              Key-value pairs that report port status.  Supported status  val‐
+              ues  are  type-dependent;  some  interfaces may not have a valid
               status:driver_name, for example.
 
        status : driver_name: optional string
               The name of the device driver controlling the network adapter.
 
        status : driver_version: optional string
-              The  version string of the device driver controlling the network
+              The version string of the device driver controlling the  network
               adapter.
 
        status : firmware_version: optional string
-              The version string of the network adapter’s firmware, if  avail‐
+              The  version string of the network adapter’s firmware, if avail‐
               able.
 
        status : source_ip: optional string
-              The  source  IP  address used for an IPv4/IPv6 tunnel end-point,
+              The source IP address used for an  IPv4/IPv6  tunnel  end-point,
               such as gre.
 
        status : tunnel_egress_iface: optional string
-              Egress interface for tunnels.  Currently only relevant for  tun‐
-              nels  on  Linux  systems,  this column will show the name of the
-              interface which is responsible for routing traffic destined  for
-              the  configured  options:remote_ip.   This  could be an internal
+              Egress  interface for tunnels.  Currently only relevant for tun‐
+              nels on Linux systems, this column will show  the  name  of  the
+              interface  which is responsible for routing traffic destined for
+              the configured options:remote_ip.  This  could  be  an  internal
               interface such as a bridge port.
 
-       status : tunnel_egress_iface_carrier: optional string, either  down  or
+       status  :  tunnel_egress_iface_carrier: optional string, either down or
        up
               Whether carrier is detected on status:tunnel_egress_iface.
 
      Statistics:
-       Key-value  pairs  that report interface statistics.  The current imple‐
-       mentation updates these counters periodically.  The  update  period  is
-       controlled  by  other_config:stats-update-interval  in the Open_vSwitch
-       table.  Future implementations may update them  when  an  interface  is
-       created,  when they are queried (e.g. using an OVSDB select operation),
-       and just before an interface is deleted due to virtual  interface  hot-
+       Key-value pairs that report interface statistics.  The  current  imple‐
+       mentation  updates  these  counters periodically.  The update period is
+       controlled by other_config:stats-update-interval  in  the  Open_vSwitch
+       table.   Future  implementations  may  update them when an interface is
+       created, when they are queried (e.g. using an OVSDB select  operation),
+       and  just  before an interface is deleted due to virtual interface hot-
        unplug or VM shutdown, and perhaps at other times, but not on any regu‐
        lar periodic basis.
 
-       These are the same  statistics  reported  by  OpenFlow  in  its  struct
-       ofp_port_stats  structure.   If  an  interface does not support a given
+       These  are  the  same  statistics  reported  by  OpenFlow in its struct
+       ofp_port_stats structure.  If an interface does  not  support  a  given
        statistic, then that pair is omitted.
 
      Statistics: Successful transmit and receive counters:
@@ -2393,158 +2416,158 @@ Interface TABLE
               Number of collisions.
 
        statistics : tx_errors: optional integer
-              Total  number  of  transmit errors, greater than or equal to the
+              Total number of transmit errors, greater than or  equal  to  the
               sum of the above.
 
      Ingress Policing:
-       These settings control ingress policing for packets  received  on  this
-       interface.   On  a  physical  interface,  this limits the rate at which
-       traffic is allowed into the system  from  the  outside;  on  a  virtual
+       These  settings  control  ingress policing for packets received on this
+       interface.  On a physical interface, this  limits  the  rate  at  which
+       traffic  is  allowed  into  the  system  from the outside; on a virtual
        interface (one connected to a virtual machine), this limits the rate at
        which the VM is able to transmit.
 
        Policing is a simple form of quality-of-service that simply drops pack‐
-       ets  received in excess of the configured rate.  Due to its simplicity,
-       policing is usually less accurate and less effective  than  egress  QoS
+       ets received in excess of the configured rate.  Due to its  simplicity,
+       policing  is  usually  less accurate and less effective than egress QoS
        (which is configured using the QoS and Queue tables).
 
-       Policing  is  currently  implemented  on  Linux and OVS with DPDK. Both
+       Policing is currently implemented on Linux  and  OVS  with  DPDK.  Both
        implementations use a simple ``token bucket’’ approach:
 
-              ·      The size of  the  bucket  corresponds  to  ingress_polic‐
+              ·      The  size  of  the  bucket  corresponds to ingress_polic‐
                      ing_burst.  Initially the bucket is full.
 
-              ·      Whenever  a  packet  is  received, its size (converted to
-                     tokens) is compared to the number of tokens currently  in
-                     the  bucket.  If the required number of tokens are avail‐
+              ·      Whenever a packet is received,  its  size  (converted  to
+                     tokens)  is compared to the number of tokens currently in
+                     the bucket.  If the required number of tokens are  avail‐
                      able, they are removed and the packet is forwarded.  Oth‐
                      erwise, the packet is dropped.
 
-              ·      Whenever  it  is  not  full,  the bucket is refilled with
+              ·      Whenever it is not full,  the  bucket  is  refilled  with
                      tokens at the rate specified by ingress_policing_rate.
 
-       Policing interacts badly with some network  protocols,  and  especially
-       with  fragmented  IP  packets.   Suppose  that  there is enough network
+       Policing  interacts  badly  with some network protocols, and especially
+       with fragmented IP packets.   Suppose  that  there  is  enough  network
        activity to keep the bucket nearly empty all the time.  Then this token
-       bucket  algorithm will forward a single packet every so often, with the
+       bucket algorithm will forward a single packet every so often, with  the
        period depending on packet size and on the configured rate.  All of the
-       fragments  of an IP packets are normally transmitted back-to-back, as a
-       group.  In such a situation, therefore, only  one  of  these  fragments
-       will  be  forwarded  and the rest will be dropped.  IP does not provide
-       any way for the intended recipient to ask for only the remaining  frag‐
+       fragments of an IP packets are normally transmitted back-to-back, as  a
+       group.   In  such  a  situation, therefore, only one of these fragments
+       will be forwarded and the rest will be dropped.  IP  does  not  provide
+       any  way for the intended recipient to ask for only the remaining frag‐
        ments.  In such a case there are two likely possibilities for what will
        happen next: either all of the fragments will eventually be retransmit‐
        ted (as TCP will do), in which case the same problem will recur, or the
-       sender will not realize that its packet has been dropped and data  will
-       simply  be  lost (as some UDP-based protocols will do).  Either way, it
+       sender  will not realize that its packet has been dropped and data will
+       simply be lost (as some UDP-based protocols will do).  Either  way,  it
        is possible that no forward progress will ever occur.
 
        ingress_policing_rate: integer, at least 0
               Maximum rate for data received on this interface, in kbps.  Data
-              received  faster  than  this  rate  is  dropped.   Set to 0 (the
+              received faster than this  rate  is  dropped.   Set  to  0  (the
               default) to disable policing.
 
        ingress_policing_burst: integer, at least 0
-              Maximum burst size for data received on this interface,  in  kb.
+              Maximum  burst  size for data received on this interface, in kb.
               The default burst size if set to 0 is 8000 kbit.  This value has
               no effect if ingress_policing_rate is 0.
 
-              Specifying a larger burst size lets the algorithm be  more  for‐
+              Specifying  a  larger burst size lets the algorithm be more for‐
               giving, which is important for protocols like TCP that react se‐
-              verely to dropped packets.  The burst size should  be  at  least
-              the  size  of  the  interface’s MTU.  Specifying a value that is
-              numerically at least as large as  80%  of  ingress_policing_rate
+              verely  to  dropped  packets.  The burst size should be at least
+              the size of the interface’s MTU.  Specifying  a  value  that  is
+              numerically  at  least  as large as 80% of ingress_policing_rate
               helps TCP come closer to achieving the full rate.
 
      Bidirectional Forwarding Detection (BFD):
-       BFD,  defined in RFC 5880 and RFC 5881, allows point-to-point detection
+       BFD, defined in RFC 5880 and RFC 5881, allows point-to-point  detection
        of connectivity failures by occasional transmission of BFD control mes‐
-       sages.   Open  vSwitch  implements  BFD  to serve as a more popular and
+       sages.  Open vSwitch implements BFD to serve  as  a  more  popular  and
        standards compliant alternative to CFM.
 
-       BFD operates by regularly transmitting BFD control messages at  a  rate
-       negotiated  independently  in  each direction.  Each endpoint specifies
-       the rate at which it expects to receive control messages, and the  rate
+       BFD  operates  by regularly transmitting BFD control messages at a rate
+       negotiated independently in each direction.   Each  endpoint  specifies
+       the  rate at which it expects to receive control messages, and the rate
        at which it is willing to transmit them.  Open vSwitch uses a detection
-       multiplier of three, meaning that an endpoint  signals  a  connectivity
+       multiplier  of  three,  meaning that an endpoint signals a connectivity
        fault if three consecutive BFD control messages fail to arrive.  In the
-       case of a unidirectional connectivity issue, the system  not  receiving
+       case  of  a unidirectional connectivity issue, the system not receiving
        BFD control messages signals the problem to its peer in the messages it
        transmits.
 
-       The Open vSwitch implementation of BFD aims to comply  faithfully  with
-       RFC  5880  requirements.   Open vSwitch does not implement the optional
+       The  Open  vSwitch implementation of BFD aims to comply faithfully with
+       RFC 5880 requirements.  Open vSwitch does not  implement  the  optional
        Authentication or ``Echo Mode’’ features.
 
      BFD Configuration:
-       A controller sets up key-value pairs in the bfd column  to  enable  and
+       A  controller  sets  up key-value pairs in the bfd column to enable and
        configure BFD.
 
        bfd : enable: optional string, either true or false
-              True  to  enable  BFD  on this Interface.  If not specified, BFD
+              True to enable BFD on this Interface.   If  not  specified,  BFD
               will not be enabled by default.
 
        bfd : min_rx: optional string, containing an integer, at least 1
-              The shortest interval, in milliseconds, at which this  BFD  ses‐
-              sion  offers  to  receive BFD control messages.  The remote end‐
+              The  shortest  interval, in milliseconds, at which this BFD ses‐
+              sion offers to receive BFD control messages.   The  remote  end‐
               point may choose to send messages at a slower rate.  Defaults to
               1000.
 
        bfd : min_tx: optional string, containing an integer, at least 1
-              The  shortest  interval, in milliseconds, at which this BFD ses‐
+              The shortest interval, in milliseconds, at which this  BFD  ses‐
               sion is willing to transmit BFD control messages.  Messages will
-              actually  be transmitted at a slower rate if the remote endpoint
-              is not willing to receive as quickly as specified.  Defaults  to
+              actually be transmitted at a slower rate if the remote  endpoint
+              is  not willing to receive as quickly as specified.  Defaults to
               100.
 
        bfd : decay_min_rx: optional string, containing an integer
-              An  alternate  receive  interval,  in milliseconds, that must be
-              greater  than  or  equal  to  bfd:min_rx.   The   implementation
-              switches  from  bfd:min_rx  to bfd:decay_min_rx when there is no
-              obvious incoming data traffic at the interface,  to  reduce  the
-              CPU  and  bandwidth  cost of monitoring an idle interface.  This
-              feature may be disabled by setting a value of 0.   This  feature
+              An alternate receive interval, in  milliseconds,  that  must  be
+              greater   than  or  equal  to  bfd:min_rx.   The  implementation
+              switches from bfd:min_rx to bfd:decay_min_rx when  there  is  no
+              obvious  incoming  data  traffic at the interface, to reduce the
+              CPU and bandwidth cost of monitoring an  idle  interface.   This
+              feature  may  be disabled by setting a value of 0.  This feature
               is reset whenever bfd:decay_min_rx or bfd:min_rx changes.
 
        bfd : forwarding_if_rx: optional string, either true or false
               When true, traffic received on the Interface is used to indicate
-              the capability of packet I/O.  BFD  control  packets  are  still
-              transmitted  and received.  At least one BFD control packet must
-              be received every 100 * bfd:min_rx amount of  time.   Otherwise,
+              the  capability  of  packet  I/O.  BFD control packets are still
+              transmitted and received.  At least one BFD control packet  must
+              be  received  every 100 * bfd:min_rx amount of time.  Otherwise,
               even if traffic are received, the bfd:forwarding will be false.
 
        bfd : cpath_down: optional string, either true or false
-              Set  to  true  to notify the remote endpoint that traffic should
-              not be forwarded to this system for some  reason  other  than  a
+              Set to true to notify the remote endpoint  that  traffic  should
+              not  be  forwarded  to  this system for some reason other than a
               connectivty failure on the interface being monitored.  The typi‐
-              cal underlying reason is ``concatenated path  down,’’  that  is,
-              that  connectivity beyond the local system is down.  Defaults to
+              cal  underlying  reason  is ``concatenated path down,’’ that is,
+              that connectivity beyond the local system is down.  Defaults  to
               false.
 
        bfd : check_tnl_key: optional string, either true or false
               Set to true to make BFD accept only control messages with a tun‐
-              nel  key of zero.  By default, BFD accepts control messages with
+              nel key of zero.  By default, BFD accepts control messages  with
               any tunnel key.
 
        bfd : bfd_local_src_mac: optional string
-              Set to an Ethernet address in the form xx:xx:xx:xx:xx:xx to  set
+              Set  to an Ethernet address in the form xx:xx:xx:xx:xx:xx to set
               the MAC used as source for transmitted BFD packets.  The default
               is the mac address of the BFD enabled interface.
 
        bfd : bfd_local_dst_mac: optional string
-              Set to an Ethernet address in the form xx:xx:xx:xx:xx:xx to  set
-              the  MAC  used  as destination for transmitted BFD packets.  The
+              Set  to an Ethernet address in the form xx:xx:xx:xx:xx:xx to set
+              the MAC used as destination for transmitted  BFD  packets.   The
               default is 00:23:20:00:00:01.
 
        bfd : bfd_remote_dst_mac: optional string
-              Set to an Ethernet address in the form xx:xx:xx:xx:xx:xx to  set
-              the  MAC used for checking the destination of received BFD pack‐
+              Set  to an Ethernet address in the form xx:xx:xx:xx:xx:xx to set
+              the MAC used for checking the destination of received BFD  pack‐
               ets.  Packets with different destination MAC will not be consid‐
-              ered  as  BFD  packets.   If  not  specified the destination MAC
+              ered as BFD packets.   If  not  specified  the  destination  MAC
               address of received BFD packets are not checked.
 
        bfd : bfd_src_ip: optional string
-              Set to an IPv4 address to set the IP address used as source  for
+              Set  to an IPv4 address to set the IP address used as source for
               transmitted BFD packets.  The default is 169.254.1.1.
 
        bfd : bfd_dst_ip: optional string
@@ -2552,120 +2575,120 @@ Interface TABLE
               for transmitted BFD packets.  The default is 169.254.1.0.
 
        bfd : oam: optional string
-              Some tunnel protocols (such as Geneve)  include  a  bit  in  the
+              Some  tunnel  protocols  (such  as  Geneve) include a bit in the
               header to indicate that the encapsulated packet is an OAM frame.
-              By setting this to true, BFD packets will be marked  as  OAM  if
+              By  setting  this  to true, BFD packets will be marked as OAM if
               encapsulated in one of these tunnels.
 
      BFD Status:
-       The  switch sets key-value pairs in the bfd_status column to report the
-       status of BFD on  this  interface.   When  BFD  is  not  enabled,  with
+       The switch sets key-value pairs in the bfd_status column to report  the
+       status  of  BFD  on  this  interface.   When  BFD  is not enabled, with
        bfd:enable, the switch clears all key-value pairs from bfd_status.
 
-       bfd_status  :  state:  optional  string,  one  of  down,  init,  up, or
+       bfd_status :  state:  optional  string,  one  of  down,  init,  up,  or
        admin_down
-              Reports the state of the BFD session.  The BFD session is  fully
+              Reports  the state of the BFD session.  The BFD session is fully
               healthy and negotiated if UP.
 
        bfd_status : forwarding: optional string, either true or false
-              Reports  whether  the BFD session believes this Interface may be
+              Reports whether the BFD session believes this Interface  may  be
               used to forward traffic.  Typically this means the local session
               is signaling UP, and the remote system isn’t signaling a problem
               such as concatenated path down.
 
        bfd_status : diagnostic: optional string
-              A diagnostic code specifying the local system’s reason  for  the
-              last  change in session state. The error messages are defined in
+              A  diagnostic  code specifying the local system’s reason for the
+              last change in session state. The error messages are defined  in
               section 4.1 of [RFC 5880].
 
-       bfd_status : remote_state: optional string, one of down, init,  up,  or
+       bfd_status  :  remote_state: optional string, one of down, init, up, or
        admin_down
               Reports the state of the remote endpoint’s BFD session.
 
        bfd_status : remote_diagnostic: optional string
-              A  diagnostic code specifying the remote system’s reason for the
-              last change in session state. The error messages are defined  in
+              A diagnostic code specifying the remote system’s reason for  the
+              last  change in session state. The error messages are defined in
               section 4.1 of [RFC 5880].
 
-       bfd_status  :  flap_count:  optional  string, containing an integer, at
+       bfd_status : flap_count: optional string,  containing  an  integer,  at
        least 0
               Counts the number of bfd_status:forwarding flaps since start.  A
-              flap  is  considered  as  a  change of the bfd_status:forwarding
+              flap is considered as  a  change  of  the  bfd_status:forwarding
               value.
 
      Connectivity Fault Management:
-       802.1ag Connectivity Fault Management (CFM) allows a group  of  Mainte‐
+       802.1ag  Connectivity  Fault Management (CFM) allows a group of Mainte‐
        nance Points (MPs) called a Maintenance Association (MA) to detect con‐
-       nectivity problems with each other.  MPs within a MA should  have  com‐
-       plete  and  exclusive interconnectivity.  This is verified by occasion‐
-       ally broadcasting Continuity Check Messages (CCMs)  at  a  configurable
+       nectivity  problems  with each other.  MPs within a MA should have com‐
+       plete and exclusive interconnectivity.  This is verified  by  occasion‐
+       ally  broadcasting  Continuity  Check Messages (CCMs) at a configurable
        transmission interval.
 
-       According  to  the 802.1ag specification, each Maintenance Point should
-       be configured out-of-band with a list of Remote Maintenance  Points  it
-       should  have connectivity to.  Open vSwitch differs from the specifica‐
-       tion in this area.  It simply assumes the link is faulted if no  Remote
-       Maintenance  Points  are reachable, and considers it not faulted other‐
+       According to the 802.1ag specification, each Maintenance  Point  should
+       be  configured  out-of-band with a list of Remote Maintenance Points it
+       should have connectivity to.  Open vSwitch differs from the  specifica‐
+       tion  in this area.  It simply assumes the link is faulted if no Remote
+       Maintenance Points are reachable, and considers it not  faulted  other‐
        wise.
 
        When operating over tunnels which have no in_key, or an in_key of flow.
        CFM will only accept CCMs with a tunnel key of zero.
 
        cfm_mpid: optional integer
-              A  Maintenance Point ID (MPID) uniquely identifies each endpoint
-              within a Maintenance Association.  The MPID is used to  identify
-              this  endpoint  to other Maintenance Points in the MA.  Each end
+              A Maintenance Point ID (MPID) uniquely identifies each  endpoint
+              within  a Maintenance Association.  The MPID is used to identify
+              this endpoint to other Maintenance Points in the MA.   Each  end
               of a link being monitored should have a different MPID.  Must be
               configured to enable CFM on this Interface.
 
-              According  to  the  802.1ag  specification, MPIDs can only range
-              between [1,  8191].   However,  extended  mode  (see  other_con‐
+              According to the 802.1ag specification,  MPIDs  can  only  range
+              between  [1,  8191].   However,  extended  mode  (see other_con‐
               fig:cfm_extended) supports eight byte MPIDs.
 
        cfm_flap_count: optional integer
-              Counts  the  number  of  cfm fault flapps since boot.  A flap is
+              Counts the number of cfm fault flapps since  boot.   A  flap  is
               considered to be a change of the cfm_fault value.
 
        cfm_fault: optional boolean
-              Indicates a connectivity fault  triggered  by  an  inability  to
-              receive  heartbeats  from  any remote endpoint.  When a fault is
-              triggered on Interfaces participating in  bonds,  they  will  be
+              Indicates  a  connectivity  fault  triggered  by an inability to
+              receive heartbeats from any remote endpoint.  When  a  fault  is
+              triggered  on  Interfaces  participating  in bonds, they will be
               disabled.
 
-              Faults  can  be triggered for several reasons.  Most importantly
+              Faults can be triggered for several reasons.   Most  importantly
               they are triggered when no CCMs are received for a period of 3.5
-              times  the transmission interval. Faults are also triggered when
+              times the transmission interval. Faults are also triggered  when
               any CCMs indicate that a Remote Maintenance Point is not receiv‐
-              ing  CCMs  but able to send them.  Finally, a fault is triggered
-              if a CCM is received which indicates  unexpected  configuration.
-              Notably,  this  case  arises when a CCM is received which adver‐
+              ing CCMs but able to send them.  Finally, a fault  is  triggered
+              if  a  CCM is received which indicates unexpected configuration.
+              Notably, this case arises when a CCM is  received  which  adver‐
               tises the local MPID.
 
        cfm_fault_status : recv: none
-              Indicates a CFM fault was  triggered  due  to  a  lack  of  CCMs
+              Indicates  a  CFM  fault  was  triggered  due  to a lack of CCMs
               received on the Interface.
 
        cfm_fault_status : rdi: none
-              Indicates  a  CFM  fault was triggered due to the reception of a
-              CCM with the RDI bit flagged.  Endpoints  set  the  RDI  bit  in
-              their  CCMs  when  they are not receiving CCMs themselves.  This
+              Indicates a CFM fault was triggered due to the  reception  of  a
+              CCM  with  the  RDI  bit  flagged.  Endpoints set the RDI bit in
+              their CCMs when they are not receiving  CCMs  themselves.   This
               typically indicates a unidirectional connectivity failure.
 
        cfm_fault_status : maid: none
-              Indicates a CFM fault was triggered due to the  reception  of  a
-              CCM  with  a  MAID  other  than  the one Open vSwitch uses.  CFM
-              broadcasts are tagged with an identification number in  addition
+              Indicates  a  CFM  fault was triggered due to the reception of a
+              CCM with a MAID other than  the  one  Open  vSwitch  uses.   CFM
+              broadcasts  are tagged with an identification number in addition
               to the MPID called the MAID.  Open vSwitch only supports receiv‐
               ing CCM broadcasts tagged with the MAID it uses internally.
 
        cfm_fault_status : loopback: none
-              Indicates a CFM fault was triggered due to the  reception  of  a
-              CCM  advertising the same MPID configured in the cfm_mpid column
+              Indicates  a  CFM  fault was triggered due to the reception of a
+              CCM advertising the same MPID configured in the cfm_mpid  column
               of this Interface.  This may indicate a loop in the network.
 
        cfm_fault_status : overflow: none
-              Indicates a CFM fault  was  triggered  because  the  CFM  module
-              received  CCMs from more remote endpoints than it can keep track
+              Indicates  a  CFM  fault  was  triggered  because the CFM module
+              received CCMs from more remote endpoints than it can keep  track
               of.
 
        cfm_fault_status : override: none
@@ -2673,47 +2696,47 @@ Interface TABLE
               using an ovs-appctl command.
 
        cfm_fault_status : interval: none
-              Indicates  a  CFM  fault was triggered due to the reception of a
+              Indicates a CFM fault was triggered due to the  reception  of  a
               CCM frame having an invalid interval.
 
        cfm_remote_opstate: optional string, either down or up
-              When in extended mode, indicates the operational  state  of  the
-              remote   endpoint   as   either  up  or  down.   See  other_con‐
+              When  in  extended  mode, indicates the operational state of the
+              remote  endpoint  as  either  up  or   down.    See   other_con‐
               fig:cfm_opstate.
 
        cfm_health: optional integer, in range 0 to 100
-              Indicates the health of the interface as  a  percentage  of  CCM
-              frames  received over 21 other_config:cfm_intervals.  The health
-              of an interface is undefined if it is  communicating  with  more
+              Indicates  the  health  of  the interface as a percentage of CCM
+              frames received over 21 other_config:cfm_intervals.  The  health
+              of  an  interface  is undefined if it is communicating with more
               than one cfm_remote_mpids.  It reduces if healthy heartbeats are
-              not received at the expected rate,  and  gradually  improves  as
-              healthy  heartbeats  are  received at the desired rate. Every 21
+              not  received  at  the  expected rate, and gradually improves as
+              healthy heartbeats are received at the desired  rate.  Every  21
               other_config:cfm_intervals,  the  health  of  the  interface  is
               refreshed.
 
               As mentioned above, the faults can be triggered for several rea‐
-              sons.  The link health will deteriorate even if  heartbeats  are
-              received  but  they  are reported to be unhealthy.  An unhealthy
-              heartbeat in this context is a heartbeat for which  either  some
+              sons.   The  link health will deteriorate even if heartbeats are
+              received but they are reported to be  unhealthy.   An  unhealthy
+              heartbeat  in  this context is a heartbeat for which either some
               fault is set or is out of sequence.  The interface health can be
               100 only on receiving healthy heartbeats at the desired rate.
 
        cfm_remote_mpids: set of integers
-              When CFM is properly configured, Open vSwitch will  occasionally
-              receive  CCM  broadcasts.   These broadcasts contain the MPID of
-              the sending Maintenance Point.  The list  of  MPIDs  from  which
-              this  Interface  is  receiving broadcasts from is regularly col‐
+              When  CFM is properly configured, Open vSwitch will occasionally
+              receive CCM broadcasts.  These broadcasts contain  the  MPID  of
+              the  sending  Maintenance  Point.   The list of MPIDs from which
+              this Interface is receiving broadcasts from  is  regularly  col‐
               lected and written to this column.
 
        other_config : cfm_interval: optional string, containing an integer
-              The interval, in  milliseconds,  between  transmissions  of  CFM
-              heartbeats.   Three  missed heartbeat receptions indicate a con‐
+              The  interval,  in  milliseconds,  between  transmissions of CFM
+              heartbeats.  Three missed heartbeat receptions indicate  a  con‐
               nectivity fault.
 
-              In standard operation only  intervals  of  3,  10,  100,  1,000,
-              10,000,  60,000, or 600,000 ms are supported.  Other values will
+              In  standard  operation  only  intervals  of  3, 10, 100, 1,000,
+              10,000, 60,000, or 600,000 ms are supported.  Other values  will
               be rounded down to the nearest value on the list.  Extended mode
-              (see  other_config:cfm_extended)  supports  any  interval  up to
+              (see other_config:cfm_extended)  supports  any  interval  up  to
               65,535 ms.  In either mode, the default is 1000 ms.
 
               We do not recommend using intervals less than 100 ms.
@@ -2722,117 +2745,117 @@ Interface TABLE
               When true, the CFM module operates in extended mode. This causes
               it to use a nonstandard destination address to avoid conflicting
               with compliant implementations which may be running concurrently
-              on  the  network. Furthermore, extended mode increases the accu‐
-              racy of the cfm_interval  configuration  parameter  by  breaking
-              wire  compatibility with 802.1ag compliant implementations.  And
+              on the network. Furthermore, extended mode increases  the  accu‐
+              racy  of  the  cfm_interval  configuration parameter by breaking
+              wire compatibility with 802.1ag compliant implementations.   And
               extended mode allows eight byte MPIDs.  Defaults to false.
 
        other_config : cfm_demand: optional string, either true or false
               When true, and other_config:cfm_extended is true, the CFM module
-              operates  in demand mode.  When in demand mode, traffic received
-              on the Interface is used to indicate liveness.  CCMs  are  still
-              transmitted  and  received.   At  least one CCM must be received
-              every 100 * other_config:cfm_interval amount  of  time.   Other‐
-              wise,  even  if  traffic are received, the CFM module will raise
+              operates in demand mode.  When in demand mode, traffic  received
+              on  the  Interface is used to indicate liveness.  CCMs are still
+              transmitted and received.  At least one  CCM  must  be  received
+              every  100  *  other_config:cfm_interval amount of time.  Other‐
+              wise, even if traffic are received, the CFM  module  will  raise
               the connectivity fault.
 
               Demand mode has a couple of caveats:
 
-              ·      To ensure that ovs-vswitchd has enough time to pull  sta‐
-                     tistics  from  the datapath, the fault detection interval
+              ·      To  ensure that ovs-vswitchd has enough time to pull sta‐
+                     tistics from the datapath, the fault  detection  interval
                      is set to 3.5 * MAX(other_config:cfm_interval, 500) ms.
 
-              ·      To avoid ambiguity,  demand  mode  disables  itself  when
+              ·      To  avoid  ambiguity,  demand  mode  disables itself when
                      there are multiple remote maintenance points.
 
-              ·      If  the  Interface  is heavily congested, CCMs containing
-                     the other_config:cfm_opstate status may be dropped  caus‐
+              ·      If the Interface is heavily  congested,  CCMs  containing
+                     the  other_config:cfm_opstate status may be dropped caus‐
                      ing changes in the operational state to be delayed.  Sim‐
-                     ilarly, if CCMs containing the RDI bit are not  received,
+                     ilarly,  if CCMs containing the RDI bit are not received,
                      unidirectional link failures may not be detected.
 
        other_config : cfm_opstate: optional string, either down or up
-              When  down, the CFM module marks all CCMs it generates as opera‐
-              tionally down without triggering a fault.   This  allows  remote
-              maintenance  points  to  choose  not  to  forward traffic to the
-              Interface on which this CFM module is  running.   Currently,  in
+              When down, the CFM module marks all CCMs it generates as  opera‐
+              tionally  down  without  triggering a fault.  This allows remote
+              maintenance points to choose  not  to  forward  traffic  to  the
+              Interface  on  which  this CFM module is running.  Currently, in
               Open vSwitch, the opdown bit of CCMs affects Interfaces partici‐
               pating in bonds, and the bundle OpenFlow action. This setting is
               ignored when CFM is not in extended mode.  Defaults to up.
 
        other_config : cfm_ccm_vlan: optional string, containing an integer, in
        range 1 to 4,095
-              When set, the CFM module will apply a VLAN tag to  all  CCMs  it
-              generates  with  the  given  value.  May be the string random in
-              which case each CCM will be tagged  with  a  different  randomly
+              When  set,  the  CFM module will apply a VLAN tag to all CCMs it
+              generates with the given value.  May be  the  string  random  in
+              which  case  each  CCM  will be tagged with a different randomly
               generated VLAN.
 
-       other_config  : cfm_ccm_pcp: optional string, containing an integer, in
+       other_config : cfm_ccm_pcp: optional string, containing an integer,  in
        range 1 to 7
-              When set, the CFM module will apply a VLAN tag to  all  CCMs  it
-              generates  with  the  given PCP value, the VLAN ID of the tag is
-              governed  by  the   value   of   other_config:cfm_ccm_vlan.   If
+              When  set,  the  CFM module will apply a VLAN tag to all CCMs it
+              generates with the given PCP value, the VLAN ID of  the  tag  is
+              governed   by   the   value   of  other_config:cfm_ccm_vlan.  If
               other_config:cfm_ccm_vlan is unset, a VLAN ID of zero is used.
 
      Bonding Configuration:
 
        other_config : lacp-port-id: optional string, containing an integer, in
        range 1 to 65,535
-              The LACP port ID of this Interface.  Port IDs are used  in  LACP
-              negotiations  to  identify  individual  ports participating in a
+              The  LACP  port ID of this Interface.  Port IDs are used in LACP
+              negotiations to identify individual  ports  participating  in  a
               bond.
 
        other_config : lacp-port-priority: optional string, containing an inte‐
        ger, in range 1 to 65,535
-              The  LACP port priority of this Interface.  In LACP negotiations
-              Interfaces with numerically lower priorities are  preferred  for
+              The LACP port priority of this Interface.  In LACP  negotiations
+              Interfaces  with  numerically lower priorities are preferred for
               aggregation.
 
-       other_config  :  lacp-aggregation-key:  optional  string, containing an
+       other_config : lacp-aggregation-key:  optional  string,  containing  an
        integer, in range 1 to 65,535
-              The LACP aggregation key of  this  Interface.   Interfaces  with
+              The  LACP  aggregation  key  of this Interface.  Interfaces with
               different aggregation keys may not be active within a given Port
               at the same time.
 
      Virtual Machine Identifiers:
-       These key-value pairs specifically apply to an  interface  that  repre‐
-       sents  a  virtual  Ethernet  interface  connected to a virtual machine.
-       These key-value pairs should not be present for other types  of  inter‐
-       faces.   Keys  whose names end in -uuid have values that uniquely iden‐
-       tify the entity in question.  For a Citrix XenServer hypervisor,  these
-       values  are  UUIDs in RFC 4122 format.  Other hypervisors may use other
+       These  key-value  pairs  specifically apply to an interface that repre‐
+       sents a virtual Ethernet interface  connected  to  a  virtual  machine.
+       These  key-value  pairs should not be present for other types of inter‐
+       faces.  Keys whose names end in -uuid have values that  uniquely  iden‐
+       tify  the entity in question.  For a Citrix XenServer hypervisor, these
+       values are UUIDs in RFC 4122 format.  Other hypervisors may  use  other
        formats.
 
        external_ids : attached-mac: optional string
-              The MAC address programmed into  the  ``virtual  hardware’’  for
-              this  interface,  in  the  form  xx:xx:xx:xx:xx:xx.   For Citrix
-              XenServer, this is the value of the MAC field in the VIF  record
+              The  MAC  address  programmed  into the ``virtual hardware’’ for
+              this interface,  in  the  form  xx:xx:xx:xx:xx:xx.   For  Citrix
+              XenServer,  this is the value of the MAC field in the VIF record
               for this interface.
 
        external_ids : iface-id: optional string
-              A  system-unique  identifier  for  the interface.  On XenServer,
+              A system-unique identifier for  the  interface.   On  XenServer,
               this will commonly be the same as external_ids:xs-vif-uuid.
 
        external_ids : iface-status: optional string, either active or inactive
-              Hypervisors may sometimes have more than one  interface  associ‐
-              ated  with  a  given external_ids:iface-id, only one of which is
-              actually in use at a given time.  For example, in  some  circum‐
+              Hypervisors  may  sometimes have more than one interface associ‐
+              ated with a given external_ids:iface-id, only one  of  which  is
+              actually  in  use at a given time.  For example, in some circum‐
               stances XenServer has both a ``tap’’ and a ``vif’’ interface for
-              a single external_ids:iface-id, but only uses one of them  at  a
-              time.   A  hypervisor  that  behaves this way must mark the cur‐
-              rently in use interface  active  and  the  others  inactive.   A
-              hypervisor  that  never  has more than one interface for a given
-              external_ids:iface-id may mark that  interface  active  or  omit
+              a  single  external_ids:iface-id, but only uses one of them at a
+              time.  A hypervisor that behaves this way  must  mark  the  cur‐
+              rently  in  use  interface  active  and  the others inactive.  A
+              hypervisor that never has more than one interface  for  a  given
+              external_ids:iface-id  may  mark  that  interface active or omit
               external_ids:iface-status entirely.
 
-              During  VM  migration, a given external_ids:iface-id might tran‐
+              During VM migration, a given external_ids:iface-id  might  tran‐
               siently be marked active on two different hypervisors.  That is,
-              active  means  that  this  external_ids:iface-id  is  the active
-              instance within a single hypervisor, not  in  a  broader  scope.
-              There  is  one exception: some hypervisors support ``migration’’
-              from a given hypervisor to itself  (most  often  for  test  pur‐
-              poses).   During such a ``migration,’’ two instances of a single
-              external_ids:iface-id might both be briefly marked active  on  a
+              active means  that  this  external_ids:iface-id  is  the  active
+              instance  within  a  single  hypervisor, not in a broader scope.
+              There is one exception: some hypervisors  support  ``migration’’
+              from  a  given  hypervisor  to  itself (most often for test pur‐
+              poses).  During such a ``migration,’’ two instances of a  single
+              external_ids:iface-id  might  both be briefly marked active on a
               single hypervisor.
 
        external_ids : xs-vif-uuid: optional string
@@ -2842,7 +2865,7 @@ Interface TABLE
               The virtual network to which this interface is attached.
 
        external_ids : vm-id: optional string
-              The  VM to which this interface belongs. On XenServer, this will
+              The VM to which this interface belongs. On XenServer, this  will
               be the same as external_ids:xs-vm-uuid.
 
        external_ids : xs-vm-uuid: optional string
@@ -2852,8 +2875,25 @@ Interface TABLE
        Auto Attach configuration for a particular interface.
 
        lldp : enable: optional string, either true or false
-              True to enable LLDP on this Interface.  If not  specified,  LLDP
+              True  to  enable LLDP on this Interface.  If not specified, LLDP
               will be disabled by default.
+
+     Flow control Configuration:
+       Ethernet flow control defined in IEEE 802.1Qbb provides link level flow
+       control  using  MAC pause frames.  Implemented only for interfaces with
+       type dpdk.
+
+       options : rx-flow-ctrl: optional string, either true or false
+              Set to true to enable Rx flow control  on  physical  ports.   By
+              default, Rx flow control is disabled.
+
+       options : tx-flow-ctrl: optional string, either true or false
+              Set  to  true  to  enable Tx flow control on physical ports.  By
+              default, Tx flow control is disabled.
+
+       options : flow-ctrl-autoneg: optional string, either true or false
+              Set to true to enable flow control auto negotiation on  physical
+              ports. By default, auto-neg is disabled.
 
      Common Columns:
        The  overall purpose of these columns is described under Common Columns

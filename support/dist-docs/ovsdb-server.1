@@ -56,7 +56,7 @@ Open vSwitch databases (OVSDBs).  It supports JSON-RPC client
 connections over active or passive TCP/IP or Unix domain sockets.
 .PP
 Each OVSDB file may be specified on the command line as \fIdatabase\fR.
-If none is specified, the default is \fB//etc/openvswitch/conf.db\fR.  The database
+If none is specified, the default is \fB/usr/local/etc/openvswitch/conf.db\fR.  The database
 files must already have been created and initialized using, for
 example, \fBovsdb\-tool create\fR.
 .
@@ -91,8 +91,8 @@ an IPv6 address, then wrap \fIip\fR with square brackets, e.g.:
 On POSIX, listen on the Unix domain server socket named \fIfile\fR for a
 connection.
 .IP
-On Windows, listen on a kernel chosen TCP port on the localhost. The kernel
-chosen TCP port value is written in \fIfile\fR.
+On Windows, listen on a local named pipe.  A file is created in the
+path \fIfile\fR to mimic the behavior of a Unix domain socket.
 .IP "\fBssl:\fIip\fB:\fIport\fR"
 The specified SSL \fIport\fR on the host at the given \fIip\fR, which
 must be expressed as an IP address (not a DNS name) in IPv4 or IPv6 address
@@ -109,8 +109,9 @@ square brackets, e.g.: \fBtcp:[::1]:6640\fR.
 .IP "\fBunix:\fIfile\fR"
 On POSIX, connect to the Unix domain server socket named \fIfile\fR.
 .IP
-On Windows, connect to a localhost TCP port whose value is written in
-\fIfile\fR.
+On Windows, connect to a local named pipe that is represented by a file
+created in the path \fIfile\fR to mimic the behavior of a Unix domain
+socket.
 .
 .IP "\fBdb:\fIdb\fB,\fItable\fB,\fIcolumn\fR"
 Reads additional connection methods from \fIcolumn\fR in all of the
@@ -169,7 +170,7 @@ Causes a file (by default, \fB\*(PN.pid\fR) to be created indicating
 the PID of the running process.  If the \fIpidfile\fR argument is not
 specified, or
 if it does not begin with \fB/\fR, then it is created in
-\fB//var/run/openvswitch\fR.
+\fB/usr/local/var/run/openvswitch\fR.
 .IP
 If \fB\-\-pidfile\fR is not specified, no pidfile is created.
 .
@@ -332,7 +333,7 @@ a message to the target provided via the \fB\-\-syslog\-target\fR option.
 \fB\-\-log\-file\fR[\fB=\fIfile\fR]
 Enables logging to a file.  If \fIfile\fR is specified, then it is
 used as the exact name for the log file.  The default log file name
-used if \fIfile\fR is omitted is \fB//var/log/openvswitch/\*(PN.log\fR.
+used if \fIfile\fR is omitted is \fB/usr/local/var/log/openvswitch/\*(PN.log\fR.
 .
 .IP "\fB\-\-syslog\-target=\fIhost\fB:\fIport\fR"
 Send syslog messages to UDP \fIport\fR on \fIhost\fR, in addition to
@@ -452,16 +453,16 @@ connection.
 Sets the name of the control socket on which \fB\*(PN\fR listens for
 runtime management commands (see \fBRUNTIME MANAGEMENT COMMANDS\fR,
 below).  If \fIsocket\fR does not begin with \fB/\fR, it is
-interpreted as relative to \fB//var/run/openvswitch\fR.  If \fB\-\-unixctl\fR is
+interpreted as relative to \fB/usr/local/var/run/openvswitch\fR.  If \fB\-\-unixctl\fR is
 not used at all, the default socket is
-\fB//var/run/openvswitch/\*(PN.\fIpid\fB.ctl\fR, where \fIpid\fR is \fB\*(PN\fR's
+\fB/usr/local/var/run/openvswitch/\*(PN.\fIpid\fB.ctl\fR, where \fIpid\fR is \fB\*(PN\fR's
 process ID.
 .IP
-On Windows, uses a kernel chosen TCP port on the localhost to listen
-for runtime management commands.  The kernel chosen TCP port value is written
-in a file whose absolute path is pointed by \fIsocket\fR. If \fB\-\-unixctl\fR
-is not used at all, the file is created as \fB\*(PN.ctl\fR in the configured
-\fIOVS_RUNDIR\fR directory.
+On Windows a local named pipe is used to listen for runtime management
+commands.  A file is created in the absolute path as pointed by
+\fIsocket\fR or if \fB\-\-unixctl\fR is not used at all, a file is
+created as \fB\*(PN.ctl\fR in the configured \fIOVS_RUNDIR\fR
+directory.  The file exists just to mimic the behavior of a Unix domain socket.
 .IP
 Specifying \fBnone\fR for \fIsocket\fR disables the control socket
 feature.
@@ -545,6 +546,27 @@ again (with \fBovsdb\-server/add\-db\fR).
 .IP "\fBovsdb\-server/list\-dbs"
 Outputs a list of the currently configured databases added either through
 the command line or through the \fBovsdb\-server/add\-db\fR command.
+.
+.IP "\fBovsdb\-server/set\-remote\-ovsdb\-server \fIserver"
+Sets  the remote \fIserver\fR from which \fBovsdb\-server\fR connects through
+\fBovsdb\-server/connect\-remote\-ovsdb\-server\fR.
+.
+.IP "\fBovsdb\-server/get\-remote\-ovsdb\-server"
+Gets the remote server from which \fBovsdb\-server\fR is currently synchronizing
+its databases.
+.
+.IP "\fBovsdb\-server/connect\-remote\-ovsdb\-server"
+Causes \fBovsdb\-server\fR to synchronize its databases with the server
+specified by \fBovsdb\-server/set\-remote\-ovsdb\-server\fR.
+.
+.IP "\fBovsdb\-server/disconnect\-remote\-ovsdb\-server"
+Causes \fBovsdb\-server\fR to  stop  synchronizing  its  databases with a remote server.
+.
+.IP "\fBovsdb\-server/set\-sync\-excluded\-tables \fIdb\fB:\fItable\fR[\fB,\fIdb\fB:\fItable\fR]..."
+Sets the \fItable\fR whitin \fIdb\fR that will be excluded from synchronization.
+.
+.IP "\fBovsdb\-server/get\-sync\-excluded\-tables"
+Gets  the  tables  that are currently excluded from synchronization.
 .
 .de IQ
 .  br
@@ -716,31 +738,213 @@ notifications (see below) to the request, it must be unique among all
 active monitors.  \fBovsdb\-server\fR rejects attempt to create two
 monitors with the same identifier.
 .
-.IP "4.1.12. Monitor2"
-A new monitor method added in Open vSwitch version 2.5. Monitor2 allows
-for more efficient update notifications (described below).
+.IP "4.1.12. Monitor_cond"
+A new monitor method added in Open vSwitch version 2.6. The monitor_cond
+request enables a client to replicate subsets of tables within an OVSDB
+database by requesting notifications of changes to rows matching one of
+the conditions specified in "where" by receiving the specified contents
+of these rows when table updates occur. Monitor_cond also allows a more
+efficient update notifications by receiving table-updates2 notifications
+(described below).
+.
 .IP
-The monitor method described in Section 4.1.5 also applies to
-monitor2, with the following exceptions.
+The monitor method described in Section 4.1.5 also applies to monitor_cond,
+with the following exceptions:
 .
 .RS
 .IP \(bu
-RPC request method becomes "monitor2".
+RPC request method becomes "monitor_cond".
 .IP \(bu
-Replay result follows <table-updates2>, described in Section 4.1.13.
+Reply result follows <table-updates2>, described in Section 4.1.14.
 .IP \(bu
 Subsequent changes are sent to the client using the "update2" monitor
-notification, described in Section 4.1.13
+notification, described in Section 4.1.14
+.IP \(bu
+Update notifications are being sent only for rows matching [<condition>*].
 .RE
 .
 .IP
-Both monitor and monitor2 sessions can exist concurrently. However,
-monitor and monitor2 shares the same <json-value> parameter space; it
-must be unique among all monitor and monitor2 sessions.
+The request object has the following members:
 .
-.IP "4.1.13. Update2 notification"
+.PP
+.RS
+.nf
+"method": "monitor_cond"
+"params": [<db-name>, <json-value>, <monitor-cond-requests>]
+"id": <nonnull-json-value>
+.fi
+.RE
+.
+.IP
+The <json-value> parameter is used to match subsequent update notifications
+(see below) to this request. The <monitor-cond-requests> object maps the name
+of the table to an array of <monitor-cond-request>.
+.
+.IP
+Each <monitor-cond-request> is an object with the following members:
+.
+.PP
+.RS
+.nf
+"columns": [<column>*]            optional
+"where": [<condition>*]           optional
+"select": <monitor-select>        optional
+.fi
+.RE
+.
+.IP
+The "columns", if present, define the columns within the table to be monitored
+that match conditions. If not present all columns are being monitored.
+.
+.IP
+The "where" if present is a JSON array of <condition> and boolean values. If not
+present or condition is an empty array, implicit True will be considered and
+updates on all rows will be sent.
+.
+.IP
+<monitor-select> is an object with the following members:
+.
+.PP
+.RS
+.nf
+"initial": <boolean>              optional
+"insert": <boolean>               optional
+"delete": <boolean>               optional
+"modify": <boolean>               optional
+.fi
+.RE
+.
+.IP
+The contents of this object specify how the columns or table are to be
+monitored as explained in more detail below.
+.
+.IP
+The response object has the following members:
+.
+.PP
+.RS
+.nf
+"result": <table-updates2>
+"error": null
+"id": same "id" as request
+.fi
+.RE
+.
+.IP
+The <table-updates2> object is described in detail in Section 4.1.14. It
+contains the contents of the tables for which "initial" rows are selected.
+If no tables initial contents are requested, then "result" is an empty object.
+.
+.IP
+Subsequently, when changes to a specified table that match one of the conditions
+in monitor-cond-request are committed, the changes are automatically sent to the
+client using the "update2" monitor notification (see Section 4.1.14). This
+monitoring persists until the JSON-RPC session terminates or until the client
+sends a "monitor_cancel" JSON-RPC request.
+.
+.IP
+Each <monitor-cond-request> specifies one or more conditions and the manner in
+which the rows that match the conditions are to be monitored. The circumstances in
+which an "update" notification is sent for a row within the table are determined by
+<monitor-select>:
+.
+.RS
+.IP \(bu
+If "initial" is omitted or true, every row in the original table that matches one of
+the conditions is sent as part of the response to the "monitor_cond" request.
+.IP \(bu
+If "insert" is omitted or true, "update" notifications are sent for rows newly
+inserted into the table that match conditions or for rows modified in the table
+so that their old version does not match the condition and new version does.
+.IP \(bu
+If "delete" is omitted or true, "update" notifications are sent for rows deleted
+from the table that match conditions or for rows modified in the table so that
+their old version does match the conditions and new version does not.
+.IP \(bu
+If "modify" is omitted or true, "update" notifications are sent whenever a row in
+the table that matches conditions in both old and new version is modified.
+.RE
+.
+.IP
+Both monitor and monitor_cond sessions can exist concurrently. However,
+monitor and monitor_cond shares the same <json-value> parameter space; it
+must be unique among all monitor and monitor_cond sessions.
+.
+.IP "4.1.13. Monitor_cond_change"
+The "monitor_cond_change" request enables a client to change an existing
+"monitor_cond" replication of the database by specifying a new condition
+and columns for each replicated table. Currently changing the columns set
+is not supported.
+.
+.IP
+The request object has the following members:
+.
+.IP
+.RS
+.nf
+"method": "monitor_cond_change"
+"params": [<json-value>, <json-value>, <monitor-cond-update-requests>]
+"id": <nonnull-json-value>
+.fi
+.RE
+.
+.IP
+The <json-value> parameter should have a value of an existing conditional
+monitoring session from this client. The second <json-value> in params array
+is the requested value for this session. This value is valid only after
+"monitor_cond_change" is committed. A user can use these values to distinguish
+between update messages before conditions update and after. The
+<monitor-cond-update-requests> object maps the name of the table to an array of
+<monitor-cond-update-request>.
+.
+.IP
+Each <monitor-cond-update-request> is an object with the following members:
+.
+.IP
+.RS
+.nf
+"columns": [<column>*]         optional
+"where": [<condition>*]        optional
+.fi
+.RE
+.
+.IP
+The "columns" specify a new array of columns to be monitored
+(Currently unsupported).
+.
+.IP
+The "where" specify a new array of conditions to be applied to this monitoring
+session.
+.
+.IP
+The response object has the following members:
+.
+.IP
+.RS
+.nf
+"result": null
+"error": null
+"id": same "id" as request
+.fi
+.RE
+.IP
+Subsequent <table-updates2> notifications are described in detail in Section
+4.1.14 in the RFC. If insert contents are requested by original monitor_cond
+request, <table-updates2> will contain rows that match the new condition and
+do not match the old condition.
+If deleted contents are requested by origin monitor request, <table-updates2>
+will contain any matched rows by old condition and not matched by the new
+condition.
+.
+.IP
+Changes according to the new conditions are automatically sent to the client
+using the "update2" monitor notification. An update, if any, as a result of a
+condition change, will be sent to the client before the reply to the
+"monitor_cond_change" request.
+.
+.IP "4.1.14. Update2 notification"
 The "update2" notification is sent by the server to the client to report
-changes in tables that are being monitored following a "monitor2" request
+changes in tables that are being monitored following a "monitor_cond" request
 as described above. The notification has the following members:
 .
 .RS
@@ -755,7 +959,8 @@ as described above. The notification has the following members:
 The <json-value> in "params" is the same as the value passed as the
 <json-value>  in "params" for the corresponding "monitor" request.
 <table-updates2> is an object that maps from a table name to a <table-update2>.
-A <table-update2> is an object that maps from row's UUID to a <row-update2> object. A <row-update2> is an object with one of the following members:
+A <table-update2> is an object that maps from row's UUID to a <row-update2>
+object. A <row-update2> is an object with one of the following members:
 .
 .RS
 .IP "\(dqinitial\(dq: <row>"
@@ -797,8 +1002,8 @@ elements, <row> includes the value from the new column.
 .
 .IP
 Initial views of rows are not presented in update2 notifications,
-but in the response object to the monitor2 request. The formatting of the
-<table-updates2> object, however, is the same in either case.
+but in the response object to the monitor_cond request. The formatting
+of the <table-updates2> object, however, is the same in either case.
 .
 .IP "5.1. Notation"
 For <condition>, RFC 7047 only allows the use of \fB!=\fR, \fB==\fR,
@@ -808,6 +1013,12 @@ vSwitch 2.4 and later extend <condition> to allow the use of \fB<\fR,
 of 0 or 1 integer'' and ``set of 0 or 1 real''.  These conditions
 evaluate to false when the column is empty, and otherwise as described
 in RFC 7047 for integer and real types.
+.
+.IP
+<condition> is specified in Section 5.1 in the RFC with the following change:
+A condition can be either a 3-element JSON array as described in the RFC or a
+boolean value. In case of an empty array an implicit true boolean value will be
+considered.
 .
 .SH "BUGS"
 .

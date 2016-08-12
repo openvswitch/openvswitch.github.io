@@ -79,7 +79,7 @@ the global options by \fB\-\-\fR.
 .IP "\fB\-\-db=\fIserver\fR"
 Sets \fIserver\fR as the database server that \fBovs\-vsctl\fR
 contacts to query or modify configuration.  The default is
-\fBunix://var/run/openvswitch/db.sock\fR.  \fIserver\fR must take one of the
+\fBunix:/usr/local/var/run/openvswitch/db.sock\fR.  \fIserver\fR must take one of the
 following forms:
 .RS
 .IP "\fBssl:\fIip\fB:\fIport\fR"
@@ -98,8 +98,9 @@ square brackets, e.g.: \fBtcp:[::1]:6640\fR.
 .IP "\fBunix:\fIfile\fR"
 On POSIX, connect to the Unix domain server socket named \fIfile\fR.
 .IP
-On Windows, connect to a localhost TCP port whose value is written in
-\fIfile\fR.
+On Windows, connect to a local named pipe that is represented by a file
+created in the path \fIfile\fR to mimic the behavior of a Unix domain
+socket.
 .IP "\fBpssl:\fIport\fR[\fB:\fIip\fR]"
 Listen on the given SSL \fIport\fR for a connection.  By default,
 connections are not bound to a particular local IP address and
@@ -124,8 +125,8 @@ an IPv6 address, then wrap \fIip\fR with square brackets, e.g.:
 On POSIX, listen on the Unix domain server socket named \fIfile\fR for a
 connection.
 .IP
-On Windows, listen on a kernel chosen TCP port on the localhost. The kernel
-chosen TCP port value is written in \fIfile\fR.
+On Windows, listen on a local named pipe.  A file is created in the
+path \fIfile\fR to mimic the behavior of a Unix domain socket.
 .RE
 .
 .IP "\fB\-\-no\-wait\fR"
@@ -393,7 +394,7 @@ a message to the target provided via the \fB\-\-syslog\-target\fR option.
 \fB\-\-log\-file\fR[\fB=\fIfile\fR]
 Enables logging to a file.  If \fIfile\fR is specified, then it is
 used as the exact name for the log file.  The default log file name
-used if \fIfile\fR is omitted is \fB//var/log/openvswitch/\*(PN.log\fR.
+used if \fIfile\fR is omitted is \fB/usr/local/var/log/openvswitch/\*(PN.log\fR.
 .
 .IP "\fB\-\-syslog\-target=\fIhost\fB:\fIport\fR"
 Send syslog messages to UDP \fIport\fR on \fIhost\fR, in addition to
@@ -661,7 +662,9 @@ If \fIport\fR is not specified, it defaults to 6653.
 \fBunix:\fIfile\fR
 On POSIX, a Unix domain server socket named \fIfile\fR.
 .IP
-On Windows, a localhost TCP port written in \fIfile\fR.
+On Windows, connect to a local named pipe that is represented by a
+file created in the path \fIfile\fR to mimic the behavior of a Unix
+domain socket.
 .IP "\fBpssl:\fR[\fIport\fR][\fB:\fIip\fR]"
 .IQ "\fBptcp:\fR[\fIport\fR][\fB:\fIip\fR]"
 Listens for OpenFlow connections on \fIport\fR.  The default
@@ -744,8 +747,9 @@ square brackets, e.g.: \fBtcp:[::1]:6640\fR.
 .IP "\fBunix:\fIfile\fR"
 On POSIX, connect to the Unix domain server socket named \fIfile\fR.
 .IP
-On Windows, connect to a localhost TCP port whose value is written in
-\fIfile\fR.
+On Windows, connect to a local named pipe that is represented by a file
+created in the path \fIfile\fR to mimic the behavior of a Unix domain
+socket.
 .IP "\fBpssl:\fIport\fR[\fB:\fIip\fR]"
 Listen on the given SSL \fIport\fR for a connection.  By default,
 connections are not bound to a particular local IP address and
@@ -770,8 +774,8 @@ an IPv6 address, then wrap \fIip\fR with square brackets, e.g.:
 On POSIX, listen on the Unix domain server socket named \fIfile\fR for a
 connection.
 .IP
-On Windows, listen on a kernel chosen TCP port on the localhost. The kernel
-chosen TCP port value is written in \fIfile\fR.
+On Windows, listen on a local named pipe.  A file is created in the
+path \fIfile\fR to mimic the behavior of a Unix domain socket.
 .RE
 .
 .SS "SSL Configuration"
@@ -1497,9 +1501,16 @@ Configure bridge \fBbr0\fR to support OpenFlow versions 1.0, 1.2, and
 .B "ovs\-vsctl set bridge br0 protocols=OpenFlow10,OpenFlow12,OpenFlow13"
 .
 .SS "Flow Table Configuration"
-Limit flow table 0 on bridge br0 to a maximum of 100 flows:
+Make flow table 0 on bridge br0 refuse to accept more than 100 flows:
 .IP
 .B "ovs\-vsctl \-\- \-\-id=@ft create Flow_Table flow_limit=100 overflow_policy=refuse \-\- set Bridge br0 flow_tables=0=@ft"
+.
+.PP
+Make flow table 0 on bridge br0 evict flows, with fairness based on
+the matched ingress port, when there are more than 100:
+.
+.IP
+.B "ovs\-vsctl \-\- \-\-id=@ft create Flow_Table flow_limit=100 overflow_policy=evict groups='\(dqNXM_OF_IN_PORT[]\(dq' \-\- set Bridge br0 flow_tables:0=@ft"
 .SH "EXIT STATUS"
 .IP "0"
 Successful program execution.

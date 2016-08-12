@@ -178,36 +178,64 @@ LOGICAL FLOW TABLE STRUCTURE
      Ingress table 6: from-lport ACLs
 
        Logical flows in this table closely reproduce those in the ACL table in
-       the  OVN_Northbound  database for the from-lport direction.  allow ACLs
-       translate into logical flows with the next; action, allow-related  ACLs
-       translate into logical flows with the reg0[1] = 1; next; actions (which
-       acts as a hint for the next tables to commit  the  connection  to  con‐
-       ntrack),  other  ACLs translate to drop;.  The priority values from the
-       ACL table have a limited range and have 1000 added  to  them  to  leave
-       room for OVN default flows at both higher and lower priorities.
+       the  OVN_Northbound database for the from-lport direction. The priority
+       values from the ACL table have a limited range and have 1000  added  to
+       them  to leave room for OVN default flows at both higher and lower pri‐
+       orities.
 
-       This  table  also contains a priority 0 flow with action next;, so that
+              ·      allow ACLs translate into logical flows  with  the  next;
+                     action.  If there are any stateful ACLs on this datapath,
+                     then allow ACLs translate to ct_commit; next; (which acts
+                     as a hint for the next tables to commit the connection to
+                     conntrack),
+
+              ·      allow-related ACLs translate into logical flows with  the
+                     ct_commit(ct_label=0/1);  next;  actions  for new connec‐
+                     tions and reg0[1] = 1; next; for existing connections.
+
+              ·      Other ACLs translate to drop; for new or  untracked  con‐
+                     nections  and  ct_commit(ct_label=1/1); for known connec‐
+                     tions.  Setting ct_label marks a connection as  one  that
+                     was  previously  allowed, but should no longer be allowed
+                     due to a policy change.
+
+       This table also contains a priority 0 flow with action next;,  so  that
        ACLs allow packets by default.  If the logical datapath has a statetful
        ACL, the following flows will also be added:
 
               ·      A priority-1 flow that sets the hint to commit IP traffic
-                     to the connection  tracker  (with  action  reg0[1]  =  1;
-                     next;).   This  is  needed  for  the default allow policy
+                     to  the  connection  tracker  (with  action  reg0[1] = 1;
+                     next;).  This is needed  for  the  default  allow  policy
                      because, while the initiator’s direction may not have any
-                     stateful  rules,  the  server’s  may  and then its return
+                     stateful rules, the server’s  may  and  then  its  return
                      traffic would not be known and marked as invalid.
 
-              ·      A priority-65535 flow that allows any  traffic  that  has
-                     been  committed  to  the connection tracker (i.e., estab‐
-                     lished flows).
+              ·      A  priority-65535  flow  that  allows  any traffic in the
+                     reply direction for a connection that has been  committed
+                     to  the  connection tracker (i.e., established flows), as
+                     long as the committed flow does not have ct_label[0] set.
+                     We  only  handle  traffic  in  the  reply  direction here
+                     because we want all packets going in the  request  direc‐
+                     tion  to  still  go  through the flows that implement the
+                     currently defined policy based on ACLs.  If a  connection
+                     is  no longer allowed by policy, ct_label[0] will get set
+                     and packets in the reply  direction  will  no  longer  be
+                     allowed, either.
 
-              ·      A priority-65535 flow that allows  any  traffic  that  is
-                     considered  related to a committed flow in the connection
-                     tracker (e.g., an ICMP Port Unreachable from  a  non-lis‐
-                     tening UDP port).
+              ·      A  priority-65535  flow  that  allows any traffic that is
+                     considered related to a committed flow in the  connection
+                     tracker  (e.g.,  an ICMP Port Unreachable from a non-lis‐
+                     tening UDP port), as long as the committed flow does  not
+                     have ct_label[0] set.
 
               ·      A  priority-65535  flow  that drops all traffic marked by
                      the connection tracker as invalid.
+
+              ·      A priority-65535 flow that drops all trafic in the  reply
+                     direction  with  ct_label[0] set meaning that the connec‐
+                     tion should no longer be allowed due to a policy  change.
+                     Packets  in the request direction are skipped here to let
+                     a newly created ACL re-allow this connection.
 
      Ingress Table 7: LB
 
@@ -246,17 +274,18 @@ LOGICAL FLOW TABLE STRUCTURE
               ·      A  priority-0  flow that simply moves traffic to the next
                      table.
 
-     Ingress Table 9: ARP responder
+     Ingress Table 9: ARP/ND responder
 
-       This table implements ARP responder for known IPs.  It  contains  these
-       logical flows:
+       This table implements ARP/ND responder  for  known  IPs.   It  contains
+       these logical flows:
 
               ·      Priority-100  flows to skip ARP responder if inport is of
                      type localnet, and advances directly to the next table.
 
-              ·      Priority-50 flows that matches ARP requests to each known
-                     IP  address  A  of  logical  port P, and respond with ARP
-                     replies directly with corresponding Ethernet address E:
+              ·      Priority-50 flows that match ARP requests to  each  known
+                     IP  address  A  of every logical router port, and respond
+                     with ARP replies  directly  with  corresponding  Ethernet
+                     address E:
 
                      eth.dst = eth.src;
                      eth.src = E;
@@ -265,9 +294,28 @@ LOGICAL FLOW TABLE STRUCTURE
                      arp.sha = E;
                      arp.tpa = arp.spa;
                      arp.spa = A;
-                     outport = P;
-                     inport = ""; /* Allow sending out inport. */
+                     outport = inport;
+                     flags.loopback = 1;
                      output;
+
+                     These  flows  are  omitted  for logical ports (other than
+                     router ports) that are down.
+
+              ·      Priority-50 flows that match IPv6 ND  neighbor  solicita‐
+                     tions  to each known IP address A (and A’s solicited node
+                     address) of every logical router port, and  respond  with
+                     neighbor  advertisements directly with corresponding Eth‐
+                     ernet address E:
+
+                     nd_na {
+                         eth.src = E;
+                         ip6.src = A;
+                         nd.target = A;
+                         nd.tll = E;
+                         outport = inport;
+                         flags.loopback = 1;
+                         output;
+                     };
 
                      These flows are omitted for  logical  ports  (other  than
                      router ports) that are down.
@@ -275,7 +323,62 @@ LOGICAL FLOW TABLE STRUCTURE
               ·      One priority-0 fallback flow that matches all packets and
                      advances to the next table.
 
-     Ingress Table 10: Destination Lookup
+     Ingress Table 10: DHCP option processing
+
+       This table adds the DHCPv4 options to a DHCPv4 packet from the  logical
+       ports configured with IPv4 address(es) and DHCPv4 options.
+
+              ·      A  priority-100  logical  flow is added for these logical
+                     ports which matches the IPv4 packet with udp.src = 68 and
+                     udp.dst  =  67  and  applies the action put_dhcp_opts and
+                     advances the packet to the next table.
+
+                     reg0[3] = put_dhcp_opts(offer_ip = O, options...);
+                     next;
+
+                     For DHCPDISCOVER and  DHCPREQUEST,  this  transforms  the
+                     packet  into  a  DHCP reply, adds the DHCP offer IP O and
+                     options to the packet, and stores 1  into  reg0[3].   For
+                     other  kinds  of  packets, it just stores 0 into reg0[3].
+                     Either way, it continues to the next table.
+
+              ·      A priority-0 flow that matches all packets to advances to
+                     table 11.
+
+     Ingress Table 11: DHCP responses
+
+       This  table implements DHCP responder for the DHCP replies generated by
+       the previous table.
+
+              ·      A priority 100 logical flow  is  added  for  the  logical
+                     ports  configured  with DHCPv4 options which matches IPv4
+                     packets with udp.src == 68 && udp.dst == 67 && reg0[3] ==
+                     1  and  responds  back to the inport after applying these
+                     actions.  If reg0[3] is set  to  1,  it  means  that  the
+                     action put_dhcp_opts was successful.
+
+                     eth.dst = eth.src;
+                     eth.src = E;
+                     ip4.dst = O;
+                     ip4.src = S;
+                     udp.src = 67;
+                     udp.dst = 68;
+                     outport = P;
+                     flags.loopback = 1;
+                     output;
+
+                     where  E  is  the  server MAC address and S is the server
+                     IPv4 address defined in the DHCPv4 options and O  is  the
+                     IPv4 address defined in the logical port’s addresses col‐
+                     umn.
+
+                     (This terminates ingress packet  processing;  the  packet
+                     does not go to the next ingress table.)
+
+              ·      A priority-0 flow that matches all packets to advances to
+                     table 12.
+
+     Ingress Table 12: Destination Lookup
 
        This table implements switching behavior.  It  contains  these  logical
        flows:
@@ -326,6 +429,10 @@ LOGICAL FLOW TABLE STRUCTURE
 
        This  is  similar  to  ingress  table Stateful except that there are no
        rules added for load balancing new connections.
+
+       Also a priority 34000 logical flow is added for each logical port which
+       has  DHCPv4  options  defined to allow the DHCPv4 reply packet from the
+       Ingress Table 11: DHCP responses.
 
      Egress Table 6: Egress Port Security - IP
 
@@ -383,35 +490,45 @@ LOGICAL FLOW TABLE STRUCTURE
                      ·      ip4.src == 0.0.0.0/8 || ip4.dst == 0.0.0.0/8 (zero
                             network source or destination)
 
-                     ·      ip4.src is any IP address owned by the router.
+                     ·      ip4.src  or ip6.src is any IP address owned by the
+                            router.
 
                      ·      ip4.src is the broadcast address of any IP network
                             known to the router.
 
               ·      ICMP echo reply.  These flows reply to ICMP echo requests
-                     received  for  the  router’s  IP address.  Let A be an IP
-                     address owned by a router port.  Then, for each A, a pri‐
-                     ority-90 flow matches on ip4.dst == A and icmp4.type == 8
-                     && icmp4.code == 0 (ICMP echo request).  The port of  the
-                     router  that  receives  the echo request does not matter.
-                     Also, the ip.ttl  of  the  echo  request  packet  is  not
+                     received for the router’s IP address.  Let  A  be  an  IP
+                     address owned by a router port.  Then, for each A that is
+                     an IPv4 address, a priority-90 flow matches on ip4.dst ==
+                     A  and  icmp4.type  ==  8  &&  icmp4.code == 0 (ICMP echo
+                     request).  For each A that is an IPv6 address,  a  prior‐
+                     ity-90 flow matches on ip6.dst == A and icmp6.type == 128
+                     && icmp6.code == 0 (ICMPv6 echo request).   The  port  of
+                     the  router  that receives the echo request does not mat‐
+                     ter. Also, the ip.ttl of the echo request packet  is  not
                      checked,  so  it complies with RFC 1812, section 4.2.2.9.
-                     These flows use the following  actions  where  S  is  the
-                     router’s IP address:
+                     Flows for ICMPv4 echo requests use the following actions:
 
-                     ip4.dst = ip4.src;
-                     ip4.src = S;
+                     ip4.dst <-> ip4.src;
                      ip.ttl = 255;
                      icmp4.type = 0;
-                     inport = ""; /* Allow sending out inport. */
+                     flags.loopback = 1;
+                     next;
+
+                     Flows for ICMPv6 echo requests use the following actions:
+
+                     ip6.dst <-> ip6.src;
+                     ip.ttl = 255;
+                     icmp6.type = 129;
+                     flags.loopback = 1;
                      next;
 
               ·      Reply to ARP requests.
 
                      These flows reply to ARP requests for the router’s own IP
-                     address.  For each router port P that owns IP  address  A
+                     address.   For  each router port P that owns IP address A
                      and Ethernet address E, a priority-90 flow matches inport
-                     == P && arp.op == 1 && arp.tpa == A  (ARP  request)  with
+                     ==  P  &&  arp.op == 1 && arp.tpa == A (ARP request) with
                      the following actions:
 
                      eth.dst = eth.src;
@@ -422,14 +539,14 @@ LOGICAL FLOW TABLE STRUCTURE
                      arp.tpa = arp.spa;
                      arp.spa = A;
                      outport = P;
-                     inport = ""; /* Allow sending out inport. */
+                     flags.loopback = 1;
                      output;
 
-              ·      These  flows  reply  to  ARP  requests for the virtual IP
-                     addresses configured in the router for DNAT. For  a  con‐
-                     figured  DNAT  IP  address A, for each router port P with
-                     Ethernet address E, a priority-90 flow matches inport  ==
-                     P  &&  arp.op == 1 && arp.tpa == A (ARP request) with the
+              ·      These flows reply to ARP  requests  for  the  virtual  IP
+                     addresses  configured  in the router for DNAT. For a con‐
+                     figured DNAT IP address A, for each router  port  P  with
+                     Ethernet  address E, a priority-90 flow matches inport ==
+                     P && arp.op == 1 && arp.tpa == A (ARP request)  with  the
                      following actions:
 
                      eth.dst = eth.src;
@@ -440,13 +557,45 @@ LOGICAL FLOW TABLE STRUCTURE
                      arp.tpa = arp.spa;
                      arp.spa = A;
                      outport = P;
-                     inport = ""; /* Allow sending out inport. */
+                     flags.loopback = 1;
                      output;
 
-              ·      ARP reply handling.  These flows use ARP replies to popu‐
-                     late  the logical router’s ARP table.  A priority-90 flow
+              ·      ARP  reply handling.  This flow uses ARP replies to popu‐
+                     late the logical router’s ARP table.  A priority-90  flow
                      with  match  arp.op  ==  2  has  actions  put_arp(inport,
                      arp.spa, arp.sha);.
+
+              ·      Reply to IPv6 Neighbor Solicitations.  These flows  reply
+                     to  Neighbor  Solicitation  requests for the router’s own
+                     IPv6 address and populate the logical router’s mac  bind‐
+                     ing table.  For each router port P that owns IPv6 address
+                     A, solicited node address S, and Ethernet  address  E,  a
+                     priority-90  flow matches inport == P && nd_ns && ip6.dst
+                     == {A, E} && nd.target == A with the following actions:
+
+                     put_nd(inport, ip6.src, nd.sll);
+                     nd_na {
+                         eth.src = E;
+                         ip6.src = A;
+                         nd.target = A;
+                         nd.tll = E;
+                         outport = inport;
+                         flags.loopback = 1;
+                         output;
+                     };
+
+              ·      IPv6 neighbor advertisement  handling.   This  flow  uses
+                     neighbor  advertisements to populate the logical router’s
+                     mac binding table.  A priority-90 flow with  match  nd_na
+                     has actions put_nd(inport, nd.target, nd.tll);.
+
+              ·      IPv6  neighbor solicitation for non-hosted addresses han‐
+                     dling.  This flow uses neighbor solicitations to populate
+                     the  logical  router’s  mac binding table (ones that were
+                     directed at the logical router  would  have  matched  the
+                     priority-90  neighbor solicitation flow already).  A pri‐
+                     ority-80 flow with match nd_ns has actions put_nd(inport,
+                     ip6.src, nd.sll);.
 
               ·      UDP  port  unreachable.   Priority-80 flows generate ICMP
                      port unreachable  messages  in  reply  to  UDP  datagrams
@@ -499,12 +648,9 @@ LOGICAL FLOW TABLE STRUCTURE
                      ernet  broadcast  address.   By  definition  this traffic
                      should not be forwarded.
 
-              ·      Drop  IP  multicast.   A  priority-50  flow  with   match
-                     ip4.mcast drops IP multicast traffic.
-
-              ·      ICMP  time  exceeded.   For  each router port P, whose IP
-                     address is A, a priority-40 flow with match inport  ==  P
-                     &&  ip.ttl  ==  {0,  1} && !ip.later_frag matches packets
+              ·      ICMP time exceeded.  For each router  port  P,  whose  IP
+                     address  is  A, a priority-40 flow with match inport == P
+                     && ip.ttl == {0, 1}  &&  !ip.later_frag  matches  packets
                      whose TTL has expired, with the following actions to send
                      an ICMP time exceeded reply:
 
@@ -520,22 +666,22 @@ LOGICAL FLOW TABLE STRUCTURE
                      Not yet implemented.
 
               ·      TTL discard.  A priority-30 flow with match ip.ttl == {0,
-                     1} and actions drop; drops other packets  whose  TTL  has
+                     1}  and  actions  drop; drops other packets whose TTL has
                      expired, that should not receive a ICMP error reply (i.e.
                      fragments with nonzero offset).
 
-              ·      Next table.  A priority-0 flows match  all  packets  that
-                     aren’t  already  handled  and  uses actions next; to feed
+              ·      Next  table.   A  priority-0 flows match all packets that
+                     aren’t already handled and uses  actions  next;  to  feed
                      them to the ingress table for routing.
 
      Ingress Table 2: UNSNAT
 
-       This is for already established connections’  reverse  traffic.   i.e.,
-       SNAT  has  already  been done in egress pipeline and now the packet has
+       This  is  for  already established connections’ reverse traffic.  i.e.,
+       SNAT has already been done in egress pipeline and now  the  packet  has
        entered the ingress pipeline as part of a reply.  It is unSNATted here.
 
-              ·      For each configuration in the  OVN  Northbound  database,
-                     that  asks  to  change  the source IP address of a packet
+              ·      For  each  configuration  in the OVN Northbound database,
+                     that asks to change the source IP  address  of  a  packet
                      from A to B, a priority-100 flow matches ip && ip4.dst ==
                      B with an action ct_snat; next;.
 
@@ -547,39 +693,63 @@ LOGICAL FLOW TABLE STRUCTURE
        DNATted from a virtual IP address to a real IP address.  Packets in the
        reverse direction needs to be unDNATed.
 
-              ·      For  each  configuration  in the OVN Northbound database,
-                     that asks to change  the  destination  IP  address  of  a
-                     packet  from  A  to  B, a priority-100 flow matches ip &&
-                     ip4.dst == A with an action inport = ""; ct_dnat(B);.
+              ·      For each configuration in the  OVN  Northbound  database,
+                     that  asks  to  change  the  destination  IP address of a
+                     packet from A to B, a priority-100  flow  matches  ip  &&
+                     ip4.dst   ==   A  with  an  action  flags.loopback  =  1;
+                     ct_dnat(B);.
 
                      For all IP packets of a  Gateway  router,  a  priority-50
-                     flow with an action inport = ""; ct_dnat;.
+                     flow with an action flags.loopback = 1; ct_dnat;.
 
                      A priority-0 logical flow with match 1 has actions next;.
 
      Ingress Table 4: IP Routing
 
        A  packet  that  arrives  at  this table is an IP packet that should be
-       routed to the address in ip4.dst.  This table  implements  IP  routing,
-       setting  reg0 to the next-hop IP address (leaving ip4.dst, the packet’s
-       final destination, unchanged) and advances to the next  table  for  ARP
-       resolution.   It also sets reg1 to the IP address owned by the selected
-       router port (which is used later in table 6 as the  IP  source  address
-       for an ARP request, if needed).
+       routed to the address in ip4.dst or ip6.dst.  This table implements  IP
+       routing,  setting  reg0 (or xxreg0 for IPv6) to the next-hop IP address
+       (leaving ip4.dst or ip6.dst, the packet’s final destination, unchanged)
+       and  advances  to the next table for ARP resolution.  It also sets reg1
+       (or xxreg1 to the IP address owned by the selected router  port  (which
+       is  used  later in table 6 as the IP source address for an ARP request,
+       if needed).
 
        This table contains the following logical flows:
 
-              ·      Routing  table.   For  each  route to IPv4 network N with
-                     netmask M, on router port P with IP address A and  Ether‐
-                     net  address E, a logical flow with match ip4.dst == N/M,
-                     whose priority is the number of 1-bits in M, has the fol‐
-                     lowing actions:
+              ·      IPv4 routing table.  For each route  to  IPv4  network  N
+                     with  netmask  M,  on router port P with IP address A and
+                     Ethernet address E, a logical flow with match ip4.dst  ==
+                     N/M, whose priority is the number of 1-bits in M, has the
+                     following actions:
 
                      ip.ttl--;
                      reg0 = G;
                      reg1 = A;
                      eth.src = E;
                      outport = P;
+                     flags.loopback = 1;
+                     next;
+
+                     (Ingress table 1 already verified that ip.ttl--; will not
+                     yield a TTL exceeded error.)
+
+                     If  the route has a gateway, G is the gateway IP address.
+                     Instead, if the route is from a configured static  route,
+                     G is the next hop IP address.  Else it is ip4.dst.
+
+              ·      IPv6  routing  table.   For  each route to IPv6 network N
+                     with netmask M, on router port P with IP  address  A  and
+                     Ethernet  address  E,  a  logical flow with match in CIDR
+                     notation ip6.dst == N/M, whose priority  is  the  integer
+                     value of M, has the following actions:
+
+                     ip.ttl--;
+                     xxreg0 = G;
+                     xxreg1 = A;
+                     eth.src = E;
+                     outport = P;
+                     flags.loopback = 1;
                      next;
 
                      (Ingress table 1 already verified that ip.ttl--; will not
@@ -587,69 +757,67 @@ LOGICAL FLOW TABLE STRUCTURE
 
                      If the route has a gateway, G is the gateway IP  address.
                      Instead,  if the route is from a configured static route,
-                     G is the next hop IP address.  Else it is ip4.dst.
+                     G is the next hop IP address.  Else it is ip6.dst.
 
-              ·      Destination unreachable.  For each router port  P,  which
-                     owns  IP  address A, a priority-0 logical flow with match
-                     in_port == P && !ip.later_frag && !icmp has the following
-                     actions:
+                     If the address A is in the link-local  scope,  the  route
+                     will be limited to sending on the ingress port.
 
-                     icmp4 {
-                         icmp4.type = 3; /* Destination unreachable. */
-                         icmp4.code = 0; /* Network unreachable. */
-                         ip4.dst = ip4.src;
-                         ip4.src = A;
-                         ip.ttl = 255;
-                         next(2);
-                     };
+     Ingress Table 5: ARP/ND Resolution
 
-                     (The  !icmp  check  prevents recursion if the destination
-                     unreachable message itself cannot be routed.)
+       Any  packet that reaches this table is an IP packet whose next-hop IPv4
+       address is in reg0 or IPv6 address is in xxreg0.  (ip4.dst  or  ip6.dst
+       contains the final destination.)  This table resolves the IP address in
+       reg0 (or xxreg0) into an output port in outport and an Ethernet address
+       in eth.dst, using the following flows:
 
-                     These flows are omitted  if  the  logical  router  has  a
-                     default route, that is, a route with netmask 0.0.0.0.
-
-     Ingress Table 5: ARP Resolution
-
-       Any  packet  that  reaches this table is an IP packet whose next-hop IP
-       address is in reg0.  (ip4.dst is the final  destination.)   This  table
-       resolves  the  IP address in reg0 into an output port in outport and an
-       Ethernet address in eth.dst, using the following flows:
-
-              ·      Static MAC bindings.  MAC bindings can  be  known  stati‐
-                     cally  based on data in the OVN_Northbound database.  For
-                     router ports connected to logical switches, MAC  bindings
-                     can  be known statically from the addresses column in the
+              ·      Static  MAC  bindings.   MAC bindings can be known stati‐
+                     cally based on data in the OVN_Northbound database.   For
+                     router  ports connected to logical switches, MAC bindings
+                     can be known statically from the addresses column in  the
                      Logical_Switch_Port table.  For router ports connected to
-                     other  logical  routers, MAC bindings can be known stati‐
-                     cally from the  mac  and  network  column  in  the  Logi‐
+                     other logical routers, MAC bindings can be  known  stati‐
+                     cally  from  the  mac  and  networks  column in the Logi‐
                      cal_Router_Port table.
 
-                     For  each IP address A whose host is known to have Ether‐
-                     net address E on router port P, a priority-100 flow  with
-                     match outport === P && reg0 == A has actions eth.dst = E;
-                     next;.
+                     For each IPv4 address A whose host is known to have  Eth‐
+                     ernet  address  E  on  router port P, a priority-100 flow
+                     with match outport === P && reg0 == A has actions eth.dst
+                     = E; next;.
 
-                     For each logical router port with an IP address A  and  a
+                     For  each IPv6 address A whose host is known to have Eth‐
+                     ernet address E on router port  P,  a  priority-100  flow
+                     with  match  outport  ===  P  &&  xxreg0 == A has actions
+                     eth.dst = E; next;.
+
+                     For each logical router port with an IPv4 address A and a
                      mac  address of E that is reachable via a different logi‐
                      cal router port P, a priority-100 flow with match outport
                      === P && reg0 == A has actions eth.dst = E; next;.
 
-              ·      Dynamic  MAC  bindings.   This  flows  resolves MAC-to-IP
-                     bindings that have become known dynamically through  ARP.
-                     (The next table will issue an ARP request for cases where
-                     the binding is not yet known.)
+                     For each logical router port with an IPv6 address A and a
+                     mac address of E that is reachable via a different  logi‐
+                     cal router port P, a priority-100 flow with match outport
+                     === P && xxreg0 == A has actions eth.dst = E; next;.
 
-                     A priority-0  logical  flow  with  match  1  has  actions
+              ·      Dynamic MAC  bindings.   These  flows  resolve  MAC-to-IP
+                     bindings  that  have become known dynamically through ARP
+                     or neighbor discovery.  (The next table will issue an ARP
+                     or  neighbor  solicitation  request  for  cases where the
+                     binding is not yet known.)
+
+                     A priority-0 logical flow  with  match  ip4  has  actions
                      get_arp(outport, reg0); next;.
+
+                     A  priority-0  logical  flow  with  match ip6 has actions
+                     get_nd(outport, xxreg0); next;.
 
      Ingress Table 6: ARP Request
 
-       In  the  common  case where the Ethernet destination has been resolved,
+       In the common case where the Ethernet destination  has  been  resolved,
        this table outputs the packet.  Otherwise, it composes and sends an ARP
        request.  It holds the following flows:
 
-              ·      Unknown  MAC  address.   A  priority-100  flow with match
+              ·      Unknown MAC address.   A  priority-100  flow  with  match
                      eth.dst == 00:00:00:00:00:00 has the following actions:
 
                      arp {
@@ -659,26 +827,26 @@ LOGICAL FLOW TABLE STRUCTURE
                          output;
                      };
 
-                     (Ingress table 4 initialized reg1  with  the  IP  address
+                     (Ingress  table  4  initialized  reg1 with the IP address
                      owned by outport.)
 
                      The IP packet that triggers the ARP request is dropped.
 
-              ·      Known  MAC  address.   A priority-0 flow with match 1 has
+              ·      Known MAC address.  A priority-0 flow with  match  1  has
                      actions output;.
 
      Egress Table 0: SNAT
 
-       Packets that are configured to be SNATed get their  source  IP  address
+       Packets  that  are  configured to be SNATed get their source IP address
        changed based on the configuration in the OVN Northbound database.
 
-              ·      For  each  configuration  in the OVN Northbound database,
-                     that asks to change the source IP  address  of  a  packet
-                     from  an  IP  address  of  A  or  to change the source IP
-                     address of a packet that belongs to network  A  to  B,  a
-                     flow   matches   ip  &&  ip4.src  ==  A  with  an  action
-                     ct_snat(B);.  The priority  of  the  flow  is  calculated
-                     based  on the mask of A, with matches having larger masks
+              ·      For each configuration in the  OVN  Northbound  database,
+                     that  asks  to  change  the source IP address of a packet
+                     from an IP address of  A  or  to  change  the  source  IP
+                     address  of  a  packet  that belongs to network A to B, a
+                     flow  matches  ip  &&  ip4.src  ==  A  with   an   action
+                     ct_snat(B);.   The  priority  of  the  flow is calculated
+                     based on the mask of A, with matches having larger  masks
                      getting higher priorities.
 
                      A priority-0 logical flow with match 1 has actions next;.
@@ -686,7 +854,7 @@ LOGICAL FLOW TABLE STRUCTURE
      Egress Table 1: Delivery
 
        Packets that reach this table are ready for delivery.  It contains pri‐
-       ority-100  logical  flows  that  match  packets on each enabled logical
+       ority-100 logical flows that match  packets  on  each  enabled  logical
        router port, with action output;.
 
 

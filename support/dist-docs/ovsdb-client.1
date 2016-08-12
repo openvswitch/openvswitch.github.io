@@ -33,10 +33,14 @@ ovsdb\-client \- command-line interface to \fBovsdb-server\fR(1)
 .br
 \fBovsdb\-client \fR[\fIoptions\fR] \fBmonitor\fI \fR[\fIserver\fR] \fR[\fIdatabase\fR] \fBALL\fR
 .br
-\fBovsdb\-client \fR[\fIoptions\fR] \fBmonitor2\fI \fR[\fIserver\fR] \fR[\fIdatabase\fR] \fItable\fR
-[\fIcolumn\fR[\fB,\fIcolumn\fR]...]...
+\fBovsdb\-client \fR[\fIoptions\fR] \fBmonitor-cond\fI \fR[\fIserver\fR] \fR[\fIdatabase\fR] \fIconditions
+\fItable\fR [\fIcolumn\fR[\fB,\fIcolumn\fR]...]...
 .br
-\fBovsdb\-client \fR[\fIoptions\fR] \fBmonitor2\fI \fR[\fIserver\fR] \fR[\fIdatabase\fR] \fBALL\fR
+\fBovsdb\-client \fR[\fIoptions\fR] \fBlock\fI \fR[\fIserver\fR] \fIlock\fR
+.br
+\fBovsdb\-client \fR[\fIoptions\fR] \fBsteal\fI \fR[\fIserver\fR] \fIlock\fR
+.br
+\fBovsdb\-client \fR[\fIoptions\fR] \fBunlock\fI \fR[\fIserver\fR] \fIlock\fR
 .br
 \fBovsdb\-client help\fR
 .IP "Output formatting options:"
@@ -76,7 +80,7 @@ ovsdb\-client \- command-line interface to \fBovsdb-server\fR(1)
 The \fBovsdb\-client\fR program is a command-line client for
 interacting with a running \fBovsdb\-server\fR process.
 Each command connects to an OVSDB server, which is
-\fBunix://var/run/openvswitch/db.sock\fR by default, or may be specified as
+\fBunix:/usr/local/var/run/openvswitch/db.sock\fR by default, or may be specified as
 \fIserver\fR in one of the following forms:
 .RS
 .IP "\fBssl:\fIip\fB:\fIport\fR"
@@ -95,8 +99,9 @@ square brackets, e.g.: \fBtcp:[::1]:6640\fR.
 .IP "\fBunix:\fIfile\fR"
 On POSIX, connect to the Unix domain server socket named \fIfile\fR.
 .IP
-On Windows, connect to a localhost TCP port whose value is written in
-\fIfile\fR.
+On Windows, connect to a local named pipe that is represented by a file
+created in the path \fIfile\fR to mimic the behavior of a Unix domain
+socket.
 .IP "\fBpssl:\fIport\fR[\fB:\fIip\fR]"
 Listen on the given SSL \fIport\fR for a connection.  By default,
 connections are not bound to a particular local IP address and
@@ -121,8 +126,8 @@ an IPv6 address, then wrap \fIip\fR with square brackets, e.g.:
 On POSIX, listen on the Unix domain server socket named \fIfile\fR for a
 connection.
 .IP
-On Windows, listen on a kernel chosen TCP port on the localhost. The kernel
-chosen TCP port value is written in \fIfile\fR.
+On Windows, listen on a local named pipe.  A file is created in the
+path \fIfile\fR to mimic the behavior of a Unix domain socket.
 .RE
 .PP
 The default \fIdatabase\fR is \fBOpen_vSwitch\fR.
@@ -174,12 +179,12 @@ specified, only that table is retrieved.  If at least one \fIcolumn\fR
 is specified, only those columns are retrieved.
 .
 .IP "\fBmonitor\fI \fR[\fIserver\fR] \fR[\fIdatabase\fR] \fItable\fR [\fIcolumn\fR[\fB,\fIcolumn\fR]...]..."
-.IQ "\fBmonitor2\fI \fR[\fIserver\fR] \fR[\fIdatabase\fR] \fItable\fR [\fIcolumn\fR[\fB,\fIcolumn\fR]...]..."
-Connects to \fIserver\fR and monitors the contents of \fItable\fR in
-\fIdatabase\fR.  By default, the initial contents of \fItable\fR are
-printed, followed by each change as it occurs.  If at least one
-\fIcolumn\fR is specified, only those columns are monitored.  The
-following \fIcolumn\fR names have special meanings:
+.IQ "\fBmonitor-cond\fI \fR[\fIserver\fR] \fR[\fIdatabase\fR] \fIconditions\fR \fItable\fR [\fIcolumn\fR[\fB,\fIcolumn\fR]...]..."
+Connects to \fIserver\fR and monitors the contents of rows that match conditions in
+\fItable\fR in \fIdatabase\fR. By default, the initial contents of \fItable\fR are
+printed, followed by each change as it occurs.  If conditions empty,
+all rows will be monitored. If at least one \fIcolumn\fR is specified, only those
+columns are monitored.  The following \fIcolumn\fR names have special meanings:
 .RS
 .IP "\fB!initial\fR"
 Do not print the initial contents of the specified columns.
@@ -197,16 +202,18 @@ each group.  Whether multiple groups or only a single group is
 specified, any given column may only be mentioned once on the command
 line.
 .IP
-If \fB\-\-detach\fR is used with \fBmonitor\fR or \fBmointor2\fR, then
+\fBconditions\fR is a JSON array of <condition> as defined in RFC 7047 5.1
+with the following change: A condition can be either a 3-element JSON array
+as deescribed in the RFC or a boolean value..
+.IP
+If \fB\-\-detach\fR is used with \fBmonitor\fR or \fBmonitor-cond\fR, then
 \fBovsdb\-client\fR detaches after it has successfully received and
 printed the initial contents of \fItable\fR.
 .IP
 The \fBmonitor\fR command uses RFC 7047 "monitor" method to open a monitor
-session with the server. The \fBmonitor2\fR command uses RFC 7047
-extension "monitor2" method. See \fBovsdb\-server\fR(1) for details.
-.
+session with the server. The \fBmonitor-cond\fR command uses RFC 7047
+extension "monitor_cond" method. See \fBovsdb\-server\fR(1) for details.
 .IP "\fBmonitor\fI \fR[\fIserver\fR] \fR[\fIdatabase\fR] \fBALL\fR"
-.IQ "\fBmonitor2\fI \fR[\fIserver\fR] \fR[\fIdatabase\fR] \fBALL\fR"
 Connects to \fIserver\fR and monitors the contents of all tables in
 \fIdatabase\fR.  Prints initial values and all kinds of changes to all
 columns in the database.  The \fB\-\-detach\fR option causes
@@ -214,8 +221,27 @@ columns in the database.  The \fB\-\-detach\fR option causes
 prints the initial database contents.
 .IP
 The \fBmonitor\fR command uses RFC 7047 "monitor" method to open a monitor
-session with the server. The \fBmonitor2\fR command uses RFC 7047
-extension "monitor2" method. See \fBovsdb\-server\fR(1) for details.
+session with the server.
+.
+.SH TESTING COMMANDS
+The following commands are mostly of interest for testing the correctness
+of the OVSDB server.
+.
+.IP "\fBovsdb\-client\fR [\fIoptions\fR] \fBlock\fI \fR[\fIserver\fR] \fIlock\fR"
+.IQ "\fBovsdb\-client\fR [\fIoptions\fR] \fBsteal\fI \fR[\fIserver\fR] \fIlock\fR"
+.IQ "\fBovsdb\-client\fR [\fIoptions\fR] \fBunlock\fI \fR[\fIserver\fR] \fIlock\fR"
+Connects to \fIserver\fR and issues corresponding RFC 7047 lock operations
+on \fIlock\fR. Prints json reply or subsequent update messages.
+The \fB\-\-detach\fR option causes \fBovsdb\-client\fR to detach after it
+successfully receives and prints the initial reply.
+.IP
+When running with the \fB\-\-detach\fR option, \fBlock\fR, \fBsteal\fR,
+\fBunlock\fR and \fBexit\fR commands can be issued by using
+\fBovs-appctl\fR. \fBexit\fR command causes the \fBovsdb\-client\fR to
+close its \fBovsdb\-server\fR connection before exit.
+The \fBlock\fR, \fBsteal\fR and \fBunlock\fR commands can be used to
+issue additional lock operations over the same \fBovsdb\-server\fR connection. All above commands take a single \fIlock\fR argument, which does not have
+to be the same as the \fIlock\fR that \fBovsdb\-client\fR started with.
 .
 .SH OPTIONS
 .SS "Output Formatting Options"
@@ -296,13 +322,13 @@ compactly.
 Equivalent to \fB\-\-format=list \-\-data=bare \-\-no\-headings\fR.
 .
 .IP "\fB\-\-timestamp\fR"
-For the \fBmonitor\fR and \fBmonitor2\fR commands, add a timestamp to each
+For the \fBmonitor\fR and \fBmonitor-cond\fR commands, add a timestamp to each
 table update.  Most output formats add the timestamp on a line of its own
 just above the table.  The JSON output format puts the timestamp in a
 member of the top-level JSON object named \fBtime\fR.
 .
 .SS "Daemon Options"
-The daemon options apply only to the \fBmonitor\fR and \fBmonitor2\fR commands.
+The daemon options apply only to the \fBmonitor\fR and \fBmonitor-cond\fR commands.
 With any other command, they have no effect.
 .ds DD
 The following options are valid on POSIX based platforms.
@@ -312,7 +338,7 @@ Causes a file (by default, \fB\*(PN.pid\fR) to be created indicating
 the PID of the running process.  If the \fIpidfile\fR argument is not
 specified, or
 if it does not begin with \fB/\fR, then it is created in
-\fB//var/run/openvswitch\fR.
+\fB/usr/local/var/run/openvswitch\fR.
 .IP
 If \fB\-\-pidfile\fR is not specified, no pidfile is created.
 .
@@ -462,7 +488,7 @@ a message to the target provided via the \fB\-\-syslog\-target\fR option.
 \fB\-\-log\-file\fR[\fB=\fIfile\fR]
 Enables logging to a file.  If \fIfile\fR is specified, then it is
 used as the exact name for the log file.  The default log file name
-used if \fIfile\fR is omitted is \fB//var/log/openvswitch/\*(PN.log\fR.
+used if \fIfile\fR is omitted is \fB/usr/local/var/log/openvswitch/\*(PN.log\fR.
 .
 .IP "\fB\-\-syslog\-target=\fIhost\fB:\fIport\fR"
 Send syslog messages to UDP \fIport\fR on \fIhost\fR, in addition to

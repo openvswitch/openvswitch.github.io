@@ -1,0 +1,958 @@
+<html><head>
+  <meta charset="UTF-8"></head>
+  <link rel="stylesheet" type="text/css" href="style.css">
+  <title>INSTALL.DPDK-ADVANCED.md (Open vSwitch 2.5.90)</title>
+</head><body>
+<h1>OVS DPDK ADVANCED INSTALL GUIDE</h1>
+
+<h2>Contents</h2>
+
+<ol>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#build">Building Shared Library</a></li>
+<li><a href="#sysconf">System configuration</a></li>
+<li><a href="#perftune">Performance Tuning</a></li>
+<li><a href="#ovstc">OVS Testcases</a></li>
+<li><a href="#vhost">Vhost Walkthrough</a></li>
+<li><a href="#qos">QOS</a></li>
+<li><a href="#rl">Rate Limiting</a></li>
+<li><a href="#fc">Flow Control</a></li>
+<li><a href="#vsperf">Vsperf</a></li>
+</ol>
+
+
+<h2><a name="overview"></a> 1. Overview</h2>
+
+<p>The Advanced Install Guide explains how to improve OVS performance using
+DPDK datapath. This guide also provides information on tuning, system configuration,
+troubleshooting, static code analysis and testcases.</p>
+
+<h2><a name="build"></a> 2. Building Shared Library</h2>
+
+<p>DPDK can be built as static or shared library and shall be linked by applications
+using DPDK datapath. The section lists steps to build shared library and dynamically
+link DPDK against OVS.</p>
+
+<p>Note: Minor performance loss is seen with OVS when using shared DPDK library as
+compared to static library.</p>
+
+<p>Check section <a href="INSTALL.DPDK.md#build">INSTALL DPDK</a>, <a href="INSTALL.DPDK.md#build">INSTALL OVS</a> of INSTALL.DPDK on download instructions
+for DPDK and OVS.</p>
+
+<ul>
+<li>Configure the DPDK library</li>
+</ul>
+
+
+<p>  Set <code>CONFIG_RTE_BUILD_SHARED_LIB=y</code> in <code>config/common_base</code>
+  to generate shared DPDK library</p>
+
+<ul>
+<li><p>Build and install DPDK</p>
+
+<p>For Default install (without IVSHMEM), set <code>export DPDK_TARGET=x86_64-native-linuxapp-gcc</code>
+For IVSHMEM case, set <code>export DPDK_TARGET=x86_64-ivshmem-linuxapp-gcc</code></p>
+
+<pre><code>export DPDK_DIR=/usr/src/dpdk-16.07
+export DPDK_BUILD=$DPDK_DIR/$DPDK_TARGET
+make install T=$DPDK_TARGET DESTDIR=install
+</code></pre></li>
+<li><p>Build, Install and Setup OVS.</p></li>
+</ul>
+
+
+<p>  Export the DPDK shared library location and setup OVS as listed in
+  section 3.3 of INSTALL.DPDK.</p>
+
+<p>  <code>export LD_LIBRARY_PATH=$DPDK_DIR/x86_64-native-linuxapp-gcc/lib</code></p>
+
+<h2><a name="sysconf"></a> 3. System Configuration</h2>
+
+<p>To achieve optimal OVS performance, the system can be configured and that includes
+BIOS tweaks, Grub cmdline additions, better understanding of NUMA nodes and
+apt selection of PCIe slots for NIC placement.</p>
+
+<h3>3.1 Recommended BIOS settings</h3>
+
+<pre><code class="``">  | Settings                  | values    | comments
+  |---------------------------|-----------|-----------
+  | C3 power state            | Disabled  | -
+  | C6 power state            | Disabled  | -
+  | MLC Streamer              | Enabled   | -
+  | MLC Spacial prefetcher    | Enabled   | -
+  | DCU Data prefetcher       | Enabled   | -
+  | DCA                       | Enabled   | -
+  | CPU power and performance | Performance -
+  | Memory RAS and perf       |           | -
+    config-&gt; NUMA optimized   | Enabled   | -
+</code></pre>
+
+<h3>3.2 PCIe Slot Selection</h3>
+
+<p>The fastpath performance also depends on factors like the NIC placement,
+Channel speeds between PCIe slot and CPU, proximity of PCIe slot to the CPU
+cores running DPDK application. Listed below are the steps to identify
+right PCIe slot.</p>
+
+<ul>
+<li>Retrieve host details using cmd <code>dmidecode -t baseboard | grep "Product Name"</code></li>
+<li>Download the technical specification for Product listed eg: S2600WT2.</li>
+<li><p>Check the Product Architecture Overview on the Riser slot placement,
+CPU sharing info and also PCIe channel speeds.</p>
+
+<p>example: On S2600WT, CPU1 and CPU2 share Riser Slot 1 with Channel speed between
+CPU1 and Riser Slot1 at 32GB/s, CPU2 and Riser Slot1 at 16GB/s. Running DPDK app
+on CPU1 cores and NIC inserted in to Riser card Slots will optimize OVS performance
+in this case.</p></li>
+<li><p>Check the Riser Card #1 - Root Port mapping information, on the available slots
+and individual bus speeds. In S2600WT slot 1, slot 2 has high bus speeds and are
+potential slots for NIC placement.</p></li>
+</ul>
+
+
+<h3>3.3 Advanced Hugepage setup</h3>
+
+<p>  Allocate and mount 1G Huge pages:</p>
+
+<ul>
+<li><p>For persistent allocation of huge pages, add the following options to the kernel bootline</p>
+
+<p>  Add <code>default_hugepagesz=1GB hugepagesz=1G hugepages=N</code></p>
+
+<p>  For platforms supporting multiple huge page sizes, Add options</p>
+
+<p>  <code>default_hugepagesz=&lt;size&gt; hugepagesz=&lt;size&gt; hugepages=N</code>
+  where &lsquo;N&rsquo; = Number of huge pages requested, &lsquo;size&rsquo; = huge page size,
+  optional suffix [kKmMgG]</p></li>
+<li><p>For run-time allocation of huge pages</p>
+
+<p>  <code>echo N &gt; /sys/devices/system/node/nodeX/hugepages/hugepages-1048576kB/nr_hugepages</code>
+  where &lsquo;N&rsquo; = Number of huge pages requested, &lsquo;X&rsquo; = NUMA Node</p>
+
+<p>  Note: For run-time allocation of 1G huge pages, Contiguous Memory Allocator(CONFIG_CMA)
+  has to be supported by kernel, check your Linux distro.</p></li>
+<li><p>Mount huge pages</p>
+
+<p>  <code>mount -t hugetlbfs -o pagesize=1G none /dev/hugepages</code></p>
+
+<p>  Note: Mount hugepages if not already mounted by default.</p></li>
+</ul>
+
+
+<h3>3.4 Enable Hyperthreading</h3>
+
+<p>  Requires BIOS changes</p>
+
+<p>  With HT/SMT enabled, A Physical core appears as two logical cores.
+  SMT can be utilized to spawn worker threads on logical cores of the same
+  physical core there by saving additional cores.</p>
+
+<p>  With DPDK, When pinning pmd threads to logical cores, care must be taken
+  to set the correct bits in the pmd-cpu-mask to ensure that the pmd threads are
+  pinned to SMT siblings.</p>
+
+<p>  Example System configuration:
+  Dual socket Machine, 2x 10 core processors, HT enabled, 40 logical cores</p>
+
+<p>  To use two logical cores which share the same physical core for pmd threads,
+  the following command can be used to identify a pair of logical cores.</p>
+
+<p>  <code>cat /sys/devices/system/cpu/cpuN/topology/thread_siblings_list</code>, where N is the
+  logical core number.</p>
+
+<p>  In this example, it would show that cores 1 and 21 share the same physical core.
+  The pmd-cpu-mask to enable two pmd threads running on these two logical cores
+  (one physical core) is.</p>
+
+<p>  <code>ovs-vsctl set Open_vSwitch . other_config:pmd-cpu-mask=100002</code></p>
+
+<h3>3.5 Isolate cores</h3>
+
+<p>  &lsquo;isolcpus&rsquo; option can be used to isolate cores from the linux scheduler.
+  The isolated cores can then be used to dedicatedly run HPC applications/threads.
+  This helps in better application performance due to zero context switching and
+  minimal cache thrashing. To run platform logic on core 0 and isolate cores
+  between 1 and 19 from scheduler, Add  <code>isolcpus=1-19</code> to GRUB cmdline.</p>
+
+<p>  Note: It has been verified that core isolation has minimal advantage due to
+  mature Linux scheduler in some circumstances.</p>
+
+<h3>3.6 NUMA/Cluster on Die</h3>
+
+<p>  Ideally inter NUMA datapaths should be avoided where possible as packets
+  will go across QPI and there may be a slight performance penalty when
+  compared with intra NUMA datapaths. On Intel Xeon Processor E5 v3,
+  Cluster On Die is introduced on models that have 10 cores or more.
+  This makes it possible to logically split a socket into two NUMA regions
+  and again it is preferred where possible to keep critical datapaths
+  within the one cluster.</p>
+
+<p>  It is good practice to ensure that threads that are in the datapath are
+  pinned to cores in the same NUMA area. e.g. pmd threads and QEMU vCPUs
+  responsible for forwarding. If DPDK is built with
+  CONFIG_RTE_LIBRTE_VHOST_NUMA=y, vHost User ports automatically
+  detect the NUMA socket of the QEMU vCPUs and will be serviced by a PMD
+  from the same node provided a core on this node is enabled in the
+  pmd-cpu-mask. libnuma packages are required for this feature.</p>
+
+<h3>3.7 Compiler Optimizations</h3>
+
+<p>  The default compiler optimization level is &lsquo;-O2&rsquo;. Changing this to
+  more aggressive compiler optimization such as &lsquo;-O3 -march=native&rsquo;
+  with gcc(verified on 5.3.1) can produce performance gains though not
+  siginificant. &lsquo;-march=native&rsquo; will produce optimized code on local machine
+  and should be used when SW compilation is done on Testbed.</p>
+
+<h2><a name="perftune"></a> 4. Performance Tuning</h2>
+
+<h3>4.1 Affinity</h3>
+
+<p>For superior performance, DPDK pmd threads and Qemu vCPU threads
+needs to be affinitized accordingly.</p>
+
+<ul>
+<li><p>PMD thread Affinity</p>
+
+<p>A poll mode driver (pmd) thread handles the I/O of all DPDK
+interfaces assigned to it. A pmd thread shall poll the ports
+for incoming packets, switch the packets and send to tx port.
+pmd thread is CPU bound, and needs to be affinitized to isolated
+cores for optimum performance.</p>
+
+<p>By setting a bit in the mask, a pmd thread is created and pinned
+to the corresponding CPU core. e.g. to run a pmd thread on core 2</p>
+
+<p><code>ovs-vsctl set Open_vSwitch . other_config:pmd-cpu-mask=4</code></p>
+
+<p>Note: pmd thread on a NUMA node is only created if there is
+at least one DPDK interface from that NUMA node added to OVS.</p></li>
+<li><p>Qemu vCPU thread Affinity</p>
+
+<p>A VM performing simple packet forwarding or running complex packet
+pipelines has to ensure that the vCPU threads performing the work has
+as much CPU occupancy as possible.</p>
+
+<p>Example: On a multicore VM, multiple QEMU vCPU threads shall be spawned.
+when the DPDK &lsquo;testpmd&rsquo; application that does packet forwarding
+is invoked, &lsquo;taskset&rsquo; cmd should be used to affinitize the vCPU threads
+to the dedicated isolated cores on the host system.</p></li>
+</ul>
+
+
+<h3>4.2 Multiple poll mode driver threads</h3>
+
+<p>  With pmd multi-threading support, OVS creates one pmd thread
+  for each NUMA node by default. However, it can be seen that in cases
+  where there are multiple ports/rxq&rsquo;s producing traffic, performance
+  can be improved by creating multiple pmd threads running on separate
+  cores. These pmd threads can then share the workload by each being
+  responsible for different ports/rxq&rsquo;s. Assignment of ports/rxq&rsquo;s to
+  pmd threads is done automatically.</p>
+
+<p>  A set bit in the mask means a pmd thread is created and pinned
+  to the corresponding CPU core. e.g. to run pmd threads on core 1 and 2</p>
+
+<p>  <code>ovs-vsctl set Open_vSwitch . other_config:pmd-cpu-mask=6</code></p>
+
+<p>  For example, when using dpdk and dpdkvhostuser ports in a bi-directional
+  VM loopback as shown below, spreading the workload over 2 or 4 pmd
+  threads shows significant improvements as there will be more total CPU
+  occupancy available.</p>
+
+<p>  NIC port0 &lt;-> OVS &lt;-> VM &lt;-> OVS &lt;-> NIC port 1</p>
+
+<h3>4.3 DPDK physical port Rx Queues</h3>
+
+<p>  <code>ovs-vsctl set Interface &lt;DPDK interface&gt; options:n_rxq=&lt;integer&gt;</code></p>
+
+<p>  The command above sets the number of rx queues for DPDK physical interface.
+  The rx queues are assigned to pmd threads on the same NUMA node in a
+  round-robin fashion.</p>
+
+<h3>4.4 Exact Match Cache</h3>
+
+<p>  Each pmd thread contains one EMC. After initial flow setup in the
+  datapath, the EMC contains a single table and provides the lowest level
+  (fastest) switching for DPDK ports. If there is a miss in the EMC then
+  the next level where switching will occur is the datapath classifier.
+  Missing in the EMC and looking up in the datapath classifier incurs a
+  significant performance penalty. If lookup misses occur in the EMC
+  because it is too small to handle the number of flows, its size can
+  be increased. The EMC size can be modified by editing the define
+  EM_FLOW_HASH_SHIFT in lib/dpif-netdev.c.</p>
+
+<p>  As mentioned above an EMC is per pmd thread. So an alternative way of
+  increasing the aggregate amount of possible flow entries in EMC and
+  avoiding datapath classifier lookups is to have multiple pmd threads
+  running. This can be done as described in section 4.2.</p>
+
+<h3>4.5 Rx Mergeable buffers</h3>
+
+<p>  Rx Mergeable buffers is a virtio feature that allows chaining of multiple
+  virtio descriptors to handle large packet sizes. As such, large packets
+  are handled by reserving and chaining multiple free descriptors
+  together. Mergeable buffer support is negotiated between the virtio
+  driver and virtio device and is supported by the DPDK vhost library.
+  This behavior is typically supported and enabled by default, however
+  in the case where the user knows that rx mergeable buffers are not needed
+  i.e. jumbo frames are not needed, it can be forced off by adding
+  mrg_rxbuf=off to the QEMU command line options. By not reserving multiple
+  chains of descriptors it will make more individual virtio descriptors
+  available for rx to the guest using dpdkvhost ports and this can improve
+  performance.</p>
+
+<h2><a name="ovstc"></a> 5. OVS Testcases</h2>
+
+<h3>5.1 PHY-VM-PHY [VHOST LOOPBACK]</h3>
+
+<p>The section 5.2 in INSTALL.DPDK guide lists steps for PVP loopback testcase
+and packet forwarding using DPDK testpmd application in the Guest VM.
+For users wanting to do packet forwarding using kernel stack below are the steps.</p>
+
+<pre><code class="``">  ifconfig eth1 1.1.1.2/24
+  ifconfig eth2 1.1.2.2/24
+  systemctl stop firewalld.service
+  systemctl stop iptables.service
+  sysctl -w net.ipv4.ip_forward=1
+  sysctl -w net.ipv4.conf.all.rp_filter=0
+  sysctl -w net.ipv4.conf.eth1.rp_filter=0
+  sysctl -w net.ipv4.conf.eth2.rp_filter=0
+  route add -net 1.1.2.0/24 eth2
+  route add -net 1.1.1.0/24 eth1
+  arp -s 1.1.2.99 DE:AD:BE:EF:CA:FE
+  arp -s 1.1.1.99 DE:AD:BE:EF:CA:EE
+</code></pre>
+
+<h3>5.2 PHY-VM-PHY [IVSHMEM]</h3>
+
+<p>  The steps (1-5) in 3.3 section of INSTALL.DPDK guide will create &amp; initialize DB,
+  start vswitchd and add dpdk devices to bridge br0.</p>
+
+<ol>
+<li><p>Add DPDK ring port to the bridge</p>
+
+<pre><code class="``">   ovs-vsctl add-port br0 dpdkr0 -- set Interface dpdkr0 type=dpdkr
+</code></pre></li>
+<li><p>Build modified Qemu (Qemu-2.2.1 + ivshmem-qemu-2.2.1.patch)</p>
+
+<pre><code class="``">   cd /usr/src/
+   wget http://wiki.qemu.org/download/qemu-2.2.1.tar.bz2
+   tar -jxvf qemu-2.2.1.tar.bz2
+   cd /usr/src/qemu-2.2.1
+   wget https://raw.githubusercontent.com/netgroup-polito/un-orchestrator/master/orchestrator/compute_controller/plugins/kvm-libvirt/patches/ivshmem-qemu-2.2.1.patch
+   patch -p1 &lt; ivshmem-qemu-2.2.1.patch
+   ./configure --target-list=x86_64-softmmu --enable-debug --extra-cflags='-g'
+   make -j 4
+</code></pre></li>
+<li><p>Generate Qemu commandline</p>
+
+<pre><code class="``">   mkdir -p /usr/src/cmdline_generator
+   cd /usr/src/cmdline_generator
+   wget https://raw.githubusercontent.com/netgroup-polito/un-orchestrator/master/orchestrator/compute_controller/plugins/kvm-libvirt/cmdline_generator/cmdline_generator.c
+   wget https://raw.githubusercontent.com/netgroup-polito/un-orchestrator/master/orchestrator/compute_controller/plugins/kvm-libvirt/cmdline_generator/Makefile
+   export RTE_SDK=/usr/src/dpdk-16.07
+   export RTE_TARGET=x86_64-ivshmem-linuxapp-gcc
+   make
+   ./build/cmdline_generator -m -p dpdkr0 XXX
+   cmdline=`cat OVSMEMPOOL`
+</code></pre></li>
+<li><p>start Guest VM</p>
+
+<pre><code class="``">   export VM_NAME=ivshmem-vm
+   export QCOW2_IMAGE=/root/CentOS7_x86_64.qcow2
+   export QEMU_BIN=/usr/src/qemu-2.2.1/x86_64-softmmu/qemu-system-x86_64
+
+   taskset 0x20 $QEMU_BIN -cpu host -smp 2,cores=2 -hda $QCOW2_IMAGE -m 4096 --enable-kvm -name $VM_NAME -nographic -vnc :2 -pidfile /tmp/vm1.pid $cmdline
+</code></pre></li>
+<li><p>Running sample &ldquo;dpdk ring&rdquo; app in VM</p>
+
+<pre><code class="``">   echo 1024 &gt; /proc/sys/vm/nr_hugepages
+   mount -t hugetlbfs nodev /dev/hugepages (if not already mounted)
+
+   # Build the DPDK ring application in the VM
+   export RTE_SDK=/root/dpdk-16.07
+   export RTE_TARGET=x86_64-ivshmem-linuxapp-gcc
+   make
+
+   # Run dpdkring application
+   ./build/dpdkr -c 1 -n 4 -- -n 0
+   where "-n 0" refers to ring '0' i.e dpdkr0
+</code></pre></li>
+</ol>
+
+
+<h3>5.3 PHY-VM-PHY [VHOST MULTIQUEUE]</h3>
+
+<p>  The steps (1-5) in 3.3 section of <a href="INSTALL.DPDK.md#build">INSTALL DPDK</a> guide will create &amp; initialize DB,
+  start vswitchd and add dpdk devices to bridge br0.</p>
+
+<ol>
+<li><p>Configure PMD and RXQs. For example set no. of dpdk port rx queues to atleast 2.
+ The number of rx queues at vhost-user interface gets automatically configured after
+ virtio device connection and doesn&rsquo;t need manual configuration.</p>
+
+<pre><code class="`"> ovs-vsctl set Open_vSwitch . other_config:pmd-cpu-mask=c
+ ovs-vsctl set Interface dpdk0 options:n_rxq=2
+ ovs-vsctl set Interface dpdk1 options:n_rxq=2
+</code></pre></li>
+<li><p>Instantiate Guest VM using Qemu cmdline</p>
+
+<p>  Guest Configuration</p>
+
+<pre><code class="``">   | configuration        | values | comments
+   |----------------------|--------|-----------------
+   | qemu version         | 2.5.0  |
+   | qemu thread affinity |2 cores | taskset 0x30
+   | memory               | 4GB    | -
+   | cores                | 2      | -
+   | Qcow2 image          |Fedora22| -
+   | multiqueue           |   on   | -
+</code></pre>
+
+<p>   Instantiate Guest</p>
+
+<pre><code class="```">   export VM_NAME=vhost-vm
+   export GUEST_MEM=4096M
+   export QCOW2_IMAGE=/root/Fedora22_x86_64.qcow2
+   export VHOST_SOCK_DIR=/usr/local/var/run/openvswitch
+
+   taskset 0x30 qemu-system-x86_64 -cpu host -smp 2,cores=2 -drive file=$QCOW2_IMAGE -m 4096M --enable-kvm -name $VM_NAME -nographic -object memory-backend-file,id=mem,size=$GUEST_MEM,mem-path=/dev/hugepages,share=on -numa node,memdev=mem -mem-prealloc -chardev socket,id=char1,path=$VHOST_SOCK_DIR/dpdkvhostuser0 -netdev type=vhost-user,id=mynet1,chardev=char1,vhostforce,queues=2 -device virtio-net-pci,mac=00:00:00:00:00:01,netdev=mynet1,mq=on,vectors=6 -chardev socket,id=char2,path=$VHOST_SOCK_DIR/dpdkvhostuser1 -netdev type=vhost-user,id=mynet2,chardev=char2,vhostforce,queues=2 -device virtio-net-pci,mac=00:00:00:00:00:02,netdev=mynet2,mq=on,vectors=6
+</code></pre>
+
+<p>   Note: Queue value above should match the queues configured in OVS, The vector value
+   should be set to &lsquo;no. of queues x 2 + 2&rsquo;.</p></li>
+<li><p>Guest interface configuration</p>
+
+<p>Assuming there are 2 interfaces in the guest named eth0, eth1 check the channel
+ configuration and set the number of combined channels to 2 for virtio devices.
+ More information can be found in <a href="INSTALL.DPDK.md#vhost">Vhost walkthrough</a> section.</p>
+
+<pre><code class="```">   ethtool -l eth0
+   ethtool -L eth0 combined 2
+   ethtool -L eth1 combined 2
+</code></pre></li>
+<li><p>Kernel Packet forwarding</p>
+
+<p>Configure IP and enable interfaces</p>
+
+<pre><code> ifconfig eth0 5.5.5.1/24 up
+ ifconfig eth1 90.90.90.1/24 up
+</code></pre>
+
+<p> Configure IP forwarding and add route entries</p>
+
+<pre><code class="`"> sysctl -w net.ipv4.ip_forward=1
+ sysctl -w net.ipv4.conf.all.rp_filter=0
+ sysctl -w net.ipv4.conf.eth0.rp_filter=0
+ sysctl -w net.ipv4.conf.eth1.rp_filter=0
+ ip route add 2.1.1.0/24 dev eth1
+ route add default gw 2.1.1.2 eth1
+ route add default gw 90.90.90.90 eth1
+ arp -s 90.90.90.90 DE:AD:BE:EF:CA:FE
+ arp -s 2.1.1.2 DE:AD:BE:EF:CA:FA
+</code></pre>
+
+<p> Check traffic on multiple queues</p>
+
+<pre><code class="`"> cat /proc/interrupts | grep virtio
+</code></pre></li>
+</ol>
+
+
+<h2><a name="vhost"></a> 6. Vhost Walkthrough</h2>
+
+<p>DPDK 16.07 supports two types of vhost:</p>
+
+<ol>
+<li><p>vhost-user - enabled default</p></li>
+<li><p>vhost-cuse - Legacy, disabled by default</p></li>
+</ol>
+
+
+<h3>6.1 vhost-user</h3>
+
+<ul>
+<li><p>Prerequisites:</p>
+
+<p>QEMU version >= 2.2</p></li>
+<li><p>Adding vhost-user ports to Switch</p>
+
+<p>Unlike DPDK ring ports, DPDK vhost-user ports can have arbitrary names,
+except that forward and backward slashes are prohibited in the names.</p>
+
+<p>For vhost-user, the name of the port type is <code>dpdkvhostuser</code></p>
+
+<pre><code>ovs-vsctl add-port br0 vhost-user-1 -- set Interface vhost-user-1
+type=dpdkvhostuser
+</code></pre>
+
+<p>This action creates a socket located at
+<code>/usr/local/var/run/openvswitch/vhost-user-1</code>, which you must provide
+to your VM on the QEMU command line. More instructions on this can be
+found in the next section &ldquo;Adding vhost-user ports to VM&rdquo;</p>
+
+<p>Note: If you wish for the vhost-user sockets to be created in a
+sub-directory of <code>/usr/local/var/run/openvswitch</code>, you may specify
+this directory in the ovsdb like so:</p>
+
+<p><code>./utilities/ovs-vsctl --no-wait \
+  set Open_vSwitch . other_config:vhost-sock-dir=subdir</code></p></li>
+<li><p>Adding vhost-user ports to VM</p>
+
+<ol>
+<li><p>Configure sockets</p>
+
+<p>Pass the following parameters to QEMU to attach a vhost-user device:</p>
+
+<pre><code>-chardev socket,id=char1,path=/usr/local/var/run/openvswitch/vhost-user-1
+-netdev type=vhost-user,id=mynet1,chardev=char1,vhostforce
+-device virtio-net-pci,mac=00:00:00:00:00:01,netdev=mynet1
+</code></pre>
+
+<p>where vhost-user-1 is the name of the vhost-user port added
+to the switch.
+Repeat the above parameters for multiple devices, changing the
+chardev path and id as necessary. Note that a separate and different
+chardev path needs to be specified for each vhost-user device. For
+example you have a second vhost-user port named &lsquo;vhost-user-2&rsquo;, you
+append your QEMU command line with an additional set of parameters:</p>
+
+<pre><code>-chardev socket,id=char2,path=/usr/local/var/run/openvswitch/vhost-user-2
+-netdev type=vhost-user,id=mynet2,chardev=char2,vhostforce
+-device virtio-net-pci,mac=00:00:00:00:00:02,netdev=mynet2
+</code></pre></li>
+<li><p>Configure huge pages.</p>
+
+<p>QEMU must allocate the VM&rsquo;s memory on hugetlbfs. vhost-user ports access
+a virtio-net device&rsquo;s virtual rings and packet buffers mapping the VM&rsquo;s
+physical memory on hugetlbfs. To enable vhost-user ports to map the VM&rsquo;s
+memory into their process address space, pass the following parameters
+to QEMU:</p>
+
+<pre><code>-object memory-backend-file,id=mem,size=4096M,mem-path=/dev/hugepages,
+share=on -numa node,memdev=mem -mem-prealloc
+</code></pre></li>
+<li><p>Enable multiqueue support(OPTIONAL)</p>
+
+<p>QEMU needs to be configured to use multiqueue.
+The $q below is the number of queues.
+The $v is the number of vectors, which is &lsquo;$q x 2 + 2&rsquo;.</p>
+
+<pre><code>-chardev socket,id=char2,path=/usr/local/var/run/openvswitch/vhost-user-2
+-netdev type=vhost-user,id=mynet2,chardev=char2,vhostforce,queues=$q
+-device virtio-net-pci,mac=00:00:00:00:00:02,netdev=mynet2,mq=on,vectors=$v
+</code></pre>
+
+<p>The vhost-user interface will be automatically reconfigured with required
+number of rx and tx queues after connection of virtio device.
+Manual configuration of <code>n_rxq</code> is not supported because OVS will work
+properly only if <code>n_rxq</code> will match number of queues configured in QEMU.</p>
+
+<p>A least 2 PMDs should be configured for the vswitch when using multiqueue.
+Using a single PMD will cause traffic to be enqueued to the same vhost
+queue rather than being distributed among different vhost queues for a
+vhost-user interface.</p>
+
+<p>If traffic destined for a VM configured with multiqueue arrives to the
+vswitch via a physical DPDK port, then the number of rxqs should also be
+set to at least 2 for that physical DPDK port. This is required to increase
+the probability that a different PMD will handle the multiqueue
+transmission to the guest using a different vhost queue.</p>
+
+<p>If one wishes to use multiple queues for an interface in the guest, the
+driver in the guest operating system must be configured to do so. It is
+recommended that the number of queues configured be equal to &lsquo;$q&rsquo;.</p>
+
+<p>For example, this can be done for the Linux kernel virtio-net driver with:</p>
+
+<pre><code>ethtool -L &lt;DEV&gt; combined &lt;$q&gt;
+</code></pre>
+
+<p>where <code>-L</code>: Changes the numbers of channels of the specified network device
+and <code>combined</code>: Changes the number of multi-purpose channels.</p></li>
+</ol>
+</li>
+<li><p>VM Configuration with libvirt</p>
+
+<ul>
+<li><p>change the user/group, access control policty and restart libvirtd.</p>
+
+<ul>
+<li><p>In <code>/etc/libvirt/qemu.conf</code> add/edit the following lines</p>
+
+<pre><code>user = "root"
+group = "root"
+</code></pre></li>
+<li><p>Disable SELinux or set to permissive mode</p>
+
+<p><code>setenforce 0</code></p></li>
+<li><p>Restart the libvirtd process, For example, on Fedora</p>
+
+<p><code>systemctl restart libvirtd.service</code></p></li>
+</ul>
+</li>
+<li><p>Instantiate the VM</p>
+
+<ul>
+<li><p>Copy the xml configuration from <a href="INSTALL.DPDK.md#ovstc">Guest VM using libvirt</a> in to workspace.</p></li>
+<li><p>Start the VM.</p>
+
+<p> <code>virsh create demovm.xml</code></p></li>
+<li><p>Connect to the guest console</p>
+
+<p> <code>virsh console demovm</code></p></li>
+</ul>
+</li>
+<li><p>VM configuration</p>
+
+<p>The demovm xml configuration is aimed at achieving out of box performance
+on VM.</p>
+
+<ul>
+<li><p>The vcpus are pinned to the cores of the CPU socket 0 using vcpupin.</p></li>
+<li><p>Configure NUMA cell and memory shared using memAccess=&lsquo;shared&rsquo;.</p></li>
+<li><p>Disable mrg_rxbuf=&lsquo;off&rsquo;.</p></li>
+</ul>
+
+
+<p>Note: For information on libvirt and further tuning refer <a href="http://libvirt.org/formatdomain.html">libvirt</a>.</p></li>
+</ul>
+</li>
+</ul>
+
+
+<h3>6.2 vhost-cuse</h3>
+
+<ul>
+<li><p>Prerequisites:</p>
+
+<p>QEMU version >= 2.2</p></li>
+<li><p>Enable vhost-cuse support</p>
+
+<ol>
+<li><p>Enable vhost cuse support in DPDK</p>
+
+<p>Set <code>CONFIG_RTE_LIBRTE_VHOST_USER=n</code> in config/common_linuxapp and follow the
+steps in 2.2 section of INSTALL.DPDK guide to build DPDK with cuse support.
+OVS will detect that DPDK has vhost-cuse libraries compiled and in turn will enable
+support for it in the switch and disable vhost-user support.</p></li>
+<li><p>Insert the Cuse module</p>
+
+<p><code>modprobe cuse</code></p></li>
+<li><p>Build and insert the <code>eventfd_link</code> module</p>
+
+<pre><code>cd $DPDK_DIR/lib/librte_vhost/eventfd_link/
+make
+insmod $DPDK_DIR/lib/librte_vhost/eventfd_link.ko
+</code></pre></li>
+</ol>
+</li>
+<li><p>Adding vhost-cuse ports to Switch</p>
+
+<p>Unlike DPDK ring ports, DPDK vhost-cuse ports can have arbitrary names.
+For vhost-cuse, the name of the port type is <code>dpdkvhostcuse</code></p>
+
+<pre><code>ovs-vsctl add-port br0 vhost-cuse-1 -- set Interface vhost-cuse-1
+type=dpdkvhostcuse
+</code></pre>
+
+<p>When attaching vhost-cuse ports to QEMU, the name provided during the
+add-port operation must match the ifname parameter on the QEMU cmd line.</p></li>
+<li><p>Adding vhost-cuse ports to VM</p>
+
+<p>vhost-cuse ports use a Linux* character device to communicate with QEMU.
+By default it is set to <code>/dev/vhost-net</code>. It is possible to reuse this
+standard device for DPDK vhost, which makes setup a little simpler but it
+is better practice to specify an alternative character device in order to
+avoid any conflicts if kernel vhost is to be used in parallel.</p>
+
+<ol>
+<li><p>This step is only needed if using an alternative character device.</p>
+
+<pre><code>./utilities/ovs-vsctl --no-wait set Open_vSwitch . \
+     other_config:cuse-dev-name=my-vhost-net
+</code></pre>
+
+<p>In the example above, the character device to be used will be
+<code>/dev/my-vhost-net</code>.</p></li>
+<li><p>In case of reusing kernel vhost character device, there would be conflict
+user should remove it.</p>
+
+<p><code>rm -rf /dev/vhost-net</code></p></li>
+<li><p>Configure virtio-net adapters</p>
+
+<p>The following parameters must be passed to the QEMU binary, repeat
+the below parameters for multiple devices.</p>
+
+<pre><code>-netdev tap,id=&lt;id&gt;,script=no,downscript=no,ifname=&lt;name&gt;,vhost=on
+-device virtio-net-pci,netdev=net1,mac=&lt;mac&gt;
+</code></pre>
+
+<p>The DPDK vhost library will negotiate its own features, so they
+need not be passed in as command line params. Note that as offloads
+are disabled this is the equivalent of setting</p>
+
+<p><code>csum=off,gso=off,guest_tso4=off,guest_tso6=off,guest_ecn=off</code></p>
+
+<p>When using an alternative character device, it must be explicitly
+passed to QEMU using the <code>vhostfd</code> argument</p>
+
+<pre><code>-netdev tap,id=&lt;id&gt;,script=no,downscript=no,ifname=&lt;name&gt;,vhost=on,
+vhostfd=&lt;open_fd&gt; -device virtio-net-pci,netdev=net1,mac=&lt;mac&gt;
+</code></pre>
+
+<p>The open file descriptor must be passed to QEMU running as a child
+process. This could be done with a simple python script.</p>
+
+<pre><code>#!/usr/bin/python
+fd = os.open("/dev/usvhost", os.O_RDWR)
+subprocess.call("qemu-system-x86_64 .... -netdev tap,id=vhostnet0,\
+                vhost=on,vhostfd=" + fd +"...", shell=True)
+</code></pre></li>
+<li><p>Configure huge pages</p>
+
+<p>QEMU must allocate the VM&rsquo;s memory on hugetlbfs. Vhost ports access a
+virtio-net device&rsquo;s virtual rings and packet buffers mapping the VM&rsquo;s
+physical memory on hugetlbfs. To enable vhost-ports to map the VM&rsquo;s
+memory into their process address space, pass the following parameters
+to QEMU</p>
+
+<p><code>-object memory-backend-file,id=mem,size=4096M,mem-path=/dev/hugepages,
+share=on -numa node,memdev=mem -mem-prealloc</code></p></li>
+</ol>
+</li>
+<li><p>VM Configuration with QEMU wrapper</p>
+
+<p>The QEMU wrapper script automatically detects and calls QEMU with the
+necessary parameters. It performs the following actions:</p>
+
+<ul>
+<li>Automatically detects the location of the hugetlbfs and inserts this
+into the command line parameters.</li>
+<li>Automatically open file descriptors for each virtio-net device and
+inserts this into the command line parameters.</li>
+<li>Calls QEMU passing both the command line parameters passed to the
+script itself and those it has auto-detected.</li>
+</ul>
+
+
+<p>Before use, you <strong>must</strong> edit the configuration parameters section of the
+script to point to the correct emulator location and set additional
+settings. Of these settings, <code>emul_path</code> and <code>us_vhost_path</code> <strong>must</strong> be
+set. All other settings are optional.</p>
+
+<p>To use directly from the command line simply pass the wrapper some of the
+QEMU parameters: it will configure the rest. For example:</p>
+
+<pre><code>qemu-wrap.py -cpu host -boot c -hda &lt;disk image&gt; -m 4096 -smp 4
+--enable-kvm -nographic -vnc none -net none -netdev tap,id=net1,
+script=no,downscript=no,ifname=if1,vhost=on -device virtio-net-pci,
+netdev=net1,mac=00:00:00:00:00:01
+</code></pre></li>
+<li><p>VM Configuration with libvirt</p>
+
+<p>If you are using libvirt, you must enable libvirt to access the character
+device by adding it to controllers cgroup for libvirtd using the following
+steps.</p>
+
+<ol>
+<li><p>In <code>/etc/libvirt/qemu.conf</code> add/edit the following lines:</p>
+
+<pre><code>clear_emulator_capabilities = 0
+user = "root"
+group = "root"
+cgroup_device_acl = [
+      "/dev/null", "/dev/full", "/dev/zero",
+      "/dev/random", "/dev/urandom",
+      "/dev/ptmx", "/dev/kvm", "/dev/kqemu",
+      "/dev/rtc", "/dev/hpet", "/dev/net/tun",
+      "/dev/&lt;my-vhost-device&gt;",
+      "/dev/hugepages"]
+</code></pre>
+
+<p>&lt;my-vhost-device> refers to &ldquo;vhost-net&rdquo; if using the <code>/dev/vhost-net</code>
+device. If you have specificed a different name in the database
+using the &ldquo;other_config:cuse-dev-name&rdquo; parameter, please specify that
+filename instead.</p></li>
+<li><p>Disable SELinux or set to permissive mode</p></li>
+<li><p>Restart the libvirtd process
+For example, on Fedora:</p>
+
+<p><code>systemctl restart libvirtd.service</code></p></li>
+</ol>
+
+
+<p>After successfully editing the configuration, you may launch your
+vhost-enabled VM. The XML describing the VM can be configured like so
+within the &lt;qemu:commandline> section:</p>
+
+<ol>
+<li><p>Set up shared hugepages:</p>
+
+<pre><code>&lt;qemu:arg value='-object'/&gt;
+&lt;qemu:arg value='memory-backend-file,id=mem,size=4096M,mem-path=/dev/hugepages,share=on'/&gt;
+&lt;qemu:arg value='-numa'/&gt;
+&lt;qemu:arg value='node,memdev=mem'/&gt;
+&lt;qemu:arg value='-mem-prealloc'/&gt;
+</code></pre></li>
+<li><p>Set up your tap devices:</p>
+
+<pre><code>&lt;qemu:arg value='-netdev'/&gt;
+&lt;qemu:arg value='type=tap,id=net1,script=no,downscript=no,ifname=vhost0,vhost=on'/&gt;
+&lt;qemu:arg value='-device'/&gt;
+&lt;qemu:arg value='virtio-net-pci,netdev=net1,mac=00:00:00:00:00:01'/&gt;
+</code></pre></li>
+</ol>
+
+
+<p>Repeat for as many devices as are desired, modifying the id, ifname
+and mac as necessary.</p>
+
+<p>Again, if you are using an alternative character device (other than
+<code>/dev/vhost-net</code>), please specify the file descriptor like so:</p>
+
+<p><code>&lt;qemu:arg value='type=tap,id=net3,script=no,downscript=no,ifname=vhost0,vhost=on,vhostfd=&lt;open_fd&gt;'/&gt;</code></p>
+
+<p>Where &lt;open_fd> refers to the open file descriptor of the character device.
+Instructions of how to retrieve the file descriptor can be found in the
+&ldquo;DPDK vhost VM configuration&rdquo; section.
+Alternatively, the process is automated with the qemu-wrap.py script,
+detailed in the next section.</p>
+
+<p>Now you may launch your VM using virt-manager, or like so:</p></li>
+</ul>
+
+
+<p>   <code>virsh create my_vhost_vm.xml</code></p>
+
+<ul>
+<li><p>VM Configuration with libvirt &amp; QEMU wrapper</p>
+
+<p>To use the qemu-wrapper script in conjuntion with libvirt, follow the
+steps in the previous section before proceeding with the following steps:</p>
+
+<ol>
+<li><p>Place <code>qemu-wrap.py</code> in libvirtd binary search PATH ($PATH)
+Ideally in the same directory that the QEMU binary is located.</p></li>
+<li><p>Ensure that the script has the same owner/group and file permissions
+as the QEMU binary.</p></li>
+<li><p>Update the VM xml file using &ldquo;virsh edit VM.xml&rdquo;</p>
+
+<p>Set the VM to use the launch script.
+Set the emulator path contained in the <code>&lt;emulator&gt;&lt;emulator/&gt;</code> tags.
+For example, replace <code>&lt;emulator&gt;/usr/bin/qemu-kvm&lt;emulator/&gt;</code> with
+   <code>&lt;emulator&gt;/usr/bin/qemu-wrap.py&lt;emulator/&gt;</code></p></li>
+<li><p>Edit the Configuration Parameters section of the script to point to
+the correct emulator location and set any additional options. If you are
+using a alternative character device name, please set &ldquo;us_vhost_path&rdquo; to the
+location of that device. The script will automatically detect and insert
+the correct &ldquo;vhostfd&rdquo; value in the QEMU command line arguments.</p></li>
+<li><p>Use virt-manager to launch the VM</p></li>
+</ol>
+</li>
+</ul>
+
+
+<h3>6.3 DPDK backend inside VM</h3>
+
+<p>  Please note that additional configuration is required if you want to run
+  ovs-vswitchd with DPDK backend inside a QEMU virtual machine. Ovs-vswitchd
+  creates separate DPDK TX queues for each CPU core available. This operation
+  fails inside QEMU virtual machine because, by default, VirtIO NIC provided
+  to the guest is configured to support only single TX queue and single RX
+  queue. To change this behavior, you need to turn on &lsquo;mq&rsquo; (multiqueue)
+  property of all virtio-net-pci devices emulated by QEMU and used by DPDK.
+  You may do it manually (by changing QEMU command line) or, if you use
+  Libvirt, by adding the following string:</p>
+
+<p>  <code>&lt;driver name='vhost' queues='N'/&gt;</code></p>
+
+<p>  to <interface> sections of all network devices used by DPDK. Parameter &lsquo;N&rsquo;
+  determines how many queues can be used by the guest.This may not work with
+  old versions of QEMU found in some distros and need Qemu version >= 2.2.</p>
+
+<h2><a name="qos"></a> 7. QOS</h2>
+
+<p>Here is an example on QOS usage.
+Assuming you have a vhost-user port transmitting traffic consisting of
+packets of size 64 bytes, the following command would limit the egress
+transmission rate of the port to ~1,000,000 packets per second</p>
+
+<p><code>ovs-vsctl set port vhost-user0 qos=@newqos -- --id=@newqos create qos
+type=egress-policer other-config:cir=46000000 other-config:cbs=2048</code></p>
+
+<p>To examine the QoS configuration of the port:</p>
+
+<p><code>ovs-appctl -t ovs-vswitchd qos/show vhost-user0</code></p>
+
+<p>To clear the QoS configuration from the port and ovsdb use the following:</p>
+
+<p><code>ovs-vsctl destroy QoS vhost-user0 -- clear Port vhost-user0 qos</code></p>
+
+<p>For more details regarding egress-policer parameters please refer to the
+vswitch.xml.</p>
+
+<h2><a name="rl"></a> 8. Rate Limiting</h2>
+
+<p>Here is an example on Ingress Policing usage.
+Assuming you have a vhost-user port receiving traffic consisting of
+packets of size 64 bytes, the following command would limit the reception
+rate of the port to ~1,000,000 packets per second:</p>
+
+<p><code>ovs-vsctl set interface vhost-user0 ingress_policing_rate=368000
+ ingress_policing_burst=1000</code></p>
+
+<p>To examine the ingress policer configuration of the port:</p>
+
+<p><code>ovs-vsctl list interface vhost-user0</code></p>
+
+<p>To clear the ingress policer configuration from the port use the following:</p>
+
+<p><code>ovs-vsctl set interface vhost-user0 ingress_policing_rate=0</code></p>
+
+<p>For more details regarding ingress-policer see the vswitch.xml.</p>
+
+<h2><a name="fc"></a> 9. Flow control.</h2>
+
+<p>Flow control can be enabled only on DPDK physical ports.
+To enable flow control support at tx side while adding a port, add the
+&lsquo;tx-flow-ctrl&rsquo; option to the &lsquo;ovs-vsctl add-port&rsquo; as in the eg: below.</p>
+
+<pre><code>ovs-vsctl add-port br0 dpdk0 -- \
+set Interface dpdk0 type=dpdk options:tx-flow-ctrl=true
+</code></pre>
+
+<p>Similarly to enable rx flow control,</p>
+
+<pre><code>ovs-vsctl add-port br0 dpdk0 -- \
+set Interface dpdk0 type=dpdk options:rx-flow-ctrl=true
+</code></pre>
+
+<p>And to enable the flow control auto-negotiation,</p>
+
+<pre><code>ovs-vsctl add-port br0 dpdk0 -- \
+set Interface dpdk0 type=dpdk options:flow-ctrl-autoneg=true
+</code></pre>
+
+<p>To turn ON the tx flow control at run time(After the port is being added
+to OVS), the command-line input will be,</p>
+
+<p><code>ovs-vsctl set Interface dpdk0 options:tx-flow-ctrl=true</code></p>
+
+<p>The flow control parameters can be turned off by setting &lsquo;false&rsquo; to the
+respective parameter. To disable the flow control at tx side,</p>
+
+<p><code>ovs-vsctl set Interface dpdk0 options:tx-flow-ctrl=false</code></p>
+
+<h2><a name="vsperf"></a> 10. Vsperf</h2>
+
+<p>Vsperf project goal is to develop vSwitch test framework that can be used to
+validate the suitability of different vSwitch implementations in a Telco deployment
+environment. More information can be found in below link.</p>
+
+<p>https://wiki.opnfv.org/display/vsperf/VSperf+Home</p>
+
+<h2>Bug Reporting:</h2>
+
+<p>Please report problems to bugs@openvswitch.org.</p>
+</body></html>
