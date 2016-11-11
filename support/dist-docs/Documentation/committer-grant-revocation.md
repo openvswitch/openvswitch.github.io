@@ -1,1 +1,0 @@
-committer-grant-revocation.md.txt

@@ -1,6 +1,6 @@
 '\" p
 .\" -*- nroff -*-
-.TH "ovs-vswitchd.conf.db" 5 " DB Schema 7.13.0" "Open vSwitch 2.5.90" "Open vSwitch Manual"
+.TH "ovs-vswitchd.conf.db" 5 " DB Schema 7.14.0" "Open vSwitch 2.6.90" "Open vSwitch Manual"
 .fp 5 L CR              \\" Make fixed-width font available as \\fL.
 .de TQ
 .  br
@@ -274,9 +274,6 @@ optional string
 \fBother_config : dpdk-extra\fR
 optional string
 .TQ 2.75in
-\fBother_config : cuse-dev-name\fR
-optional string
-.TQ 2.75in
 \fBother_config : vhost-sock-dir\fR
 optional string
 .TQ 2.75in
@@ -509,12 +506,6 @@ Specifies additional eal command line arguments for DPDK\[char46]
 .IP
 The default is empty\[char46] Changing this value requires restarting the
 daemon
-.IP "\fBother_config : cuse-dev-name\fR: optional string"
-Specifies the name of the vhost-cuse character device to open for
-vhost-cuse support\[char46]
-.IP
-The default is vhost-net\[char46] Changing this value requires restarting
-the daemon\[char46]
 .IP "\fBother_config : vhost-sock-dir\fR: optional string"
 Specifies the path to the vhost-user unix domain socket files\[char46] This
 path must exist and be a subdirectory tree of the Open vSwitch
@@ -2025,27 +2016,11 @@ optional string, either \fBtrue\fR or \fBfalse\fR
 optional string
 .RE
 .TQ .25in
-\fITunnel Options: gre, ipsec_gre, geneve, and vxlan:\fR
+\fITunnel Options: gre, geneve, and vxlan:\fR
 .RS .25in
 .TQ 2.50in
 \fBoptions : csum\fR
 optional string, either \fBtrue\fR or \fBfalse\fR
-.RE
-.TQ .25in
-\fITunnel Options: ipsec_gre only:\fR
-.RS .25in
-.TQ 2.50in
-\fBoptions : peer_cert\fR
-optional string
-.TQ 2.50in
-\fBoptions : certificate\fR
-optional string
-.TQ 2.50in
-\fBoptions : private_key\fR
-optional string
-.TQ 2.50in
-\fBoptions : psk\fR
-optional string
 .RE
 .RE
 .TQ .25in
@@ -2064,6 +2039,25 @@ optional string, containing an integer, at least 1
 .TQ 2.75in
 \fBother_config : pmd-rxq-affinity\fR
 optional string
+.TQ 2.75in
+\fBoptions : vhost-server-path\fR
+optional string
+.TQ 2.75in
+\fBoptions : n_rxq_desc\fR
+optional string, containing an integer, in range 1 to 4,096
+.TQ 2.75in
+\fBoptions : n_txq_desc\fR
+optional string, containing an integer, in range 1 to 4,096
+.RE
+.TQ .25in
+\fIMTU:\fR
+.RS .25in
+.TQ 2.75in
+\fBmtu\fR
+optional integer
+.TQ 2.75in
+\fBmtu_request\fR
+optional integer, at least 1
 .RE
 .TQ .25in
 \fIInterface Status:\fR
@@ -2083,9 +2077,6 @@ optional integer
 .TQ 2.75in
 \fBduplex\fR
 optional string, either \fBfull\fR or \fBhalf\fR
-.TQ 2.75in
-\fBmtu\fR
-optional integer
 .TQ 2.75in
 \fBlacp_current\fR
 optional boolean
@@ -2496,10 +2487,6 @@ in the \fBovs\-ofctl\fR manual page\[char46]
 An Ethernet over RFC 2890 Generic Routing Encapsulation over IPv4/IPv6
 tunnel\[char46]
 .TP
-\fBipsec_gre\fR
-An Ethernet over RFC 2890 Generic Routing Encapsulation over IPv4/IPv6
-IPsec tunnel\[char46]
-.TP
 \fBvxlan\fR
 An Ethernet tunnel over the UDP-based VXLAN protocol described in
 RFC 7348\[char46]
@@ -2543,8 +2530,8 @@ February 2013\[char46]
 .RE
 .ST "Tunnel Options:"
 These options apply to interfaces with \fBtype\fR of
-\fBgeneve\fR, \fBgre\fR, \fBipsec_gre\fR,
-\fBvxlan\fR, \fBlisp\fR and \fBstt\fR\[char46]
+\fBgeneve\fR, \fBgre\fR, \fBvxlan\fR,
+\fBlisp\fR and \fBstt\fR\[char46]
 .PP
 Each tunnel must be uniquely identified by the combination of \fBtype\fR, \fBoptions:remote_ip\fR, \fBoptions:local_ip\fR, and \fBoptions:in_key\fR\[char46]  If two ports are defined that are the same except one
 has an optional identifier and the other does not, the more specific
@@ -2664,8 +2651,8 @@ peers\[char46] See the field description of \fBtun_gbp_id\fR and
 information\[char46]
 (\fBhttps://tools\[char46]ietf\[char46]org/html/draft\-smith\-vxlan\-group\-policy\fR)
 .RE
-.ST "Tunnel Options: gre, ipsec_gre, geneve, and vxlan:"
-\fBgre\fR, \fBipsec_gre\fR, \fBgeneve\fR, and
+.ST "Tunnel Options: gre, geneve, and vxlan:"
+\fBgre\fR, \fBgeneve\fR, and
 \fBvxlan\fR interfaces support these options\[char46]
 .IP "\fBoptions : csum\fR: optional string, either \fBtrue\fR or \fBfalse\fR"
 Optional\[char46]  Compute encapsulation header (either GRE or UDP)
@@ -2680,30 +2667,6 @@ checksums for all versions of Open vSwitch that support GRE\[char46]
 The out of tree kernel module distributed as part of OVS
 can compute all tunnel checksums on any kernel version that it
 is compatible with\[char46]
-.IP
-This option is supported for \fBipsec_gre\fR, but not useful
-because GRE checksums are weaker than, and redundant with, IPsec
-payload authentication\[char46]
-.ST "Tunnel Options: ipsec_gre only:"
-Only \fBipsec_gre\fR interfaces support these options\[char46]
-.IP "\fBoptions : peer_cert\fR: optional string"
-Required for certificate authentication\[char46]  A string containing the
-peer\(cqs certificate in PEM format\[char46]  Additionally the host\(cqs
-certificate must be specified with the \fBcertificate\fR
-option\[char46]
-.IP "\fBoptions : certificate\fR: optional string"
-Required for certificate authentication\[char46]  The name of a PEM file
-containing a certificate that will be presented to the peer during
-authentication\[char46]
-.IP "\fBoptions : private_key\fR: optional string"
-Optional for certificate authentication\[char46]  The name of a PEM file
-containing the private key associated with \fBcertificate\fR\[char46]
-If \fBcertificate\fR contains the private key, this option may
-be omitted\[char46]
-.IP "\fBoptions : psk\fR: optional string"
-Required for pre-shared key authentication\[char46]  Specifies a pre-shared
-key for authentication that must be identical on both sides of the
-tunnel\[char46]
 .ST "Patch Options:"
 Only \fBpatch\fR interfaces support these options\[char46]
 .IP "\fBoptions : peer\fR: optional string"
@@ -2736,6 +2699,46 @@ where
 .IP \(bu
 <affinity-pair> ::= <queue-id> : <core-id>
 .RE
+.IP "\fBoptions : vhost-server-path\fR: optional string"
+The value specifies the path to the socket associated with a vHost
+User client mode device that has been or will be created by QEMU\[char46]
+Only supported by dpdkvhostuserclient interfaces\[char46]
+.IP "\fBoptions : n_rxq_desc\fR: optional string, containing an integer, in range 1 to 4,096"
+Specifies the rx queue size (number rx descriptors) for dpdk ports\[char46]
+The value must be a power of 2, less than 4096 and supported
+by the hardware of the device being configured\[char46]
+If not specified or an incorrect value is specified, 2048 rx
+descriptors will be used by default\[char46]
+.IP "\fBoptions : n_txq_desc\fR: optional string, containing an integer, in range 1 to 4,096"
+Specifies the tx queue size (number tx descriptors) for dpdk ports\[char46]
+The value must be a power of 2, less than 4096 and supported
+by the hardware of the device being configured\[char46]
+If not specified or an incorrect value is specified, 2048 tx
+descriptors will be used by default\[char46]
+.ST "MTU:"
+The MTU (maximum transmission unit) is the largest amount of data
+that can fit into a single Ethernet frame\[char46]  The standard Ethernet
+MTU is 1500 bytes\[char46]  Some physical media and many kinds of virtual
+interfaces can be configured with higher MTUs\[char46]
+.PP
+A client may change an interface MTU by filling in
+\fBmtu_request\fR\[char46]  Open vSwitch then reports in
+\fBmtu\fR the currently configured value\[char46]
+.IP "\fBmtu\fR: optional integer"
+The currently configured MTU for the interface\[char46]
+.IP
+This column will be empty for an interface that does not
+have an MTU as, for example, some kinds of tunnels do not\[char46]
+.IP
+Open vSwitch sets this column\(cqs value, so other clients should treat
+it as read-only\[char46]
+.IP "\fBmtu_request\fR: optional integer, at least 1"
+Requested MTU (Maximum Transmission Unit) for the interface\[char46] A client
+can fill this column to change the MTU of an interface\[char46]
+.IP
+If this is not set and if the interface has \fBinternal\fR
+type, Open vSwitch will change the MTU to match the minimum of the
+other interfaces in the bridge\[char46]
 .ST "Interface Status:"
 Status information about interfaces attached to bridges, updated every
 5 seconds\[char46]  Not all interfaces have all of these properties; virtual
@@ -2756,15 +2759,6 @@ The negotiated speed of the physical network link\[char46]
 Valid values are positive integers greater than 0\[char46]
 .IP "\fBduplex\fR: optional string, either \fBfull\fR or \fBhalf\fR"
 The duplex mode of the physical network link\[char46]
-.IP "\fBmtu\fR: optional integer"
-The MTU (maximum transmission unit); i\[char46]e\[char46] the largest
-amount of data that can fit into a single Ethernet frame\[char46]
-The standard Ethernet MTU is 1500 bytes\[char46]  Some physical media
-and many kinds of virtual interfaces can be configured with
-higher MTUs\[char46]
-.IP
-This column will be empty for an interface that does not
-have an MTU as, for example, some kinds of tunnels do not\[char46]
 .IP "\fBlacp_current\fR: optional boolean"
 Boolean value indicating LACP status for this interface\[char46]  If true, this
 interface has current LACP information about its LACP partner\[char46]  This
@@ -3358,7 +3352,7 @@ set of NXM fields or sub-fields, each of which takes one of the forms
 \fB\fIfield\fB[]\fR or
 \fB\fIfield\fB[\fIstart\fB\[char46]\[char46]\fIend\fB]\fR,
 e\[char46]g\[char46] \fBNXM_OF_IN_PORT[]\fR\[char46]  Please see
-\fBnicira\-ext\[char46]h\fR for a complete list of NXM field names\[char46]
+\fBmeta\-flow\[char46]h\fR for a complete list of NXM field names\[char46]
 .IP
 Open vSwitch ignores any invalid or unknown field specifications\[char46]
 .IP
@@ -4800,8 +4794,7 @@ type: unsigned 8-bit integer\[char46]
 data type semantics: identifier\[char46]
 .IP
 description: Identifier of the layer 2 network overlay network
-encapsulation type: 0x01 VxLAN, 0x02 GRE, 0x03 LISP, 0x05 IPsec+GRE,
-0x07 GENEVE\[char46]
+encapsulation type: 0x01 VxLAN, 0x02 GRE, 0x03 LISP, 0x07 GENEVE\[char46]
 .TP
 tunnelKey:
 ID: 892, and enterprise ID 6876 (VMware)\[char46]

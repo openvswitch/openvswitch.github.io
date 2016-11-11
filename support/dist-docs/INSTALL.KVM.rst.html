@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="Docutils 0.12: http://docutils.sourceforge.net/" />
+<title>INSTALL.KVM.rst (Open vSwitch 2.6.90)</title>
+<link rel="stylesheet" href="style.css" type="text/css" />
+</head>
+<body>
+<div class="document" id="how-to-use-open-vswitch-with-kvm">
+<h1 class="title">How to Use Open vSwitch with KVM</h1>
+
+<!-- Licensed under the Apache License, Version 2.0 (the "License"); you may
+not use this file except in compliance with the License. You may obtain
+a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+License for the specific language governing permissions and limitations
+under the License.
+
+Convention for heading levels in Open vSwitch documentation:
+
+=======  Heading 0 (reserved for the title in a document)
+- - - - - - -  Heading 1
+~~~~~~~  Heading 2
++++++++  Heading 3
+'''''''  Heading 4
+
+Avoid deeper levels because they do not render well. -->
+<p>This document describes how to use Open vSwitch with the Kernel-based Virtual
+Machine (KVM).</p>
+<div class="note">
+<p class="first admonition-title">Note</p>
+<p class="last">This document assumes that you have read and followed the <a class="reference external" href="INSTALL.rst">installation guide</a> to get Open vSwitch setup on your Linux system.</p>
+</div>
+<div class="section" id="setup">
+<h1>Setup</h1>
+<p>KVM uses tunctl to handle various bridging modes, which you can install with
+the Debian/Ubuntu package <tt class="docutils literal"><span class="pre">uml-utilities</span></tt>:</p>
+<pre class="literal-block">
+$ apt-get install uml-utilities
+</pre>
+<p>Next, you will need to modify or create custom versions of the <tt class="docutils literal"><span class="pre">qemu-ifup</span></tt>
+and <tt class="docutils literal"><span class="pre">qemu-ifdown</span></tt> scripts. In this guide, we'll create custom versions that
+make use of example Open vSwitch bridges that we'll describe in this guide.</p>
+<p>Create the following two files and store them in known locations. For example:</p>
+<pre class="literal-block">
+echo &lt;&lt; EOF &gt; /etc/ovs-ifup
+#!/bin/sh
+
+switch='br0'
+/sbin/ifconfig $1 0.0.0.0 up
+ovs-vsctl add-port ${switch} $1
+EOF
+</pre>
+<pre class="literal-block">
+echo &lt;&lt; EOF &gt; /etc/ovs-ifdown
+#!/bin/sh
+
+switch='br0'
+/sbin/ifconfig $1 0.0.0.0 down
+ovs-vsctl del-port ${switch} $1
+</pre>
+<p>The basic usage of Open vSwitch is described at the end of the <a class="reference external" href="INSTALL.rst">installation
+guide</a>. If you haven't already, create a bridge named <tt class="docutils literal">br0</tt>
+with the following command:</p>
+<pre class="literal-block">
+$ ovs-vsctl add-br br0
+</pre>
+<p>Then, add a port to the bridge for the NIC that you want your guests to
+communicate over (e.g. <tt class="docutils literal">eth0</tt>):</p>
+<pre class="literal-block">
+$ ovs-vsctl add-port br0 eth0
+</pre>
+<p>Refer to ovs-vsctl(8) for more details.</p>
+<p>Next, we'll start a guest that will use our ifup and ifdown scripts:</p>
+<pre class="literal-block">
+$ kvm -m 512 -net nic,macaddr=00:11:22:EE:EE:EE -net \
+    tap,script=/etc/ovs-ifup,downscript=/etc/ovs-ifdown -drive \
+    file=/path/to/disk-image,boot=on
+</pre>
+<p>This will start the guest and associate a tap device with it. The <tt class="docutils literal"><span class="pre">ovs-ifup</span></tt>
+script will add a port on the br0 bridge so that the guest will be able to
+communicate over that bridge.</p>
+<p>To get some more information and for debugging you can use Open vSwitch
+utilities such as ovs-dpctl and ovs-ofctl, For example:</p>
+<pre class="literal-block">
+$ ovs-dpctl show
+$ ovs-ofctl show br0
+</pre>
+<p>You should see tap devices for each KVM guest added as ports to the bridge
+(e.g. tap0)</p>
+<p>Refer to ovs-dpctl(8) and ovs-ofctl(8) for more details.</p>
+</div>
+<div class="section" id="bug-reporting">
+<h1>Bug Reporting</h1>
+<p>Please report problems to <a class="reference external" href="mailto:bugs&#64;openvswitch.org">bugs&#64;openvswitch.org</a>.</p>
+</div>
+</div>
+</body>
+</html>

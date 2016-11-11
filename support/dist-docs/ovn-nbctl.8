@@ -1,6 +1,6 @@
 '\" p
 .\" -*- nroff -*-
-.TH "ovn-nbctl" 8 "ovn-nbctl" "Open vSwitch 2\[char46]5\[char46]90" "Open vSwitch Manual"
+.TH "ovn-nbctl" 8 "ovn-nbctl" "Open vSwitch 2\[char46]6\[char46]90" "Open vSwitch Manual"
 .fp 5 L CR              \\" Make fixed-width font available as \\fL.
 .de TQ
 .  br
@@ -102,19 +102,22 @@ exists, unless \fB\-\-may\-exist\fR is specified\[char46]  Regardless of
 some logical switch other than \fIswitch\fR or if it has a
 parent port\[char46]
 .TP
-[\fB\-\-may\-exist\fR] \fBlsp\-add\fR \fIswitch\fR \fIport\fR \fIparent\fR \fItag\fR
+[\fB\-\-may\-exist\fR] \fBlsp\-add\fR \fIswitch\fR \fIport\fR \fIparent\fR \fItag_request\fR
 Creates on \fIswitch\fR a logical switch port named
 \fIport\fR that is a child of \fIparent\fR that is
-identifed with VLAN ID \fItag\fR\[char46]  This is useful in
-cases such as virtualized container environments where Open
-vSwitch does not have a direct connection to the container\(cqs
-port and it must be shared with the virtual machine\(cqs port\[char46]
+identified with VLAN ID \fItag_request\fR\[char46]  If
+\fItag_request\fR is \fB0\fR, \fBovn\-northd\fR
+generates a tag that is unique in the scope of \fIparent\fR\[char46]
+This is useful in cases such as virtualized container environments
+where Open vSwitch does not have a direct connection to the
+container\(cqs port and it must be shared with the virtual machine\(cqs
+port\[char46]
 .IP
 It is an error if a logical port named \fIport\fR already
 exists, unless \fB\-\-may\-exist\fR is specified\[char46]  Regardless of
 \fB\-\-may\-exist\fR, it is an error if the existing port is not
 in \fIswitch\fR or if it does not have the specified
-\fIparent\fR and \fItag\fR\[char46]
+\fIparent\fR and \fItag_request\fR\[char46]
 .TP
 [\fB\-\-if\-exists\fR] \fBlsp\-del\fR \fIport\fR
 Deletes \fIport\fR\[char46]  It is an error if \fIport\fR does
@@ -134,13 +137,27 @@ nothing\[char46]
 .TP
 \fBlsp\-set\-addresses\fR \fIport\fR [\fIaddress\fR]\[char46]\[char46]\[char46]
 Sets the addresses associated with \fIport\fR to
-\fIaddress\fR\[char46]  Each \fIaddress\fR should be either an
-Ethernet address or an Ethernet address followed by IP addresses
-(separated by space and quoted to form a single command-line
-argument)\[char46]  The special form \fBunknown\fR is also valid\[char46]
-Multiple Ethernet addresses or Ethernet+IPs combinations may be set\[char46]
-If no \fIaddress\fR argument is given, \fIport\fR will have
-no addresses associated with it\[char46]
+\fIaddress\fR\[char46]  Each \fIaddress\fR should be one of the
+following:
+.RS
+.TP
+an Ethernet address, optionally followed by a space and one or more IP addresses
+OVN delivers packets for the Ethernet address to this port\[char46]
+.TP
+\fBunknown\fR
+OVN delivers unicast Ethernet packets whose destination MAC address
+is not in any logical port\(cqs addresses column to ports with address
+\fBunknown\fR\[char46]
+.TP
+\fBdynamic\fR
+Use this keyword to make \fBovn\-northd\fR generate a
+globally unique MAC address and choose an unused IPv4 address with
+the logical port\(cqs subnet and store them in the port\(cqs
+\fBdynamic_addresses\fR column\[char46]
+.RE
+.IP
+Multiple addresses may be set\[char46]  If no \fIaddress\fR argument is
+given, \fIport\fR will have no addresses associated with it\[char46]
 .TP
 \fBlsp\-get\-addresses\fR \fIport\fR
 Lists all the addresses associated with \fIport\fR on standard
@@ -258,7 +275,7 @@ Prints the administrative state of \fIport\fR, either
 .SH "LOGICAL ROUTER STATIC ROUTE COMMANDS"
 .RS
 .TP
-[\fB\-\-may\-exist\fR] \fBlr\-route\-add\fR \fIrouter\fR \fIprefix\fR \fInexthop\fR [\fIport\fR]
+[\fB\-\-may\-exist\fR] [\fB\-\-policy\fR=\fIPOLICY\fR] \fBlr\-route\-add\fR \fIrouter\fR \fIprefix\fR \fInexthop\fR [\fIport\fR]
 Adds the specified route to \fIrouter\fR\[char46]
 \fIprefix\fR describes an IPv4 or IPv6 prefix for this
 route, such as \fB192\[char46]168\[char46]100\[char46]0/24\fR\[char46]
@@ -269,6 +286,10 @@ logical port\[char46]  If \fIport\fR is specified, packets that
 match this route will be sent out that port\[char46]  When
 \fIport\fR is omitted, OVN infers the output port based
 on \fInexthop\fR\[char46]
+.IP
+\fB\-\-policy\fR describes the policy used to make routing
+decisions\[char46]  This should be one of \(dqdst-ip\(dq or \(dqsrc-ip\(dq\[char46]  If not
+specified, the default is \(dqdst-ip\(dq\[char46]
 .IP
 It is an error if a route with \fIprefix\fR already exists,
 unless \fB\-\-may\-exist\fR is specified\[char46]
@@ -286,6 +307,82 @@ specified\[char46]
 .TP
 \fBlr\-route\-list\fR \fIrouter\fR
 Lists the routes on \fIrouter\fR\[char46]
+.RE
+.SH "LOAD BALANCER COMMANDS"
+.RS
+.TP
+[\fB\-\-may\-exist\fR | \fB\-\-add\-duplicate\fR] \fBlb\-add\fR \fIlb\fR \fIvip\fR \fIips\fR [\fIprotocol\fR]
+Creates a new load balancer named \fIlb\fR with the provided
+\fIvip\fR and \fIips\fR or adds the \fIvip\fR to
+an existing \fIlb\fR\[char46]  \fIvip\fR should be a
+virtual IPv4 address (or an IPv4 address and a port number with
+\fB:\fR as a separator)\[char46]  Examples for \fIvip\fR are
+\fB192\[char46]168\[char46]1\[char46]4\fR and \fB192\[char46]168\[char46]1\[char46]5:8080\fR\[char46]
+\fIips\fR should be comma separated IPv4 endpoints (or comma
+separated IPv4 addresses and port numbers with \fB:\fR as a
+separator)\[char46]  Examples for \fIips\fR are \fB10\[char46]0\[char46]0\[char46]1,10\[char46]0\[char46]0\[char46]2
+\fRor \fB20\[char46]0\[char46]0\[char46]10:8800,20\[char46]0\[char46]0\[char46]11:8800\fR\[char46]
+.IP
+The optional argument \fIprotocol\fR must be either
+\fBtcp\fR or \fBudp\fR\[char46]  This argument is useful when
+a port number is provided as part of the \fIvip\fR\[char46]  If the
+\fIprotocol\fR is unspecified and a port number is provided as
+part of the \fIvip\fR, OVN assumes the \fIprotocol\fR to
+be \fBtcp\fR\[char46]
+.IP
+It is an error if the \fIvip\fR already exists in the load
+balancer named \fIlb\fR, unless \fB\-\-may\-exist\fR is
+specified\[char46]  With \fB\-\-add\-duplicate\fR, the command really
+creates a new load balancer with a duplicate name\[char46]
+.IP
+The following example adds a load balancer\[char46]
+.IP
+\fBlb\-add lb0 30\[char46]0\[char46]0\[char46]10:80
+192\[char46]168\[char46]10\[char46]10:80,192\[char46]168\[char46]10\[char46]20:80,192\[char46]168\[char46]10\[char46]30:80 udp\fR
+.TP
+[\fB\-\-if\-exists\fR] \fBlb\-del\fR \fIlb\fR [\fIvip\fR]
+Deletes \fIlb\fR or the \fIvip\fR from \fIlb\fR\[char46]
+If \fIvip\fR is supplied, only the \fIvip\fR will be
+deleted from the \fIlb\fR\[char46]  If only the \fIlb\fR is supplied,
+the \fIlb\fR will be deleted\[char46]  It is an error if \fIvip\fR
+does not already exist in \fIlb\fR, unless
+\fB\-\-if\-exists\fR is specified\[char46]
+.TP
+\fBlb\-list\fR [\fIlb\fR]
+Lists the LBs\[char46]  If \fIlb\fR is also specified, then only the
+specified \fIlb\fR will be listed\[char46]
+.TP
+[\fB\-\-may\-exist\fR] \fBls\-lb\-add\fR \fIswitch\fR \fIlb\fR
+Adds the specified \fIlb\fR to \fIswitch\fR\[char46]
+It is an error if a load balancer named \fIlb\fR already exists
+in the \fIswitch\fR, unless \fB\-\-may\-exist\fR is specified\[char46]
+.TP
+[\fB\-\-if\-exists\fR] \fBls\-lb\-del\fR \fIswitch\fR [\fIlb\fR]
+Removes \fIlb\fR from \fIswitch\fR\[char46]  If only
+\fIswitch\fR is supplied, all the LBs from the logical switch are
+removed\[char46]  If \fIlb\fR is also specified, then only the
+\fIlb\fR will be removed from the logical switch\[char46]
+It is an error if \fIlb\fR does not exist in the
+\fIswitch\fR, unless \fB\-\-if\-exists\fR is specified\[char46]
+.TP
+\fBls\-lb\-list\fR \fIswitch\fR
+Lists the LBs for the given \fIswitch\fR\[char46]
+.TP
+[\fB\-\-may\-exist\fR] \fBlr\-lb\-add\fR \fIrouter\fR \fIlb\fR
+Adds the specified \fIlb\fR to \fIrouter\fR\[char46]
+It is an error if a load balancer named \fIlb\fR already exists
+in the \fIrouter\fR, unless \fB\-\-may\-exist\fR is specified\[char46]
+.TP
+[\fB\-\-if\-exists\fR] \fBlr\-lb\-del\fR \fIrouter\fR [\fIlb\fR]
+Removes \fIlb\fR from \fIrouter\fR\[char46]  If only
+\fIrouter\fR is supplied, all the LBs from the logical router are
+removed\[char46]  If \fIlb\fR is also specified, then only the
+\fIlb\fR will be removed from the logical router\[char46]
+It is an error if \fIlb\fR does not exist in the
+\fIrouter\fR, unless \fB\-\-if\-exists\fR is specified\[char46]
+.TP
+\fBlr\-lb\-list\fR \fIrouter\fR
+Lists the LBs for the given \fIrouter\fR\[char46]
 .RE
 .SH "DHCP OPTIONS COMMANDS"
 .RS
@@ -342,6 +439,21 @@ A port within an L3 logical router\[char46]  Records may be identified by name\[
 .TP
 \fBLogical_Router_Static_Route\fR
 A static route belonging to an L3 logical router\[char46]
+.TP
+\fBAddress_Set\fR
+An address set that can be used in ACLs\[char46]
+.TP
+\fBLoad_Balancer\fR
+A load balancer for a logical switch that points to it through its \fIload_balancer\fR column\[char46]
+.TP
+\fBNAT\fR
+A NAT rule for a Gateway router\[char46]
+.TP
+\fBDHCP_Options\fR
+DHCP options\[char46]
+.TP
+\fBNB_Global\fR
+North bound global configurations\[char46]
 .RE
 .PP
 \fIDatabase Values\fR

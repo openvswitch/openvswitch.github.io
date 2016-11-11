@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="Docutils 0.12: http://docutils.sourceforge.net/" />
+<title>INSTALL.XenServer.rst (Open vSwitch 2.6.90)</title>
+<link rel="stylesheet" href="style.css" type="text/css" />
+</head>
+<body>
+<div class="document" id="how-to-install-open-vswitch-on-citrix-xenserver">
+<h1 class="title">How to Install Open vSwitch on Citrix XenServer</h1>
+
+<!-- Licensed under the Apache License, Version 2.0 (the "License"); you may
+not use this file except in compliance with the License. You may obtain
+a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+License for the specific language governing permissions and limitations
+under the License.
+
+Convention for heading levels in Open vSwitch documentation:
+
+=======  Heading 0 (reserved for the title in a document)
+- - - - - - -  Heading 1
+~~~~~~~  Heading 2
++++++++  Heading 3
+'''''''  Heading 4
+
+Avoid deeper levels because they do not render well. -->
+<p>This document describes how to build and install Open vSwitch on a Citrix
+XenServer host.  If you want to install Open vSwitch on a generic Linux or BSD
+host, see the <a class="reference external" href="INSTALL.rst">installation guide</a> instead.</p>
+<p>Open vSwitch should work with XenServer 5.6.100 and later.  However, Open
+vSwitch requires Python 2.7 or later, so using Open vSwitch with XenServer 6.5
+or earlier requires installing Python 2.7.</p>
+<div class="section" id="building">
+<h1>Building</h1>
+<p>You may build from an Open vSwitch distribution tarball or from an Open vSwitch
+Git tree.  The recommended build environment to build RPMs for Citrix XenServer
+is the DDK VM available from Citrix.</p>
+<ol class="arabic">
+<li><p class="first">If you are building from an Open vSwitch Git tree, then you will need to
+first create a distribution tarball by running:</p>
+<pre class="literal-block">
+$ ./boot.sh
+$ ./configure
+$ make dist
+</pre>
+<p>You cannot run this in the DDK VM, because it lacks tools that are necessary
+to bootstrap the Open vSwitch distribution.  Instead, you must run this on a
+machine that has the tools listed in the installation guide &lt;INSTALL.rst&gt;`__
+as prerequisites for building from a Git tree.</p>
+</li>
+<li><p class="first">Copy the distribution tarball into <tt class="docutils literal">/usr/src/redhat/SOURCES</tt> inside
+the DDK VM.</p>
+</li>
+<li><p class="first">In the DDK VM, unpack the distribution tarball into a temporary directory
+and &quot;cd&quot; into the root of the distribution tarball.</p>
+</li>
+<li><p class="first">To build Open vSwitch userspace, run:</p>
+<pre class="literal-block">
+$ rpmbuild -bb xenserver/openvswitch-xen.spec
+</pre>
+<p>This produces three RPMs in <tt class="docutils literal">/usr/src/redhat/RPMS/i386</tt>:</p>
+<ul class="simple">
+<li><tt class="docutils literal">openvswitch</tt></li>
+<li><tt class="docutils literal"><span class="pre">openvswitch-modules-xen</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">openvswitch-debuginfo</span></tt></li>
+</ul>
+<p>The above command automatically runs the Open vSwitch unit tests.  To
+disable the unit tests, run:</p>
+<pre class="literal-block">
+$ rpmbuild -bb --without check xenserver/openvswitch-xen.spec
+</pre>
+</li>
+</ol>
+</div>
+<div class="section" id="build-parameters">
+<h1>Build Parameters</h1>
+<p><tt class="docutils literal"><span class="pre">openvswitch-xen.spec</span></tt> needs to know a number of pieces of information about
+the XenServer kernel.  Usually, it can figure these out for itself, but if it
+does not do it correctly then you can specify them yourself as parameters to
+the build.  Thus, the final <tt class="docutils literal">rpmbuild</tt> step above can be elaborated as:</p>
+<pre class="literal-block">
+$ VERSION=&lt;Open vSwitch version&gt;
+$ KERNEL_NAME=&lt;Xen Kernel name&gt;
+$ KERNEL_VERSION=&lt;Xen Kernel version&gt;
+$ KERNEL_FLAVOR=&lt;Xen Kernel flavor(suffix)&gt;
+$ rpmbuild \
+     -D &quot;openvswitch_version $VERSION&quot; \
+     -D &quot;kernel_name $KERNEL_NAME&quot; \
+     -D &quot;kernel_version $KERNEL_VERSION&quot; \
+     -D &quot;kernel_flavor $KERNEL_FLAVOR&quot; \
+     -bb xenserver/openvswitch-xen.spec
+</pre>
+<p>where:</p>
+<dl class="docutils">
+<dt><tt class="docutils literal">&lt;openvswitch version&gt;</tt></dt>
+<dd>is the version number that appears in the name of the Open vSwitch tarball,
+e.g. 0.90.0.</dd>
+<dt><tt class="docutils literal">&lt;Xen Kernel name&gt;</tt></dt>
+<dd>is the name of the XenServer kernel package, e.g. <tt class="docutils literal"><span class="pre">kernel-xen</span></tt> or
+<tt class="docutils literal"><span class="pre">kernel-NAME-xen</span></tt>, without the <tt class="docutils literal">kernel-</tt> prefix.</dd>
+<dt><tt class="docutils literal">&lt;Xen Kernel version&gt;</tt></dt>
+<dd><p class="first">is the output of:</p>
+<pre class="literal-block">
+$ rpm -q --queryformat &quot;%{Version}-%{Release}&quot; &lt;kernel-devel-package&gt;,
+</pre>
+<p class="last">e.g. <tt class="docutils literal"><span class="pre">2.6.32.12-0.7.1.xs5.6.100.323.170596</span></tt>, where
+<tt class="docutils literal"><span class="pre">&lt;kernel-devel-package&gt;</span></tt> is the name of the <tt class="docutils literal"><span class="pre">-devel</span></tt> package
+corresponding to <tt class="docutils literal">&lt;Xen Kernel name&gt;</tt>.</p>
+</dd>
+<dt><tt class="docutils literal">&lt;Xen Kernel flavor (suffix)&gt;</tt></dt>
+<dd>is either <tt class="docutils literal">xen</tt> or <tt class="docutils literal">kdump</tt>, where <tt class="docutils literal">xen</tt> flavor is the main running
+kernel flavor and the <tt class="docutils literal">kdump</tt> flavor is the crashdump kernel flavor.
+Commonly, one would specify <tt class="docutils literal">xen</tt> here.</dd>
+</dl>
+<p>For XenServer 6.5 or above, the kernel version naming no longer contains
+KERNEL_FLAVOR.  In fact, only providing the <tt class="docutils literal">uname <span class="pre">-r</span></tt> output is enough.  So,
+the final <tt class="docutils literal">rpmbuild</tt> step changes to:</p>
+<pre class="literal-block">
+$ KERNEL_UNAME=&lt;`uname -r` output&gt;
+$ rpmbuild \
+    -D &quot;kenel_uname $KERNEL_UNAME&quot; \
+    -bb xenserver/openvswitch-xen.spec
+</pre>
+</div>
+<div class="section" id="installing-open-vswitch-for-xenserver">
+<h1>Installing Open vSwitch for XenServer</h1>
+<p>To install Open vSwitch on a XenServer host, or to upgrade to a newer version,
+copy the <tt class="docutils literal">openvswitch</tt> and <tt class="docutils literal"><span class="pre">openvswitch-modules-xen</span></tt> RPMs to that host with
+<tt class="docutils literal">scp</tt>, then install them with <tt class="docutils literal">rpm <span class="pre">-U</span></tt>, e.g.:</p>
+<pre class="literal-block">
+$ scp openvswitch-$VERSION-1.i386.rpm \
+    openvswitch-modules-xen-$XEN_KERNEL_VERSION-$VERSION-1.i386.rpm \
+    root&#64;&lt;host&gt;:
+# Enter &lt;host&gt;'s root password.
+$ ssh root&#64;&lt;host&gt;
+# Enter &lt;host&gt;'s root password again.
+$ rpm -U openvswitch-$VERSION-1.i386.rpm \
+    openvswitch-modules-xen-$XEN_KERNEL_VERSION-$VERSION-1.i386.rpm
+</pre>
+<p>To uninstall Open vSwitch from a XenServer host, remove the packages:</p>
+<pre class="literal-block">
+$ ssh root&#64;&lt;host&gt;
+# Enter &lt;host&gt;'s root password again.
+$ rpm -e openvswitch openvswitch-modules-xen-$XEN_KERNEL_VERSION
+</pre>
+<p>After installing or uninstalling Open vSwitch, the XenServer should be rebooted
+as soon as possible.</p>
+</div>
+<div class="section" id="open-vswitch-boot-sequence-on-xenserver">
+<h1>Open vSwitch Boot Sequence on XenServer</h1>
+<p>When Open vSwitch is installed on XenServer, its startup script
+<tt class="docutils literal">/etc/init.d/openvswitch</tt> runs early in boot.  It does roughly the following:</p>
+<ul class="simple">
+<li>Loads the OVS kernel module, openvswitch.</li>
+<li>Starts ovsdb-server, the OVS configuration database.</li>
+<li>XenServer expects there to be no bridges configured at startup, but the OVS
+configuration database likely still has bridges configured from before
+reboot.  To match XenServer expectations, the startup script deletes all
+configured bridges from the database.</li>
+<li>Starts ovs-vswitchd, the OVS switching daemon.</li>
+</ul>
+<p>At this point in the boot process, then, there are no Open vSwitch bridges,
+even though all of the Open vSwitch daemons are running.  Later on in boot,
+<tt class="docutils literal"><span class="pre">/etc/init.d/management-interface</span></tt> (part of XenServer, not Open vSwitch)
+creates the bridge for the XAPI management interface by invoking
+<tt class="docutils literal"><span class="pre">/opt/xensource/libexec/interface-reconfigure</span></tt>.  Normally this program
+consults XAPI's database to obtain information about how to configure the
+bridge, but XAPI is not running yet(*) so it instead consults
+<tt class="docutils literal">/var/xapi/network.dbcache</tt>, which is a cached copy of the most recent
+network configuration.</p>
+<dl class="docutils">
+<dt>(*) Even if XAPI were running, if this XenServer node is a pool slave then the</dt>
+<dd>query would have to consult the master, which requires network access,
+which begs the question of how to configure the management interface.</dd>
+</dl>
+<p>XAPI starts later on in the boot process.  XAPI can then create other bridges
+on demand using <tt class="docutils literal"><span class="pre">/opt/xensource/libexec/interface-reconfigure</span></tt>.  Now that
+XAPI is running, that program consults XAPI directly instead of reading the
+cache.</p>
+<p>As part of its own startup, XAPI invokes the Open vSwitch XAPI plugin script
+<tt class="docutils literal"><span class="pre">/etc/xapi.d/openvswitch-cfg-update</span></tt> passing the <tt class="docutils literal">update</tt> command.  The
+plugin script does roughly the following:</p>
+<ul class="simple">
+<li>Calls <tt class="docutils literal"><span class="pre">/opt/xensource/libexec/interface-reconfigure</span></tt> with the <tt class="docutils literal">rewrite</tt>
+command, to ensure that the network cache is up-to-date.</li>
+<li>Queries the Open vSwitch manager setting (named <tt class="docutils literal">vswitch_controller</tt>) from
+the XAPI database for the XenServer pool.</li>
+<li>If XAPI and OVS are configured for different managers, or if OVS is
+configured for a manager but XAPI is not, runs <tt class="docutils literal"><span class="pre">ovs-vsctl</span> <span class="pre">emer-reset</span></tt> to
+bring the Open vSwitch configuration to a known state.  One effect of
+emer-reset is to deconfigure any manager from the OVS database.</li>
+<li>If XAPI is configured for a manager, configures the OVS manager to match with
+<tt class="docutils literal"><span class="pre">ovs-vsctl</span> <span class="pre">set-manager</span></tt>.</li>
+</ul>
+</div>
+<div class="section" id="notes">
+<h1>Notes</h1>
+<ul class="simple">
+<li>The Open vSwitch boot sequence only configures an OVS configuration database
+manager.  There is no way to directly configure an OpenFlow controller on
+XenServer and, as a consequence of the step above that deletes all of the
+bridges at boot time, controller configuration only persists until XenServer
+reboot.  The configuration database manager can, however, configure
+controllers for bridges.  See the BUGS section of ovs-testcontroller(8) for
+more information on this topic.</li>
+<li>The Open vSwitch startup script automatically adds a firewall rule to allow
+GRE traffic. This rule is needed for the XenServer feature called &quot;Cross-Host
+Internal Networks&quot; (CHIN) that uses GRE. If a user configures tunnels other
+than GRE (ex: Geneve, VXLAN, LISP), they will have to either manually add a
+iptables firewall rule to allow the tunnel traffic or add it through a
+startup script (Please refer to the &quot;enable-protocol&quot; command in the
+ovs-ctl(8) manpage).</li>
+</ul>
+</div>
+<div class="section" id="reporting-bugs">
+<h1>Reporting Bugs</h1>
+<p>Please report problems to <a class="reference external" href="mailto:bugs&#64;openvswitch.org">bugs&#64;openvswitch.org</a>.</p>
+</div>
+</div>
+</body>
+</html>

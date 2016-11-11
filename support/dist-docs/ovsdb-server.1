@@ -4,7 +4,7 @@
 .  ns
 .  IP "\\$1"
 ..
-.TH ovsdb\-server 1 "2.5.90" "Open vSwitch" "Open vSwitch Manual"
+.TH ovsdb\-server 1 "2.6.90" "Open vSwitch" "Open vSwitch Manual"
 .\" This program's name:
 .ds PN ovsdb\-server
 .
@@ -43,6 +43,11 @@ ovsdb\-server \- Open vSwitch database server
 [\fB\-\-bootstrap\-ca\-cert=\fIcacert.pem\fR]
 .br
 [\fB\-\-peer\-ca\-cert=\fIpeer-cacert.pem\fR]
+.IP "SSL connection options:"
+[\fB\-\-ssl\-protocols=\fIprotocols\fR]
+.br
+[\fB\-\-ssl\-ciphers=\fIciphers\fR]
+.br
 .IP "Runtime management options:"
 \fB\-\-unixctl=\fIsocket\fR
 .IP "Common options:"
@@ -59,6 +64,23 @@ Each OVSDB file may be specified on the command line as \fIdatabase\fR.
 If none is specified, the default is \fB/usr/local/etc/openvswitch/conf.db\fR.  The database
 files must already have been created and initialized using, for
 example, \fBovsdb\-tool create\fR.
+.
+.SH "ACTIVE and BACKUP"
+\fBovsdb\-server\fR runs either as a backup server, or as an active server.
+When  \fBovsdb\-server\fR is running as a backup server, all transactions that
+can modify the database content, including the lock commands are rejected.
+Active server, on the other hand, accepts all ovsdb server transactions.
+When \fBovsdb\-server\fR role changes, all existing client connection are
+reset, requiring clients to reconnect to the server.
+.PP
+By default, \fBovsdb\-server\fR runs as an active server, except when the
+\fB\-\-sync\-from=\fIserver\fR command line option is specified and without
+the \fB\-\-no\-sync option\fR.  During runtime, \fBovsdb\-server\fR role can be switch by using appctl commands.
+.PP
+\fBovsdb-server/connect\-active\-ovsdb\-server\fR switches
+\fBovsdb\-server\fR into a backup server, Conversely,
+\fBovsdb-server/disconnect\-active\-ovsdb\-server\fR switches server into
+an active one.
 .
 .SH OPTIONS
 .
@@ -136,6 +158,8 @@ Maximum number of milliseconds to wait between connection attempts.
 .IP "\fBinactivity_probe\fR (integer)"
 Maximum number of milliseconds of idle time on connection to
 client before sending an inactivity probe message.
+.IP "\fBread_only\fR (boolean)"
+If true, only read-only transactions are allowed on this connection.
 .RE
 .IP
 It is an error for \fIcolumn\fR to have another type.
@@ -239,8 +263,8 @@ allowed, with current user or group are assumed respectively. Only daemons
 started by the root user accepts this argument.
 .IP
 On Linux, daemons will be granted CAP_IPC_LOCK and CAP_NET_BIND_SERVICES
-before dropping root privileges. Daemons interact with datapath,
-such as ovs-vswitchd, will be granted two additional capabilities, namely
+before dropping root privileges. Daemons that interact with a datapath,
+such as \fBovs\-vswitchd\fR, will be granted two additional capabilities, namely
 CAP_NET_ADMIN and CAP_NET_RAW. The capability change will apply even if
 new user is "root".
 .IP
@@ -371,10 +395,25 @@ The following options allow \fBovsdb\-server\fR to synchronize  its  databases
 with another running \fBovsdb\-server\fR.
 .TP
 \fB\-\-sync\-from=\fIserver\fR
-Causes  \fBovsdb\-server\fR to synchronize its databases with the databases in
-\fIserver\fR.  Every transaction committed by \fIserver\fR  will  be  replicated
-to \fBovsdb\-server\fR. \fIserver\fR is an active connection method in one of
-the forms documented in \fBovsdb\-client(1).
+Sets up \fBovsdb\-server\fR to synchronize its databases with the
+databases in \fIserver\fR, which must be an active connection method
+in one of the forms documented in \fBovsdb\-client\fR(1).  Every
+transaction committed by \fIserver\fR will be replicated to
+\fBovsdb\-server\fR.  This option makes \fBovsdb\-server\fR start
+as a backup server; add \fB\-\-active\fR to make it start as an
+active server.
+.TP
+\fB\-\-sync\-exclude-tables=\fIdb:table[,db:table]...\fR
+Causes the specified tables to be excluded from replication.
+.TP
+\fB\-\-active\fR
+By default, \fB\-\-sync\-from\fR makes \fBovsdb\-server\fR start up as
+a backup for \fIserver\fR.  With \fB\-\-active\fR, however,
+\fBovsdb\-server\fR starts as an active server.  Use this option to
+allow the syncing options to be specified using command line options,
+yet start the server, as the default, active server.  To switch the
+running server to backup mode, use \fBovs-appctl(1)\fR to execute the
+\fBovsdb\-server/connect\-active\-ovsdb\-server\fR command.
 .SS "Public Key Infrastructure Options"
 The options described below for configuring the SSL public key
 infrastructure accept a special syntax for obtaining their
@@ -448,6 +487,19 @@ must already have the CA certificate for the peer to have any
 confidence in \fB\*(PN\fR's identity.  However, this offers a way for
 a new installation to bootstrap the CA certificate on its first SSL
 connection.
+.SS "SSL Connection Options"
+.IP "\fB\-\-ssl\-protocols=\fIprotocols\fR"
+Specifies, in a comma- or space-delimited list, the SSL protocols
+\fB\*(PN\fR will enable for SSL connections.  Supported
+\fIprotocols\fR include \fBTLSv1\fR, \fBTLSv1.1\fR, and \fBTLSv1.2\fR.
+Regardless of order, the highest protocol supported by both sides will
+be chosen when making the connection.  The default when this option is
+omitted is \fBTLSv1,TLSv1.1,TLSv1.2\fR.
+.
+.IP "\fB\-\-ssl\-ciphers=\fIciphers\fR"
+Specifies, in OpenSSL cipher string format, the ciphers \fB\*(PN\fR will 
+support for SSL connections.  The default when this option is omitted is
+\fBHIGH:!aNULL:!MD5\fR.
 .SS "Other Options"
 .IP "\fB\-\-unixctl=\fIsocket\fR"
 Sets the name of the control socket on which \fB\*(PN\fR listens for
@@ -547,26 +599,36 @@ again (with \fBovsdb\-server/add\-db\fR).
 Outputs a list of the currently configured databases added either through
 the command line or through the \fBovsdb\-server/add\-db\fR command.
 .
-.IP "\fBovsdb\-server/set\-remote\-ovsdb\-server \fIserver"
-Sets  the remote \fIserver\fR from which \fBovsdb\-server\fR connects through
-\fBovsdb\-server/connect\-remote\-ovsdb\-server\fR.
+.IP "\fBovsdb\-server/set\-active\-ovsdb\-server \fIserver"
+Sets  the active \fIserver\fR from which \fBovsdb\-server\fR connects through
+\fBovsdb\-server/connect\-active\-ovsdb\-server\fR.
 .
-.IP "\fBovsdb\-server/get\-remote\-ovsdb\-server"
-Gets the remote server from which \fBovsdb\-server\fR is currently synchronizing
+.IP "\fBovsdb\-server/get\-active\-ovsdb\-server"
+Gets the active server from which \fBovsdb\-server\fR is currently synchronizing
 its databases.
 .
-.IP "\fBovsdb\-server/connect\-remote\-ovsdb\-server"
+.IP "\fBovsdb\-server/connect\-active\-ovsdb\-server"
 Causes \fBovsdb\-server\fR to synchronize its databases with the server
-specified by \fBovsdb\-server/set\-remote\-ovsdb\-server\fR.
+specified by \fBovsdb\-server/set\-active\-ovsdb\-server\fR.
 .
-.IP "\fBovsdb\-server/disconnect\-remote\-ovsdb\-server"
-Causes \fBovsdb\-server\fR to  stop  synchronizing  its  databases with a remote server.
+.IP "\fBovsdb\-server/disconnect\-active\-ovsdb\-server"
+Causes \fBovsdb\-server\fR to  stop  synchronizing  its  databases with a active server.
 .
-.IP "\fBovsdb\-server/set\-sync\-excluded\-tables \fIdb\fB:\fItable\fR[\fB,\fIdb\fB:\fItable\fR]..."
+.IP "\fBovsdb\-server/set\-sync\-exclude\-tables \fIdb\fB:\fItable\fR[\fB,\fIdb\fB:\fItable\fR]..."
 Sets the \fItable\fR whitin \fIdb\fR that will be excluded from synchronization.
 .
-.IP "\fBovsdb\-server/get\-sync\-excluded\-tables"
+.IP "\fBovsdb\-server/get\-sync\-exclude\-tables"
 Gets  the  tables  that are currently excluded from synchronization.
+.
+.IP "\fBovsdb\-server/sync\-status"
+Prints a summary of replication run time information. The \fBstate\fR
+information is always provided, indicating whether the server is running
+in the \fIactive\fR or the \fIbackup\fR mode.
+When running in backup mode, replication connection status, which
+can be either \fIconnecting\fR, \fIreplicating\fR or \fIerror\fR, are shown.
+When the connection is in \fIreplicating\fR state, further output shows
+the list of databases currently replicating, and the tables that are
+excluded.
 .
 .de IQ
 .  br

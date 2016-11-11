@@ -1,1 +1,0 @@
-INSTALL.NetBSD.md.txt

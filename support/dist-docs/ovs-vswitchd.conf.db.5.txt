@@ -99,8 +99,6 @@ Open_vSwitch TABLE
          other_config : dpdk-hugepage-dir
                                      optional string
          other_config : dpdk-extra   optional string
-         other_config : cuse-dev-name
-                                     optional string
          other_config : vhost-sock-dir
                                      optional string
          other_config : n-handler-threads
@@ -309,13 +307,6 @@ Open_vSwitch TABLE
 
               The  default  is  empty. Changing this value requires restarting
               the daemon
-
-       other_config : cuse-dev-name: optional string
-              Specifies the name of the vhost-cuse character  device  to  open
-              for vhost-cuse support.
-
-              The  default is vhost-net. Changing this value requires restart‐
-              ing the daemon.
 
        other_config : vhost-sock-dir: optional string
               Specifies the path to the vhost-user unix domain  socket  files.
@@ -1773,13 +1764,8 @@ Interface TABLE
          options : df_default        optional string, either true or false
          Tunnel Options: vxlan only:
             options : exts           optional string
-         Tunnel Options: gre, ipsec_gre, geneve, and vxlan:
+         Tunnel Options: gre, geneve, and vxlan:
             options : csum           optional string, either true or false
-         Tunnel Options: ipsec_gre only:
-            options : peer_cert      optional string
-            options : certificate    optional string
-            options : private_key    optional string
-            options : psk            optional string
        Patch Options:
          options : peer              optional string
        PMD (Poll Mode Driver) Options:
@@ -1787,13 +1773,21 @@ Interface TABLE
                                      at least 1
          other_config : pmd-rxq-affinity
                                      optional string
+         options : vhost-server-path
+                                     optional string
+         options : n_rxq_desc        optional string, containing  an  integer,
+                                     in range 1 to 4,096
+         options : n_txq_desc        optional  string,  containing an integer,
+                                     in range 1 to 4,096
+       MTU:
+         mtu                         optional integer
+         mtu_request                 optional integer, at least 1
        Interface Status:
          admin_state                 optional string, either down or up
          link_state                  optional string, either down or up
          link_resets                 optional integer
          link_speed                  optional integer
          duplex                      optional string, either full or half
-         mtu                         optional integer
          lacp_current                optional boolean
          status                      map of string-string pairs
          status : driver_name        optional string
@@ -2045,101 +2039,97 @@ Interface TABLE
               gre    An  Ethernet  over RFC 2890 Generic Routing Encapsulation
                      over IPv4/IPv6 tunnel.
 
-              ipsec_gre
-                     An Ethernet over RFC 2890 Generic  Routing  Encapsulation
-                     over IPv4/IPv6 IPsec tunnel.
-
-              vxlan  An  Ethernet  tunnel  over  the  UDP-based VXLAN protocol
+              vxlan  An Ethernet tunnel  over  the  UDP-based  VXLAN  protocol
                      described in RFC 7348.
 
-                     Open vSwitch  uses  IANA-assigned  UDP  destination  port
+                     Open  vSwitch  uses  IANA-assigned  UDP  destination port
                      4789.  The source port used for VXLAN traffic varies on a
                      per-flow basis and is in the ephemeral port range.
 
-              lisp   A layer 3 tunnel over the experimental,  UDP-based  Loca‐
+              lisp   A  layer  3 tunnel over the experimental, UDP-based Loca‐
                      tor/ID Separation Protocol (RFC 6830).
 
                      Only IPv4 and IPv6 packets are supported by the protocol,
-                     and they  are  sent  and  received  without  an  Ethernet
-                     header.   Traffic  to/from  LISP  ports is expected to be
-                     configured explicitly, and the ports are not intended  to
-                     participate  in  learning based switching.  As such, they
+                     and  they  are  sent  and  received  without  an Ethernet
+                     header.  Traffic to/from LISP ports  is  expected  to  be
+                     configured  explicitly, and the ports are not intended to
+                     participate in learning based switching.  As  such,  they
                      are always excluded from packet flooding.
 
-              stt    The Stateless TCP Tunnel  (STT)  is  particularly  useful
-                     when  tunnel endpoints are in end-systems, as it utilizes
-                     the capabilities of standard network interface  cards  to
-                     improve  performance.   STT  utilizes  a  TCP-like header
-                     inside the IP header. It is stateless, i.e., there is  no
+              stt    The  Stateless  TCP  Tunnel  (STT) is particularly useful
+                     when tunnel endpoints are in end-systems, as it  utilizes
+                     the  capabilities  of standard network interface cards to
+                     improve performance.   STT  utilizes  a  TCP-like  header
+                     inside  the IP header. It is stateless, i.e., there is no
                      TCP connection state of any kind associated with the tun‐
-                     nel.  The TCP-like header is used to leverage  the  capa‐
-                     bilities  of existing network interface cards, but should
-                     not be interpreted as implying  any  sort  of  connection
+                     nel.   The  TCP-like header is used to leverage the capa‐
+                     bilities of existing network interface cards, but  should
+                     not  be  interpreted  as  implying any sort of connection
                      state between endpoints.  Since the STT protocol does not
-                     engage in the usual TCP 3-way handshake, so it will  have
-                     difficulty  traversing  stateful firewalls.  The protocol
+                     engage  in the usual TCP 3-way handshake, so it will have
+                     difficulty traversing stateful firewalls.   The  protocol
                      is documented at https://tools.ietf.org/html/draft-davie-
                      stt All traffic uses a default destination port of 7471.
 
               patch  A pair of virtual devices that act as a patch cable.
 
-              null   An  ignored  interface. Deprecated and slated for removal
+              null   An ignored interface. Deprecated and slated  for  removal
                      in February 2013.
 
      Tunnel Options:
-       These options apply to interfaces with type of geneve, gre,  ipsec_gre,
-       vxlan, lisp and stt.
+       These options apply to interfaces with type of geneve, gre, vxlan, lisp
+       and stt.
 
-       Each  tunnel  must  be  uniquely identified by the combination of type,
-       options:remote_ip, options:local_ip, and options:in_key.  If two  ports
+       Each tunnel must be uniquely identified by  the  combination  of  type,
+       options:remote_ip,  options:local_ip, and options:in_key.  If two ports
        are defined that are the same except one has an optional identifier and
-       the  other  does  not,  the  more  specific  one  is   matched   first.
-       options:in_key  is  considered more specific than options:local_ip if a
+       the   other   does  not,  the  more  specific  one  is  matched  first.
+       options:in_key is considered more specific than options:local_ip  if  a
        port defines one and another port defines the other.
 
        options : remote_ip: optional string
               Required.  The remote tunnel endpoint, one of:
 
-              ·      An  IPv4  or  IPv6  address  (not  a  DNS   name),   e.g.
+              ·      An   IPv4   or  IPv6  address  (not  a  DNS  name),  e.g.
                      192.168.0.123.  Only unicast endpoints are supported.
 
-              ·      The  word  flow.   The  tunnel  accepts  packets from any
-                     remote tunnel endpoint.  To process only packets  from  a
-                     specific  remote  tunnel  endpoint,  the flow entries may
-                     match on the tun_src or tun_ipv6_srcfield.  When  sending
+              ·      The word flow.   The  tunnel  accepts  packets  from  any
+                     remote  tunnel  endpoint.  To process only packets from a
+                     specific remote tunnel endpoint,  the  flow  entries  may
+                     match  on the tun_src or tun_ipv6_srcfield.  When sending
                      packets to a remote_ip=flow tunnel, the flow actions must
-                     explicitly set the tun_dst or tun_ipv6_dst field  to  the
-                     IP  address  of  the desired remote tunnel endpoint, e.g.
+                     explicitly  set  the tun_dst or tun_ipv6_dst field to the
+                     IP address of the desired remote  tunnel  endpoint,  e.g.
                      with a set_field action.
 
               The remote tunnel endpoint for any packet received from a tunnel
-              is  available  in the tun_src field for matching in the flow ta‐
+              is available in the tun_src field for matching in the  flow  ta‐
               ble.
 
        options : local_ip: optional string
-              Optional.  The tunnel destination IP that received packets  must
+              Optional.   The tunnel destination IP that received packets must
               match.  Default is to match all addresses.  If specified, may be
               one of:
 
               ·      An IPv4/IPv6 address (not a DNS name), e.g. 192.168.12.3.
 
               ·      The word flow.  The tunnel accepts packets sent to any of
-                     the  local  IP  addresses  of the system running OVS.  To
-                     process only packets sent to a specific IP  address,  the
-                     flow  entries  may  match  on the tun_dst or tun_ipv6_dst
-                     field.  When sending packets to a  local_ip=flow  tunnel,
-                     the  flow  actions  may  explicitly  set  the  tun_src or
+                     the local IP addresses of the  system  running  OVS.   To
+                     process  only  packets sent to a specific IP address, the
+                     flow entries may match on  the  tun_dst  or  tun_ipv6_dst
+                     field.   When  sending packets to a local_ip=flow tunnel,
+                     the flow  actions  may  explicitly  set  the  tun_src  or
                      tun_ipv6_src field to the desired IP address, e.g. with a
-                     set_field  action.   However,  while routing the tunneled
-                     packet out, the local system may override  the  specified
+                     set_field action.  However, while  routing  the  tunneled
+                     packet  out,  the local system may override the specified
                      address with the local IP address configured for the out‐
                      going system interface.
 
-                     This option is valid only  for  tunnels  also  configured
+                     This  option  is  valid  only for tunnels also configured
                      with the remote_ip=flow option.
 
               The tunnel destination IP address for any packet received from a
-              tunnel is available in the tun_dst  or  tun_ipv6_dst  field  for
+              tunnel  is  available  in  the tun_dst or tun_ipv6_dst field for
               matching in the flow table.
 
        options : in_key: optional string
@@ -2149,118 +2139,91 @@ Interface TABLE
                      of 0.  This is equivalent to specifying no options:in_key
                      at all.
 
-              ·      A  positive  24-bit (for Geneve, VXLAN, and LISP), 32-bit
+              ·      A positive 24-bit (for Geneve, VXLAN, and  LISP),  32-bit
                      (for  GRE)  or  64-bit  (for  STT)  number.   The  tunnel
                      receives only packets with the specified key.
 
-              ·      The  word flow.  The tunnel accepts packets with any key.
-                     The key will be placed in the tun_id field  for  matching
-                     in  the  flow  table.  The ovs-ofctl manual page contains
-                     additional information about matching fields in  OpenFlow
+              ·      The word flow.  The tunnel accepts packets with any  key.
+                     The  key  will be placed in the tun_id field for matching
+                     in the flow table.  The ovs-ofctl  manual  page  contains
+                     additional  information about matching fields in OpenFlow
                      flows.
 
        options : out_key: optional string
               Optional.  The key to be set on outgoing packets, one of:
 
-              ·      0.   Packets  sent  through  the tunnel will have no key.
-                     This is equivalent to specifying  no  options:out_key  at
+              ·      0.  Packets sent through the tunnel  will  have  no  key.
+                     This  is  equivalent  to specifying no options:out_key at
                      all.
 
-              ·      A  positive  24-bit  (for Geneve, VXLAN and LISP), 32-bit
-                     (for GRE) or  64-bit  (for  STT)  number.   Packets  sent
+              ·      A positive 24-bit (for Geneve, VXLAN  and  LISP),  32-bit
+                     (for  GRE)  or  64-bit  (for  STT)  number.  Packets sent
                      through the tunnel will have the specified key.
 
               ·      The word flow.  Packets sent through the tunnel will have
-                     the key set using the set_tunnel Nicira  OpenFlow  vendor
-                     extension  (0  is used in the absence of an action).  The
-                     ovs-ofctl manual  page  contains  additional  information
+                     the  key  set using the set_tunnel Nicira OpenFlow vendor
+                     extension (0 is used in the absence of an  action).   The
+                     ovs-ofctl  manual  page  contains  additional information
                      about the Nicira OpenFlow vendor extensions.
 
        options : key: optional string
               Optional.  Shorthand to set in_key and out_key at the same time.
 
        options : tos: optional string
-              Optional.   The  value of the ToS bits to be set on the encapsu‐
-              lating packet.  ToS is interpreted as DSCP  and  ECN  bits,  ECN
-              part  must  be  zero.  It may also be the word inherit, in which
-              case the ToS will be copied from the inner packet if it is  IPv4
-              or  IPv6  (otherwise  it  will be 0).  The ECN fields are always
+              Optional.  The value of the ToS bits to be set on  the  encapsu‐
+              lating  packet.   ToS  is  interpreted as DSCP and ECN bits, ECN
+              part must be zero.  It may also be the word  inherit,  in  which
+              case  the ToS will be copied from the inner packet if it is IPv4
+              or IPv6 (otherwise it will be 0).  The  ECN  fields  are  always
               inherited.  Default is 0.
 
        options : ttl: optional string
-              Optional.  The TTL to be set on the  encapsulating  packet.   It
-              may  also  be  the  word  inherit, in which case the TTL will be
+              Optional.   The  TTL  to be set on the encapsulating packet.  It
+              may also be the word inherit, in which  case  the  TTL  will  be
               copied from the inner packet if it is IPv4 or IPv6 (otherwise it
-              will  be the system default, typically 64).  Default is the sys‐
+              will be the system default, typically 64).  Default is the  sys‐
               tem default TTL.
 
        options : df_default: optional string, either true or false
-              Optional.  If enabled, the Don’t Fragment bit  will  be  set  on
-              tunnel  outer  headers  to  allow path MTU discovery. Default is
+              Optional.   If  enabled,  the  Don’t Fragment bit will be set on
+              tunnel outer headers to allow path  MTU  discovery.  Default  is
               enabled; set to false to disable.
 
      Tunnel Options: vxlan only:
 
        options : exts: optional string
-              Optional.  Comma separated list of optional VXLAN extensions  to
+              Optional.   Comma separated list of optional VXLAN extensions to
               enable. The following extensions are supported:
 
-              ·      gbp:  VXLAN-GBP allows to transport the group policy con‐
+              ·      gbp: VXLAN-GBP allows to transport the group policy  con‐
                      text of a packet across the VXLAN tunnel to other network
                      peers.  See  the  field  description  of  tun_gbp_id  and
                      tun_gbp_flags in ovs-ofctl(8) for additional information.
                      (https://tools.ietf.org/html/draft-smith-vxlan-group-pol‐
                      icy)
 
-     Tunnel Options: gre, ipsec_gre, geneve, and vxlan:
-       gre, ipsec_gre, geneve, and vxlan interfaces support these options.
+     Tunnel Options: gre, geneve, and vxlan:
+       gre, geneve, and vxlan interfaces support these options.
 
        options : csum: optional string, either true or false
-              Optional.  Compute encapsulation  header  (either  GRE  or  UDP)
+              Optional.   Compute  encapsulation  header  (either  GRE or UDP)
               checksums on outgoing packets.  Default is disabled, set to true
-              to enable.  Checksums present on incoming packets will be  vali‐
+              to  enable.  Checksums present on incoming packets will be vali‐
               dated regardless of this setting.
 
-              When  using  the  upstream  Linux  kernel module, computation of
+              When using the upstream  Linux  kernel  module,  computation  of
               checksums for geneve and vxlan requires Linux kernel version 4.0
-              or  higher.  gre  supports  checksums  for  all versions of Open
-              vSwitch that support GRE.  The out of tree  kernel  module  dis‐
-              tributed  as part of OVS can compute all tunnel checksums on any
+              or higher. gre supports  checksums  for  all  versions  of  Open
+              vSwitch  that  support  GRE.  The out of tree kernel module dis‐
+              tributed as part of OVS can compute all tunnel checksums on  any
               kernel version that it is compatible with.
-
-              This option is supported for ipsec_gre, but not  useful  because
-              GRE checksums are weaker than, and redundant with, IPsec payload
-              authentication.
-
-     Tunnel Options: ipsec_gre only:
-       Only ipsec_gre interfaces support these options.
-
-       options : peer_cert: optional string
-              Required for certificate authentication.   A  string  containing
-              the  peer’s  certificate in PEM format.  Additionally the host’s
-              certificate must be specified with the certificate option.
-
-       options : certificate: optional string
-              Required for certificate authentication.  The name of a PEM file
-              containing a certificate that will be presented to the peer dur‐
-              ing authentication.
-
-       options : private_key: optional string
-              Optional for certificate authentication.  The name of a PEM file
-              containing the private key associated with certificate.  If cer‐
-              tificate contains the private key, this option may be omitted.
-
-       options : psk: optional string
-              Required for pre-shared key authentication.   Specifies  a  pre-
-              shared  key  for  authentication  that must be identical on both
-              sides of the tunnel.
 
      Patch Options:
        Only patch interfaces support these options.
 
        options : peer: optional string
-              The name of the Interface for the other side of the patch.   The
-              named  Interface’s own peer option must specify this Interface’s
+              The  name of the Interface for the other side of the patch.  The
+              named Interface’s own peer option must specify this  Interface’s
               name.  That is, the two patch interfaces must have reversed name
               and peer values.
 
@@ -2268,8 +2231,8 @@ Interface TABLE
        Only PMD netdevs support these options.
 
        options : n_rxq: optional string, containing an integer, at least 1
-              Specifies  the maximum number of rx queues to be created for PMD
-              netdev.  If not specified or specified to 0, one rx  queue  will
+              Specifies the maximum number of rx queues to be created for  PMD
+              netdev.   If  not specified or specified to 0, one rx queue will
               be created by default.  Not supported by DPDK vHost interfaces.
 
        other_config : pmd-rxq-affinity: optional string
@@ -2283,10 +2246,57 @@ Interface TABLE
 
               ·      <rxq-affinity-list> ::= NULL | <non-empty-list>
 
-              ·      <non-empty-list>  ::= <affinity-pair> | <affinity-pair> ,
+              ·      <non-empty-list> ::= <affinity-pair> | <affinity-pair>  ,
                      <non-empty-list>
 
               ·      <affinity-pair> ::= <queue-id> : <core-id>
+
+       options : vhost-server-path: optional string
+              The  value  specifies  the  path to the socket associated with a
+              vHost User client mode device that has been or will  be  created
+              by QEMU.  Only supported by dpdkvhostuserclient interfaces.
+
+       options  : n_rxq_desc: optional string, containing an integer, in range
+       1 to 4,096
+              Specifies the rx queue size (number  rx  descriptors)  for  dpdk
+              ports.   The value must be a power of 2, less than 4096 and sup‐
+              ported by the hardware of the device being configured.   If  not
+              specified  or  an incorrect value is specified, 2048 rx descrip‐
+              tors will be used by default.
+
+       options : n_txq_desc: optional string, containing an integer, in  range
+       1 to 4,096
+              Specifies  the  tx  queue  size (number tx descriptors) for dpdk
+              ports.  The value must be a power of 2, less than 4096 and  sup‐
+              ported  by  the hardware of the device being configured.  If not
+              specified or an incorrect value is specified, 2048  tx  descrip‐
+              tors will be used by default.
+
+     MTU:
+       The  MTU (maximum transmission unit) is the largest amount of data that
+       can fit into a single Ethernet frame.  The  standard  Ethernet  MTU  is
+       1500  bytes.   Some physical media and many kinds of virtual interfaces
+       can be configured with higher MTUs.
+
+       A client may change an interface MTU by filling in  mtu_request.   Open
+       vSwitch then reports in mtu the currently configured value.
+
+       mtu: optional integer
+              The currently configured MTU for the interface.
+
+              This column will be empty for an interface that does not have an
+              MTU as, for example, some kinds of tunnels do not.
+
+              Open vSwitch sets this column’s value, so other  clients  should
+              treat it as read-only.
+
+       mtu_request: optional integer, at least 1
+              Requested  MTU  (Maximum Transmission Unit) for the interface. A
+              client can fill this column to change the MTU of an interface.
+
+              If this is not set and if the interface has internal type,  Open
+              vSwitch  will  change  the MTU to match the minimum of the other
+              interfaces in the bridge.
 
      Interface Status:
        Status information about interfaces attached to bridges, updated  every
@@ -2313,15 +2323,6 @@ Interface TABLE
 
        duplex: optional string, either full or half
               The duplex mode of the physical network link.
-
-       mtu: optional integer
-              The MTU (maximum transmission unit); i.e. the largest amount  of
-              data  that  can  fit into a single Ethernet frame.  The standard
-              Ethernet MTU is 1500 bytes.  Some physical media and many  kinds
-              of virtual interfaces can be configured with higher MTUs.
-
-              This column will be empty for an interface that does not have an
-              MTU as, for example, some kinds of tunnels do not.
 
        lacp_current: optional boolean
               Boolean value indicating LACP status  for  this  interface.   If
@@ -2996,7 +2997,7 @@ Flow_Table TABLE
               flow_limit flows.  Its value is a set  of  NXM  fields  or  sub-
               fields,  each  of  which  takes  one  of  the  forms  field[] or
               field[start..end],   e.g.    NXM_OF_IN_PORT[].     Please    see
-              nicira-ext.h for a complete list of NXM field names.
+              meta-flow.h for a complete list of NXM field names.
 
               Open  vSwitch  ignores  any  invalid or unknown field specifica‐
               tions.
@@ -4304,7 +4305,7 @@ IPFIX TABLE
 
                      description: Identifier of the layer  2  network  overlay
                      network  encapsulation  type:  0x01 VxLAN, 0x02 GRE, 0x03
-                     LISP, 0x05 IPsec+GRE, 0x07 GENEVE.
+                     LISP, 0x07 GENEVE.
 
               tunnelKey:
                      ID: 892, and enterprise ID 6876 (VMware).
@@ -4530,4 +4531,4 @@ AutoAttach TABLE
 
 
 
-Open vSwitch 2.5.90             DB Schema 7.13.0       ovs-vswitchd.conf.db(5)
+Open vSwitch 2.6.90             DB Schema 7.14.0       ovs-vswitchd.conf.db(5)

@@ -1,1 +1,0 @@
-INSTALL.Windows.md.txt

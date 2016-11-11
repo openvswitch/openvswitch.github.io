@@ -1,0 +1,629 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="Docutils 0.12: http://docutils.sourceforge.net/" />
+<title>INSTALL.Windows.rst (Open vSwitch 2.6.90)</title>
+<link rel="stylesheet" href="style.css" type="text/css" />
+</head>
+<body>
+<div class="document" id="open-vswitch-on-windows">
+<h1 class="title">Open vSwitch on Windows</h1>
+
+<!-- Licensed under the Apache License, Version 2.0 (the "License"); you may
+not use this file except in compliance with the License. You may obtain
+a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+License for the specific language governing permissions and limitations
+under the License.
+
+Convention for heading levels in Open vSwitch documentation:
+
+=======  Heading 0 (reserved for the title in a document)
+- - - - - - -  Heading 1
+~~~~~~~  Heading 2
++++++++  Heading 3
+'''''''  Heading 4
+
+Avoid deeper levels because they do not render well. -->
+<div class="section" id="build-requirements">
+<span id="windows-build-reqs"></span><h1>Build Requirements</h1>
+<p>Open vSwitch on Linux uses autoconf and automake for generating Makefiles.  It
+will be useful to maintain the same build system while compiling on Windows
+too.  One approach is to compile Open vSwitch in a MinGW environment that
+contains autoconf and automake utilities and then use Visual C++ as a compiler
+and linker.</p>
+<p>The following explains the steps in some detail.</p>
+<ul>
+<li><p class="first">Mingw</p>
+<p>Install Mingw on a Windows machine by following the instructions on
+<a class="reference external" href="http://www.mingw.org/wiki/Getting_Started">mingw.org</a>.</p>
+<p>This should install mingw at <tt class="docutils literal"><span class="pre">C:\Mingw</span></tt> and msys at <tt class="docutils literal"><span class="pre">C:\Mingw\msys</span></tt>.  Add
+<tt class="docutils literal"><span class="pre">C:\MinGW\bin</span></tt> and <tt class="docutils literal"><span class="pre">C:\Mingw\msys\1.0\bin</span></tt> to PATH environment variable
+of Windows.</p>
+<p>You can either use the MinGW installer or the command line utility
+<tt class="docutils literal"><span class="pre">mingw-get</span></tt> to install both the base packages and additional packages like
+automake and autoconf(version 2.68).</p>
+<p>Also make sure that <tt class="docutils literal">/mingw</tt> mount point exists. If its not, please
+add/create the following entry in <tt class="docutils literal">/etc/fstab</tt>:</p>
+<pre class="literal-block">
+'C:/MinGW /mingw'.
+</pre>
+</li>
+<li><p class="first">Python</p>
+<p>Install the latest Python 2.x from python.org and verify that its path is
+part of Windows' PATH environment variable.</p>
+</li>
+<li><p class="first">Visual Studio</p>
+<p>You will need at least Visual Studio 2013 (update 4) to compile userspace
+binaries.  In addition to that, if you want to compile the kernel module you
+will also need to install Windows Driver Kit (WDK) 8.1 Update.</p>
+<p>It is important to get the Visual Studio related environment variables and to
+have the $PATH inside the bash to point to the proper compiler and linker.
+One easy way to achieve this for VS2013 is to get into the &quot;VS2013 x86 Native
+Tools Command Prompt&quot; (in a default installation of Visual Studio 2013 this
+can be found under the following location: <tt class="docutils literal"><span class="pre">C:\Program</span> Files <span class="pre">(x86)\Microsoft</span>
+Visual Studio 12.0\Common7\Tools\Shortcuts</tt>) and through it enter into the
+bash shell available from msys by typing <tt class="docutils literal">bash <span class="pre">--login</span></tt>.</p>
+<p>There is support for generating 64 bit binaries too.  To compile under x64,
+open the &quot;VS2013 x64 Native Tools Command Prompt&quot; (if your current running OS
+is 64 bit) or &quot;VS2013 x64 Cross Tools Command Prompt&quot; (if your current
+running OS is not 64 bit) instead of opening its x86 variant.  This will
+point the compiler and the linker to their 64 bit equivalent.</p>
+<p>If after the above step, a <tt class="docutils literal">which link</tt> inside MSYS's bash says,
+<tt class="docutils literal">/bin/link.exe</tt>, rename <tt class="docutils literal">/bin/link.exe</tt> to something else so that the
+Visual studio's linker is used. You should also see a 'which sort' report
+<tt class="docutils literal">/bin/sort.exe</tt>.</p>
+</li>
+<li><p class="first">pthreads-win32</p>
+<p>For pthread support, install the library, dll and includes of pthreads-win32
+project from <a class="reference external" href="ftp://sourceware.org/pub/pthreads-win32/prebuilt-dll-2-9-1-release">sourceware</a> to a
+directory (e.g.: <tt class="docutils literal"><span class="pre">C:/pthread</span></tt>). You should add the pthread-win32's dll path
+(e.g.: <tt class="docutils literal"><span class="pre">C:\pthread\dll\x86</span></tt>) to the Windows' PATH environment variable.</p>
+</li>
+<li><p class="first">OpenSSQL</p>
+<p>To get SSL support for Open vSwitch on Windows, you will need to install
+<a class="reference external" href="http://www.openssl.org/related/binaries.html">OpenSSL for Windows</a></p>
+<p>Note down the directory where OpenSSL is installed (e.g.:
+<tt class="docutils literal"><span class="pre">C:/OpenSSL-Win32</span></tt>) for later use.</p>
+</li>
+</ul>
+</div>
+<div class="section" id="install-requirements">
+<h1>Install Requirements</h1>
+<ul>
+<li><p class="first">Share network adaptors</p>
+<p>We require that you don't disable the &quot;Allow management operating system to
+share this network adapter&quot; under 'Virtual Switch Properties' &gt; 'Connection
+type: External network', in the HyperV virtual network switch configuration.</p>
+</li>
+<li><p class="first">Checksum Offloads</p>
+<p>While there is some support for checksum/segmentation offloads in software,
+this is still a work in progress. Till the support is complete we recommend
+disabling TX/RX offloads for both the VM's as well as the HyperV.</p>
+</li>
+</ul>
+</div>
+<div class="section" id="bootstrapping">
+<h1>Bootstrapping</h1>
+<p>This step is not needed if you have downloaded a released tarball. If
+you pulled the sources directly from an Open vSwitch Git tree or got a
+Git tree snapshot, then run boot.sh in the top source directory to build
+the &quot;configure&quot; script:</p>
+<pre class="literal-block">
+&gt; ./boot.sh
+</pre>
+</div>
+<div class="section" id="configuring">
+<span id="windows-configuring"></span><h1>Configuring</h1>
+<p>Configure the package by running the configure script.  You should provide some
+configure options to choose the right compiler, linker, libraries, Open vSwitch
+component installation directories, etc. For example:</p>
+<pre class="literal-block">
+&gt; ./configure CC=./build-aux/cccl LD=&quot;$(which link)&quot; \
+    LIBS=&quot;-lws2_32 -liphlpapi&quot; --prefix=&quot;C:/openvswitch/usr&quot; \
+    --localstatedir=&quot;C:/openvswitch/var&quot; \
+    --sysconfdir=&quot;C:/openvswitch/etc&quot; \
+    --with-pthread=&quot;C:/pthread&quot;
+</pre>
+<div class="note">
+<p class="first admonition-title">Note</p>
+<p class="last">By default, the above enables compiler optimization for fast code.  For
+default compiler optimization, pass the <tt class="docutils literal"><span class="pre">--with-debug</span></tt> configure option.</p>
+</div>
+<p>To configure with SSL support, add the requisite additional options:</p>
+<pre class="literal-block">
+&gt; ./configure CC=./build-aux/cccl LD=&quot;`which link`&quot;  \
+    LIBS=&quot;-lws2_32 -liphlpapi&quot; --prefix=&quot;C:/openvswitch/usr&quot; \
+     --localstatedir=&quot;C:/openvswitch/var&quot;
+     --sysconfdir=&quot;C:/openvswitch/etc&quot; \
+     --with-pthread=&quot;C:/pthread&quot; \
+     --enable-ssl --with-openssl=&quot;C:/OpenSSL-Win32&quot;
+</pre>
+<p>Finally, to the kernel module also:</p>
+<pre class="literal-block">
+&gt; ./configure CC=./build-aux/cccl LD=&quot;`which link`&quot; \
+    LIBS=&quot;-lws2_32 -liphlpapi&quot; --prefix=&quot;C:/openvswitch/usr&quot; \
+    --localstatedir=&quot;C:/openvswitch/var&quot; \
+    --sysconfdir=&quot;C:/openvswitch/etc&quot; \
+    --with-pthread=&quot;C:/pthread&quot; \
+    --enable-ssl --with-openssl=&quot;C:/OpenSSL-Win32&quot; \
+    --with-vstudiotarget=&quot;&lt;target type&gt;&quot;
+</pre>
+<p>Possible values for <tt class="docutils literal">&lt;target type&gt;</tt> are: <tt class="docutils literal">Debug</tt> and <tt class="docutils literal">Release</tt></p>
+<div class="note">
+<p class="first admonition-title">Note</p>
+<p class="last">You can directly use the Visual Studio 2013 IDE to compile the kernel
+datapath.  Open the ovsext.sln file in the IDE and build the solution.</p>
+</div>
+<p>Refer to the <cite>installation guide &lt;INSTALL.rst&gt;</cite> for information on additional
+configuration options.</p>
+</div>
+<div class="section" id="building">
+<span id="windows-building"></span><h1>Building</h1>
+<p>Once correctly configured, building Open vSwitch on Windows is similar to
+building on Linux, FreeBSD, or NetBSD.</p>
+<ol class="arabic">
+<li><p class="first">Run make for the ported executables in the top source directory, e.g.:</p>
+<pre class="literal-block">
+&gt; make
+</pre>
+<p>For faster compilation, you can pass the <tt class="docutils literal"><span class="pre">-j</span></tt> argument to make.  For
+example, to run 4 jobs simultaneously, run <tt class="docutils literal">make <span class="pre">-j4</span></tt>.</p>
+<div class="note">
+<p class="first admonition-title">Note</p>
+<p>MSYS 1.0.18 has a bug that causes parallel make to hang. You can overcome
+this by downgrading to MSYS 1.0.17.  A simple way to downgrade is to exit
+all MinGW sessions and then run the below command from MSVC developers
+command prompt.:</p>
+<pre class="last literal-block">
+&gt; mingw-get upgrade msys-core-bin=1.0.17-1
+</pre>
+</div>
+</li>
+<li><p class="first">To run all the unit tests in Open vSwitch, one at a time:</p>
+<pre class="literal-block">
+&gt; make check
+</pre>
+<p>To run all the unit tests in Open vSwitch, up to 8 in parallel:</p>
+<pre class="literal-block">
+&gt; make check TESTSUITEFLAGS=&quot;-j8&quot;
+</pre>
+</li>
+<li><p class="first">To install all the compiled executables on the local machine, run:</p>
+<pre class="literal-block">
+&gt; make install
+</pre>
+</li>
+</ol>
+<blockquote>
+<div class="note">
+<p class="first admonition-title">Note</p>
+<p class="last">This will install the Open vSwitch executables in <tt class="docutils literal"><span class="pre">C:/openvswitch</span></tt>.  You
+can add <tt class="docutils literal"><span class="pre">C:\openvswitch\usr\bin</span></tt> and <tt class="docutils literal"><span class="pre">C:\openvswitch\usr\sbin</span></tt> to
+Windows' PATH environment variable for easy access.</p>
+</div>
+</blockquote>
+<div class="section" id="the-kernel-module">
+<h2>The Kernel Module</h2>
+<p>If you are building the kernel module, you will need to copy the below files to
+the target Hyper-V machine.</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">./datapath-windows/x64/Win8.1Debug/package/ovsext.inf</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">./datapath-windows/x64/Win8.1Debug/package/OVSExt.sys</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">./datapath-windows/x64/Win8.1Debug/package/ovsext.cat</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">./datapath-windows/misc/install.cmd</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">./datapath-windows/misc/uninstall.cmd</span></tt></li>
+</ul>
+<div class="note">
+<p class="first admonition-title">Note</p>
+<p class="last">The above path assumes that the kernel module has been built using Windows
+DDK 8.1 in Debug mode. Change the path appropriately, if a different WDK
+has been used.</p>
+</div>
+<p>Now run <tt class="docutils literal">./uninstall.cmd</tt> to remove the old extension. Once complete, run
+<tt class="docutils literal">./install.cmd</tt> to insert the new one.  For this to work you will have to
+turn on <tt class="docutils literal">TESTSIGNING</tt> boot option or 'Disable Driver Signature
+Enforcement' during boot.  The following commands can be used:</p>
+<pre class="literal-block">
+&gt; bcdedit /set LOADOPTIONS DISABLE_INTEGRITY_CHECKS
+&gt; bcdedit /set TESTSIGNING ON
+&gt; bcdedit /set nointegritychecks ON
+</pre>
+<div class="note">
+<p class="first admonition-title">Note</p>
+<p class="last">You may have to restart the machine for the settings to take effect.</p>
+</div>
+<p>In the Virtual Switch Manager configuration you can enable the Open vSwitch
+Extension on an existing switch or create a new switch.  If you are using an
+existing switch, make sure to enable the &quot;Allow Management OS&quot; option for VXLAN
+to work (covered later).</p>
+<p>The command to create a new switch named 'OVS-Extended-Switch' using a physical
+NIC named 'Ethernet 1' is:</p>
+<pre class="literal-block">
+PS &gt; New-VMSwitch &quot;OVS-Extended-Switch&quot; -AllowManagementOS $true \
+    -NetAdapterName &quot;Ethernet 1&quot;
+</pre>
+<div class="note">
+<p class="first admonition-title">Note</p>
+<p class="last">You can obtain the list of physical NICs on the host using 'Get-NetAdapter'
+command.</p>
+</div>
+<p>In the properties of any switch, you should should now see &quot;Open vSwitch
+Extension&quot; under 'Extensions'.  Click the check box to enable the extension.
+An alternative way to do the same is to run the following command:</p>
+<pre class="literal-block">
+PS &gt; Enable-VMSwitchExtension &quot;Open vSwitch Extension&quot; OVS-Extended-Switch
+</pre>
+<div class="note">
+<p class="first admonition-title">Note</p>
+<p class="last">If you enabled the extension using the command line, a delay of a few seconds
+has been observed for the change to be reflected in the UI.  This is not a
+bug in Open vSwitch.</p>
+</div>
+</div>
+</div>
+<div class="section" id="starting">
+<h1>Starting</h1>
+<div class="important">
+<p class="first admonition-title">Important</p>
+<p class="last">The following steps assume that you have installed the Open vSwitch utilities
+in the local machine via 'make install'.</p>
+</div>
+<p>Before starting ovs-vswitchd itself, you need to start its configuration
+database, ovsdb-server. Each machine on which Open vSwitch is installed should
+run its own copy of ovsdb-server. Before ovsdb-server itself can be started,
+configure a database that it can use:</p>
+<pre class="literal-block">
+&gt; ovsdb-tool create C:\openvswitch\etc\openvswitch\conf.db \
+    C:\openvswitch\usr\share\openvswitch\vswitch.ovsschema
+</pre>
+<p>Configure ovsdb-server to use database created above and to listen on a Unix
+domain socket:</p>
+<pre class="literal-block">
+&gt; ovsdb-server -vfile:info --remote=punix:db.sock --log-file \
+    --pidfile --detach
+</pre>
+<div class="note">
+<p class="first admonition-title">Note</p>
+<p class="last">The logfile is created at <tt class="docutils literal"><span class="pre">C:/openvswitch/var/log/openvswitch/</span></tt></p>
+</div>
+<p>Initialize the database using ovs-vsctl. This is only necessary the first time
+after you create the database with ovsdb-tool, though running it at any time is
+harmless:</p>
+<pre class="literal-block">
+&gt; ovs-vsctl --no-wait init
+</pre>
+<div class="tip">
+<p class="first admonition-title">Tip</p>
+<p>If you would later like to terminate the started ovsdb-server, run:</p>
+<pre class="last literal-block">
+&gt; ovs-appctl -t ovsdb-server exit
+</pre>
+</div>
+<p>Start the main Open vSwitch daemon, telling it to connect to the same Unix
+domain socket:</p>
+<pre class="literal-block">
+&gt; ovs-vswitchd -vfile:info --log-file --pidfile --detach
+</pre>
+<div class="tip">
+<p class="first admonition-title">Tip</p>
+<p>If you would like to terminate the started ovs-vswitchd, run:</p>
+<pre class="last literal-block">
+&gt; ovs-appctl exit
+</pre>
+</div>
+<div class="note">
+<p class="first admonition-title">Note</p>
+<p class="last">The logfile is created at <tt class="docutils literal"><span class="pre">C:/openvswitch/var/log/openvswitch/</span></tt></p>
+</div>
+</div>
+<div class="section" id="validating">
+<h1>Validating</h1>
+<p>At this point you can use ovs-vsctl to set up bridges and other Open vSwitch
+features.</p>
+<div class="section" id="add-bridges">
+<h2>Add bridges</h2>
+<p>Let's start by creating an integration bridge, <tt class="docutils literal"><span class="pre">br-int</span></tt> and a PIF bridge,
+<tt class="docutils literal"><span class="pre">br-pif</span></tt>:</p>
+<pre class="literal-block">
+&gt; ovs-vsctl add-br br-int
+&gt; ovs-vsctl add-br br-pif
+</pre>
+<div class="note">
+<p class="first admonition-title">Note</p>
+<p class="last">There's a known bug that running the ovs-vsctl command does not terminate.
+This is generally solved by having ovs-vswitchd running.  If you face the
+issue despite that, hit Ctrl-C to terminate ovs-vsctl and check the output to
+see if your command succeeded.</p>
+</div>
+<p>Validate that ports are added by dumping from both ovs-dpctl and ovs-vsctl:</p>
+<pre class="literal-block">
+&gt; ovs-dpctl show
+system&#64;ovs-system:
+        lookups: hit:0 missed:0 lost:0
+        flows: 0
+        port 2: br-pif (internal)     &lt;&lt;&lt; internal port on 'br-pif' bridge
+        port 1: br-int (internal)     &lt;&lt;&lt; internal port on 'br-int' bridge
+
+&gt; ovs-vsctl show
+a56ec7b5-5b1f-49ec-a795-79f6eb63228b
+    Bridge br-pif
+        Port br-pif
+            Interface br-pif
+                type: internal
+    Bridge br-int
+        Port br-int
+            Interface br-int
+                type: internal
+</pre>
+<div class="note">
+<p class="first admonition-title">Note</p>
+<p class="last">There's a known bug that the ports added to OVSDB via ovs-vsctl don't get to
+the kernel datapath immediately, ie. they don't show up in the output of
+<tt class="docutils literal"><span class="pre">ovs-dpctl</span> show</tt> even though they show up in output of <tt class="docutils literal"><span class="pre">ovs-vsctl</span> show</tt>.
+In order to workaround this issue, restart ovs-vswitchd. (You can terminate
+ovs-vswitchd by running <tt class="docutils literal"><span class="pre">ovs-appctl</span> exit</tt>.)</p>
+</div>
+</div>
+<div class="section" id="add-physicals-nics-pif">
+<h2>Add physicals NICs (PIF)</h2>
+<p>Now, let's add the physical NIC and the internal port to <tt class="docutils literal"><span class="pre">br-pif</span></tt>. In OVS for
+Hyper-V, we use the name of the adapter on top of which the Hyper-V virtual
+switch was created, as a special name to refer to the physical NICs connected
+to the Hyper-V switch, e.g. if we created the Hyper-V virtual switch on top of
+the adapter named <tt class="docutils literal">Ethernet0</tt>, then in OVS we use that name (<tt class="docutils literal">Ethernet0</tt>)
+as a special name to refer to that adapter.</p>
+<div class="note">
+<p class="first admonition-title">Note</p>
+<p class="last">we assume that the Hyper-V switch on which OVS extension is enabled has a
+single physical NIC connected to it.</p>
+</div>
+<p>An internal port is the virtual adapter created on the Hyper-V switch using the
+<tt class="docutils literal">AllowManagementOS</tt> setting.  This has already been setup while creating the
+switch using the instructions above.  In OVS for Hyper-V, we use a the name of
+that specific adapter as a special name to refer to that adapter. By default it
+is created under the following rule <tt class="docutils literal">vEthernet (&lt;name of the switch&gt;)</tt>.</p>
+<p>As a whole example, if we issue the following in a powershell console:</p>
+<pre class="literal-block">
+PS C:\package\binaries&gt; Get-NetAdapter | select Name,MacAddress,InterfaceDescription
+Name                   MacAddress         InterfaceDescription
+----                   ----------         --------------------
+Ethernet1              00-0C-29-94-05-65  Intel(R) PRO/1000 MT Network Connection
+vEthernet (external)   00-0C-29-94-05-5B  Hyper-V Virtual Ethernet Adapter #2
+Ethernet0              00-0C-29-94-05-5B  Intel(R) PRO/1000 MT Network Connection #2
+
+PS C:\package\binaries&gt; Get-VMSwitch
+Name     SwitchType NetAdapterInterfaceDescription
+----     ---------- ------------------------------
+external External   Intel(R) PRO/1000 MT Network Connection #2
+</pre>
+<p>We can see that we have a switch(external) created upon adapter name
+'Ethernet0' with an internal port under name <tt class="docutils literal">vEthernet (external)</tt>. Thus
+resulting into the following ovs-vsctl commands:</p>
+<pre class="literal-block">
+&gt; ovs-vsctl add-port br-pif Ethernet0
+&gt; ovs-vsctl add-port br-pif &quot;vEthernet (external)&quot;
+</pre>
+<p>Dumping the ports should show the additional ports that were just added:</p>
+<pre class="literal-block">
+&gt; ovs-dpctl show
+system&#64;ovs-system:
+        lookups: hit:0 missed:0 lost:0
+        flows: 0
+        port 4: vEthernet (external) (internal) &lt;&lt;&lt; 'AllowManagementOS'
+                                                     adapter on
+                                                     Hyper-V switch
+        port 2: br-pif (internal)
+        port 1: br-int (internal)
+        port 3: Ethernet0                       &lt;&lt;&lt; Physical NIC
+
+&gt; ovs-vsctl show
+a56ec7b5-5b1f-49ec-a795-79f6eb63228b
+    Bridge br-pif
+        Port &quot;vEthernet (external)&quot;
+            Interface &quot;vEthernet (external)&quot;
+        Port br-pif
+            Interface br-pif
+                type: internal
+        Port &quot;Ethernet0&quot;
+            Interface &quot;Ethernet0&quot;
+    Bridge br-int
+        Port br-int
+            Interface br-int
+                type: internal
+</pre>
+</div>
+<div class="section" id="add-virtual-interfaces-vifs">
+<h2>Add virtual interfaces (VIFs)</h2>
+<p>Adding VIFs to openvswitch is a two step procedure.  The first step is to
+assign a 'OVS port name' which is a unique name across all VIFs on this
+Hyper-V.  The next step is to add the VIF to the ovsdb using its 'OVS port
+name' as key.</p>
+<p>First, assign a unique 'OVS port name' to the VIF. The VIF needs to have been
+disconnected from the Hyper-V switch before assigning a 'OVS port name' to it.
+In the example below, we assign a 'OVS port name' called <tt class="docutils literal"><span class="pre">ovs-port-a</span></tt> to a
+VIF on a VM <tt class="docutils literal">VM1</tt>.  By using index 0 for <tt class="docutils literal">$vnic</tt>, the first VIF of the VM
+is being addressed.  After assigning the name <tt class="docutils literal"><span class="pre">ovs-port-a</span></tt>, the VIF is
+connected back to the Hyper-V switch with name <tt class="docutils literal"><span class="pre">OVS-HV-Switch</span></tt>, which is
+assumed to be the Hyper-V switch with OVS extension enabled.:</p>
+<pre class="literal-block">
+PS&gt; import-module .\datapath-windows\misc\OVS.psm1
+PS&gt; $vnic = Get-VMNetworkAdapter &lt;Name of the VM&gt;
+PS&gt; Disconnect-VMNetworkAdapter -VMNetworkAdapter $vnic[0]
+PS&gt; $vnic[0] | Set-VMNetworkAdapterOVSPort -OVSPortName ovs-port-a
+PS&gt; Connect-VMNetworkAdapter -VMNetworkAdapter $vnic[0] \
+      -SwitchName OVS-Extended-Switch
+</pre>
+<p>Next, add the VIFs to <tt class="docutils literal"><span class="pre">br-int</span></tt>:</p>
+<pre class="literal-block">
+&gt; ovs-vsctl add-port br-int ovs-port-a
+</pre>
+<p>Dumping the ports should show the additional ports that were just added:</p>
+<pre class="literal-block">
+&gt; ovs-dpctl show
+system&#64;ovs-system:
+        lookups: hit:0 missed:0 lost:0
+        flows: 0
+        port 4: vEthernet (external) (internal)
+        port 5: ovs-port-a
+        port 2: br-pif (internal)
+        port 1: br-int (internal
+        port 3: Ethernet0
+
+&gt; ovs-vsctl show
+4cd86499-74df-48bd-a64d-8d115b12a9f2
+    Bridge br-pif
+        Port &quot;vEthernet (external)&quot;
+            Interface &quot;vEthernet (external)&quot;
+        Port &quot;Ethernet0&quot;
+            Interface &quot;Ethernet0&quot;
+        Port br-pif
+            Interface br-pif
+                type: internal
+    Bridge br-int
+        Port br-int
+            Interface br-int
+                type: internal
+        Port &quot;ovs-port-a&quot;
+            Interface &quot;ovs-port-a&quot;
+</pre>
+</div>
+<div class="section" id="add-patch-ports-and-configure-vlan-tagging">
+<h2>Add patch ports and configure VLAN tagging</h2>
+<p>The Windows Open vSwitch implementation support VLAN tagging in the switch.
+Switch VLAN tagging along with patch ports between <tt class="docutils literal"><span class="pre">br-int</span></tt> and <tt class="docutils literal"><span class="pre">br-pif</span></tt> is
+used to configure VLAN tagging functionality between two VMs on different
+Hyper-Vs.  To start, add a patch port from <tt class="docutils literal"><span class="pre">br-int</span></tt> to <tt class="docutils literal"><span class="pre">br-pif</span></tt>:</p>
+<pre class="literal-block">
+&gt; ovs-vsctl add-port br-int patch-to-pif
+&gt; ovs-vsctl set interface patch-to-pif type=patch \
+    options:peer=patch-to-int
+</pre>
+<p>Add a patch port from <tt class="docutils literal"><span class="pre">br-pif</span></tt> to <tt class="docutils literal"><span class="pre">br-int</span></tt>:</p>
+<pre class="literal-block">
+&gt; ovs-vsctl add-port br-pif patch-to-int
+&gt; ovs-vsctl set interface patch-to-int type=patch \
+    options:peer=patch-to-pif
+</pre>
+<p>Re-Add the VIF ports with the VLAN tag:</p>
+<pre class="literal-block">
+&gt; ovs-vsctl add-port br-int ovs-port-a tag=900
+&gt; ovs-vsctl add-port br-int ovs-port-b tag=900
+</pre>
+</div>
+<div class="section" id="add-tunnels">
+<h2>Add tunnels</h2>
+<p>The Windows Open vSwitch implementation support VXLAN and STT tunnels. To add
+tunnels. For example, first add the tunnel port between 172.168.201.101 &lt;-&gt;
+172.168.201.102:</p>
+<pre class="literal-block">
+&gt; ovs-vsctl add-port br-int tun-1
+&gt; ovs-vsctl set Interface tun-1 type=&lt;port-type&gt;
+&gt; ovs-vsctl set Interface tun-1 options:local_ip=172.168.201.101
+&gt; ovs-vsctl set Interface tun-1 options:remote_ip=172.168.201.102
+&gt; ovs-vsctl set Interface tun-1 options:in_key=flow
+&gt; ovs-vsctl set Interface tun-1 options:out_key=flow
+</pre>
+<p>...and the tunnel port between 172.168.201.101 &lt;-&gt; 172.168.201.105:</p>
+<pre class="literal-block">
+&gt; ovs-vsctl add-port br-int tun-2
+&gt; ovs-vsctl set Interface tun-2 type=&lt;port-type&gt;
+&gt; ovs-vsctl set Interface tun-2 options:local_ip=172.168.201.102
+&gt; ovs-vsctl set Interface tun-2 options:remote_ip=172.168.201.105
+&gt; ovs-vsctl set Interface tun-2 options:in_key=flow
+&gt; ovs-vsctl set Interface tun-2 options:out_key=flow
+</pre>
+<p>Where <tt class="docutils literal"><span class="pre">&lt;port-type&gt;</span></tt> is one of: <tt class="docutils literal">stt</tt> or <tt class="docutils literal">vxlan</tt></p>
+<div class="note">
+<p class="first admonition-title">Note</p>
+<p class="last">Any patch ports created between br-int and br-pif MUST be be deleted prior to
+adding tunnels.</p>
+</div>
+</div>
+</div>
+<div class="section" id="windows-services">
+<h1>Windows Services</h1>
+<p>Open vSwitch daemons come with support to run as a Windows service. The
+instructions here assume that you have installed the Open vSwitch utilities and
+daemons via <tt class="docutils literal">make install</tt>.</p>
+<div class="note">
+<p class="first admonition-title">Note</p>
+<p class="last">The commands shown here can be run from MSYS bash or Windows command prompt.</p>
+</div>
+<p>To start, create the database:</p>
+<pre class="literal-block">
+&gt; ovsdb-tool create C:/openvswitch/etc/openvswitch/conf.db \
+    &quot;C:/openvswitch/usr/share/openvswitch/vswitch.ovsschema&quot;
+</pre>
+<p>Create the ovsdb-server service and start it:</p>
+<pre class="literal-block">
+&gt; sc create ovsdb-server \
+    binpath=&quot;C:/openvswitch/usr/sbin/ovsdb-server.exe \
+      C:/openvswitch/etc/openvswitch/conf.db \
+      -vfile:info --log-file --pidfile \
+      --remote=punix:db.sock --service --service-monitor&quot;
+&gt; sc start ovsdb-server
+</pre>
+<div class="tip">
+<p class="first admonition-title">Tip</p>
+<p>One of the common issues with creating a Windows service is with mungled
+paths.  You can make sure that the correct path has been registered with the
+Windows services manager by running:</p>
+<pre class="last literal-block">
+&gt; sc qc ovsdb-server
+</pre>
+</div>
+<p>Check that the service is healthy by running:</p>
+<pre class="literal-block">
+&gt; sc query ovsdb-server
+</pre>
+<p>Initialize the database:</p>
+<pre class="literal-block">
+&gt; ovs-vsctl --no-wait init
+</pre>
+<p>Create the ovs-vswitchd service and start it:</p>
+<pre class="literal-block">
+&gt; sc create ovs-vswitchd \
+  binpath=&quot;C:/openvswitch/usr/sbin/ovs-vswitchd.exe \
+  --pidfile -vfile:info --log-file  --service --service-monitor&quot;
+&gt; sc start ovs-vswitchd
+</pre>
+<p>Check that the service is healthy by running:</p>
+<pre class="literal-block">
+&gt; sc query ovs-vswitchd
+</pre>
+<p>To stop and delete the services, run:</p>
+<pre class="literal-block">
+&gt; sc stop ovs-vswitchd
+&gt; sc stop ovsdb-server
+&gt; sc delete ovs-vswitchd
+&gt; sc delete ovsdb-server
+</pre>
+</div>
+<div class="section" id="windows-ci-service">
+<h1>Windows CI Service</h1>
+<p><a class="reference external" href="www.appveyor.com">AppVeyor</a> provides a free Windows autobuild service for
+opensource projects.  Open vSwitch has integration with AppVeyor for continuous
+build.  A developer can build test his changes for Windows by logging into
+appveyor.com using a github account, creating a new project by linking it to
+his development repository in github and triggering a new build.</p>
+</div>
+<div class="section" id="todo">
+<h1>TODO</h1>
+<ul class="simple">
+<li>Investigate the working of sFlow on Windows and re-enable the unit tests.</li>
+<li>Investigate and add the feature to provide QoS.</li>
+<li>Sign the driver &amp; create an MSI for installing the different OpenvSwitch
+components on Windows.</li>
+</ul>
+</div>
+</div>
+</body>
+</html>

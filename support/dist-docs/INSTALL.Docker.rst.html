@@ -1,0 +1,316 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="Docutils 0.12: http://docutils.sourceforge.net/" />
+<title>INSTALL.Docker.rst (Open vSwitch 2.6.90)</title>
+<link rel="stylesheet" href="style.css" type="text/css" />
+</head>
+<body>
+<div class="document" id="open-virtual-networking-with-docker">
+<h1 class="title">Open Virtual Networking With Docker</h1>
+
+<!-- Licensed under the Apache License, Version 2.0 (the "License"); you may
+not use this file except in compliance with the License. You may obtain
+a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+License for the specific language governing permissions and limitations
+under the License.
+
+Convention for heading levels in Open vSwitch documentation:
+
+=======  Heading 0 (reserved for the title in a document)
+- - - - - - -  Heading 1
+~~~~~~~  Heading 2
++++++++  Heading 3
+'''''''  Heading 4
+
+Avoid deeper levels because they do not render well. -->
+<p>This document describes how to use Open Virtual Networking with Docker 1.9.0
+or later.</p>
+<div class="important">
+<p class="first admonition-title">Important</p>
+<p class="last">Requires Docker version 1.9.0 or later. Only Docker 1.9.0+ comes with support
+for multi-host networking. Consult www.docker.com for instructions on how to
+install Docker.</p>
+</div>
+<div class="note">
+<p class="first admonition-title">Note</p>
+<p class="last">You must build and install Open vSwitch before proceeding with the below
+guide. Refer to the <a class="reference external" href="INSTALL.rst">installation guide</a> for more
+information.</p>
+</div>
+<div class="section" id="setup">
+<h1>Setup</h1>
+<p>For multi-host networking with OVN and Docker, Docker has to be started with a
+destributed key-value store. For example, if you decide to use consul as your
+distributed key-value store and your host IP address is <tt class="docutils literal">$HOST_IP</tt>, start
+your Docker daemon with:</p>
+<pre class="literal-block">
+$ docker daemon --cluster-store=consul://127.0.0.1:8500 \
+    --cluster-advertise=$HOST_IP:0
+</pre>
+<p>OVN provides network virtualization to containers. OVN's integration with
+Docker currently works in two modes - the &quot;underlay&quot; mode or the &quot;overlay&quot;
+mode.</p>
+<p>In the &quot;underlay&quot; mode, OVN requires a OpenStack setup to provide container
+networking. In this mode, one can create logical networks and can have
+containers running inside VMs, standalone VMs (without having any containers
+running inside them) and physical machines connected to the same logical
+network. This is a multi-tenant, multi-host solution.</p>
+<p>In the &quot;overlay&quot; mode, OVN can create a logical network amongst containers
+running on multiple hosts. This is a single-tenant (extendable to multi-tenants
+depending on the security characteristics of the workloads), multi-host
+solution. In this mode, you do not need a pre-created OpenStack setup.</p>
+<p>For both the modes to work, a user has to install and start Open vSwitch in
+each VM/host that they plan to run their containers on.</p>
+</div>
+<div class="section" id="the-overlay-mode">
+<span id="docker-overlay"></span><h1>The &quot;overlay&quot; mode</h1>
+<div class="note">
+<p class="first admonition-title">Note</p>
+<p class="last">OVN in &quot;overlay&quot; mode needs a minimum Open vSwitch version of 2.5.</p>
+</div>
+<ol class="arabic simple">
+<li>Start the central components.</li>
+</ol>
+<blockquote>
+<p>OVN architecture has a central component which stores your networking intent
+in a database. On one of your machines, with an IP Address of
+<tt class="docutils literal">$CENTRAL_IP</tt>, where you have installed and started Open vSwitch, you will
+need to start some central components.</p>
+<p>Start ovn-northd daemon. This daemon translates networking intent from Docker
+stored in the OVN_Northbound database to logical flows in <tt class="docutils literal">OVN_Southbound</tt>
+database. For example:</p>
+<pre class="literal-block">
+$ /usr/share/openvswitch/scripts/ovn-ctl start_northd
+</pre>
+</blockquote>
+<ol class="arabic" start="2">
+<li><p class="first">One time setup</p>
+<p>On each host, where you plan to spawn your containers, you will need to run
+the below command once. You may need to run it again if your OVS database
+gets cleared. It is harmless to run it again in any case:</p>
+<pre class="literal-block">
+$ ovs-vsctl set Open_vSwitch . \
+    external_ids:ovn-remote=&quot;tcp:$CENTRAL_IP:6642&quot; \
+    external_ids:ovn-nb=&quot;tcp:$CENTRAL_IP:6641&quot; \
+    external_ids:ovn-encap-ip=$LOCAL_IP \
+    external_ids:ovn-encap-type=&quot;$ENCAP_TYPE&quot;
+</pre>
+<p>where:</p>
+<dl class="docutils">
+<dt><tt class="docutils literal">$LOCAL_IP</tt></dt>
+<dd><p class="first last">is the IP address via which other hosts can reach this host.  This acts as
+your local tunnel endpoint.</p>
+</dd>
+<dt><tt class="docutils literal">$ENCAP_TYPE</tt></dt>
+<dd><p class="first">is the type of tunnel that you would like to use for overlay networking.
+The options are <tt class="docutils literal">geneve</tt> or <tt class="docutils literal">stt</tt>. Your kernel must have support for
+your chosen <tt class="docutils literal">$ENCAP_TYPE</tt>. Both <tt class="docutils literal">geneve</tt> and <tt class="docutils literal">stt</tt> are part of the
+Open vSwitch kernel module that is compiled from this repo. If you use the
+Open vSwitch kernel module from upstream Linux, you will need a minumum
+kernel version of 3.18 for <tt class="docutils literal">geneve</tt>. There is no <tt class="docutils literal">stt</tt> support in
+upstream Linux. You can verify whether you have the support in your kernel
+as follows:</p>
+<pre class="last literal-block">
+$ lsmod | grep $ENCAP_TYPE
+</pre>
+</dd>
+</dl>
+<p>In addition, each Open vSwitch instance in an OVN deployment needs a unique,
+persistent identifier, called the <tt class="docutils literal"><span class="pre">system-id</span></tt>.  If you install OVS from
+distribution packaging for Open vSwitch (e.g. .deb or .rpm packages), or if
+you use the ovs-ctl utility included with Open vSwitch, it automatically
+configures a system-id.  If you start Open vSwitch manually, you should set
+one up yourself. For example:</p>
+<pre class="literal-block">
+$ id_file=/etc/openvswitch/system-id.conf
+$ test -e $id_file || uuidgen &gt; $id_file
+$ ovs-vsctl set Open_vSwitch . external_ids:system-id=$(cat $id_file)
+</pre>
+</li>
+<li><p class="first">Start the <tt class="docutils literal"><span class="pre">ovn-controller</span></tt>.</p>
+<p>You need to run the below command on every boot:</p>
+<pre class="literal-block">
+$ /usr/share/openvswitch/scripts/ovn-ctl start_controller
+</pre>
+</li>
+<li><p class="first">Start the Open vSwitch network driver.</p>
+<p>By default Docker uses Linux bridge for networking. But it has support for
+external drivers. To use Open vSwitch instead of the Linux bridge, you will
+need to start the Open vSwitch driver.</p>
+<p>The Open vSwitch driver uses the Python's flask module to listen to Docker's
+networking api calls. So, if your host does not have Python's flask module,
+install it:</p>
+<pre class="literal-block">
+$ sudo pip install Flask
+</pre>
+<p>Start the Open vSwitch driver on every host where you plan to create your
+containers. Refer to the note on <tt class="docutils literal">$OVS_PYTHON_LIBS_PATH</tt> that is used below
+at the end of this document:</p>
+<pre class="literal-block">
+$ PYTHONPATH=$OVS_PYTHON_LIBS_PATH ovn-docker-overlay-driver --detach
+</pre>
+<div class="note">
+<p class="first admonition-title">Note</p>
+<p class="last">The <tt class="docutils literal">$OVS_PYTHON_LIBS_PATH</tt> variable should point to the directory where
+Open vSwitch Python modules are installed. If you installed Open vSwitch
+Python modules via the Debian package of <tt class="docutils literal"><span class="pre">python-openvswitch</span></tt> or via pip
+by running <tt class="docutils literal">pip install ovs</tt>, you do not need to specify the PATH. If
+you installed it by following the instructions in the <a class="reference external" href="INSTALL.rst">installation guide</a>, then you should specify the PATH. In this case, the PATH
+depends on the options passed to <tt class="docutils literal">./configure</tt>. It is usually either
+<tt class="docutils literal">/usr/share/openvswitch/python</tt> or
+<tt class="docutils literal">/usr/local/share/openvswitch/python</tt></p>
+</div>
+</li>
+</ol>
+<p>Docker has inbuilt primitives that closely match OVN's logical switches and
+logical port concepts. Consult Docker's documentation for all the possible
+commands. Here are some examples.</p>
+<div class="section" id="create-a-logical-switch">
+<h2>Create a logical switch</h2>
+<p>To create a logical switch with name 'foo', on subnet '192.168.1.0/24', run:</p>
+<pre class="literal-block">
+$ NID=`docker network create -d openvswitch --subnet=192.168.1.0/24 foo`
+</pre>
+</div>
+<div class="section" id="list-all-logical-switches">
+<h2>List all logical switches</h2>
+<pre class="literal-block">
+$ docker network ls
+</pre>
+<p>You can also look at this logical switch in OVN's northbound database by
+running the following command:</p>
+<pre class="literal-block">
+$ ovn-nbctl --db=tcp:$CENTRAL_IP:6640 ls-list
+</pre>
+</div>
+<div class="section" id="delete-a-logical-switch">
+<h2>Delete a logical switch</h2>
+<pre class="literal-block">
+$ docker network rm bar
+</pre>
+</div>
+<div class="section" id="create-a-logical-port">
+<h2>Create a logical port</h2>
+<p>Docker creates your logical port and attaches it to the logical network in a
+single step. For example, to attach a logical port to network <tt class="docutils literal">foo</tt> inside
+container busybox, run:</p>
+<pre class="literal-block">
+$ docker run -itd --net=foo --name=busybox busybox
+</pre>
+</div>
+<div class="section" id="list-all-logical-ports">
+<h2>List all logical ports</h2>
+<p>Docker does not currently have a CLI command to list all logical ports but you
+can look at them in the OVN database by running:</p>
+<pre class="literal-block">
+$ ovn-nbctl --db=tcp:$CENTRAL_IP:6640 lsp-list $NID
+</pre>
+</div>
+<div class="section" id="create-and-attach-a-logical-port-to-a-running-container">
+<h2>Create and attach a logical port to a running container</h2>
+<pre class="literal-block">
+$ docker network create -d openvswitch --subnet=192.168.2.0/24 bar
+$ docker network connect bar busybox
+</pre>
+</div>
+<div class="section" id="detach-and-delete-a-logical-port-from-a-running-container">
+<h2>Detach and delete a logical port from a running container</h2>
+<p>You can delete your logical port and detach it from a running container
+by running:</p>
+<pre class="literal-block">
+$ docker network disconnect bar busybox
+</pre>
+</div>
+</div>
+<div class="section" id="the-underlay-mode">
+<span id="docker-underlay"></span><h1>The &quot;underlay&quot; mode</h1>
+<div class="note">
+<p class="first admonition-title">Note</p>
+<p class="last">This mode requires that you have a OpenStack setup pre-installed with
+OVN providing the underlay networking.</p>
+</div>
+<ol class="arabic">
+<li><p class="first">One time setup</p>
+<p>A OpenStack tenant creates a VM with a single network interface (or multiple)
+that belongs to management logical networks. The tenant needs to fetch the
+port-id associated with the interface via which he plans to send the container
+traffic inside the spawned VM. This can be obtained by running the below
+command to fetch the 'id' associated with the VM:</p>
+<pre class="literal-block">
+$ nova list
+</pre>
+<p>and then by running:</p>
+<pre class="literal-block">
+$ neutron port-list --device_id=$id
+</pre>
+<p>Inside the VM, download the OpenStack RC file that contains the tenant
+information (henceforth referred to as <tt class="docutils literal">openrc.sh</tt>). Edit the file and add the
+previously obtained port-id information to the file by appending the following
+line:</p>
+<pre class="literal-block">
+$ export OS_VIF_ID=$port_id
+</pre>
+<p>After this edit, the file will look something like:</p>
+<pre class="literal-block">
+#!/bin/bash
+export OS_AUTH_URL=http://10.33.75.122:5000/v2.0
+export OS_TENANT_ID=fab106b215d943c3bad519492278443d
+export OS_TENANT_NAME=&quot;demo&quot;
+export OS_USERNAME=&quot;demo&quot;
+export OS_VIF_ID=e798c371-85f4-4f2d-ad65-d09dd1d3c1c9
+</pre>
+</li>
+<li><p class="first">Create the Open vSwitch bridge</p>
+<p>If your VM has one ethernet interface (e.g.: 'eth0'), you will need to add
+that device as a port to an Open vSwitch bridge 'breth0' and move its IP
+address and route related information to that bridge. (If it has multiple
+network interfaces, you will need to create and attach an Open vSwitch
+bridge for the interface via which you plan to send your container
+traffic.)</p>
+<p>If you use DHCP to obtain an IP address, then you should kill the DHCP
+client that was listening on the physical Ethernet interface (e.g. eth0) and
+start one listening on the Open vSwitch bridge (e.g. breth0).</p>
+<p>Depending on your VM, you can make the above step persistent across reboots.
+For example, if your VM is Debian/Ubuntu-based, read
+<cite>openvswitch-switch.README.Debian</cite> found in <cite>debian</cite> folder. If your VM is
+RHEL-based, refer to the <a class="reference external" href="../../INSTALL.RHEL.rst">RHEL install guide</a>.</p>
+</li>
+<li><p class="first">Start the Open vSwitch network driver</p>
+<p>The Open vSwitch driver uses the Python's flask module to listen to Docker's
+networking api calls. The driver also uses OpenStack's
+<tt class="docutils literal"><span class="pre">python-neutronclient</span></tt> libraries. If your host does not have Python's
+<tt class="docutils literal">flask</tt> module or <tt class="docutils literal"><span class="pre">python-neutronclient</span></tt> you must install them. For
+example:</p>
+<pre class="literal-block">
+$ pip install python-neutronclient
+$ pip install Flask
+</pre>
+<p>Once installed, source the <tt class="docutils literal">openrc</tt> file:</p>
+<pre class="literal-block">
+$ . ./openrc.sh
+</pre>
+<p>Start the network driver and provide your OpenStack tenant password when
+prompted:</p>
+<pre class="literal-block">
+$ PYTHONPATH=$OVS_PYTHON_LIBS_PATH ovn-docker-underlay-driver \
+    --bridge breth0 --detach
+</pre>
+</li>
+</ol>
+<p>From here-on you can use the same Docker commands as described in
+<a class="reference internal" href="#docker-overlay">docker-overlay</a>.</p>
+<p>Refer the the ovs-architecture man pages (<tt class="docutils literal">man <span class="pre">ovn-architecture</span></tt>) to
+understand OVN's architecture in detail.</p>
+</div>
+</div>
+</body>
+</html>

@@ -1,6 +1,6 @@
 '\" p
 .\" -*- nroff -*-
-.TH "ovn-controller" 8 "ovn-controller" "Open vSwitch 2\[char46]5\[char46]90" "Open vSwitch Manual"
+.TH "ovn-controller" 8 "ovn-controller" "Open vSwitch 2\[char46]6\[char46]90" "Open vSwitch Manual"
 .fp 5 L CR              \\" Make fixed-width font available as \\fL.
 .de TQ
 .  br
@@ -126,6 +126,22 @@ ovs bridge that provides connectivity to that network\[char46]  An example
 value mapping two physical network names to two ovs bridges would be:
 \fBphysnet1:br\-eth0,physnet2:br\-eth1\fR\[char46]
 .RE
+.PP
+\fBovn\-controller\fR reads the following values from the
+\fBOpen_vSwitch\fR database of the local OVS instance:
+.RS
+.TP
+\fBdatapath\-type\fR from \fBBridge\fR table
+This value is read from local OVS integration bridge row of
+\fBBridge\fR table and populated in
+\fBexternal_ids:datapath-type\fR of the \fBChassis\fR
+table in the OVN_Southbound database\[char46]
+.TP
+\fBiface\-types\fR from \fBOpen_vSwitch\fR table
+This value is populated in \fBexternal_ids:iface-types\fR of the
+\fBChassis\fR table in the OVN_Southbound
+database\[char46]
+.RE
 .SH "OPEN VSWITCH DATABASE USAGE"
 .PP
 \fBovn\-controller\fR uses a number of \fBexternal_ids\fR
@@ -138,6 +154,16 @@ The presence of this key identifies a tunnel port within the
 integration bridge as one created by \fBovn\-controller\fR to
 reach a remote chassis\[char46]  Its value is the chassis ID of the remote
 chassis\[char46]
+.TP
+\fBexternal_ids:ct\-zone\-*\fR in the \fBBridge\fR table
+Logical ports and gateway routers are assigned a connection
+tracking zone by \fBovn\-controller\fR for stateful
+services\[char46]  To keep state across restarts of
+\fBovn\-controller\fR, these keys are stored in the
+integration bridge\(cqs Bridge table\[char46]  The name contains a prefix
+of \fBct\-zone\-\fR followed by the name of the logical
+port or gateway router\(cqs zone key\[char46]  The value for this key
+identifies the zone used for this port\[char46]
 .TP
 \fBexternal_ids:ovn\-localnet\-port\fR in the \fBPort\fR
 table
@@ -160,7 +186,7 @@ The presence of this key identifies a patch port as one created by
 \fBovn\-controller\fR to connect the integration bridge and
 another bridge to implement a \fBl2gateway\fR logical port\[char46]
 Its value is the name of the logical port with \fBtype\fR
-set to \fBl3gateway\fR that the port implements\[char46] See
+set to \fBl2gateway\fR that the port implements\[char46] See
 \fBexternal_ids:ovn\-bridge\-mappings\fR, above, for more
 information\[char46]
 .IP
@@ -169,7 +195,16 @@ of patch ports, one in the integration bridge, one in a different
 bridge, with the same \fBexternal_ids:ovn\-l2gateway\-port\fR
 value\[char46]
 .TP
-\fBexternal_ids:ovn\-logical\-patch\-port\fR in the
+\fBexternal\-ids:ovn\-l3gateway\-port\fR in the \fBPort\fR
+table
+This key identifies a patch port as one created by
+\fBovn\-controller\fR to implement a \fBl3gateway\fR
+logical port\[char46] Its value is the name of the logical port with type
+set to \fBl3gateway\fR\[char46] This patch port is similar to
+the OVN logical patch port, except that \fBl3gateway\fR
+port can only be bound to a paticular chassis\[char46]
+.TP
+\fBexternal\-ids:ovn\-logical\-patch\-port\fR in the
 \fBPort\fR table
 This key identifies a patch port as one created by
 \fBovn\-controller\fR to implement an OVN logical patch port
