@@ -1,1 +1,0 @@
-INSTALL.Fedora.rst.txt
