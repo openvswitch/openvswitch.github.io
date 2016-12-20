@@ -1,1 +1,0 @@
-INSTALL.Windows.rst.txt

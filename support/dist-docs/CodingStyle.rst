@@ -1,1 +1,0 @@
-CodingStyle.rst.txt

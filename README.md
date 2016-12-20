@@ -50,19 +50,14 @@ The page (`_layouts/page.html`) layout "inherits" from the skel layout and adds
 a series of widgets (updates, recent releases, ...) and the title inside the
 mainpage div. Almost every page uses this.
 
-The pagenosidewidget (`_layouts/pagenosidewidget.html`) layout "inherits" from
-the skel layout and adds only the title inside the mainpage div.
-
 The CSS that we use is inspired by the wordpress output (but it's supposed to
 be directly maintainable). It uses heavily fixed sized elements (i.e. we
 explicitly specify the size in px).
 
-Layouts rely on includes
-
 ### Includes
 
-We use includes to split html in multiple files. For example the side widgets
-are on `_include/side_widgets.html`.
+Layouts rely on includes. We use includes to split html in multiple files. For
+example the side widgets are on `_include/side_widgets.html`.
 
 ### Navigation bar
 

@@ -1,1 +1,0 @@
-DocumentationStyle.rst.txt

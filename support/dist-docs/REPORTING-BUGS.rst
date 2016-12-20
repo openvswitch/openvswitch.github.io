@@ -1,1 +1,0 @@
-REPORTING-BUGS.rst.txt
