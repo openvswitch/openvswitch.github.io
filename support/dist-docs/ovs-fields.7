@@ -1,0 +1,5950 @@
+'\" tp
+.\" -*- mode: troff; coding: utf-8 -*-
+.TH "ovs\-fields" 7 "2.7.90" "Open vSwitch" "Open vSwitch Manual"
+.fp 5 L CR              \" Make fixed-width font available as \fL.
+.de ST
+.  PP
+.  RS -0.15in
+.  I "\\$1"
+.  RE
+..
+
+.de SU
+.  PP
+.  I "\\$1"
+..
+
+.de IQ
+.  br
+.  ns
+.  IP "\\$1"
+..
+
+.de TQ
+.  br
+.  ns
+.  TP "\\$1"
+..
+.de URL
+\\$2 \(laURL: \\$1 \(ra\\$3
+..
+.if \n[.g] .mso www.tmac
+.SH NAME
+ovs\-fields \- protocol header fields in OpenFlow and Open vSwitch
+.
+.PP
+
+.SH "INTRODUCTION"
+.PP
+This document aims to comprehensively document all of the fields, both standard and non-standard, supported by OpenFlow or Open vSwitch, regardless of origin\[char46]
+.SS "Fields"
+.PP
+A \fIfield\fR is a property of a packet\[char46] Most familiarly, \fIdata
+fields\fR are fields that can be extracted from a packet\[char46] Most data fields are copied directly from protocol headers, e\[char46]g\[char46] at layer 2, the Ethernet source and destination addresses, or the VLAN ID; at layer 3, the IPv4 or IPv6 source and destination; and at layer 4, the TCP or UDP ports\[char46] Other data fields are computed, e\[char46]g\[char46] \fBip_frag\fR describes whether a packet is a fragment but it is not copied directly from the IP header\[char46]
+.PP
+Some data fields, called \fIroot fields\fR, are always present as a consequence of the basic networking technology in use\[char46] The Ethernet header fields are root fields in current versions of Open vSwitch, though future versions might support other roots\[char46] (Currently, to support LISP tunnels, which do not encapsulate an Ethernet header, Open vSwitch synthesizes one\[char46])
+.PP
+Other data fields are not always present\[char46] A packet contains ARP fields, for example, only when its Ethernet header indicates the Ethertype for ARP, 0x0806\[char46] In this documentation, we say that a field is \fIapplicable\fR when it is present in a packet, and \fIinapplicable\fR when it is not\[char46] (These are not standard terms\[char46]) We refer to the conditions that determine whether a field is applicable as \fIprerequisites\fR\[char46] Some VLAN-related fields are a special case: these fields are always applicable, but have a designated value or bit that indicates whether a VLAN header is present, with the remaining values or bits indicating the VLAN header\(cqs content (if it is present)\[char46]
+.PP
+An inapplicable field does not have a value, not even a nominal ``value\(cq\(cq such as all-zero-bits\[char46] In many circumstances, OpenFlow and Open vSwitch allow references only to applicable fields\[char46] For example, one may match (see \fIMatching\fR, below) a given field only if the match includes the field\(cqs prerequisite, e\[char46]g\[char46] matching an ARP field is only allowed if one also matches on Ethertype 0x0806\[char46]
+.PP
+Sometimes a packet may contain multiple instances of a header\[char46] For example, a packet may contain multiple VLAN or MPLS headers, and tunnels can cause any data field to recur\[char46] OpenFlow and Open vSwitch do not address these cases uniformly\[char46] For VLAN and MPLS headers, only the outermost header is accessible, so that inner headers may be accessed only by ``popping\(cq\(cq (removing) the outer header\[char46] (Open vSwitch supports only a single VLAN header in any case\[char46]) For tunnels, e\[char46]g\[char46] GRE or VXLAN, the outer header and inner headers are treated as different data fields\[char46]
+.PP
+Many network protocols are built in layers as a stack of concatenated headers\[char46] Each header typically contains a ``next type\(cq\(cq field that indicates the type of the protocol header that follows, e\[char46]g\[char46] Ethernet contains an Ethertype and IPv4 contains a IP protocol type\[char46] The exceptional cases, where protocols are layered but an outer layer does not indicate the protocol type for the inner layer, or gives only an ambiguous indication, are troublesome\[char46] An MPLS header, for example, only indicates whether another MPLS header or some other protocol follows, and in the latter case the inner protocol must be known from the context\[char46] In these exceptional cases, OpenFlow and Open vSwitch cannot provide insight into the inner protocol data fields without additional context, and thus they treat all later data fields as inapplicable until an OpenFlow action explicitly specifies what protocol follows\[char46] In the case of MPLS, the OpenFlow ``pop MPLS\(cq\(cq action that removes the last MPLS header from a packet provides this context, as the Ethertype of the payload\[char46] See \fILayer 2\[char46]5: MPLS\fR for more information\[char46]
+.PP
+OpenFlow and Open vSwitch support some fields other than data fields\[char46] \fIMetadata fields\fR relate to the origin or treatment of a packet, but they are not extracted from the packet data itself\[char46] One example is the physical port on which a packet arrived at the switch\[char46] \fIRegister fields\fR act like variables: they give an OpenFlow switch space for temporary storage while processing a packet\[char46] Existing metadata and register fields have no prerequisites\[char46]
+.PP
+A field\(cqs value consists of an integral number of bytes\[char46] For data fields, sometimes those bytes are taken directly from the packet\[char46] Other data fields are copied from a packet with padding (usually with zeros and in the most significant positions)\[char46] The remaining data fields are transformed in other ways as they are copied from the packets, to make them more useful for matching\[char46]
+.SS "Matching"
+.PP
+The most important use of fields in OpenFlow is \fImatching\fR, to determine whether particular field values agree with a set of constraints called a \fImatch\fR\[char46] A match consists of zero or more constraints on individual fields, all of which must be met to satisfy the match\[char46] (A match that contains no constraints is always satisfied\[char46]) OpenFlow and Open vSwitch support a number of forms of matching on individual fields:
+.RS
+.TP
+\fIExact match\fR, e\[char46]g\[char46] \fBnw_src=10\[char46]1\[char46]2\[char46]3\fR
+Only a particular value of the field is matched; for example, only one particular source IP address\[char46] Exact matches are written as \fB\fIfield\fB=\fIvalue\fB\fR\[char46] The forms accepted for \fIvalue\fR depend on the field\[char46]
+.IP
+All fields support exact matches\[char46]
+.TP
+\fIBitwise match\fR, e\[char46]g\[char46] \fBnw_src=10\[char46]1\[char46]0\[char46]0/255\[char46]255\[char46]0\[char46]0\fR
+Specific bits in the field must have specified values; for example, only source IP addresses in a particular subnet\[char46] Bitwise matches are written as \fB\fIfield\fB=\fIvalue\fB/\fImask\fB\fR, where \fIvalue\fR and \fImask\fR take one of the forms accepted for an exact match on \fIfield\fR\[char46] Some fields accept other forms for bitwise matches; for example, \fBnw_src=10\[char46]1\[char46]0\[char46]0/255\[char46]255\[char46]0\[char46]0\fR may also be written \fBnw_src=10\[char46]1\[char46]0\[char46]0/16\fR\[char46]
+.IP
+Most OpenFlow switches do not allow every bitwise matching on every field (and before OpenFlow 1\[char46]2, the protocol did not even provide for the possibility for most fields)\[char46] Even switches that do allow bitwise matching on a given field may restrict the masks that are allowed, e\[char46]g\[char46] by allowing matches only on contiguous sets of bits starting from the most significant bit, that is, ``CIDR\(cq\(cq masks [RFC 4632]\[char46] Open vSwitch does not allows bitwise matching on every field, but it allows arbitrary bitwise masks on any field that does support bitwise matching\[char46] (Older versions had some restrictions, as documented in the descriptions of individual fields\[char46])
+.TP
+\fIWildcard\fR, e\[char46]g\[char46] ``any \fBnw_src\fR\(cq\(cq
+The value of the field is not constrained\[char46] Wildcarded fields may be written as \fB\fIfield\fB=*\fR, although it is unusual to mention them at all\[char46] (When specifying a wildcard explicitly in a command invocation, be sure to using quoting to protect against shell expansion\[char46])
+.IP
+There is a tiny difference between wildcarding a field and not specifying any match on a field: wildcarding a field requires satisfying the field\(cqs prerequisites\[char46]
+.RE
+.PP
+Some types of matches on individual fields cannot be expressed directly with OpenFlow and Open vSwitch\[char46] These can be expressed indirectly:
+.RS
+.TP
+\fISet match\fR, e\[char46]g\[char46] ``\fBtcp_dst\fR \[mo] {80, 443, 8080}\(cq\(cq
+The value of a field is one of a specified set of values; for example, the TCP destination port is 80, 443, or 8080\[char46]
+.IP
+For matches used in flows (see \fIFlows\fR, below), multiple flows can simulate set matches\[char46]
+.TP
+\fIRange match\fR, e\[char46]g\[char46] ``1000 \[<=] \fBtcp_dst\fR \[<=] 1999\(cq\(cq
+The value of the field must lie within a numerical range, for example, TCP destination ports between 1000 and 1999\[char46]
+.IP
+Range matches can be expressed as a collection of bitwise matches\[char46] For example, suppose that the goal is to match TCP source ports 1000 to 1999, inclusive\[char46] The binary representations of 1000 and 1999 are:
+.IP
+.nf
+\fL
+.br
+\fL01111101000
+.br
+\fL11111001111
+.br
+\fL      \fR
+.fi
+.IP
+The following series of bitwise matches will match 1000 and 1999 and all the values in between:
+.IP
+.nf
+\fL
+.br
+\fL01111101xxx
+.br
+\fL0111111xxxx
+.br
+\fL10xxxxxxxxx
+.br
+\fL110xxxxxxxx
+.br
+\fL1110xxxxxxx
+.br
+\fL11110xxxxxx
+.br
+\fL1111100xxxx
+.br
+\fL      \fR
+.fi
+.IP
+which can be written as the following matches:
+.IP
+.nf
+\fB
+.br
+\fBtcp,tp_src=0x03e8/0xfff8
+.br
+\fBtcp,tp_src=0x03f0/0xfff0
+.br
+\fBtcp,tp_src=0x0400/0xfe00
+.br
+\fBtcp,tp_src=0x0600/0xff00
+.br
+\fBtcp,tp_src=0x0700/0xff80
+.br
+\fBtcp,tp_src=0x0780/0xffc0
+.br
+\fBtcp,tp_src=0x07c0/0xfff0
+.br
+\fB      \fR
+.fi
+.TP
+\fIInequality match\fR, e\[char46]g\[char46] ``\fBtcp_dst\fR \[!=] 80\(cq\(cq
+The value of the field differs from a specified value, for example, all TCP destination ports except 80\[char46]
+.IP
+An inequality match on an \fIn\fR-bit field can be expressed as a disjunction of \fIn\fR 1-bit matches\[char46] For example, the inequality match ``\fBvlan_pcp\fR \[!=] 5\(cq\(cq can be expressed as ``\fBvlan_pcp\fR = 0/4 or \fBvlan_pcp\fR = 2/2 or \fBvlan_pcp\fR = 0/1\[char46]\(cq\(cq For matches used in flows (see \fIFlows\fR, below), sometimes one can more compactly express inequality as a higher-priority flow that matches the exceptional case paired with a lower-priority flow that matches the general case\[char46]
+.IP
+Alternatively, an inequality match may be converted to a pair of range matches, e\[char46]g\[char46] \fBtcp_src \[!=] 80\fR may be expressed as ``0 \[<=] \fBtcp_src\fR < 80 or 80 < \fBtcp_src\fR \[<=] 65535\(cq\(cq, and then each range match may in turn be converted to a bitwise match\[char46]
+.TP
+\fIConjunctive match\fR, e\[char46]g\[char46] ``\fBtcp_src\fR \[mo] {80, 443, 8080} and \fBtcp_dst\fR \[mo] {80, 443, 8080}\(cq\(cq
+As an OpenFlow extension, Open vSwitch supports matching on conditions on conjunctions of the previously mentioned forms of matching\[char46] See the documentation for \fBconj_id\fR for more information\[char46]
+.RE
+.PP
+All of these supported forms of matching are special cases of bitwise matching\[char46] In some cases this influences the design of field values\[char46] \fBip_frag\fR is the most prominent example: it is designed to make all of the practically useful checks for IP fragmentation possible as a single bitwise match\[char46]
+.ST "Shorthands"
+.PP
+Some matches are very commonly used, so Open vSwitch accepts shorthand notations\[char46] In some cases, Open vSwitch also uses shorthand notations when it displays matches\[char46] The following shorthands are defined, with their long forms shown on the right side:
+.RS
+.TP
+\fBip\fR
+\fBeth_type=0x0800\fR
+.TP
+\fBipv6\fR
+\fBeth_type=0x86dd\fR
+.TP
+\fBicmp\fR
+\fBeth_type=0x0800,ip_proto=1\fR
+.TP
+\fBicmp6\fR
+\fBeth_type=0x86dd,ip_proto=58\fR
+.TP
+\fBtcp\fR
+\fBeth_type=0x0800,ip_proto=6\fR
+.TP
+\fBtcp6\fR
+\fBeth_type=0x86dd,ip_proto=6\fR
+.TP
+\fBudp\fR
+\fBeth_type=0x0800,ip_proto=17\fR
+.TP
+\fBudp6\fR
+\fBeth_type=0x86dd,ip_proto=17\fR
+.TP
+\fBsctp\fR
+\fBeth_type=0x0800,ip_proto=132\fR
+.TP
+\fBsctp6\fR
+\fBeth_type=0x86dd,ip_proto=132\fR
+.TP
+\fBarp\fR
+\fBeth_type=0x0806\fR
+.TP
+\fBrarp\fR
+\fBeth_type=0x8035\fR
+.TP
+\fBmpls\fR
+\fBeth_type=0x8847\fR
+.TP
+\fBmplsm\fR
+\fBeth_type=0x8848\fR
+.RE
+.SS "Evolution of OpenFlow Fields"
+.PP
+The discussion so far applies to all OpenFlow and Open vSwitch versions\[char46] This section starts to draw in specific information by explaining, in broad terms, the treatment of fields and matches in each OpenFlow version\[char46]
+.ST "OpenFlow 1\[char46]0"
+.PP
+OpenFlow 1\[char46]0 defined the OpenFlow protocol format of a match as a fixed-length data structure that could match on the following fields:
+.RS
+.IP \(bu
+Ingress port\[char46]
+.IP \(bu
+Ethernet source and destination MAC\[char46]
+.IP \(bu
+Ethertype (with a special value to match frames that lack an Ethertype)\[char46]
+.IP \(bu
+VLAN ID and priority\[char46]
+.IP \(bu
+IPv4 source, destination, protocol, and DSCP\[char46]
+.IP \(bu
+TCP source and destination port\[char46]
+.IP \(bu
+UDP source and destination port\[char46]
+.IP \(bu
+ICMPv4 type and code\[char46]
+.IP \(bu
+ARP IPv4 addresses (SPA and TPA) and opcode\[char46]
+.RE
+.PP
+Each supported field corresponded to some member of the data structure\[char46] Some members represented multiple fields, in the case of the TCP, UDP, ICMPv4, and ARP fields whose presence is mutually exclusive\[char46] This also meant that some members were poor fits for their fields: only the low 8 bits of the 16-bit ARP opcode could be represented, and the ICMPv4 type and code were padded with 8 bits of zeros to fit in the 16-bit members primarily meant for TCP and UDP ports\[char46] An additional bitmap member indicated, for each member, whether its field should be an ``exact\(cq\(cq or ``wildcarded\(cq\(cq match (see \fIMatching\fR), with additional support for CIDR prefix matching on the IPv4 source and destination fields\[char46]
+.PP
+Simplicity was recognized early on as the main virtue of this approach\[char46] Obviously, any fixed-length data structure cannot support matching new protocols that do not fit\[char46] There was no room, for example, for matching IPv6 fields, which was not a priority at the time\[char46] Lack of room to support matching the Ethernet addresses inside ARP packets actually caused more of a design problem later, leading to an Open vSwitch extension action specialized for dropping ``spoofed\(cq\(cq ARP packets in which the frame and ARP Ethernet source addressed differed\[char46] (This extension was never standardized\[char46] Open vSwitch dropped support for it a few releases after it added support for full ARP matching\[char46])
+.PP
+The design of the OpenFlow fixed-length matches also illustrates compromises, in both directions, between the strengths and weaknesses of software and hardware that have always influenced the design of OpenFlow\[char46] Support for matching ARP fields that do fit in the data structure was only added late in the design process (and remained optional in OpenFlow 1\[char46]0), for example, because common switch ASICs did not support matching these fields\[char46]
+.PP
+The compromises in favor of software occurred for more complicated reasons\[char46] The OpenFlow designers did not know how to implement matching in software that was fast, dynamic, and general\[char46] (A way was later found [Srinivasan]\[char46]) Thus, the designers sought to support dynamic, general matching that would be fast in realistic special cases, in particular when all of the matches were \fImicroflows\fR, that is, matches that specify every field present in a packet, because such matches can be implemented as a single hash table lookup\[char46] Contemporary research supported the feasibility of this approach: the number of microflows in a campus network had been measured to peak at about 10,000 [Casado, section 3\[char46]2]\[char46] (Calculations show that this can only be true in a lightly loaded network [Pepelnjak]\[char46])
+.PP
+As a result, OpenFlow 1\[char46]0 required switches to treat microflow matches as the highest possible priority\[char46] This let software switches perform the microflow hash table lookup first\[char46] Only on failure to match a microflow did the switch need to fall back to checking the more general and presumed slower matches\[char46] Also, the OpenFlow 1\[char46]0 flow match was minimally flexible, with no support for general bitwise matching, partly on the basis that this seemed more likely amenable to relatively efficient software implementation\[char46] (CIDR masking for IPv4 addresses was added relatively late in the OpenFlow 1\[char46]0 design process\[char46])
+.PP
+Microflow matching was later discovered to aid some hardware implementations\[char46] The TCAM chips used for matching in hardware do not support priority in the same way as OpenFlow but instead tie priority to ordering [Pagiamtzis]\[char46] Thus, adding a new match with a priority between the priorities of existing matches can require reordering an arbitrary number of TCAM entries\[char46] On the other hand, when microflows are highest priority, they can be managed as a set-aside portion of the TCAM entries\[char46]
+.PP
+The emphasis on matching microflows also led designers to carefully consider the bandwidth requirements between switch and controller: to maximize the number of microflow setups per second, one must minimize the size of each flow\(cqs description\[char46] This favored the fixed-length format in use, because it expressed common TCP and UDP microflows in fewer bytes than more flexible ``type-length-value\(cq\(cq (TLV) formats\[char46] (Early versions of OpenFlow also avoided TLVs in general to head off protocol fragmentation\[char46])
+.SU "Inapplicable Fields"
+.PP
+OpenFlow 1\[char46]0 does not clearly specify how to treat inapplicable fields\[char46] The members for inapplicable fields are always present in the match data structure, as are the bits that indicate whether the fields are matched, and the ``correct\(cq\(cq member and bit values for inapplicable fields is unclear\[char46] OpenFlow 1\[char46]0 implementations changed their behavior over time as priorities shifted\[char46] The early OpenFlow reference implementation, motivated to make every flow a microflow to enable hashing, treated inapplicable fields as exact matches on a value of 0\[char46] Initially, this behavior was implemented in the reference controller only\[char46]
+.PP
+Later, the reference switch was also changed to actually force any wildcarded inapplicable fields into exact matches on 0\[char46] The latter behavior sometimes caused problems, because the modified flow was the one reported back to the controller later when it queried the flow table, and the modifications sometimes meant that the controller could not properly recognize the flow that it had added\[char46] In retrospect, perhaps this problem should have alerted the designers to a design error, but the ability to use a single hash table was held to be more important than almost every other consideration at the time\[char46]
+.PP
+When more flexible match formats were introduced much later, they disallowed any mention of inapplicable fields as part of a match\[char46] This raised the question of how to translate between this new format and the OpenFlow 1\[char46]0 fixed format\[char46] It seemed somewhat inconsistent and backward to treat fields as exact-match in one format and forbid matching them in the other, so instead the treatment of inapplicable fields in the fixed-length format was changed from exact match on 0 to wildcarding\[char46] (A better classifier had by now eliminated software performance problems with wildcards\[char46])
+.PP
+The OpenFlow 1\[char46]0\[char46]1 errata (released only in 2012) added some additional explanation [OpenFlow 1\[char46]0\[char46]1, section 3\[char46]4], but it did not mandate specific behavior because of variation among implementations\[char46]
+.ST "OpenFlow 1\[char46]1"
+.PP
+The OpenFlow 1\[char46]1 protocol match format was designed as a type/length/value (TLV) format to allow for future flexibility\[char46] The specification standardized only a single type \fBOFPMT_STANDARD\fR (0) with a fixed-size payload, described here\[char46] The additional fields and bitwise masks in OpenFlow 1\[char46]1 cause this match structure to be over twice as large as in OpenFlow 1\[char46]0, 88 bytes versus 40\[char46]
+.PP
+OpenFlow 1\[char46]1 added support for the following fields:
+.RS
+.IP \(bu
+SCTP source and destination port\[char46]
+.IP \(bu
+MPLS label and traffic control (TC) fields\[char46]
+.IP \(bu
+One 64-bit register (named ``metadata\(cq\(cq)\[char46]
+.RE
+.PP
+OpenFlow 1\[char46]1 increased the width of the ingress port number field (and all other port numbers in the protocol) from 16 bits to 32 bits\[char46]
+.PP
+OpenFlow 1\[char46]1 increased matching flexibility by introducing arbitrary bitwise matching on Ethernet and IPv4 address fields and on the new ``metadata\(cq\(cq register field\[char46] Switches were not required to support all possible masks [OpenFlow 1\[char46]1, section 4\[char46]3]\[char46]
+.PP
+By a strict reading of the specification, OpenFlow 1\[char46]1 removed support for matching ICMPv4 type and code [OpenFlow 1\[char46]1, section A\[char46]2\[char46]3], but this is likely an editing error because ICMP matching is described elsewhere [OpenFlow 1\[char46]1, Table 3, Table 4, Figure 4]\[char46] Open vSwitch does support ICMPv4 type and code matching with OpenFlow 1\[char46]1\[char46]
+.PP
+OpenFlow 1\[char46]1 avoided the pitfalls of inapplicable fields that OpenFlow 1\[char46]0 encountered, by requiring the switch to ignore the specified field values [OpenFlow 1\[char46]1, section A\[char46]2\[char46]3]\[char46] It also implied that the switch should ignore the bits that indicate whether to match inapplicable fields\[char46]
+.SU "Physical Ingress Port"
+.PP
+OpenFlow 1\[char46]1 introduced a new pseudo-field, the physical ingress port\[char46] The physical ingress port is only a pseudo-field because it cannot be used for matching\[char46] It appears only one place in the protocol, in the ``packet-in\(cq\(cq message that passes a packet received at the switch to an OpenFlow controller\[char46]
+.PP
+A packet\(cqs ingress port and physical ingress port are identical except for packets processed by a switch feature such as bonding or tunneling that makes a packet appear to arrive on a ``virtual\(cq\(cq port associated with the bond or the tunnel\[char46] For such packets, the ingress port is the virtual port and the physical ingress port is, naturally, the physical port\[char46] Open vSwitch implements both bonding and tunneling, but its bonding implementation does not use virtual ports and its tunnels are typically not on the same OpenFlow switch as their physical ingress ports (which need not be part of any switch), so the ingress port and physical ingress port are always the same in Open vSwitch\[char46]
+.ST "OpenFlow 1\[char46]2"
+.PP
+OpenFlow 1\[char46]2 abandoned the fixed-length approach to matching\[char46] One reason was size, since adding support for IPv6 address matching (now seen as important), with bitwise masks, would have added 64 bytes to the match length, increasing it from 88 bytes in OpenFlow 1\[char46]1 to over 150 bytes\[char46] Extensibility had also become important as controller writers increasingly wanted support for new fields without having to change messages throughout the OpenFlow protocol\[char46] The challenges of carefully defining fixed-length matches to avoid problems with inapplicable fields had also become clear over time\[char46]
+.PP
+Therefore, OpenFlow 1\[char46]2 adopted a flow format using a flexible type-length-value (TLV) representation, in which each TLV expresses a match on one field\[char46] These TLVs were in turn encapsulated inside the outer TLV wrapper introduced in OpenFlow 1\[char46]1 with the new identifier \fBOFPMT_OXM\fR (1)\[char46] (This wrapper fulfilled its intended purpose of reducing the amount of churn in the protocol when changing match formats; some messages that included matches remained unchanged from OpenFlow 1\[char46]1 to 1\[char46]2 and later versions\[char46])
+.PP
+OpenFlow 1\[char46]2 added support for the following fields:
+.RS
+.IP \(bu
+ARP hardware addresses (SHA and THA)\[char46]
+.IP \(bu
+IPv4 ECN\[char46]
+.IP \(bu
+IPv6 source and destination addresses, flow label, DSCP, ECN, and protocol\[char46]
+.IP \(bu
+TCP, UDP, and SCTP port numbers when encapsulated inside IPv6\[char46]
+.IP \(bu
+ICMPv6 type and code\[char46]
+.IP \(bu
+ICMPv6 Neighbor Discovery target address and source and target Ethernet addresses\[char46]
+.RE
+.PP
+The OpenFlow 1\[char46]2 format, called \fIOXM\fR (\fIOpenFlow Extensible
+Match\fR), was modeled closely on an extension to OpenFlow 1\[char46]0 introduced in Open vSwitch 1\[char46]1 called \fINXM\fR (\fINicira Extended
+Match\fR)\[char46] Each OXM or NXM TLV has the following format:
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "vendor/class" width .75
+B1: box "field" width .4
+"16" at B0.n above
+"" at B0.s below
+"7" at B1.n above
+"" at B1.s below
+line <-> "type" above from B0.nw + (0,textht) to B1.ne + (0,textht)
+]
+[
+B0: box "HM" width .25
+B1: box "length" width .4
+"1" at B0.n above
+"" at B0.s below
+"8" at B1.n above
+"" at B1.s below
+line <-> invis "" above from B0.nw + (0,textht) to B1.ne + (0,textht)
+]
+move .1
+[
+B0: box "body" width 1.7
+"length bytes" at B0.n above
+"" at B0.s below
+line <-> invis "" above from B0.nw + (0,textht) to B0.ne + (0,textht)
+]
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL        type
+.br
+\fL <---------------->
+.br
+\fL      16        7   1    8      length bytes
+.br
+\fL+------------+-----+--+------+ +------------+
+.br
+\fL|vendor/class|field|HM|length| |    body    |
+.br
+\fL+------------+-----+--+------+ +------------+
+.br
+\fL
+.fi
+\}
+.PP
+The most significant 16 bits of the NXM or OXM header, called \fBvendor\fR by NXM and \fBclass\fR by OXM, identify an organization permitted to allocate identifiers for fields\[char46] NXM allocates only two vendors, 0x0000 for fields supported by OpenFlow 1\[char46]0 and 0x0001 for fields implemented as an Open vSwitch extension\[char46] OXM assigns classes as follows:
+.RS
+.TP
+0x0000 (\fBOFPXMC_NXM_0\fR)\[char46]
+.TQ .5in
+0x0001 (\fBOFPXMC_NXM_1\fR)\[char46]
+Reserved for NXM compatibility\[char46]
+.TP
+0x0002 to 0x7fff
+Reserved for allocation to ONF members, but none yet assigned\[char46]
+.TP
+0x8000 (\fBOFPXMC_OPENFLOW_BASIC\fR)
+Used for most standard OpenFlow fields\[char46]
+.TP
+0x8001 (\fBOFPXMC_PACKET_REGS\fR)
+Used for packet register fields in OpenFlow 1\[char46]5 and later\[char46]
+.TP
+0x8002 to 0xfffe
+Reserved for the OpenFlow specification\[char46]
+.TP
+0xffff (\fBOFPXMC_EXPERIMENTER\fR)
+Experimental use\[char46]
+.RE
+.PP
+When \fBclass\fR is 0xffff, the OXM header is extended to 64 bits by using the first 32 bits of the body as an \fBexperimenter\fR field whose most significant byte is zero and whose remaining bytes are an Organizationally Unique Identifier (OUI) assigned by the IEEE [IEEE OUI], as shown below\[char46] OpenFlow says that support for experimenter fields is optional\[char46] Open vSwitch 2\[char46]4 and later does support them, primarily so that it can support the \fBONFOXM_ET_\fR* code points defined by official Open Networking Foundation extensions to OpenFlow 1\[char46]3 in e\[char46]g\[char46] [TCP Flags Match Field Extension]\[char46]
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "class" width .75
+B1: box "field" width .4
+"16" at B0.n above
+"0xffff" at B0.s below
+"7" at B1.n above
+"" at B1.s below
+line <-> "type" above from B0.nw + (0,textht) to B1.ne + (0,textht)
+]
+[
+B0: box "HM" width .25
+B1: box "length" width .4
+"1" at B0.n above
+"" at B0.s below
+"8" at B1.n above
+"" at B1.s below
+line <-> invis "" above from B0.nw + (0,textht) to B1.ne + (0,textht)
+]
+move .1
+[
+B0: box "zero" width .4
+B1: box "OUI" width 1
+"8" at B0.n above
+"0x00" at B0.s below
+"24" at B1.n above
+"" at B1.s below
+line <-> "experimenter" above from B0.nw + (0,textht) to B1.ne + (0,textht)
+]
+move .1
+[
+B0: box "body" width 1.7
+"(length - 4) bytes" at B0.n above
+"" at B0.s below
+line <-> invis "" above from B0.nw + (0,textht) to B0.ne + (0,textht)
+]
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL     type                 experimenter
+.br
+\fL <---------->             <---------->
+.br
+\fL   16     7   1    8        8     24     (length - 4) bytes
+.br
+\fL+------+-----+--+------+ +------+-----+ +------------------+
+.br
+\fL|class |field|HM|length| | zero | OUI | |       body       |
+.br
+\fL+------+-----+--+------+ +------+-----+ +------------------+
+.br
+\fL 0xffff                    0x00
+.fi
+\}
+.PP
+Taken as a unit, \fBclass\fR (or \fBvendor\fR), \fBfield\fR, and \fBexperimenter\fR (when present) uniquely identify a particular field\[char46]
+.PP
+When \fBhasmask\fR (abbreviated \fBHM\fR above) is 0, the OXM is an exact match on an entire field\[char46] In this case, the body (excluding the experimenter field, if present) is a single value to be matched\[char46]
+.PP
+When \fBhasmask\fR is 1, the OXM is a bitwise match\[char46] The body (excluding the experimenter field) consists of a value to match, followed by the bitwise mask to apply\[char46] A 1-bit in the mask indicates that the corresponding bit in the value should be matched and a 0-bit that it should be ignored\[char46] For example, for an IP address field, a value of 192\[char46]168\[char46]0\[char46]0 followed by a mask of 255\[char46]255\[char46]0\[char46]0 would match addresses in the 196\[char46]168\[char46]0\[char46]0/16 subnet\[char46]
+.RS
+.IP \(bu
+Some fields might not support masking at all, and some fields that do support masking might restrict it to certain patterns\[char46] For example, fields that have IP address values might be restricted to CIDR masks\[char46] The descriptions of individual fields note these restrictions\[char46]
+.IP \(bu
+An OXM TLV with a mask that is all zeros is not useful (although it is not forbidden), because it is has the same effect as omitting the TLV entirely\[char46]
+.IP \(bu
+It is not meaningful to pair a 0-bit in an OXM mask with a 1-bit in its value, and Open vSwitch rejects such an OXM with the error \fBOFPBMC_BAD_WILDCARDS\fR, as required by OpenFlow 1\[char46]3 and later\[char46]
+.RE
+.PP
+The \fBlength\fR identifies the number of bytes in the body, including the 4-byte \fBexperimenter\fR header, if it is present\[char46] Each OXM TLV has a fixed length; that is, given \fBclass\fR, \fBfield\fR, \fBexperimenter\fR (if present), and \fBhasmask\fR, \fBlength\fR is a constant\[char46] The \fBlength\fR is included explicitly to allow software to minimally parse OXM TLVs of unknown types\[char46]
+.PP
+OXM TLVs must be ordered so that a field\(cqs prerequisites are satisfied before it is parsed\[char46] For example, an OXM TLV that matches on the IPv4 source address field is only allowed following an OXM TLV that matches on the Ethertype for IPv4\[char46] Similarly, an OXM TLV that matches on the TCP source port must follow a TLV that matches an Ethertype of IPv4 or IPv6 and one that matches an IP protocol of TCP (in that order)\[char46] The order of OXM TLVs is not otherwise restricted; no canonical ordering is defined\[char46]
+.PP
+A given field may be matched only once in a series of OXM TLVs\[char46]
+.ST "OpenFlow 1\[char46]3"
+.PP
+OpenFlow 1\[char46]3 showed OXM to be largely successful, by adding new fields without making any changes to how flow matches otherwise worked\[char46] It added OXMs for the following fields supported by Open vSwitch:
+.RS
+.IP \(bu
+Tunnel ID for ports associated with e\[char46]g\[char46] VXLAN or keyed GRE\[char46]
+.IP \(bu
+MPLS ``bottom of stack\(cq\(cq (BOS) bit\[char46]
+.RE
+.PP
+OpenFlow 1\[char46]3 also added OXMs for the following fields not documented here and not yet implemented by Open vSwitch:
+.RS
+.IP \(bu
+IPv6 extension header handling\[char46]
+.IP \(bu
+PBB I-SID\[char46]
+.RE
+.ST "OpenFlow 1\[char46]4"
+.PP
+OpenFlow 1\[char46]4 added OXMs for the following fields not documented here and not yet implemented by Open vSwitch:
+.RS
+.IP \(bu
+PBB UCA\[char46]
+.RE
+.ST "OpenFlow 1\[char46]5"
+.PP
+OpenFlow 1\[char46]5 added OXMs for the following fields supported by Open vSwitch:
+.RS
+.IP \(bu
+TCP flags\[char46]
+.IP \(bu
+Packet registers\[char46]
+.IP \(bu
+The output port in the OpenFlow action set\[char46]
+.RE
+.PP
+OpenFlow 1\[char46]5 also added OXMs for the following fields not documented here and not yet implemented by Open vSwitch:
+.RS
+.IP \(bu
+Packet type\[char46]
+.RE
+.SH "FIELDS REFERENCE"
+.PP
+The following sections document the fields that Open vSwitch supports\[char46] Each section provides introductory material on a group of related fields, followed by information on each individual field\[char46] In addition to field-specific information, each field begins with a table with entries for the following important properties:
+.RS
+.TP
+Name
+The field\(cqs name, used for parsing and formatting the field, e\[char46]g\[char46] in \fBovs\-ofctl\fR commands\[char46] For historical reasons, some fields have an additional name that is accepted as an alternative in parsing\[char46] This name, when there is one, is listed as well, e\[char46]g\[char46] ``\fBtun\fR (aka \fBtunnel_id\fR)\[char46]\(cq\(cq
+.TP
+Width
+The field\(cqs width, always a multiple of 8 bits\[char46] Some fields don\(cqt use all of the bits, so this may be accompanied by an explanation\[char46] For example, OpenFlow embeds the 2-bit IP ECN field as as the low bits in an 8-bit byte, and so its width is expressed as ``8 bits (only the least-significant 2 bits may be nonzero)\[char46]\(cq\(cq
+.TP
+Format
+How a value for the field is formatted or parsed by, e\[char46]g\[char46], \fBovs\-ofctl\fR\[char46] Some possibilities are generic:
+.RS
+.TP
+decimal
+Formats as a decimal number\[char46] On input, accepts decimal numbers or hexadecimal numbers prefixed by \fB0x\fR\[char46]
+.TP
+hexadecimal
+Formats as a hexadecimal number prefixed by \fB0x\fR\[char46] On input, accepts decimal numbers or hexadecimal numbers prefixed by \fB0x\fR\[char46] (The default for parsing is \fBnot\fR hexadecimal: only a \fB0x\fR prefix causes input to be treated as hexadecimal\[char46])
+.TP
+Ethernet
+Formats and accepts the common Ethernet address format \fB\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fB:\fIxx\fB\fR\[char46]
+.TP
+IPv4
+Formats and accepts the dotted-quad format \fB\fIa\fB\[char46]\fIb\fB\[char46]\fIc\fB\[char46]\fId\fB\fR\[char46] For bitwise matches, formats and accepts \fB\fIaddress\fB/\fIlength\fB\fR CIDR notation in addition to \fB\fIaddress\fB/\fImask\fB\fR\[char46]
+.TP
+IPv6
+Formats and accepts the common IPv6 address formats, plus CIDR notation for bitwise matches\[char46]
+.TP
+OpenFlow 1\[char46]0 port
+Accepts 16-bit port numbers in decimal, plus OpenFlow well-known port names (e\[char46]g\[char46] \fBIN_PORT\fR) in uppercase or lowercase\[char46]
+.TP
+OpenFlow 1\[char46]1+ port
+Same syntax as OpenFlow 1\[char46]0 ports but for 32-bit OpenFlow 1\[char46]1+ port number fields\[char46]
+.RE
+.IP
+Other, field-specific formats are explained along with their fields\[char46]
+.TP
+Masking
+For most fields, this says ``arbitrary bitwise masks,\(cq\(cq meaning that a flow may match any combination of bits in the field\[char46] Some fields instead say ``exact match only,\(cq\(cq which means that a flow that matches on this field must match on the whole field instead of just certain bits\[char46] Either way, this reports masking support for the latest version of Open vSwitch using OXM or NXM (that is, either OpenFlow 1\[char46]2+ or OpenFlow 1\[char46]0 plus Open vSwitch NXM extensions)\[char46] In particular, OpenFlow 1\[char46]0 (without NXM) and 1\[char46]1 don\(cqt always support masking even if Open vSwitch itself does; refer to the \fBOpenFlow 1\[char46]0\fR and \fBOpenFlow 1\[char46]1\fR rows to learn about masking with these protocol versions\[char46]
+.TP
+Prerequisites
+Requirements that must be met to match on this field\[char46] For example, \fBip_src\fR has IPv4 as a prerequisite, meaning that a match must include \fBeth_type=0x0800\fR to match on the IPv4 source address\[char46] The following prerequisites, with their requirements, are currently in use:
+.RS
+.TP
+none
+(no requirements)
+.TP
+VLAN VID
+\fBvlan_tci=0x1000/0x1000\fR (i\[char46]e\[char46] a VLAN header is present)
+.TP
+ARP
+\fBeth_type=0x0806\fR (ARP) or \fBeth_type=0x8035\fR (RARP)
+.TP
+IPv4
+\fBeth_type=0x0800\fR
+.TP
+IPv6
+\fBeth_type=0x86dd\fR
+.TP
+IPv4/IPv6
+IPv4 or IPv6
+.TP
+MPLS
+\fBeth_type=0x8847\fR or \fBeth_type=0x8848\fR
+.TP
+TCP
+IPv4/IPv6 and \fBip_proto=6\fR
+.TP
+UDP
+IPv4/IPv6 and \fBip_proto=17\fR
+.TP
+SCTP
+IPv4/IPv6 and \fBip_proto=132\fR
+.TP
+ICMPv4
+IPv4 and \fBip_proto=1\fR
+.TP
+ICMPv6
+IPv6 and \fBip_proto=58\fR
+.TP
+ND solicit
+ICMPv6 and \fBicmp_type=135\fR and \fBicmp_code=0\fR
+.TP
+ND advert
+ICMPv6 and \fBicmp_type=136\fR and \fBicmp_code=0\fR
+.TP
+ND
+ND solicit or ND advert
+.RE
+.IP
+The TCP, UDP, and SCTP prerequisites also have the special requirement that \fBnw_frag\fR is not being used to select ``later fragments\[char46]\(cq\(cq This is because only the first fragment of a fragmented IPv4 or IPv6 datagram contains the TCP or UDP header\[char46]
+.TP
+Access
+Most fields are ``read/write,\(cq\(cq which means that common OpenFlow actions like \fBset_field\fR can modify them\[char46] Fields that are ``read-only\(cq\(cq cannot be modified in these general-purpose ways, although there may be other ways that actions can modify them\[char46]
+.TP
+OpenFlow 1\[char46]0
+.TQ .5in
+OpenFlow 1\[char46]1
+These rows report the level of support that OpenFlow 1\[char46]0 or OpenFlow 1\[char46]1, respectively, has for a field\[char46] For OpenFlow 1\[char46]0, supported fields are reported as either ``yes (exact match only)\(cq\(cq for fields that do not support any bitwise masking or ``yes (CIDR match only)\(cq\(cq for fields that support CIDR masking\[char46] OpenFlow 1\[char46]1 supported fields report either ``yes (exact match only)\(cq\(cq or simply ``yes\(cq\(cq for fields that do support arbitrary masks\[char46] These OpenFlow versions supported a fixed collection of fields that cannot be extended, so many more fields are reported as ``not supported\[char46]\(cq\(cq
+.TP
+OXM
+.TQ .5in
+NXM
+These rows report the OXM and NXM code points that correspond to a given field\[char46] Either or both may be ``none\[char46]\(cq\(cq
+.IP
+A field that has only an OXM code point is usually one that was standardized before it was added to Open vSwitch\[char46] A field that has only an NXM code point is usually one that is not yet standardized\[char46] When a field has both OXM and NXM code points, it usually indicates that it was introduced as an Open vSwitch extension under the NXM code point, then later standardized under the OXM code point\[char46] A field can have more than one OXM code point if it was standardized in OpenFlow 1\[char46]4 or later and additionally introduced as an official ONF extension for OpenFlow 1\[char46]3\[char46] (A field that has neither OXM nor NXM code point is typically an obsolete field that is supported in some other form using OXM or NXM\[char46])
+.IP
+Each code point in these rows is described in the form ``\fBNAME\fR (\fInumber\fR) since OpenFlow \fIspec\fR and Open vSwitch \fIversion\fR,\(cq\(cq e\[char46]g\[char46] ``\fBOXM_OF_ETH_TYPE\fR (5) since OpenFlow 1\[char46]2 and Open vSwitch 1\[char46]7\[char46]\(cq\(cq First, \fBNAME\fR, which specifies a name for the code point, starts with a prefix that designates a class and, in some cases, a vendor, as listed in the following table:
+.IP
+.TS
+tab(;);
+l l l.
+Prefix;Vendor;Class
+\_;\_;\_
+\fBNXM_OF\fR;(none);\fL0x0000\fR;
+\fBNXM_NX\fR;(none);\fL0x0001\fR;
+\fBOXM_OF\fR;(none);\fL0x8000\fR;
+\fBOXM_OF_PKT_REG\fR;(none);\fL0x8001\fR;
+\fBNXOXM_ET\fR;\fL0x00002320\fR;\fL0xffff\fR;
+\fBONFOXM_ET\fR;\fL0x4f4e4600\fR;\fL0xffff\fR;
+.TE
+.IP
+For more information on OXM/NXM classes and vendors, refer back to \fBOpenFlow 1\[char46]2\fR under \fBEvolution of OpenFlow Fields\fR\[char46] The \fInumber\fR is the field number within the class and vendor\[char46] The OpenFlow \fIspec\fR is the version of OpenFlow that standardized the code point\[char46] It is omitted for NXM code points because they are nonstandard\[char46] The \fIversion\fR is the version of Open vSwitch that first supported the code point\[char46]
+.RE
+.bp
+.SH "CONJUNCTIVE MATCH FIELDS"
+.SS "Summary:"
+.TS
+tab(;);
+l l l l l l l.
+Name;Bytes;Mask;RW?;Prereqs;NXM/OXM Support
+\_;\_;\_;\_;\_;\_
+\fBconj_id\fR;4;no;no;none;OVS 2.4+
+.TE
+.PP
+.PP
+An individual OpenFlow flow can match only a single value for each field\[char46] However, situations often arise where one wants to match one of a set of values within a field or fields\[char46] For matching a single field against a set, it is straightforward and efficient to add multiple flows to the flow table, one for each value in the set\[char46] For example, one might use the following flows to send packets with IP source address \fIa\fR, \fIb\fR, \fIc\fR, or \fId\fR to the OpenFlow controller:
+.PP
+.PP
+.nf
+\fB
+.br
+\fB      ip,ip_src=\fR\fIa\fB\fR actions=controller
+.br
+\fB      ip,ip_src=\fR\fIb\fB\fR actions=controller
+.br
+\fB      ip,ip_src=\fR\fIc\fB\fR actions=controller
+.br
+\fB      ip,ip_src=\fR\fId\fB\fR actions=controller
+.br
+\fB    \fR
+.fi
+.PP
+.PP
+Similarly, these flows send packets with IP destination address \fIe\fR, \fIf\fR, \fIg\fR, or \fIh\fR to the OpenFlow controller:
+.PP
+.PP
+.nf
+\fB
+.br
+\fB      ip,ip_dst=\fR\fIe\fB\fR actions=controller
+.br
+\fB      ip,ip_dst=\fR\fIf\fB\fR actions=controller
+.br
+\fB      ip,ip_dst=\fR\fIg\fB\fR actions=controller
+.br
+\fB      ip,ip_dst=\fR\fIh\fB\fR actions=controller
+.br
+\fB    \fR
+.fi
+.PP
+.PP
+Installing all of the above flows in a single flow table yields a disjunctive effect: a packet is sent to the controller if \fBip_src\fR \[mo] {\fIa\fR,\fIb\fR,\fIc\fR,\fId\fR} or \fBip_dst\fR \[mo] {\fIe\fR,\fIf\fR,\fIg\fR,\fIh\fR} (or both)\[char46] (Pedantically, if both of the above sets of flows are present in the flow table, they should have different priorities, because OpenFlow says that the results are undefined when two flows with same priority can both match a single packet\[char46])
+.PP
+.PP
+Suppose, on the other hand, one wishes to match conjunctively, that is, to send a packet to the controller only if both \fBip_src\fR \[mo] {\fIa\fR,\fIb\fR,\fIc\fR,\fId\fR} and \fBip_dst\fR \[mo] {\fIe\fR,\fIf\fR,\fIg\fR,\fIh\fR}\[char46] This requires 4 \[mu] 4 = 16 flows, one for each possible pairing of \fBip_src\fR and \fBip_dst\fR\[char46] That is acceptable for our small example, but it does not gracefully extend to larger sets or greater numbers of dimensions\[char46]
+.PP
+.PP
+The \fBconjunction\fR action is a solution for conjunctive matches that is built into Open vSwitch\[char46] A \fBconjunction\fR action ties groups of individual OpenFlow flows into higher-level ``conjunctive flows\(cq\(cq\[char46] Each group corresponds to one dimension, and each flow within the group matches one possible value for the dimension\[char46] A packet that matches one flow from each group matches the conjunctive flow\[char46]
+.PP
+.PP
+To implement a conjunctive flow with \fBconjunction\fR, assign the conjunctive flow a 32-bit \fIid\fR, which must be unique within an OpenFlow table\[char46] Assign each of the \fIn\fR \[>=] 2 dimensions a unique number from 1 to \fIn\fR; the ordering is unimportant\[char46] Add one flow to the OpenFlow flow table for each possible value of each dimension with \fBconjunction(\fIid\fB, \fIk\fB/\fIn\fB)\fR as the flow\(cqs actions, where \fIk\fR is the number assigned to the flow\(cqs dimension\[char46] Together, these flows specify the conjunctive flow\(cqs match condition\[char46] When the conjunctive match condition is met, Open vSwitch looks up one more flow that specifies the conjunctive flow\(cqs actions and receives its statistics\[char46] This flow is found by setting \fBconj_id\fR to the specified \fIid\fR and then again searching the flow table\[char46]
+.PP
+.PP
+The following flows provide an example\[char46] Whenever the IP source is one of the values in the flows that match on the IP source (dimension 1 of 2), \fBand\fR the IP destination is one of the values in the flows that match on IP destination (dimension 2 of 2), Open vSwitch searches for a flow that matches \fBconj_id\fR against the conjunction ID (1234), finding the first flow listed below\[char46]
+.PP
+.PP
+.nf
+\fB
+.br
+\fB      conj_id=1234 actions=controller
+.br
+\fB      ip,ip_src=10\[char46]0\[char46]0\[char46]1 actions=conjunction(1234, 1/2)
+.br
+\fB      ip,ip_src=10\[char46]0\[char46]0\[char46]4 actions=conjunction(1234, 1/2)
+.br
+\fB      ip,ip_src=10\[char46]0\[char46]0\[char46]6 actions=conjunction(1234, 1/2)
+.br
+\fB      ip,ip_src=10\[char46]0\[char46]0\[char46]7 actions=conjunction(1234, 1/2)
+.br
+\fB      ip,ip_dst=10\[char46]0\[char46]0\[char46]2 actions=conjunction(1234, 2/2)
+.br
+\fB      ip,ip_dst=10\[char46]0\[char46]0\[char46]5 actions=conjunction(1234, 2/2)
+.br
+\fB      ip,ip_dst=10\[char46]0\[char46]0\[char46]7 actions=conjunction(1234, 2/2)
+.br
+\fB      ip,ip_dst=10\[char46]0\[char46]0\[char46]8 actions=conjunction(1234, 2/2)
+.br
+\fB    \fR
+.fi
+.PP
+.PP
+Many subtleties exist:
+.PP
+.RS
+.IP \(bu
+In the example above, every flow in a single dimension has the same form, that is, dimension 1 matches on \fBip_src\fR and dimension 2 on \fBip_dst\fR, but this is not a requirement\[char46] Different flows within a dimension may match on different bits within a field (e\[char46]g\[char46] IP network prefixes of different lengths, or TCP/UDP port ranges as bitwise matches), or even on entirely different fields (e\[char46]g\[char46] to match packets for TCP source port 80 or TCP destination port 80)\[char46]
+.IP \(bu
+The flows within a dimension can vary their matches across more than one field, e\[char46]g\[char46] to match only specific pairs of IP source and destination addresses or L4 port numbers\[char46]
+.IP \(bu
+A flow may have multiple \fBconjunction\fR actions, with different \fBid\fR values\[char46] This is useful for multiple conjunctive flows with overlapping sets\[char46] If one conjunctive flow matches packets with both \fBip_src\fR \[mo] {\fIa\fR,\fIb\fR} and \fBip_dst\fR \[mo] {\fId\fR,\fIe\fR} and a second conjunctive flow matches \fBip_src\fR \[mo] {\fIb\fR,\fIc\fR} and \fBip_dst\fR \[mo] {\fIf\fR,\fIg\fR}, for example, then the flow that matches \fBip_src=\fR\fIb\fR would have two \fBconjunction\fR actions, one for each conjunctive flow\[char46] The order of \fBconjunction\fR actions within a list of actions is not significant\[char46]
+.IP \(bu
+A flow with \fBconjunction\fR actions may also include \fBnote\fR actions for annotations, but not any other kind of actions\[char46] (They would not be useful because they would never be executed\[char46])
+.IP \(bu
+All of the flows that constitute a conjunctive flow with a given \fIid\fR must have the same priority\[char46] (Flows with the same \fIid\fR but different priorities are currently treated as different conjunctive flows, that is, currently \fIid\fR values need only be unique within an OpenFlow table at a given priority\[char46] This behavior isn\(cqt guaranteed to stay the same in later releases, so please use \fIid\fR values unique within an OpenFlow table\[char46])
+.IP \(bu
+Conjunctive flows must not overlap with each other, at a given priority, that is, any given packet must be able to match at most one conjunctive flow at a given priority\[char46] Overlapping conjunctive flows yield unpredictable results\[char46]
+.IP \(bu
+Following a conjunctive flow match, the search for the flow with \fBconj_id=\fR\fIid\fR is done in the same general-purpose way as other flow table searches, so one can use flows with \fBconj_id=\fR\fIid\fR to act differently depending on circumstances\[char46] (One exception is that the search for the \fBconj_id=\fR\fIid\fR flow itself ignores conjunctive flows, to avoid recursion\[char46]) If the search with \fBconj_id=\fR\fIid\fR fails, Open vSwitch acts as if the conjunctive flow had not matched at all, and continues searching the flow table for other matching flows\[char46]
+.IP \(bu
+OpenFlow prerequisite checking occurs for the flow with \fBconj_id=\fR\fIid\fR in the same way as any other flow, e\[char46]g\[char46] in an OpenFlow 1\[char46]1+ context, putting a \fBmod_nw_src\fR action into the example above would require adding an \fBip\fR match, like this:
+.IP
+.nf
+\fB
+.br
+\fB          conj_id=1234,ip actions=mod_nw_src:1\[char46]2\[char46]3\[char46]4,controller
+.br
+\fB        \fR
+.fi
+.IP \(bu
+OpenFlow prerequisite checking also occurs for the individual flows that comprise a conjunctive match in the same way as any other flow\[char46]
+.IP \(bu
+The flows that constitute a conjunctive flow do not have useful statistics\[char46] They are never updated with byte or packet counts, and so on\[char46] (For such a flow, therefore, the idle and hard timeouts work much the same way\[char46])
+.IP \(bu
+Sometimes there is a choice of which flows include a particular match\[char46] For example, suppose that we added an extra constraint to our example, to match on \fBip_src\fR \[mo] {\fIa\fR,\fIb\fR,\fIc\fR,\fId\fR} and \fBip_dst\fR \[mo] {\fIe\fR,\fIf\fR,\fIg\fR,\fIh\fR} and \fBtcp_dst\fR = \fIi\fR\[char46] One way to implement this is to add the new constraint to the \fBconj_id\fR flow, like this:
+.IP
+.nf
+\fB
+.br
+\fB          conj_id=1234,tcp,tcp_dst=\fR\fIi\fB\fR actions=mod_nw_src:1\[char46]2\[char46]3\[char46]4,controller
+.br
+\fB        \fR
+.fi
+.IP
+but \fBthis is not recommended\fR because of the cost of the extra flow table lookup\[char46] Instead, add the constraint to the individual flows, either in one of the dimensions or (slightly better) all of them\[char46]
+.IP \(bu
+A conjunctive match must have \fIn\fR \[>=] 2 dimensions (otherwise a conjunctive match is not necessary)\[char46] Open vSwitch enforces this\[char46]
+.IP \(bu
+Each dimension within a conjunctive match should ordinarily have more than one flow\[char46] Open vSwitch does not enforce this\[char46]
+.RE
+.PP
+.PP
+\fBConjunction ID Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBconj_id\fR
+Width:;32 bits
+Format:;decimal
+Masking:;not maskable
+Prerequisites:;none
+Access:;read-only
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+none
+T}
+NXM:;T{
+\fBNXM_NX_CONJ_ID\fR (37) since Open vSwitch 2.4
+T}
+.TE
+.PP
+.PP
+Used for conjunctive matching\[char46] See above for more information\[char46]
+.bp
+.SH "TUNNEL FIELDS"
+.SS "Summary:"
+.TS
+tab(;);
+l l l l l l l.
+Name;Bytes;Mask;RW?;Prereqs;NXM/OXM Support
+\_;\_;\_;\_;\_;\_
+\fBtun_id\fR aka \fBtunnel_id\fR;8;yes;yes;none;OF 1.3+ and OVS 1.1+
+\fBtun_src\fR;4;yes;yes;none;OVS 2.0+
+\fBtun_dst\fR;4;yes;yes;none;OVS 2.0+
+\fBtun_ipv6_src\fR;16;yes;yes;none;OVS 2.5+
+\fBtun_ipv6_dst\fR;16;yes;yes;none;OVS 2.5+
+\fBtun_gbp_id\fR;2;yes;yes;none;OVS 2.4+
+\fBtun_gbp_flags\fR;1;yes;yes;none;OVS 2.4+
+\fBtun_metadata0\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata1\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata2\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata3\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata4\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata5\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata6\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata7\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata8\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata9\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata10\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata11\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata12\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata13\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata14\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata15\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata16\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata17\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata18\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata19\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata20\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata21\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata22\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata23\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata24\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata25\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata26\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata27\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata28\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata29\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata30\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata31\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata32\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata33\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata34\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata35\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata36\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata37\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata38\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata39\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata40\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata41\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata42\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata43\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata44\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata45\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata46\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata47\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata48\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata49\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata50\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata51\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata52\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata53\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata54\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata55\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata56\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata57\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata58\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata59\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata60\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata61\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata62\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_metadata63\fR;124;yes;yes;none;OVS 2.5+
+\fBtun_flags\fR;2 (low 1 bits);yes;yes;none;OVS 2.5+
+.TE
+.PP
+.PP
+The fields in this group relate to tunnels, which Open vSwitch supports in several forms (GRE, VXLAN, and so on)\[char46] Most of these fields do appear in the wire format of a packet, so they are data fields from that point of view, but they are metadata from an OpenFlow flow table point of view because they do not appear in packets that are forwarded to the controller or to ordinary (non-tunnel) output ports\[char46]
+.PP
+.PP
+Open vSwitch supports a spectrum of usage models for mapping tunnels to OpenFlow ports:
+.PP
+.RS
+.TP
+``Port-based\(cq\(cq tunnels
+In this model, an OpenFlow port represents one tunnel: it matches a particular type of tunnel traffic between two IP endpoints, with a particular tunnel key (if keys are in use)\[char46] In this situation, \fBin_port\fR suffices to distinguish one tunnel from another, so the tunnel header fields have little importance for OpenFlow processing\[char46] (They are still populated and may be used if it is convenient\[char46]) The tunnel header fields play no role in sending packets out such an OpenFlow port, either, because the OpenFlow port itself fully specifies the tunnel headers\[char46]
+.IP
+The following Open vSwitch commands create a bridge \fBbr\-int\fR, add port \fBtap0\fR to the bridge as OpenFlow port 1, establish a port-based GRE tunnel between the local host and remote IP 192\[char46]168\[char46]1\[char46]1 using GRE key 5001 as OpenFlow port 2, and arranges to forward all traffic from \fBtap0\fR to the tunnel and vice versa:
+.IP
+.nf
+\fB
+.br
+\fBovs\-vsctl add\-br br\-int
+.br
+\fBovs\-vsctl add\-port br\-int tap0 \-\- set interface tap0 ofport_request=1
+.br
+\fBovs\-vsctl add\-port br\-int gre0 \-\-
+.br
+\fB    set interface gre0 ofport_request=2 type=gre \e
+.br
+\fB                       options:remote_ip=192\[char46]168\[char46]1\[char46]1 options:key=5001
+.br
+\fBovs\-ofctl add\-flow br\-int in_port=1,actions=2
+.br
+\fBovs\-ofctl add\-flow br\-int in_port=2,actions=1
+.br
+\fB	\fR
+.fi
+.TP
+``Flow-based\(cq\(cq tunnels
+In this model, one OpenFlow port represents all possible tunnels of a given type with an endpoint on the current host, for example, all GRE tunnels\[char46] In this situation, \fBin_port\fR only indicates that traffic was received on the particular kind of tunnel\[char46] This is where the tunnel header fields are most important: they allow the OpenFlow tables to discriminate among tunnels based on their IP endpoints or keys\[char46] Tunnel header fields also determine the IP endpoints and keys of packets sent out such a tunnel port\[char46]
+.IP
+The following Open vSwitch commands create a bridge \fBbr\-int\fR, add port \fBtap0\fR to the bridge as OpenFlow port 1, establish a flow-based GRE tunnel port 3, and arranges to forward all traffic from \fBtap0\fR to remote IP 192\[char46]168\[char46]1\[char46]1 over a GRE tunnel with key 5001 and vice versa:
+.IP
+.nf
+\fB
+.br
+\fBovs\-vsctl add\-br br\-int
+.br
+\fBovs\-vsctl add\-port br\-int tap0 \-\- set interface tap0 ofport_request=1
+.br
+\fBovs\-vsctl add\-port br\-int allgre \-\-
+.br
+\fB    set interface gre0 ofport_request=3 type=gre \e
+.br
+\fB                       options:remote_ip=flow options:key=flow
+.br
+\fBovs\-ofctl add\-flow br\-int \e
+.br
+\fB    \(cqin_port=1 actions=set_tunnel:5001,set_field:192\[char46]168\[char46]1\[char46]1\->tun_dst,3\(cq
+.br
+\fBovs\-ofctl add\-flow br\-int \(cqin_port=3,tun_src=192\[char46]168\[char46]1\[char46]1,tun_id=5001 actions=1\(cq
+.br
+\fB	\fR
+.fi
+.TP
+Mixed models\[char46]
+One may define both flow-based and port-based tunnels at the same time\[char46] For example, it is valid and possibly useful to create and configure both \fBgre0\fR and \fBallgre\fR tunnel ports described above\[char46]
+.IP
+Traffic is attributed on ingress to the most specific matching tunnel\[char46] For example, \fBgre0\fR is more specific than \fBallgre\fR\[char46] Therefore, if both exist, then \fBgre0\fR will be the ingress port for any GRE traffic received from 192\[char46]168\[char46]1\[char46]1 with key 5001\[char46]
+.IP
+On egress, traffic may be directed to any appropriate tunnel port\[char46] If both \fBgre0\fR and \fBallgre\fR are configured as already described, then the actions \fB2\fR and \fBset_tunnel:5001,set_field:192\[char46]168\[char46]1\[char46]1\->tun_dst,3\fR send the same tunnel traffic\[char46]
+.TP
+Intermediate models\[char46]
+Ports may be configured as partially flow-based\[char46] For example, one may define an OpenFlow port that represents tunnels between a pair of endpoints but leaves the flow table to discriminate on the flow key\[char46]
+.RE
+.PP
+.PP
+\fBovs\-vswitchd\[char46]conf\[char46]db\fR(5) describes all the details of tunnel configuration\[char46]
+.PP
+.PP
+These fields do not have any prerequisites, which means that a flow may match on any or all of them, in any combination\[char46]
+.PP
+.PP
+These fields are zeros for packets that did not arrive on a tunnel\[char46]
+.PP
+.PP
+\fBTunnel ID Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBtun_id\fR (aka \fBtunnel_id\fR)
+Width:;64 bits
+Format:;hexadecimal
+Masking:;arbitrary bitwise masks
+Prerequisites:;none
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+\fBOXM_OF_TUNNEL_ID\fR (38) since OpenFlow 1.3 and Open vSwitch 1.10
+T}
+NXM:;T{
+\fBNXM_NX_TUN_ID\fR (16) since Open vSwitch 1.1
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+Many kinds of tunnels support a tunnel ID:
+.RS
+.IP \(bu
+VXLAN and Geneve have a 24-bit virtual network identifier (VNI)\[char46]
+.IP \(bu
+LISP has a 24-bit instance ID\[char46]
+.IP \(bu
+GRE has an optional 32-bit key\[char46]
+.IP \(bu
+STT has a 64-bit key\[char46]
+.RE
+.PP
+.PP
+When a packet is received from a tunnel, this field holds the tunnel ID in its least significant bits, zero-extended to fit\[char46] This field is zero if the tunnel does not support an ID, or if no ID is in use for a tunnel type that has an optional ID, or if an ID of zero received, or if the packet was not received over a tunnel\[char46]
+.PP
+.PP
+When a packet is output to a tunnel port, the tunnel configuration determines whether the tunnel ID is taken from this field or bound to a fixed value\[char46] See the earlier description of ``port-based\(cq\(cq and ``flow-based\(cq\(cq tunnels for more information\[char46]
+.PP
+.PP
+The following diagram shows the origin of this field in a typical keyed GRE tunnel:
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "dst" width 0.4
+B1: box "src" width 0.4
+B2: box "type" width 0.4
+"48" at B0.n above
+"" at B0.s below
+"48" at B1.n above
+"" at B1.s below
+"16" at B2.n above
+"0x800" at B2.s below
+line <-> "Ethernet" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+move .1
+[
+B0: box ". . ." width 0.4
+B1: box "proto" width 0.4
+B2: box "src" width 0.4
+B3: box "dst" width 0.4
+"" at B0.n above
+"" at B0.s below
+"8" at B1.n above
+"47" at B1.s below
+"32" at B2.n above
+"" at B2.s below
+"32" at B3.n above
+"" at B3.s below
+line <-> "IPv4" above from B0.nw + (0,textht) to B3.ne + (0,textht)
+]
+move .1
+[
+B0: box ". . ." width 0.4
+B1: box "type" width 0.4
+B2: box "key" width .4 fill
+"16" at B0.n above
+"" at B0.s below
+"16" at B1.n above
+"0x6558" at B1.s below
+"32" at B2.n above
+"" at B2.s below
+line <-> "GRE" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+move .1
+[
+B0: box "dst" width 0.4
+B1: box "src" width 0.4
+B2: box "type" width 0.4
+"48" at B0.n above
+"" at B0.s below
+"48" at B1.n above
+"" at B1.s below
+"16" at B2.n above
+"" at B2.s below
+line <-> "Ethernet" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+move .1
+". . ." ljust
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL   Ethernet            IPv4               GRE           Ethernet
+.br
+\fL <----------->   <--------------->   <------------>   <---------->
+.br
+\fL 48  48   16           8   32  32    16    16   32    48  48   16
+.br
+\fL+---+---+-----+ +---+-----+---+---+ +---+------+---+ +---+---+----+
+.br
+\fL|dst|src|type | |...|proto|src|dst| |...| type |key| |dst|src|type| ...
+.br
+\fL+---+---+-----+ +---+-----+---+---+ +---+------+---+ +---+---+----+
+.br
+\fL         0x800        47                 0x6558
+.fi
+\}
+.PP
+.PP
+\fBTunnel IPv4 Source Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBtun_src\fR
+Width:;32 bits
+Format:;IPv4
+Masking:;arbitrary bitwise masks
+Prerequisites:;none
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+none
+T}
+NXM:;T{
+\fBNXM_NX_TUN_IPV4_SRC\fR (31) since Open vSwitch 2.0
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+When a packet is received from a tunnel, this field is the source address in the outer IP header of the tunneled packet\[char46] This field is zero if the packet was not received over a tunnel\[char46]
+.PP
+.PP
+When a packet is output to a flow-based tunnel port, this field influences the IPv4 source address used to send the packet\[char46] If it is zero, then the kernel chooses an appropriate IP address based using the routing table\[char46]
+.PP
+.PP
+The following diagram shows the origin of this field in a typical keyed GRE tunnel:
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "dst" width 0.4
+B1: box "src" width 0.4
+B2: box "type" width 0.4
+"48" at B0.n above
+"" at B0.s below
+"48" at B1.n above
+"" at B1.s below
+"16" at B2.n above
+"0x800" at B2.s below
+line <-> "Ethernet" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+move .1
+[
+B0: box ". . ." width 0.4
+B1: box "proto" width 0.4
+B2: box "src" width 0.4 fill
+B3: box "dst" width 0.4
+"" at B0.n above
+"" at B0.s below
+"8" at B1.n above
+"47" at B1.s below
+"32" at B2.n above
+"" at B2.s below
+"32" at B3.n above
+"" at B3.s below
+line <-> "IPv4" above from B0.nw + (0,textht) to B3.ne + (0,textht)
+]
+move .1
+[
+B0: box ". . ." width 0.4
+B1: box "type" width 0.4
+B2: box "key" width .4
+"16" at B0.n above
+"" at B0.s below
+"16" at B1.n above
+"0x6558" at B1.s below
+"32" at B2.n above
+"" at B2.s below
+line <-> "GRE" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+move .1
+[
+B0: box "dst" width 0.4
+B1: box "src" width 0.4
+B2: box "type" width 0.4
+"48" at B0.n above
+"" at B0.s below
+"48" at B1.n above
+"" at B1.s below
+"16" at B2.n above
+"" at B2.s below
+line <-> "Ethernet" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+move .1
+". . ." ljust
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL   Ethernet            IPv4               GRE           Ethernet
+.br
+\fL <----------->   <--------------->   <------------>   <---------->
+.br
+\fL 48  48   16           8   32  32    16    16   32    48  48   16
+.br
+\fL+---+---+-----+ +---+-----+---+---+ +---+------+---+ +---+---+----+
+.br
+\fL|dst|src|type | |...|proto|src|dst| |...| type |key| |dst|src|type| ...
+.br
+\fL+---+---+-----+ +---+-----+---+---+ +---+------+---+ +---+---+----+
+.br
+\fL         0x800        47                 0x6558
+.fi
+\}
+.PP
+.PP
+\fBTunnel IPv4 Destination Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBtun_dst\fR
+Width:;32 bits
+Format:;IPv4
+Masking:;arbitrary bitwise masks
+Prerequisites:;none
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+none
+T}
+NXM:;T{
+\fBNXM_NX_TUN_IPV4_DST\fR (32) since Open vSwitch 2.0
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+When a packet is received from a tunnel, this field is the destination address in the outer IP header of the tunneled packet\[char46] This field is zero if the packet was not received over a tunnel\[char46]
+.PP
+.PP
+When a packet is output to a flow-based tunnel port, this field specifies the destination to which the tunnel packet is sent\[char46]
+.PP
+.PP
+The following diagram shows the origin of this field in a typical keyed GRE tunnel:
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "dst" width 0.4
+B1: box "src" width 0.4
+B2: box "type" width 0.4
+"48" at B0.n above
+"" at B0.s below
+"48" at B1.n above
+"" at B1.s below
+"16" at B2.n above
+"0x800" at B2.s below
+line <-> "Ethernet" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+move .1
+[
+B0: box ". . ." width 0.4
+B1: box "proto" width 0.4
+B2: box "src" width 0.4
+B3: box "dst" width 0.4 fill
+"" at B0.n above
+"" at B0.s below
+"8" at B1.n above
+"47" at B1.s below
+"32" at B2.n above
+"" at B2.s below
+"32" at B3.n above
+"" at B3.s below
+line <-> "IPv4" above from B0.nw + (0,textht) to B3.ne + (0,textht)
+]
+move .1
+[
+B0: box ". . ." width 0.4
+B1: box "type" width 0.4
+B2: box "key" width .4
+"16" at B0.n above
+"" at B0.s below
+"16" at B1.n above
+"0x6558" at B1.s below
+"32" at B2.n above
+"" at B2.s below
+line <-> "GRE" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+move .1
+[
+B0: box "dst" width 0.4
+B1: box "src" width 0.4
+B2: box "type" width 0.4
+"48" at B0.n above
+"" at B0.s below
+"48" at B1.n above
+"" at B1.s below
+"16" at B2.n above
+"" at B2.s below
+line <-> "Ethernet" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+move .1
+". . ." ljust
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL   Ethernet            IPv4               GRE           Ethernet
+.br
+\fL <----------->   <--------------->   <------------>   <---------->
+.br
+\fL 48  48   16           8   32  32    16    16   32    48  48   16
+.br
+\fL+---+---+-----+ +---+-----+---+---+ +---+------+---+ +---+---+----+
+.br
+\fL|dst|src|type | |...|proto|src|dst| |...| type |key| |dst|src|type| ...
+.br
+\fL+---+---+-----+ +---+-----+---+---+ +---+------+---+ +---+---+----+
+.br
+\fL         0x800        47                 0x6558
+.fi
+\}
+.PP
+.PP
+\fBTunnel IPv6 Source Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBtun_ipv6_src\fR
+Width:;128 bits
+Format:;IPv6
+Masking:;arbitrary bitwise masks
+Prerequisites:;none
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+none
+T}
+NXM:;T{
+\fBNXM_NX_TUN_IPV6_SRC\fR (109) since Open vSwitch 2.5
+T}
+.TE
+.PP
+.PP
+Similar to \fBtun_src\fR, but for tunnels over IPv6\[char46]
+.PP
+.PP
+\fBTunnel IPv6 Destination Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBtun_ipv6_dst\fR
+Width:;128 bits
+Format:;IPv6
+Masking:;arbitrary bitwise masks
+Prerequisites:;none
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+none
+T}
+NXM:;T{
+\fBNXM_NX_TUN_IPV6_DST\fR (110) since Open vSwitch 2.5
+T}
+.TE
+.PP
+.PP
+Similar to \fBtun_dst\fR, but for tunnels over IPv6\[char46]
+.PP
+.SS "VXLAN Group-Based Policy Fields"
+.PP
+.PP
+The VXLAN header is defined as follows [RFC 7348], where the \fBI\fR bit must be set to 1, unlabeled bits or those labeled \fBreserved\fR must be set to 0, and Open vSwitch makes the VNI available via \fBtun_id\fR:
+.PP
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "" width 0.15
+B1: box "" width 0.15
+B2: box "" width 0.15
+B3: box "" width 0.15
+B4: box "I" width 0.15
+B5: box "" width 0.15
+B6: box "" width 0.15
+B7: box "" width 0.15
+"1" at B0.n above
+"" at B0.s below
+"1" at B1.n above
+"" at B1.s below
+"1" at B2.n above
+"" at B2.s below
+"1" at B3.n above
+"" at B3.s below
+"1" at B4.n above
+"" at B4.s below
+"1" at B5.n above
+"" at B5.s below
+"1" at B6.n above
+"" at B6.s below
+"1" at B7.n above
+"" at B7.s below
+line <-> "VXLAN flags" above from B0.nw + (0,textht) to B7.ne + (0,textht)
+]
+[
+B0: box "reserved" width 1.2
+B1: box "VNI" width 1.2
+B2: box "reserved" width .5
+"24" at B0.n above
+"" at B0.s below
+"24" at B1.n above
+"" at B1.s below
+"8" at B2.n above
+"" at B2.s below
+line <-> invis "" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL   VXLAN flags
+.br
+\fL <------------->
+.br
+\fL 1 1 1 1 1 1 1 1    24    24     8
+.br
+\fL+-+-+-+-+-+-+-+-+--------+---+--------+
+.br
+\fL| | | | |I| | | |reserved|VNI|reserved|
+.br
+\fL+-+-+-+-+-+-+-+-+--------+---+--------+
+.br
+\fL
+.fi
+\}
+.PP
+.PP
+VXLAN Group-Based Policy [VXLAN Group Policy Option] adds new interpretations to existing bits in the VXLAN header, reinterpreting it as follows, with changes highlighted:
+.PP
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "" width 0.15
+B1: box "D" width 0.15 fill
+B2: box "" width 0.15
+B3: box "" width 0.15
+B4: box "A" width 0.15 fill
+B5: box "" width 0.15
+B6: box "" width 0.15
+B7: box "" width 0.15
+"1" at B0.n above
+"" at B0.s below
+"1" at B1.n above
+"" at B1.s below
+"1" at B2.n above
+"" at B2.s below
+"1" at B3.n above
+"" at B3.s below
+"1" at B4.n above
+"" at B4.s below
+"1" at B5.n above
+"" at B5.s below
+"1" at B6.n above
+"" at B6.s below
+"1" at B7.n above
+"" at B7.s below
+line <-> "GBP flags" above from B0.nw + (0,textht) to B7.ne + (0,textht)
+]
+[
+B0: box "group policy ID" width 1.2 fill
+B1: box "VNI" width 1.2
+B2: box "reserved" width .5
+"24" at B0.n above
+"" at B0.s below
+"24" at B1.n above
+"" at B1.s below
+"8" at B2.n above
+"" at B2.s below
+line <-> invis "" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL    GBP flags
+.br
+\fL <------------->
+.br
+\fL 1 1 1 1 1 1 1 1       24        24     8
+.br
+\fL+-+-+-+-+-+-+-+-+---------------+---+--------+
+.br
+\fL| |D| | |A| | | |group policy ID|VNI|reserved|
+.br
+\fL+-+-+-+-+-+-+-+-+---------------+---+--------+
+.br
+\fL
+.fi
+\}
+.PP
+.PP
+Open vSwitch makes GBP fields and flags available through the following fields\[char46] Only packets that arrive over a VXLAN tunnel with the GBP extension enabled have these fields set\[char46] In other packets they are zero on receive and ignored on transmit\[char46]
+.PP
+.PP
+\fBVXLAN Group-Based Policy ID Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBtun_gbp_id\fR
+Width:;16 bits
+Format:;decimal
+Masking:;arbitrary bitwise masks
+Prerequisites:;none
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+none
+T}
+NXM:;T{
+\fBNXM_NX_TUN_GBP_ID\fR (38) since Open vSwitch 2.4
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+For a packet tunneled over VXLAN with the Group-Based Policy (GBP) extension, this field represents the GBP policy ID, as shown above\[char46]
+.PP
+.PP
+\fBVXLAN Group-Based Policy Flags Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBtun_gbp_flags\fR
+Width:;8 bits
+Format:;hexadecimal
+Masking:;arbitrary bitwise masks
+Prerequisites:;none
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+none
+T}
+NXM:;T{
+\fBNXM_NX_TUN_GBP_FLAGS\fR (39) since Open vSwitch 2.4
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+For a packet tunneled over VXLAN with the Group-Based Policy (GBP) extension, this field represents the GBP policy flags, as shown above\[char46]
+.PP
+.PP
+The field has the format shown below:
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "" width 0.15
+B1: box "D" width 0.15
+B2: box "" width 0.15
+B3: box "" width 0.15
+B4: box "A" width 0.15
+B5: box "" width 0.15
+B6: box "" width 0.15
+B7: box "" width 0.15
+"1" at B0.n above
+"" at B0.s below
+"1" at B1.n above
+"" at B1.s below
+"1" at B2.n above
+"" at B2.s below
+"1" at B3.n above
+"" at B3.s below
+"1" at B4.n above
+"" at B4.s below
+"1" at B5.n above
+"" at B5.s below
+"1" at B6.n above
+"" at B6.s below
+"1" at B7.n above
+"" at B7.s below
+line <-> "GBP Flags" above from B0.nw + (0,textht) to B7.ne + (0,textht)
+]
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL    GBP Flags
+.br
+\fL <------------->
+.br
+\fL 1 1 1 1 1 1 1 1
+.br
+\fL+-+-+-+-+-+-+-+-+
+.br
+\fL| |D| | |A| | | |
+.br
+\fL+-+-+-+-+-+-+-+-+
+.br
+\fL
+.fi
+\}
+.PP
+.PP
+Unlabeled bits are reserved and must be transmitted as 0\[char46] The VXLAN GBP draft defines the other bits\(cq meanings as:
+.RS
+.TP
+\fBD\fR (Don\(cqt Learn)
+When set, this bit indicates that the egress tunnel endpoint must not learn the source address of the encapsulated frame\[char46]
+.TP
+\fBA\fR (Applied)
+When set, indicates that the group policy has already been applied to this packet\[char46] Devices must not apply policies when the A bit is set\[char46]
+.RE
+.PP
+.SS "Geneve Fields"
+.PP
+.PP
+These fields provide access to additional features in the Geneve tunneling protocol [Geneve]\[char46] Their names are somewhat generic in the hope that the same fields could be reused for other protocols in the future; for example, the NSH protocol [NSH] supports TLV options whose form is identical to that for Geneve options\[char46]
+.PP
+.PP
+\fBGeneric Tunnel Option 0 Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBtun_metadata0\fR
+Width:;992 bits (124 bytes)
+Format:;hexadecimal
+Masking:;arbitrary bitwise masks
+Prerequisites:;none
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+none
+T}
+NXM:;T{
+\fBNXM_NX_TUN_METADATA0\fR (40) since Open vSwitch 2.5
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+The above information specifically covers generic tunnel option 0, but Open vSwitch supports 64 options, numbered 0 through 63, whose NXM field numbers are 40 through 103\[char46]
+.PP
+.PP
+These fields provide OpenFlow access to the generic type-length-value options defined by the Geneve tunneling protocol or other protocols with options in the same TLV format as Geneve options\[char46] Each of these options has the following wire format:
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "class" width 0.6
+B1: box "type" width 0.5
+B2: box "res" width 0.25
+B3: box "length" width 0.4
+"16" at B0.n above
+"" at B0.s below
+"8" at B1.n above
+"" at B1.s below
+"3" at B2.n above
+"0" at B2.s below
+"5" at B3.n above
+"" at B3.s below
+line <-> "header" above from B0.nw + (0,textht) to B3.ne + (0,textht)
+]
+[
+B0: box "value" width 1.7
+"4\[mu](length - 1) bytes" at B0.n above
+"" at B0.s below
+line <-> "body" above from B0.nw + (0,textht) to B0.ne + (0,textht)
+]
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL        header                 body
+.br
+\fL <-------------------> <------------------>
+.br
+\fL  16    8    3    5    4\[mu](length - 1) bytes
+.br
+\fL+-----+----+---+------+--------------------+
+.br
+\fL|class|type|res|length|       value        |
+.br
+\fL+-----+----+---+------+--------------------+
+.br
+\fL             0
+.fi
+\}
+.PP
+.PP
+Taken together, the \fBclass\fR and \fBtype\fR in the option format mean that there are about 16 million distinct kinds of TLV options, too many to give individual OXM code points\[char46] Thus, Open vSwitch requires the user to define the TLV options of interest, by binding up to 64 TLV options to generic tunnel option NXM code points\[char46] Each option may have up to 124 bytes in its body, the maximum allowed by the TLV format, but bound options may total at most 252 bytes of body\[char46]
+.PP
+.PP
+Open vSwitch extensions to the OpenFlow protocol bind TLV options to NXM code points\[char46] The \fBovs\-ofctl\fR(8) program offers one way to use these extensions, e\[char46]g\[char46] to configure a mapping from a TLV option with \fBclass\fR \fB0xffff\fR, \fBtype\fR \fB0\fR, and a body length of 4 bytes:
+.PP
+.nf
+\fB
+.br
+\fBovs\-ofctl add\-tlv\-map br0 \(dq{class=0xffff,type=0,len=4}\->tun_metadata0\(dq
+.br
+\fB      \fR
+.fi
+.PP
+.PP
+Once a TLV option is properly bound, it can be accessed and modified like any other field, e\[char46]g\[char46] to send packets that have value 1234 for the option described above to the controller:
+.PP
+.nf
+\fB
+.br
+\fBovs\-ofctl add\-flow br0 tun_metadata0=1234,actions=controller
+.br
+\fB      \fR
+.fi
+.PP
+.PP
+An option not received or not bound is matched as all zeros\[char46]
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+\fBTunnel Flags Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBtun_flags\fR
+Width:;16 bits (only the least-significant 1 bits may be nonzero)
+Format:;tunnel flags
+Masking:;arbitrary bitwise masks
+Prerequisites:;none
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+none
+T}
+NXM:;T{
+\fBNXM_NX_TUN_FLAGS\fR (104) since Open vSwitch 2.5
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+Flags indicating various aspects of the tunnel encapsulation\[char46]
+.PP
+.PP
+Matches on this field are most conveniently written in terms of symbolic names (given in the diagram below), each preceded by either \fB+\fR for a flag that must be set, or \fB\-\fR for a flag that must be unset, without any other delimiters between the flags\[char46] Flags not mentioned are wildcarded\[char46] For example, \fBtun_flags=+oam\fR matches only OAM packets\[char46] Matches can also be written as \fB\fIflags\fB/\fImask\fB\fR, where \fIflags\fR and \fImask\fR are 16-bit numbers in decimal or in hexadecimal prefixed by \fB0x\fR\[char46]
+.PP
+.PP
+Currently, only one flag is defined:
+.RS
+.TP
+\fBoam\fR
+The tunnel protocol indicated that this is an OAM (Operations and Management) control packet\[char46]
+.RE
+.PP
+.PP
+The switch may reject matches against unknown flags\[char46]
+.PP
+.PP
+Newer versions of Open vSwitch may introduce additional flags with new meanings\[char46] It is therefore not recommended to use an exact match on this field since the behavior of these new flags is unknown and should be ignored\[char46]
+.PP
+.PP
+For non-tunneled packets, the value is 0\[char46]
+.bp
+.SH "METADATA FIELDS"
+.SS "Summary:"
+.TS
+tab(;);
+l l l l l l l.
+Name;Bytes;Mask;RW?;Prereqs;NXM/OXM Support
+\_;\_;\_;\_;\_;\_
+\fBin_port\fR;2;no;yes;none;OVS 1.1+
+\fBin_port_oxm\fR;4;no;yes;none;OF 1.2+ and OVS 1.7+
+\fBskb_priority\fR;4;no;no;none;
+\fBpkt_mark\fR;4;yes;yes;none;OVS 2.0+
+\fBactset_output\fR;4;no;no;none;OF 1.3+ and OVS 2.4+
+.TE
+.PP
+.PP
+These fields relate to the origin or treatment of a packet, but they are not extracted from the packet data itself\[char46]
+.PP
+.PP
+\fBIngress Port Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBin_port\fR
+Width:;16 bits
+Format:;OpenFlow 1.0 port
+Masking:;not maskable
+Prerequisites:;none
+Access:;read/write
+OpenFlow 1.0:;yes (exact match only)
+OpenFlow 1.1:;yes (exact match only)
+OXM:;T{
+none
+T}
+NXM:;T{
+\fBNXM_OF_IN_PORT\fR (0) since Open vSwitch 1.1
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+The OpenFlow port on which the packet being processed arrived\[char46] This is a 16-bit field that holds an OpenFlow 1\[char46]0 port number\[char46] For receiving a packet, the only values that appear in this field are:
+.RS
+.TP
+1 through \fB0xfeff\fR (65,279), inclusive\[char46]
+Conventional OpenFlow port numbers\[char46]
+.TP
+\fBOFPP_LOCAL\fR (\fB0xfffe\fR or 65,534)\[char46]
+The ``local\(cq\(cq port, which in Open vSwitch is always named the same as the bridge itself\[char46] This represents a connection between the switch and the local TCP/IP stack\[char46] This port is where an IP address is most commonly configured on an Open vSwitch switch\[char46]
+.IP
+OpenFlow does not require a switch to have a local port, but all existing versions of Open vSwitch have always included a local port\[char46] \fBFuture Directions:\fR Future versions of Open vSwitch might be able to optionally omit the local port, if someone submits code to implement such a feature\[char46]
+.TP
+\fBOFPP_NONE\fR (OpenFlow 1\[char46]0) or \fBOFPP_ANY\fR (OpenFlow 1\[char46]1+) (\fB0xffff\fR or 65,535)\[char46]
+.TQ .5in
+\fBOFPP_CONTROLLER\fR (\fB0xfffd\fR or 65,533)\[char46]
+When a controller injects a packet into an OpenFlow switch with a ``packet-out\(cq\(cq request, it can specify one of these ingress ports to indicate that the packet was generated internally rather than having been received on some port\[char46]
+.IP
+OpenFlow 1\[char46]0 specified \fBOFPP_NONE\fR for this purpose\[char46] Despite that, some controllers used \fBOFPP_CONTROLLER\fR, and some switches only accepted \fBOFPP_CONTROLLER\fR, so OpenFlow 1\[char46]0\[char46]2 required support for both ports\[char46] OpenFlow 1\[char46]1 and later were more clearly drafted to allow only \fBOFPP_CONTROLLER\fR\[char46] For maximum compatibility, Open vSwitch allows both ports with all OpenFlow versions\[char46]
+.RE
+.PP
+.PP
+Values not mentioned above will never appear when receiving a packet, including the following notable values:
+.RS
+.TP
+0
+Zero is not a valid OpenFlow port number\[char46]
+.TP
+\fBOFPP_MAX\fR (\fB0xff00\fR or 65,280)\[char46]
+This value has only been clearly specified as a valid port number as of OpenFlow 1\[char46]3\[char46]3\[char46] Before that, its status was unclear, and so Open vSwitch has never allowed \fBOFPP_MAX\fR to be used as a port number, so packets will never be received on this port\[char46] (Other OpenFlow switches, of course, might use it\[char46])
+.TP
+\fBOFPP_UNSET\fR (\fB0xfff7\fR or 65,527)
+.TQ .5in
+\fBOFPP_IN_PORT\fR (\fB0xfff8\fR or 65,528)
+.TQ .5in
+\fBOFPP_TABLE\fR (\fB0xfff9\fR or 65,529)
+.TQ .5in
+\fBOFPP_NORMAL\fR (\fB0xfffa\fR or 65,530)
+.TQ .5in
+\fBOFPP_FLOOD\fR (\fB0xfffb\fR or 65,531)
+.TQ .5in
+\fBOFPP_ALL\fR (\fB0xfffc\fR or 65,532)
+These port numbers are used only in output actions and never appear as ingress ports\[char46]
+.IP
+Most of these port numbers were defined in OpenFlow 1\[char46]0, but \fBOFPP_UNSET\fR was only introduced in OpenFlow 1\[char46]5\[char46]
+.RE
+.PP
+.PP
+Values that will never appear when receiving a packet may still be matched against in the flow table\[char46] There are still circumstances in which those flows can be matched:
+.RS
+.IP \(bu
+The \fBresubmit\fR Open vSwitch extension action allows a flow table lookup with an arbitrary ingress port\[char46]
+.IP \(bu
+An action that modifies the ingress port field (see below), such as e\[char46]g\[char46] \fBload\fR or \fBset_field\fR, followed by an action or instruction that performs another flow table lookup, such as \fBresubmit\fR or \fBgoto_table\fR\[char46]
+.RE
+.PP
+.PP
+This field is heavily used for matching in OpenFlow tables, but for packet egress, it has only very limited roles:
+.RS
+.IP \(bu
+OpenFlow requires suppressing output actions to \fBin_port\fR\[char46] That is, the following two flows both drop all packets that arrive on port 1:
+.IP
+.nf
+\fB
+.br
+\fBin_port=1,actions=1
+.br
+\fBin_port=1,actions=drop
+.br
+\fB	  \fR
+.fi
+.IP
+(This behavior is occasionally useful for flooding to a subset of ports\[char46] Specifying \fBactions=1,2,3,4\fR, for example, outputs to ports 1, 2, 3, and 4, omitting the ingress port\[char46])
+.IP \(bu
+OpenFlow has a special port \fBOFPP_IN_PORT\fR (with value 0xfff8) that outputs to the ingress port\[char46] For example, in a switch that has four ports numbered 1 through 4, \fBactions=1,2,3,4,in_port\fR outputs to ports 1, 2, 3, and 4, including the ingress port\[char46]
+.RE
+.PP
+.PP
+Because the ingress port field has so little influence on packet processing, it does not ordinarily make sense to modify the ingress port field\[char46] The field is writable only to support the occasional use case where the ingress port\(cqs roles in packet egress, described above, become troublesome\[char46] For example, \fBactions=load:0\->NXM_OF_IN_PORT[],output:123\fR will output to port 123 regardless of whether it is in the ingress port\[char46] If the ingress port is important, then one may save and restore it on the stack:
+.PP
+.nf
+\fB
+.br
+\fBactions=push:NXM_OF_IN_PORT[],load:0\->NXM_OF_IN_PORT[],output:123,pop:NXM_OF_IN_PORT[]
+.br
+\fB      \fR
+.fi
+.PP
+.PP
+or, in Open vSwitch 2\[char46]7 or later, use the \fBclone\fR action to save and restore it:
+.PP
+.nf
+\fB
+.br
+\fBactions=clone(load:0\->NXM_OF_IN_PORT[],output:123)
+.br
+\fB      \fR
+.fi
+.PP
+.PP
+The ability to modify the ingress port is an Open vSwitch extension to OpenFlow\[char46]
+.PP
+.PP
+\fBOXM Ingress Port Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBin_port_oxm\fR
+Width:;32 bits
+Format:;OpenFlow 1.1+ port
+Masking:;not maskable
+Prerequisites:;none
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;yes (exact match only)
+OXM:;T{
+\fBOXM_OF_IN_PORT\fR (0) since OpenFlow 1.2 and Open vSwitch 1.7
+T}
+NXM:;T{
+none
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+OpenFlow 1\[char46]1 and later use a 32-bit port number, so this field supplies a 32-bit view of the ingress port\[char46] Current versions of Open vSwitch support only a 16-bit range of ports:
+.RS
+.IP \(bu
+OpenFlow 1\[char46]0 ports \fB0x0000\fR to \fB0xfeff\fR, inclusive, map to OpenFlow 1\[char46]1 port numbers with the same values\[char46]
+.IP \(bu
+OpenFlow 1\[char46]0 ports \fB0xff00\fR to \fB0xffff\fR, inclusive, map to OpenFlow 1\[char46]1 port numbers \fB0xffffff00\fR to \fB0xffffffff\fR\[char46]
+.IP \(bu
+OpenFlow 1\[char46]1 ports \fB0x0000ff00\fR to \fB0xfffffeff\fR are not mapped and not supported\[char46]
+.RE
+.PP
+.PP
+\fBin_port\fR and \fBin_port_oxm\fR are two views of the same information, so all of the comments on \fBin_port\fR apply to \fBin_port_oxm\fR too\[char46] Modifying \fBin_port\fR changes \fBin_port_oxm\fR, and vice versa\[char46]
+.PP
+.PP
+Setting \fBin_port_oxm\fR to an unsupported value yields unspecified behavior\[char46]
+.PP
+.PP
+\fBOutput Queue Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBskb_priority\fR
+Width:;32 bits
+Format:;hexadecimal
+Masking:;not maskable
+Prerequisites:;none
+Access:;read-only
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+none
+T}
+NXM:;T{
+none
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+\fBFuture Directions:\fR Open vSwitch implements the output queue as a field, but does not currently expose it through OXM or NXM for matching purposes\[char46] If this turns out to be a useful feature, it could be implemented in future versions\[char46] Only the \fBset_queue\fR, \fBenqueue\fR, and \fBpop_queue\fR actions currently influence the output queue\[char46]
+.PP
+.PP
+This field influences how packets in the flow will be queued, for quality of service (QoS) purposes, when they egress the switch\[char46] Its range of meaningful values, and their meanings, varies greatly from one OpenFlow implementation to another\[char46] Even within a single implementation, there is no guarantee that all OpenFlow ports have the same queues configured or that all OpenFlow ports in an implementation can be configured the same way queue-wise\[char46]
+.PP
+.PP
+Configuring queues on OpenFlow is not well standardized\[char46] On Linux, Open vSwitch supports queue configuration via OVSDB, specifically the \fBQoS\fR and \fBQueue\fR tables (see \fBovs\-vswitchd\[char46]conf\[char46]db(5)\fR for details)\[char46] Ports of Open vSwitch to other platforms might require queue configuration through some separate protocol (such as a CLI)\[char46] Even on Linux, Open vSwitch exposes only a fraction of the kernel\(cqs queuing features through OVSDB, so advanced or unusual uses might require use of separate utilities (e\[char46]g\[char46] \fBtc\fR)\[char46] OpenFlow switches other than Open vSwitch might use OF-CONFIG or any of the configuration methods mentioned above\[char46] Finally, some OpenFlow switches have a fixed number of fixed-function queues (e\[char46]g\[char46] eight queues with strictly defined priorities) and others do not support any control over queuing\[char46]
+.PP
+.PP
+The only output queue that all OpenFlow implementations must support is zero, to identify a default queue, whose properties are implementation-defined\[char46] Outputting a packet to a queue that does not exist on the output port yields unpredictable behavior: among the possibilities are that the packet might be dropped or transmitted with a very high or very low priority\[char46]
+.PP
+.PP
+OpenFlow 1\[char46]0 only allowed output queues to be specified as part of an \fBenqueue\fR action that specified both a queue and an output port\[char46] That is, OpenFlow 1\[char46]0 treats the queue as an argument to an action, not as a field\[char46]
+.PP
+.PP
+To increase flexibility, OpenFlow 1\[char46]1 added an action to set the output queue\[char46] This model was carried forward, without change, through OpenFlow 1\[char46]5\[char46]
+.PP
+.PP
+Open vSwitch implements the native queuing model of each OpenFlow version it supports\[char46] Open vSwitch also includes an extension for setting the output queue as an action in OpenFlow 1\[char46]0\[char46]
+.PP
+.PP
+When a packet ingresses into an OpenFlow switch, the output queue is ordinarily set to 0, indicating the default queue\[char46] However, Open vSwitch supports various ways to forward a packet from one OpenFlow switch to another within a single host\[char46] In these cases, Open vSwitch maintains the output queue across the forwarding step\[char46] For example:
+.RS
+.IP \(bu
+A hop across an Open vSwitch ``patch port\(cq\(cq (which does not actually involve queuing) preserves the output queue\[char46]
+.IP \(bu
+When a flow sets the output queue then outputs to an OpenFlow tunnel port, the encapsulation preserves the output queue\[char46] If the kernel TCP/IP stack routes the encapsulated packet directly to a physical interface, then that output honors the output queue\[char46] Alternatively, if the kernel routes the encapsulated packet to another Open vSwitch bridge, then the output queue set previously becomes the initial output queue on ingress to the second bridge and will thus be used for further output actions (unless overridden by a new ``set queue\(cq\(cq action)\[char46]
+.IP
+(This description reflects the current behavior of Open vSwitch on Linux\[char46] This behavior relies on details of the Linux TCP/IP stack\[char46] It could be difficult to make ports to other operating systems behave the same way\[char46])
+.RE
+.PP
+.PP
+\fBPacket Mark Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBpkt_mark\fR
+Width:;32 bits
+Format:;hexadecimal
+Masking:;arbitrary bitwise masks
+Prerequisites:;none
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+none
+T}
+NXM:;T{
+\fBNXM_NX_PKT_MARK\fR (33) since Open vSwitch 2.0
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+Packet mark comes to Open vSwitch from the Linux kernel, in which the \fBsk_buff\fR data structure that represents a packet contains a 32-bit member named \fBskb_mark\fR\[char46] The value of \fBskb_mark\fR propagates along with the packet it accompanies wherever the packet goes in the kernel\[char46] It has no predefined semantics but various kernel-user interfaces can set and match on it, which makes it suitable for ``marking\(cq\(cq packets at one point in their handling and then acting on the mark later\[char46] With \fBiptables\fR, for example, one can mark some traffic specially at ingress and then handle that traffic differently at egress based on the marked value\[char46]
+.PP
+.PP
+Packet mark is an attempt at a generalization of the \fBskb_mark\fR concept beyond Linux, at least through more generic naming\[char46] Like \fBskb_priority\fR, packet mark is preserved across forwarding steps within a machine\[char46] Unlike \fBskb_priority\fR, packet mark has no direct effect on packet forwarding: the value set in packet mark does not matter unless some later OpenFlow table or switch matches on packet mark, or unless the packet passes through some other kernel subsystem that has been configured to interpret packet mark in specific ways, e\[char46]g\[char46] through \fBiptables\fR configuration mentioned above\[char46]
+.PP
+.PP
+Preserving packet mark across kernel forwarding steps relies heavily on kernel support, which ports to non-Linux operating systems may not have\[char46] Regardless of operating system support, Open vSwitch supports packet mark within a single bridge and across patch ports\[char46]
+.PP
+.PP
+The value of packet mark when a packet ingresses into the first Open vSwich bridge is typically zero, but it could be nonzero if its value was previously set by some kernel subsystem\[char46]
+.PP
+.PP
+\fBAction Set Output Port Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBactset_output\fR
+Width:;32 bits
+Format:;OpenFlow 1.1+ port
+Masking:;not maskable
+Prerequisites:;none
+Access:;read-only
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+\fBONFOXM_ET_ACTSET_OUTPUT\fR (43) since OpenFlow 1.3 and Open vSwitch 2.4\[char59] \fBOXM_OF_ACTSET_OUTPUT\fR (43) since OpenFlow 1.5 and Open vSwitch 2.4
+T}
+NXM:;T{
+none
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+Holds the output port currently in the OpenFlow action set (i\[char46]e\[char46] from an \fBoutput\fR action within a \fBwrite_actions\fR instruction)\[char46] Its value is an OpenFlow port number\[char46] If there is no output port in the OpenFlow action set, or if the output port will be ignored (e\[char46]g\[char46] because there is an output group in the OpenFlow action set), then the value will be \fBOFPP_UNSET\fR\[char46]
+.PP
+.PP
+Open vSwitch allows any table to match this field\[char46] OpenFlow, however, only requires this field to be matchable from within an OpenFlow egress table (a feature that Open vSwitch does not yet implement)\[char46]
+.bp
+.SH "CONNECTION TRACKING FIELDS"
+.SS "Summary:"
+.TS
+tab(;);
+l l l l l l l.
+Name;Bytes;Mask;RW?;Prereqs;NXM/OXM Support
+\_;\_;\_;\_;\_;\_
+\fBct_state\fR;4;yes;no;none;OVS 2.5+
+\fBct_zone\fR;2;no;no;none;OVS 2.5+
+\fBct_mark\fR;4;yes;yes;none;OVS 2.5+
+\fBct_label\fR;16;yes;yes;none;OVS 2.5+
+.TE
+.PP
+.PP
+Open vSwitch 2\[char46]5 and later support ``connection tracking,\(cq\(cq which allows bidirectional streams of packets to be statefully grouped into connections\[char46] Open vSwitch connection tracking, for example, identifies the patterns of TCP packets that indicates a successfully initiated connection, as well as those that indicate that a connection has been torn down\[char46] Open vSwitch connection tracking can also identify related connections, such as FTP data connections spawned from FTP control connections\[char46]
+.PP
+.PP
+An individual packet passing through the pipeline may be in one of two states, ``untracked\(cq\(cq or ``tracked,\(cq\(cq which may be distinguished via the ``trk\(cq\(cq flag in \fBct_state\fR\[char46] A packet is \fIuntracked\fR at the beginning of the Open vSwitch pipeline and continues to be untracked until the pipeline invokes the \fBct\fR action\[char46] The connection tracking fields are all zeroes in an untracked packet\[char46] When a flow in the Open vSwitch pipeline invokes the \fBct\fR action, the action initializes the connection tracking fields and the packet becomes \fItracked\fR for the remainder of its processing\[char46]
+.PP
+.PP
+The connection tracker stores connection state in an internal table, but it only adds a new entry to this table when a \fBct\fR action for a new connection invokes \fBct\fR with the \fBcommit\fR parameter\[char46] For a given connection, when a pipeline has executed \fBct\fR, but not yet with \fBcommit\fR, the connection is said to be \fIuncommitted\fR\[char46] State for an uncommitted connection is ephemeral and does not persist past the end of the pipeline, so some features are only available to committed connections\[char46] A connection would typically be left uncommitted as a way to drop its packets\[char46]
+.PP
+.PP
+Connection tracking is an Open vSwitch extension to OpenFlow\[char46]
+.PP
+.PP
+\fBConnection Tracking State Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBct_state\fR
+Width:;32 bits
+Format:;ct state
+Masking:;arbitrary bitwise masks
+Prerequisites:;none
+Access:;read-only
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+none
+T}
+NXM:;T{
+\fBNXM_NX_CT_STATE\fR (105) since Open vSwitch 2.5
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+This field holds several flags that can be used to determine the state of the connection to which the packet belongs\[char46]
+.PP
+.PP
+Matches on this field are most conveniently written in terms of symbolic names (listed below), each preceded by either \fB+\fR for a flag that must be set, or \fB\-\fR for a flag that must be unset, without any other delimiters between the flags\[char46] Flags not mentioned are wildcarded\[char46] For example, \fBtcp,ct_state=+trk\-new\fR matches TCP packets that have been run through the connection tracker and do not establish a new connection\[char46] Matches can also be written as \fB\fIflags\fB/\fImask\fB\fR, where \fIflags\fR and \fImask\fR are 32-bit numbers in decimal or in hexadecimal prefixed by \fB0x\fR\[char46]
+.PP
+.PP
+The following flags are defined:
+.RS
+.TP
+\fBnew\fR (0x01)
+A new connection\[char46] Set to 1 if this is an uncommitted connection\[char46]
+.TP
+\fBest\fR (0x02)
+Part of an existing connection\[char46] Set to 1 if this is a committed connection\[char46]
+.TP
+\fBrel\fR (0x04)
+Related to an existing connection, e\[char46]g\[char46] an ICMP ``destination unreachable\(cq\(cq message or an FTP data connections\[char46] This flag will only be 1 if the connection to which this one is related is committed\[char46]
+.IP
+Connections identified as \fBrel\fR are separate from the originating connection and must be committed separately\[char46] All packets for a related connection will have the \fBrel\fR flag set, not just the initial packet\[char46]
+.TP
+\fBrpl\fR (0x08)
+This packet is in the reply direction, meaning that it is in the opposite direction from the packet that initiated the connection\[char46] This flag will only be 1 if the connection is committed\[char46]
+.TP
+\fBinv\fR (0x10)
+The state is invalid, meaning that the connection tracker couldn\(cqt identify the connection\[char46] This flag is a catch-all for problems in the connection or the connection tracker, such as:
+.RS
+.IP \(bu
+L3/L4 protocol handler is not loaded/unavailable\[char46] With the Linux kernel datapath, this may mean that the \fBnf_conntrack_ipv4\fR or \fBnf_conntrack_ipv6\fR modules are not loaded\[char46]
+.IP \(bu
+L3/L4 protocol handler determines that the packet is malformed\[char46]
+.IP \(bu
+Packets are unexpected length for protocol\[char46]
+.RE
+.TP
+\fBtrk\fR (0x20)
+This packet is tracked, meaning that it has previously traversed the connection tracker\[char46] If this flag is not set, then no other flags will be set\[char46] If this flag is set, then the packet is tracked and other flags may also be set\[char46]
+.TP
+\fBsnat\fR (0x40)
+This packet was transformed by source address/port translation by a preceding \fBct\fR action\[char46] Open vSwitch 2\[char46]6 added this flag\[char46]
+.TP
+\fBdnat\fR (0x80)
+This packet was transformed by destination address/port translation by a preceding \fBct\fR action\[char46] Open vSwitch 2\[char46]6 added this flag\[char46]
+.RE
+.PP
+.PP
+There are additional constraints on these flags, listed in decreasing order of precedence below:
+.RS
+.IP 1. .25in
+If \fBtrk\fR is unset, no other flags are set\[char46]
+.IP 2. .25in
+If \fBtrk\fR is set, one or more other flags may be set\[char46]
+.IP 3. .25in
+If \fBinv\fR is set, only the \fBtrk\fR flag is also set\[char46]
+.IP 4. .25in
+\fBnew\fR and \fBest\fR are mutually exclusive\[char46]
+.IP 5. .25in
+\fBnew\fR and \fBrpl\fR are mutually exclusive\[char46]
+.IP 6. .25in
+\fBrel\fR may be set in conjunction with any other flags\[char46]
+.RE
+.PP
+.PP
+Future versions of Open vSwitch may define new flags\[char46]
+.PP
+.PP
+\fBConnection Tracking Zone Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBct_zone\fR
+Width:;16 bits
+Format:;hexadecimal
+Masking:;not maskable
+Prerequisites:;none
+Access:;read-only
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+none
+T}
+NXM:;T{
+\fBNXM_NX_CT_ZONE\fR (106) since Open vSwitch 2.5
+T}
+.TE
+.PP
+.PP
+A connection tracking zone, the zone value passed to the most recent \fBct\fR action\[char46] Each zone is an independent connection tracking context, so tracking the same packet in multiple contexts requires using the \fBct\fR action multiple times\[char46]
+.PP
+.PP
+\fBConnection Tracking Mark Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBct_mark\fR
+Width:;32 bits
+Format:;hexadecimal
+Masking:;arbitrary bitwise masks
+Prerequisites:;none
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+none
+T}
+NXM:;T{
+\fBNXM_NX_CT_MARK\fR (107) since Open vSwitch 2.5
+T}
+.TE
+.PP
+.PP
+The metadata committed, by an action within the \fBexec\fR parameter to the \fBct\fR action, to the connection to which the current packet belongs\[char46]
+.PP
+.PP
+\fBConnection Tracking Label Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBct_label\fR
+Width:;128 bits
+Format:;hexadecimal
+Masking:;arbitrary bitwise masks
+Prerequisites:;none
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+none
+T}
+NXM:;T{
+\fBNXM_NX_CT_LABEL\fR (108) since Open vSwitch 2.5
+T}
+.TE
+.PP
+.PP
+The label committed, by an action within the \fBexec\fR parameter to the \fBct\fR action, to the connection to which the current packet belongs\[char46]
+.bp
+.SH "REGISTER FIELDS"
+.SS "Summary:"
+.TS
+tab(;);
+l l l l l l l.
+Name;Bytes;Mask;RW?;Prereqs;NXM/OXM Support
+\_;\_;\_;\_;\_;\_
+\fBmetadata\fR;8;yes;yes;none;OF 1.2+ and OVS 1.8+
+\fBreg0\fR;4;yes;yes;none;OVS 1.1+
+\fBreg1\fR;4;yes;yes;none;OVS 1.1+
+\fBreg2\fR;4;yes;yes;none;OVS 1.1+
+\fBreg3\fR;4;yes;yes;none;OVS 1.1+
+\fBreg4\fR;4;yes;yes;none;OVS 1.3+
+\fBreg5\fR;4;yes;yes;none;OVS 1.7+
+\fBreg6\fR;4;yes;yes;none;OVS 1.7+
+\fBreg7\fR;4;yes;yes;none;OVS 1.7+
+\fBreg8\fR;4;yes;yes;none;OVS 2.6+
+\fBreg9\fR;4;yes;yes;none;OVS 2.6+
+\fBreg10\fR;4;yes;yes;none;OVS 2.6+
+\fBreg11\fR;4;yes;yes;none;OVS 2.6+
+\fBreg12\fR;4;yes;yes;none;OVS 2.6+
+\fBreg13\fR;4;yes;yes;none;OVS 2.6+
+\fBreg14\fR;4;yes;yes;none;OVS 2.6+
+\fBreg15\fR;4;yes;yes;none;OVS 2.6+
+\fBxreg0\fR;8;yes;yes;none;OF 1.3+ and OVS 2.4+
+\fBxreg1\fR;8;yes;yes;none;OF 1.3+ and OVS 2.4+
+\fBxreg2\fR;8;yes;yes;none;OF 1.3+ and OVS 2.4+
+\fBxreg3\fR;8;yes;yes;none;OF 1.3+ and OVS 2.4+
+\fBxreg4\fR;8;yes;yes;none;OF 1.3+ and OVS 2.4+
+\fBxreg5\fR;8;yes;yes;none;OF 1.3+ and OVS 2.4+
+\fBxreg6\fR;8;yes;yes;none;OF 1.3+ and OVS 2.4+
+\fBxreg7\fR;8;yes;yes;none;OF 1.3+ and OVS 2.4+
+\fBxxreg0\fR;16;yes;yes;none;OVS 2.6+
+\fBxxreg1\fR;16;yes;yes;none;OVS 2.6+
+\fBxxreg2\fR;16;yes;yes;none;OVS 2.6+
+\fBxxreg3\fR;16;yes;yes;none;OVS 2.6+
+.TE
+.PP
+.PP
+These fields give an OpenFlow switch space for temporary storage while the pipeline is running\[char46] Whereas metadata fields can have a meaningful initial value and can persist across some hops across OpenFlow switches, registers are always initially 0 and their values never persist across inter-switch hops (not even across patch ports)\[char46]
+.PP
+.PP
+\fBOpenFlow Metadata Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBmetadata\fR
+Width:;64 bits
+Format:;hexadecimal
+Masking:;arbitrary bitwise masks
+Prerequisites:;none
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;yes
+OXM:;T{
+\fBOXM_OF_METADATA\fR (2) since OpenFlow 1.2 and Open vSwitch 1.8
+T}
+NXM:;T{
+none
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+This field is the oldest standardized OpenFlow register field, introduced in OpenFlow 1\[char46]1\[char46] It was introduced to model the limited number of user-defined bits that some ASIC-based switches can carry through their pipelines\[char46] Because of hardware limitations, OpenFlow allows switches to support writing and masking only an implementation-defined subset of bits, even no bits at all\[char46] The Open vSwitch software switch always supports all 64 bits, but of course an Open vSwitch port to an ASIC would have the same restriction as the ASIC itself\[char46]
+.PP
+.PP
+This field has an OXM code point, but OpenFlow 1\[char46]4 and earlier allow it to be modified only with a specialized instruction, not with a ``set-field\(cq\(cq action\[char46] OpenFlow 1\[char46]5 removes this restriction\[char46] Open vSwitch does not enforce this restriction, regardless of OpenFlow version\[char46]
+.PP
+.PP
+\fBRegister 0 Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBreg0\fR
+Width:;32 bits
+Format:;hexadecimal
+Masking:;arbitrary bitwise masks
+Prerequisites:;none
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+none
+T}
+NXM:;T{
+\fBNXM_NX_REG0\fR (0) since Open vSwitch 1.1
+T}
+.TE
+.PP
+.PP
+This is the first of several Open vSwitch registers, all of which have the same properties\[char46] Open vSwitch 1\[char46]1 introduced registers 0, 1, 2, and 3, version 1\[char46]3 added register 4, version 1\[char46]7 added registers 5, 6, and 7, and version 2\[char46]6 added registers 8 through 15\[char46]
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+\fBExtended Register 0 Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBxreg0\fR
+Width:;64 bits
+Format:;hexadecimal
+Masking:;arbitrary bitwise masks
+Prerequisites:;none
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+\fBOXM_OF_PKT_REG0\fR (0) since OpenFlow 1.3 and Open vSwitch 2.4
+T}
+NXM:;T{
+none
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+This is the first of the registers introduced in OpenFlow 1\[char46]5\[char46] OpenFlow 1\[char46]5 calls these fields just the ``packet registers,\(cq\(cq but Open vSwitch already had 32-bit registers by that name, so Open vSwitch uses the name ``extended registers\(cq\(cq in an attempt to reduce confusion\[char46] The standard allows for up to 128 registers, each 64 bits wide, but Open vSwitch only implements 4 (in versions 2\[char46]4 and 2\[char46]5) or 8 (in version 2\[char46]6 and later)\[char46]
+.PP
+.PP
+Each of the 64-bit extended registers overlays two of the 32-bit registers: \fBxreg0\fR overlays \fBreg0\fR and \fBreg1\fR, with \fBreg0\fR supplying the most-significant bits of \fBxreg0\fR and \fBreg1\fR the least-significant\[char46] Similarly, \fBxreg1\fR overlays \fBreg2\fR and \fBreg3\fR, and so on\[char46]
+.PP
+.PP
+The OpenFlow specification says, ``In most cases, the packet registers can not be matched in tables, i\[char46]e\[char46] they usually can not be used in the flow entry match structure\(cq\(cq [OpenFlow 1\[char46]5, section 7\[char46]2\[char46]3\[char46]10], but there is no reason for a software switch to impose such a restriction, and Open vSwitch does not\[char46]
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+.PP
+\fBDouble-Extended Register 0 Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBxxreg0\fR
+Width:;128 bits
+Format:;hexadecimal
+Masking:;arbitrary bitwise masks
+Prerequisites:;none
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+none
+T}
+NXM:;T{
+\fBNXM_NX_XXREG0\fR (111) since Open vSwitch 2.6
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+This is the first of the double-extended registers introduce in Open vSwitch 2\[char46]6\[char46] Each of the 128-bit extended registers overlays four of the 32-bit registers: \fBxxreg0\fR overlays \fBreg0\fR through \fBreg3\fR, with \fBreg0\fR supplying the most-significant bits of \fBxxreg0\fR and \fBreg3\fR the least-significant\[char46] \fBxxreg1\fR similarly overlays \fBreg4\fR through \fBreg7\fR, and so on\[char46]
+.bp
+.SH "LAYER 2 (ETHERNET) FIELDS"
+.SS "Summary:"
+.TS
+tab(;);
+l l l l l l l.
+Name;Bytes;Mask;RW?;Prereqs;NXM/OXM Support
+\_;\_;\_;\_;\_;\_
+\fBeth_src\fR aka \fBdl_src\fR;6;yes;yes;none;OF 1.2+ and OVS 1.1+
+\fBeth_dst\fR aka \fBdl_dst\fR;6;yes;yes;none;OF 1.2+ and OVS 1.1+
+\fBeth_type\fR aka \fBdl_type\fR;2;no;no;none;OF 1.2+ and OVS 1.1+
+.TE
+.PP
+.PP
+Ethernet is the only layer\-2 protocol that Open vSwitch supports\[char46] As with most software, Open vSwitch and OpenFlow regard an Ethernet frame to begin with the 14-byte header and end with the final byte of the payload; that is, the frame check sequence is not considered part of the frame\[char46]
+.PP
+.PP
+\fBEthernet Source Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBeth_src\fR (aka \fBdl_src\fR)
+Width:;48 bits
+Format:;Ethernet
+Masking:;arbitrary bitwise masks
+Prerequisites:;none
+Access:;read/write
+OpenFlow 1.0:;yes (exact match only)
+OpenFlow 1.1:;yes
+OXM:;T{
+\fBOXM_OF_ETH_SRC\fR (4) since OpenFlow 1.2 and Open vSwitch 1.7
+T}
+NXM:;T{
+\fBNXM_OF_ETH_SRC\fR (2) since Open vSwitch 1.1
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+The Ethernet source address:
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "dst" width .75
+B1: box "src" width .75 fill
+B2: box "type" width 0.4
+"48" at B0.n above
+"" at B0.s below
+"48" at B1.n above
+"" at B1.s below
+"16" at B2.n above
+"" at B2.s below
+line <-> "Ethernet" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+move .1
+". . ." ljust
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL   Ethernet
+.br
+\fL <---------->
+.br
+\fL 48  48   16
+.br
+\fL+---+---+----+
+.br
+\fL|dst|src|type| ...
+.br
+\fL+---+---+----+
+.br
+\fL
+.fi
+\}
+.PP
+.PP
+\fBEthernet Destination Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBeth_dst\fR (aka \fBdl_dst\fR)
+Width:;48 bits
+Format:;Ethernet
+Masking:;arbitrary bitwise masks
+Prerequisites:;none
+Access:;read/write
+OpenFlow 1.0:;yes (exact match only)
+OpenFlow 1.1:;yes
+OXM:;T{
+\fBOXM_OF_ETH_DST\fR (3) since OpenFlow 1.2 and Open vSwitch 1.7
+T}
+NXM:;T{
+\fBNXM_OF_ETH_DST\fR (1) since Open vSwitch 1.1
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+The Ethernet destination address:
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "dst" width .75 fill
+B1: box "src" width .75
+B2: box "type" width 0.4
+"48" at B0.n above
+"" at B0.s below
+"48" at B1.n above
+"" at B1.s below
+"16" at B2.n above
+"" at B2.s below
+line <-> "Ethernet" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+move .1
+". . ." ljust
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL   Ethernet
+.br
+\fL <---------->
+.br
+\fL 48  48   16
+.br
+\fL+---+---+----+
+.br
+\fL|dst|src|type| ...
+.br
+\fL+---+---+----+
+.br
+\fL
+.fi
+\}
+.PP
+.PP
+Open vSwitch 1\[char46]8 and later support arbitrary masks for source and/or destination\[char46] Earlier versions only support masking the destination with the following masks:
+.RS
+.TP
+\fB01:00:00:00:00:00\fR
+Match only the multicast bit\[char46] Thus, \fBdl_dst=01:00:00:00:00:00/01:00:00:00:00:00\fR matches all multicast (including broadcast) Ethernet packets, and \fBdl_dst=00:00:00:00:00:00/01:00:00:00:00:00\fR matches all unicast Ethernet packets\[char46]
+.TP
+\fBfe:ff:ff:ff:ff:ff\fR
+Match all bits except the multicast bit\[char46] This is probably not useful\[char46]
+.TP
+\fBff:ff:ff:ff:ff:ff\fR
+Exact match (equivalent to omitting the mask)\[char46]
+.TP
+\fB00:00:00:00:00:00\fR
+Wildcard all bits (equivalent to \fBdl_dst=*\fR)\[char46]
+.RE
+.PP
+.PP
+\fBEthernet Type Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBeth_type\fR (aka \fBdl_type\fR)
+Width:;16 bits
+Format:;hexadecimal
+Masking:;not maskable
+Prerequisites:;none
+Access:;read-only
+OpenFlow 1.0:;yes (exact match only)
+OpenFlow 1.1:;yes (exact match only)
+OXM:;T{
+\fBOXM_OF_ETH_TYPE\fR (5) since OpenFlow 1.2 and Open vSwitch 1.7
+T}
+NXM:;T{
+\fBNXM_OF_ETH_TYPE\fR (3) since Open vSwitch 1.1
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+The most commonly seen Ethernet frames today use a format called ``Ethernet II,\(cq\(cq in which the last two bytes of the Ethernet header specify the Ethertype\[char46] For such a frame, this field is copied from those bytes of the header, like so:
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "dst" width .75
+B1: box "src" width .75
+B2: box "type" width 0.4 fill
+"48" at B0.n above
+"" at B0.s below
+"48" at B1.n above
+"" at B1.s below
+"16" at B2.n above
+"\[>=]0x600" at B2.s below
+line <-> "Ethernet" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+move .1
+". . ." ljust
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL      Ethernet
+.br
+\fL <---------------->
+.br
+\fL 48  48      16
+.br
+\fL+---+---+----------+
+.br
+\fL|dst|src|   type   | ...
+.br
+\fL+---+---+----------+
+.br
+\fL         \[>=]0x600
+.fi
+\}
+.PP
+.PP
+Every Ethernet type has a value 0x600 (1,536) or greater\[char46] When the last two bytes of the Ethernet header have a value too small to be an Ethernet type, then the value found there is the total length of the frame in bytes, excluding the Ethernet header\[char46] An 802\[char46]2 LLC header typically follows the Ethernet header\[char46] OpenFlow and Open vSwitch only support LLC headers with DSAP and SSAP \fB0xaa\fR and control byte \fB0x03\fR, which indicate that a SNAP header follows the LLC header\[char46] In turn, OpenFlow and Open vSwitch only support a SNAP header with organization \fB0x000000\fR\[char46] In such a case, this field is copied from the type field in the SNAP header, like this:
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "dst" width .75
+B1: box "src" width .75
+B2: box "type" width 0.4
+"48" at B0.n above
+"" at B0.s below
+"48" at B1.n above
+"" at B1.s below
+"16" at B2.n above
+"<0x600" at B2.s below
+line <-> "Ethernet" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+move .1
+[
+B0: box "DSAP" width .4
+B1: box "SSAP" width .4
+B2: box "cntl" width .4
+"8" at B0.n above
+"0xaa" at B0.s below
+"8" at B1.n above
+"0xaa" at B1.s below
+"8" at B2.n above
+"0x03" at B2.s below
+line <-> "LLC" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+move .1
+[
+B0: box "org" width .75
+B1: box "type" width .4 fill
+"24" at B0.n above
+"0x000000" at B0.s below
+"16" at B1.n above
+"\[>=]0x600" at B1.s below
+line <-> "SNAP" above from B0.nw + (0,textht) to B1.ne + (0,textht)
+]
+move .1
+". . ." ljust
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL    Ethernet           LLC                SNAP
+.br
+\fL <------------>   <------------>   <----------------->
+.br
+\fL 48  48    16      8    8    8        24        16
+.br
+\fL+---+---+------+ +----+----+----+ +--------+----------+
+.br
+\fL|dst|src| type | |DSAP|SSAP|cntl| |  org   |   type   | ...
+.br
+\fL+---+---+------+ +----+----+----+ +--------+----------+
+.br
+\fL         <0x600   0xaa 0xaa 0x03   0x000000 \[>=]0x600
+.fi
+\}
+.PP
+.PP
+When an 802\[char46]1Q header is inserted after the Ethernet source and destination, this field is populated with the encapsulated Ethertype, not the 802\[char46]1Q Ethertype\[char46] With an Ethernet II inner frame, the result looks like this:
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "dst" width .75
+B1: box "src" width .75
+"48" at B0.n above
+"" at B0.s below
+"48" at B1.n above
+"" at B1.s below
+line <-> "Ethernet" above from B0.nw + (0,textht) to B1.ne + (0,textht)
+]
+move .1
+[
+B0: box "TPID" width .4
+B1: box "TCI" width .4
+"16" at B0.n above
+"0x8100" at B0.s below
+"16" at B1.n above
+"" at B1.s below
+line <-> "802.1Q" above from B0.nw + (0,textht) to B1.ne + (0,textht)
+]
+move .1
+[
+B0: box "type" width .4 fill
+"16" at B0.n above
+"\[>=]0x600" at B0.s below
+line <-> "Ethertype" above from B0.nw + (0,textht) to B0.ne + (0,textht)
+]
+move .1
+". . ." ljust
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL Ethernet     802.1Q     Ethertype
+.br
+\fL <------>   <-------->   <-------->
+.br
+\fL  48  48      16   16        16
+.br
+\fL+----+---+ +------+---+ +----------+
+.br
+\fL|dst |src| | TPID |TCI| |   type   | ...
+.br
+\fL+----+---+ +------+---+ +----------+
+.br
+\fL            0x8100       \[>=]0x600
+.fi
+\}
+.PP
+.PP
+LLC and SNAP encapsulation look like this with an 802\[char46]1Q header:
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "dst" width .75
+B1: box "src" width .75
+"48" at B0.n above
+"" at B0.s below
+"48" at B1.n above
+"" at B1.s below
+line <-> "Ethernet" above from B0.nw + (0,textht) to B1.ne + (0,textht)
+]
+move .1
+[
+B0: box "TPID" width .4
+B1: box "TCI" width .4
+"16" at B0.n above
+"0x8100" at B0.s below
+"16" at B1.n above
+"" at B1.s below
+line <-> "802.1Q" above from B0.nw + (0,textht) to B1.ne + (0,textht)
+]
+move .1
+[
+B0: box "type" width 0.4
+"16" at B0.n above
+"<0x600" at B0.s below
+line <-> "Ethertype" above from B0.nw + (0,textht) to B0.ne + (0,textht)
+]
+move .1
+[
+B0: box "DSAP" width .4
+B1: box "SSAP" width .4
+B2: box "cntl" width .4
+"8" at B0.n above
+"0xaa" at B0.s below
+"8" at B1.n above
+"0xaa" at B1.s below
+"8" at B2.n above
+"0x03" at B2.s below
+line <-> "LLC" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+move .1
+[
+B0: box "org" width .75
+B1: box "type" width .4 fill
+"24" at B0.n above
+"0x000000" at B0.s below
+"16" at B1.n above
+"\[>=]0x600" at B1.s below
+line <-> "SNAP" above from B0.nw + (0,textht) to B1.ne + (0,textht)
+]
+move .1
+". . ." ljust
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL Ethernet     802.1Q     Ethertype        LLC                SNAP
+.br
+\fL <------>   <-------->   <------->   <------------>   <----------------->
+.br
+\fL  48  48      16   16       16        8    8    8        24        16
+.br
+\fL+----+---+ +------+---+ +---------+ +----+----+----+ +--------+----------+
+.br
+\fL|dst |src| | TPID |TCI| |  type   | |DSAP|SSAP|cntl| |  org   |   type   | ...
+.br
+\fL+----+---+ +------+---+ +---------+ +----+----+----+ +--------+----------+
+.br
+\fL            0x8100        <0x600     0xaa 0xaa 0x03   0x000000 \[>=]0x600
+.fi
+\}
+.PP
+.PP
+When a packet doesn\(cqt match any of the header formats described above, Open vSwitch and OpenFlow set this field to \fB0x5ff\fR (\fBOFP_DL_TYPE_NOT_ETH_TYPE\fR)\[char46]
+.bp
+.SH "VLAN FIELDS"
+.SS "Summary:"
+.TS
+tab(;);
+l l l l l l l.
+Name;Bytes;Mask;RW?;Prereqs;NXM/OXM Support
+\_;\_;\_;\_;\_;\_
+\fBdl_vlan\fR;2 (low 12 bits);no;yes;none;
+\fBdl_vlan_pcp\fR;1 (low 3 bits);no;yes;none;
+\fBvlan_vid\fR;2 (low 12 bits);yes;yes;none;OF 1.2+ and OVS 1.7+
+\fBvlan_pcp\fR;1 (low 3 bits);no;yes;VLAN VID;OF 1.2+ and OVS 1.7+
+\fBvlan_tci\fR;2;yes;yes;none;OVS 1.1+
+.TE
+.PP
+.PP
+The 802\[char46]1Q VLAN header causes more trouble than any other 4 bytes in networking\[char46] OpenFlow 1\[char46]0, 1\[char46]1, and 1\[char46]2+ all treat VLANs differently\[char46] Open vSwitch extensions add another variant to the mix\[char46] Open vSwitch reconciles all four treatments as best it can\[char46]
+.PP
+.SS "VLAN Header Format"
+.PP
+.PP
+An 802\[char46]1Q VLAN header consists of two 16-bit fields:
+.PP
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "Ethertype" width 1.8
+"16" at B0.n above
+"0x8100" at B0.s below
+line <-> "TPID" above from B0.nw + (0,textht) to B0.ne + (0,textht)
+]
+[
+B0: box "PCP" width .6
+B1: box "CFI" width .3
+B2: box "VID" width .9
+"3" at B0.n above
+"" at B0.s below
+"1" at B1.n above
+"0" at B1.s below
+"12" at B2.n above
+"" at B2.s below
+line <-> "TCI" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL   TPID        TCI
+.br
+\fL <-------> <--------->
+.br
+\fL    16      3   1  12
+.br
+\fL+---------+---+---+---+
+.br
+\fL|Ethertype|PCP|CFI|VID|
+.br
+\fL+---------+---+---+---+
+.br
+\fL  0x8100        0
+.fi
+\}
+.PP
+.PP
+The first 16 bits of the VLAN header, the \fITPID\fR (Tag Protocol IDentifier), is an Ethertype\[char46] When the VLAN header is inserted just after the source and destination MAC addresses in a Ethertype frame, the TPID serves to identify the presence of the VLAN\[char46] The standard TPID, the only one that Open vSwitch supports, is \fB0x8100\fR\[char46] OpenFlow 1\[char46]0 explicitly supports only TPID \fB0x8100\fR\[char46] OpenFlow 1\[char46]1, but not earlier or later versions, also requires support for TPID \fB0x88a8\fR (Open vSwitch does not support this)\[char46] OpenFlow 1\[char46]2 through 1\[char46]5 do not require support for specific TPIDs (the ``push vlan header\(cq\(cq action does say that only \fB0x8100\fR and \fB0x88a8\fR should be pushed)\[char46] No version of OpenFlow provides a way to distinguish or match on the TPID\[char46]
+.PP
+.PP
+The remaining 16 bits of the VLAN header, the \fITCI\fR (Tag Control Information), is subdivided into three subfields:
+.PP
+.RS
+.IP \(bu
+\fIPCP\fR (Priority Control Point), is a 3-bit 802\[char46]1p \fIpriority\fR\[char46] The lowest priority is value 1, the second-lowest is value 0, and priority increases from 2 up to highest priority 7\[char46]
+.IP \(bu
+\fICFI\fR (Canonical Format Indicator), is a 1-bit field\[char46] On an Ethernet network, its value is always 0\[char46] This led to it later being repurposed under the name \fIDEI\fR (Drop Eligibility Indicator)\[char46] By either name, OpenFlow and Open vSwitch don\(cqt provide any way to match or set this bit\[char46]
+.IP \(bu
+\fIVID\fR (VLAN IDentifier), is a 12-bit VLAN\[char46] If the VID is 0, then the frame is not part of a VLAN\[char46] In that case, the VLAN header is called a \fIpriority tag\fR because it is only meaningful for assigning the frame a priority\[char46] VID \fB0xfff\fR (4,095) is reserved\[char46]
+.RE
+.PP
+.PP
+See \fBeth_type\fR for illustrations of a complete Ethernet frame with 802\[char46]1Q tag included\[char46]
+.PP
+.SS "Multiple VLANs"
+.PP
+.PP
+Open vSwitch can match only a single VLAN header\[char46] If more than one VLAN header is present, then \fBeth_type\fR holds the TPID of the inner VLAN header\[char46] Open vSwitch stops parsing the packet after the inner TPID, so matching further into the packet (e\[char46]g\[char46] on the inner TCI or L3 fields) is not possible\[char46]
+.PP
+.PP
+OpenFlow only directly supports matching a single VLAN header\[char46] In OpenFlow 1\[char46]1 or later, one OpenFlow table can match on the outermost VLAN header and pop it off, and a later OpenFlow table can match on the next outermost header\[char46] Open vSwitch does not support this\[char46]
+.PP
+.SS "VLAN Field Details"
+.PP
+.PP
+The four variants have three different levels of expressiveness: OpenFlow 1\[char46]0 and 1\[char46]1 VLAN matching are less powerful than OpenFlow 1\[char46]2+ VLAN matching, which is less powerful than Open vSwitch extension VLAN matching\[char46]
+.PP
+.SS "OpenFlow 1\[char46]0 VLAN Fields"
+.PP
+.PP
+OpenFlow 1\[char46]0 uses two fields, called \fBdl_vlan\fR and \fBdl_vlan_pcp\fR, each of which can be either exact-matched or wildcarded, to specify VLAN matches:
+.PP
+.RS
+.IP \(bu
+When both \fBdl_vlan\fR and \fBdl_vlan_pcp\fR are wildcarded, the flow matches packets without an 802\[char46]1Q header or with any 802\[char46]1Q header\[char46]
+.IP \(bu
+The match \fBdl_vlan=0xffff\fR causes a flow to match only packets without an 802\[char46]1Q header\[char46] Such a flow should also wildcard \fBdl_vlan_pcp\fR, since a packet without an 802\[char46]1Q header does not have a PCP\[char46] OpenFlow does not specify what to do if a match on PCP is actually present, but Open vSwitch ignores it\[char46]
+.IP \(bu
+Otherwise, the flow matches only packets with an 802\[char46]1Q header\[char46] If \fBdl_vlan\fR is not wildcarded, then the flow only matches packets with the VLAN ID specified in \fBdl_vlan\fR\(cqs low 12 bits\[char46] If \fBdl_vlan_pcp\fR is not wildcarded, then the flow only matches packets with the priority specified in \fBdl_vlan_pcp\fR\(cqs low 3 bits\[char46]
+.IP
+OpenFlow does not specify how to interpret the high 4 bits of \fBdl_vlan\fR or the high 5 bits of \fBdl_vlan_pcp\fR\[char46] Open vSwitch ignores them\[char46]
+.RE
+.PP
+.PP
+.PP
+.SS "OpenFlow 1\[char46]1 VLAN Fields"
+.PP
+.PP
+VLAN matching in OpenFlow 1\[char46]1 is similar to OpenFlow 1\[char46]0\[char46] The one refinement is that when \fBdl_vlan\fR matches on \fB0xfffe\fR (\fBOFVPID_ANY\fR), the flow matches only packets with an 802\[char46]1Q header, with any VLAN ID\[char46] If \fBdl_vlan_pcp\fR is wildcarded, the flow matches any packet with an 802\[char46]1Q header, regardless of VLAN ID or priority\[char46] If \fBdl_vlan_pcp\fR is not wildcarded, then the flow only matches packets with the priority specified in \fBdl_vlan_pcp\fR\(cqs low 3 bits\[char46]
+.PP
+.PP
+OpenFlow 1\[char46]1 uses the name \fBOFPVID_NONE\fR, instead of \fBOFP_VLAN_NONE\fR, for a \fBdl_vlan\fR of \fB0xffff\fR, but it has the same meaning\[char46]
+.PP
+.PP
+In OpenFlow 1\[char46]1, Open vSwitch reports error \fBOFPBMC_BAD_VALUE\fR for an attempt to match on \fBdl_vlan\fR between 4,096 and \fB0xfffd\fR, inclusive, or \fBdl_vlan_pcp\fR greater than 7\[char46]
+.PP
+.SS "OpenFlow 1\[char46]2 VLAN Fields"
+.PP
+.PP
+\fBOpenFlow 1.2+ VLAN ID Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBvlan_vid\fR
+Width:;16 bits (only the least-significant 12 bits may be nonzero)
+Format:;decimal
+Masking:;arbitrary bitwise masks
+Prerequisites:;none
+Access:;read/write
+OpenFlow 1.0:;yes (exact match only)
+OpenFlow 1.1:;yes (exact match only)
+OXM:;T{
+\fBOXM_OF_VLAN_VID\fR (6) since OpenFlow 1.2 and Open vSwitch 1.7
+T}
+NXM:;T{
+none
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+The OpenFlow standard describes this field as consisting of ``12+1\(cq\(cq bits\[char46] On ingress, its value is 0 if no 802\[char46]1Q header is present, and otherwise it holds the VLAN VID in its least significant 12 bits, with bit 12 (\fB0x1000\fR aka \fBOFPVID_PRESENT\fR) also set to 1\[char46] The three most significant bits are always zero:
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "" width .6
+B1: box "P" width .1
+B2: box "VLAN ID" width .9
+"3" at B0.n above
+"0" at B0.s below
+"1" at B1.n above
+"" at B1.s below
+"12" at B2.n above
+"" at B2.s below
+line <-> "OXM_OF_VLAN_VID" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL OXM_OF_VLAN_VID
+.br
+\fL <------------->
+.br
+\fL  3  1     12
+.br
+\fL+---+--+--------+
+.br
+\fL|   |P |VLAN ID |
+.br
+\fL+---+--+--------+
+.br
+\fL  0
+.fi
+\}
+.PP
+.PP
+As a consequence of this field\(cqs format, one may use it to match the VLAN ID in all of the ways available with the OpenFlow 1\[char46]0 and 1\[char46]1 formats, and a few new ways:
+.RS
+.TP
+Fully wildcarded
+Matches any packet, that is, one without an 802\[char46]1Q header or with an 802\[char46]1Q header with any TCI value\[char46]
+.TP
+Value \fB0x0000\fR (\fBOFPVID_NONE\fR), mask \fB0xffff\fR (or no mask)
+Matches only packets without an 802\[char46]1Q header\[char46]
+.TP
+Value \fB0x1000\fR, mask \fB0x1000\fR
+Matches any packet with an 802\[char46]1Q header, regardless of VLAN ID\[char46]
+.TP
+Value \fB0x1009\fR, mask \fB0xffff\fR (or no mask)
+Match only packets with an 802\[char46]1Q header with VLAN ID 9\[char46]
+.TP
+Value \fB0x1001\fR, mask \fB0x1001\fR
+Matches only packets that have an 802\[char46]1Q header with an odd-numbered VLAN ID\[char46] (This is just an example; one can match on any desired VLAN ID bit pattern\[char46])
+.RE
+.PP
+.PP
+\fBOpenFlow 1.2+ VLAN Priority Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBvlan_pcp\fR
+Width:;8 bits (only the least-significant 3 bits may be nonzero)
+Format:;decimal
+Masking:;not maskable
+Prerequisites:;VLAN VID
+Access:;read/write
+OpenFlow 1.0:;yes (exact match only)
+OpenFlow 1.1:;yes (exact match only)
+OXM:;T{
+\fBOXM_OF_VLAN_PCP\fR (7) since OpenFlow 1.2 and Open vSwitch 1.7
+T}
+NXM:;T{
+none
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+The 3 least significant bits may be used to match the PCP bits in an 802\[char46]1Q header\[char46] Other bits are always zero:
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "zero" width 1.0
+B1: box "PCP" width .6
+"5" at B0.n above
+"0" at B0.s below
+"3" at B1.n above
+"" at B1.s below
+line <-> "OXM_OF_VLAN_VID" above from B0.nw + (0,textht) to B1.ne + (0,textht)
+]
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL OXM_OF_VLAN_VID
+.br
+\fL <------------->
+.br
+\fL    5       3
+.br
+\fL+--------+------+
+.br
+\fL|  zero  | PCP  |
+.br
+\fL+--------+------+
+.br
+\fL    0
+.fi
+\}
+.PP
+.PP
+This field may only be used when \fBvlan_vid\fR is not wildcarded and does not exact match on 0 (which only matches when there is no 802\[char46]1Q header)\[char46]
+.PP
+.PP
+See \fIVLAN Comparison Chart\fR, below, for some examples\[char46]
+.PP
+.SS "Open vSwitch Extension VLAN Field"
+.PP
+.PP
+The \fBvlan_tci\fR extension can describe more kinds of VLAN matches than the other variants\[char46] It is also simpler than the other variants\[char46]
+.PP
+.PP
+\fBVLAN TCI Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBvlan_tci\fR
+Width:;16 bits
+Format:;hexadecimal
+Masking:;arbitrary bitwise masks
+Prerequisites:;none
+Access:;read/write
+OpenFlow 1.0:;yes (exact match only)
+OpenFlow 1.1:;yes (exact match only)
+OXM:;T{
+none
+T}
+NXM:;T{
+\fBNXM_OF_VLAN_TCI\fR (4) since Open vSwitch 1.1
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+For a packet without an 802\[char46]1Q header, this field is zero\[char46] For a packet with an 802\[char46]1Q header, this field is the TCI with the bit in CFI\(cqs position (marked \fBP\fR for ``present\(cq\(cq below) forced to 1\[char46] Thus, for a packet in VLAN 9 with priority 7, it has the value \fB0xf009\fR:
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "PCP" width .6
+B1: box "P" width .2
+B2: box "VID" width .9
+"3" at B0.n above
+"7" at B0.s below
+"1" at B1.n above
+"1" at B1.s below
+"12" at B2.n above
+"9" at B2.s below
+line <-> "NXM_VLAN_TCI" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL NXM_VLAN_TCI
+.br
+\fL <---------->
+.br
+\fL  3   1   12
+.br
+\fL+----+--+----+
+.br
+\fL|PCP |P |VID |
+.br
+\fL+----+--+----+
+.br
+\fL  7   1   9
+.fi
+\}
+.PP
+.PP
+Usage examples:
+.RS
+.TP
+\fBvlan_tci=0\fR
+Match packets without an 802\[char46]1Q header\[char46]
+.TP
+\fBvlan_tci=0x1000/0x1000\fR
+Match packets with an 802\[char46]1Q header, regardless of VLAN and priority values\[char46]
+.TP
+\fBvlan_tci=0xf123\fR
+Match packets tagged with priority 7 in VLAN 0x123\[char46]
+.TP
+\fBvlan_tci=0x1123/0x1fff\fR
+Match packets tagged with VLAN 0x123 (and any priority)\[char46]
+.TP
+\fBvlan_tci=0x5000/0xf000\fR
+Match packets tagged with priority 2 (in any VLAN)\[char46]
+.TP
+\fBvlan_tci=0/0xfff\fR
+Match packets with no 802\[char46]1Q header or tagged with VLAN 0 (and any priority)\[char46]
+.TP
+\fBvlan_tci=0x5000/0xe000\fR
+Match packets with no 802\[char46]1Q header or tagged with priority 2 (in any VLAN)\[char46]
+.TP
+\fBvlan_tci=0/0xefff\fR
+Match packets with no 802\[char46]1Q header or tagged with VLAN 0 and priority 0\[char46]
+.RE
+.PP
+.PP
+See \fIVLAN Comparison Chart\fR, below, for more examples\[char46]
+.PP
+.SS "VLAN Comparison Chart"
+.PP
+.PP
+The following table describes each of several possible matching criteria on 802\[char46]1Q header may be expressed with each variation of the VLAN matching fields:
+.PP
+.PP
+.TS
+r r r r r.
+Criteria	OpenFlow 1.0	OpenFlow 1.1	OpenFlow 1.2+	NXM
+\_	\_	\_	\_	\_
+[1]	\fL????\fR/\fL1\fR,\fL??\fR/\fL?\fR	\fL????\fR/\fL1\fR,\fL??\fR/\fL?\fR	\fL0000\fR/\fL0000\fR,\fL--\fR	\fL0000\fR/\fL0000\fR
+[2]	\fLffff\fR/\fL0\fR,\fL??\fR/\fL?\fR	\fLffff\fR/\fL0\fR,\fL??\fR/\fL?\fR	\fL0000\fR/\fLffff\fR,\fL--\fR	\fL0000\fR/\fLffff\fR
+[3]	\fL0xxx\fR/\fL0\fR,\fL??\fR/\fL1\fR	\fL0xxx\fR/\fL0\fR,\fL??\fR/\fL1\fR	\fL1xxx\fR/\fLffff\fR,\fL--\fR	\fL1xxx\fR/\fL1fff\fR
+[4]	\fL????\fR/\fL1\fR,\fL0y\fR/\fL0\fR	\fLfffe\fR/\fL0\fR,\fL0y\fR/\fL0\fR	\fL1000\fR/\fL1000\fR,\fL0y\fR	\fLz000\fR/\fLf000\fR
+[5]	\fL0xxx\fR/\fL0\fR,\fL0y\fR/\fL0\fR	\fL0xxx\fR/\fL0\fR,\fL0y\fR/\fL0\fR	\fL1xxx\fR/\fLffff\fR,\fL0y\fR	\fLzxxx\fR/\fLffff\fR
+.T&
+r r c c r.
+[6]	(none)	(none)	\fL1001\fR/\fL1001\fR,\fL--\fR	\fL1001\fR/\fL1001\fR
+.T&
+r r c c c.
+[7]	(none)	(none)	(none)	\fL3000\fR/\fL3000\fR
+[8]	(none)	(none)	(none)	\fL0000\fR/\fL0fff\fR
+[9]	(none)	(none)	(none)	\fL0000\fR/\fLf000\fR
+[10]	(none)	(none)	(none)	\fL0000\fR/\fLefff\fR
+.TE
+.PP
+.PP
+All numbers in the table are expressed in hexadecimal\[char46] The columns in the table are interpreted as follows:
+.PP
+.RS
+.TP
+Criteria
+See the list below\[char46]
+.TP
+OpenFlow 1\[char46]0
+.TQ .5in
+OpenFlow 1\[char46]1
+\fLwwww/x,yy/z\fR means VLAN ID match value \fLwwww\fR with wildcard bit \fLx\fR and VLAN PCP match value \fLyy\fR with wildcard bit \fLz\fR\[char46] \fL?\fR means that the given bits are ignored (and conventionally \fL0\fR for \fLwwww\fR or \fLyy\fR, conventionally \fL1\fR for \fLx\fR or \fLz\fR)\[char46] ``(none)\(cq\(cq means that OpenFlow 1\[char46]0 (or 1\[char46]1) cannot match with these criteria\[char46]
+.TP
+OpenFlow 1\[char46]2+
+\fLxxxx/yyyy,zz\fR means \fBvlan_vid\fR with value \fLxxxx\fR and mask \fLyyyy\fR, and \fBvlan_pcp\fR (which is not maskable) with value \fLzz\fR\[char46] \fL\-\-\fR means that \fBvlan_pcp\fR is omitted\[char46] ``(none)\(cq\(cq means that OpenFlow 1\[char46]2 cannot match with these criteria\[char46]
+.TP
+NXM
+\fLxxxx/yyyy\fR means \fBvlan_tci\fR with value \fLxxxx\fR and mask \fLyyyy\fR\[char46]
+.RE
+.PP
+.PP
+The matching criteria described by the table are:
+.PP
+.RS
+.TP
+[1]
+Matches any packet, that is, one without an 802\[char46]1Q header or with an 802\[char46]1Q header with any TCI value\[char46]
+.TP
+[2]
+Matches only packets without an 802\[char46]1Q header\[char46]
+.IP
+OpenFlow 1\[char46]0 doesn\(cqt define the behavior if \fBdl_vlan\fR is set to \fB0xffff\fR and \fBdl_vlan_pcp\fR is not wildcarded\[char46] (Open vSwitch always ignores \fBdl_vlan_pcp\fR when \fBdl_vlan\fR is set to \fB0xffff\fR\[char46])
+.IP
+OpenFlow 1\[char46]1 says explicitly to ignore \fBdl_vlan_pcp\fR when \fBdl_vlan\fR is set to \fB0xffff\fR\[char46]
+.IP
+OpenFlow 1\[char46]2 doesn\(cqt say how to interpret a match with \fBvlan_vid\fR value 0 and a mask with \fBOFPVID_PRESENT\fR (\fB0x1000\fR) set to 1 and some other bits in the mask set to 1 also\[char46] Open vSwitch interprets it the same way as a mask of \fB0x1000\fR\[char46]
+.IP
+Any NXM match with \fBvlan_tci\fR value 0 and the CFI bit set to 1 in the mask is equivalent to the one listed in the table\[char46]
+.TP
+[3]
+Matches only packets that have an 802\[char46]1Q header with VID \fLxxx\fR (and any PCP)\[char46]
+.TP
+[4]
+Matches only packets that have an 802\[char46]1Q header with PCP \fLy\fR (and any VID)\[char46]
+.IP
+OpenFlow 1\[char46]0 doesn\(cqt clearly define the behavior for this case\[char46] Open vSwitch implements it this way\[char46]
+.IP
+In the NXM value, \fLz\fR equals (\fLy\fR << 1) | 1\[char46]
+.TP
+[5]
+Matches only packets that have an 802\[char46]1Q header with VID \fLxxx\fR and PCP \fLy\fR\[char46]
+.IP
+In the NXM value, \fLz\fR equals (\fLy\fR << 1) | 1\[char46]
+.TP
+[6]
+Matches only packets that have an 802\[char46]1Q header with an odd-numbered VID (and any PCP)\[char46] Only possible with OpenFlow 1\[char46]2 and NXM\[char46] (This is just an example; one can match on any desired VID bit pattern\[char46])
+.TP
+[7]
+Matches only packets that have an 802\[char46]1Q header with an odd-numbered PCP (and any VID)\[char46] Only possible with NXM\[char46] (This is just an example; one can match on any desired VID bit pattern\[char46])
+.TP
+[8]
+Matches packets with no 802\[char46]1Q header or with an 802\[char46]1Q header with a VID of 0\[char46] Only possible with NXM\[char46]
+.TP
+[9]
+Matches packets with no 802\[char46]1Q header or with an 802\[char46]1Q header with a PCP of 0\[char46] Only possible with NXM\[char46]
+.TP
+[10]
+Matches packets with no 802\[char46]1Q header or with an 802\[char46]1Q header with both VID and PCP of 0\[char46] Only possible with NXM\[char46]
+.RE
+.bp
+.SH "LAYER 2\[char46]5: MPLS FIELDS"
+.SS "Summary:"
+.TS
+tab(;);
+l l l l l l l.
+Name;Bytes;Mask;RW?;Prereqs;NXM/OXM Support
+\_;\_;\_;\_;\_;\_
+\fBmpls_label\fR;4 (low 20 bits);no;yes;MPLS;OF 1.2+ and OVS 1.11+
+\fBmpls_tc\fR;1 (low 3 bits);no;yes;MPLS;OF 1.2+ and OVS 1.11+
+\fBmpls_bos\fR;1 (low 1 bits);no;no;MPLS;OF 1.3+ and OVS 1.11+
+\fBmpls_ttl\fR;1;no;yes;MPLS;OVS 2.6+
+.TE
+.PP
+.PP
+One or more MPLS headers (more commonly called \fIMPLS
+labels\fR) follow an Ethernet type field that specifies an MPLS Ethernet type [RFC 3032]\[char46] Ethertype \fB0x8847\fR is used for all unicast\[char46] Multicast MPLS is divided into two specific classes, one of which uses Ethertype \fB0x8847\fR and the other \fB0x8848\fR [RFC 5332]\[char46]
+.PP
+.PP
+The most common overall packet format is Ethernet II, shown below (SNAP encapsulation may be used but is not ordinarily seen in Ethernet networks):
+.PP
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "dst" width 0.75
+B1: box "src" width 0.75
+B2: box "type" width 0.4
+"48" at B0.n above
+"" at B0.s below
+"48" at B1.n above
+"" at B1.s below
+"16" at B2.n above
+"0x8847" at B2.s below
+line <-> "Ethernet" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+move .1
+[
+B0: box "label" width .6
+B1: box "TC" width .3
+B2: box "S" width .1
+B3: box "TTL" width .4
+"20" at B0.n above
+"" at B0.s below
+"3" at B1.n above
+"" at B1.s below
+"1" at B2.n above
+"" at B2.s below
+"8" at B3.n above
+"" at B3.s below
+line <-> "MPLS" above from B0.nw + (0,textht) to B3.ne + (0,textht)
+]
+move .1
+". . ." ljust
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL    Ethernet           MPLS
+.br
+\fL <------------>   <------------>
+.br
+\fL 48  48    16      20   3  1  8
+.br
+\fL+---+---+------+ +-----+--+-+---+
+.br
+\fL|dst|src| type | |label|TC|S|TTL| ...
+.br
+\fL+---+---+------+ +-----+--+-+---+
+.br
+\fL         0x8847
+.fi
+\}
+.PP
+.PP
+MPLS can be encapsulated inside an 802\[char46]1Q header, in which case the combination looks like this:
+.PP
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "dst" width .75
+B1: box "src" width .75
+"48" at B0.n above
+"" at B0.s below
+"48" at B1.n above
+"" at B1.s below
+line <-> "Ethernet" above from B0.nw + (0,textht) to B1.ne + (0,textht)
+]
+move .1
+[
+B0: box "TPID" width .4
+B1: box "TCI" width .4
+"16" at B0.n above
+"0x8100" at B0.s below
+"16" at B1.n above
+"" at B1.s below
+line <-> "802.1Q" above from B0.nw + (0,textht) to B1.ne + (0,textht)
+]
+move .1
+[
+B0: box "type" width .4
+"16" at B0.n above
+"0x8847" at B0.s below
+line <-> "Ethertype" above from B0.nw + (0,textht) to B0.ne + (0,textht)
+]
+move .1
+[
+B0: box "label" width .6
+B1: box "TC" width .3
+B2: box "S" width .1
+B3: box "TTL" width .4
+"20" at B0.n above
+"" at B0.s below
+"3" at B1.n above
+"" at B1.s below
+"1" at B2.n above
+"" at B2.s below
+"8" at B3.n above
+"" at B3.s below
+line <-> "MPLS" above from B0.nw + (0,textht) to B3.ne + (0,textht)
+]
+move .1
+". . ." ljust
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL Ethernet     802.1Q     Ethertype        MPLS
+.br
+\fL <------>   <-------->   <------->   <------------>
+.br
+\fL  48  48      16   16       16        20   3  1  8
+.br
+\fL+----+---+ +------+---+ +---------+ +-----+--+-+---+
+.br
+\fL|dst |src| | TPID |TCI| |  type   | |label|TC|S|TTL| ...
+.br
+\fL+----+---+ +------+---+ +---------+ +-----+--+-+---+
+.br
+\fL            0x8100        0x8847
+.fi
+\}
+.PP
+.PP
+The fields within an MPLS label are:
+.PP
+.RS
+.TP
+Label, 20 bits\[char46]
+An identifier\[char46]
+.TP
+Traffic control (TC), 3 bits\[char46]
+Used for quality of service\[char46]
+.TP
+Bottom of stack (BOS), 1 bit (labeled just ``S\(cq\(cq above)\[char46]
+0 indicates that another MPLS label follows this one\[char46]
+.IP
+1 indicates that this MPLS label is the last one in the stack, so that some other protocol follows this one\[char46]
+.TP
+Time to live (TTL), 8 bits\[char46]
+Each hop across an MPLS network decrements the TTL by 1\[char46] If it reaches 0, the packet is discarded\[char46]
+.IP
+OpenFlow does not make the MPLS TTL available as a match field, but actions are available to set and decrement the TTL\[char46] Open vSwitch 2\[char46]6 and later makes the MPLS TTL available as an extension\[char46]
+.RE
+.PP
+.SS "MPLS Label Stacks"
+.PP
+.PP
+Unlike the other encapsulations supported by OpenFlow and Open vSwitch, MPLS labels are routinely used in ``stacks\(cq\(cq two or three deep and sometimes even deeper\[char46] Open vSwitch currently supports up to three labels\[char46]
+.PP
+.PP
+The OpenFlow specification only supports matching on the outermost MPLS label at any given time\[char46] To match on the second label, one must first ``pop\(cq\(cq the outer label and advance to another OpenFlow table, where the inner label may be matched\[char46] To match on the third label, one must pop the two outer labels, and so on\[char46] The Open Networking Foundation is considering support for directly matching on multiple MPLS labels for OpenFlow 1\[char46]6\[char46]
+.PP
+.SS "MPLS Inner Protocol"
+.PP
+.PP
+Unlike all other forms of encapsulation that Open vSwitch and OpenFlow support, an MPLS label does not indicate what inner protocol it encapsulates\[char46] Different deployments determine the inner protocol in different ways [RFC 3032]:
+.PP
+.RS
+.IP \(bu
+A few reserved label values do indicate an inner protocol\[char46] Label 0, the ``IPv4 Explicit NULL Label,\(cq\(cq indicates inner IPv4\[char46] Label 2, the ``IPv6 Explicit NULL Label,\(cq\(cq indicates inner IPv6\[char46]
+.IP \(bu
+Some deployments use a single inner protocol consistently\[char46]
+.IP \(bu
+In some deployments, the inner protocol must be inferred from the innermost label\[char46]
+.IP \(bu
+In some deployments, the inner protocol must be inferred from the innermost label and the encapsulated data, e\[char46]g\[char46] to distinguish between inner IPv4 and IPv6 based on whether the first nibble of the inner protocol data are \fB4\fR or \fB6\fR\[char46] OpenFlow and Open vSwitch do not currently support these cases\[char46]
+.RE
+.PP
+.PP
+Open vSwitch and OpenFlow do not infer the inner protocol, even if reserved label values are in use\[char46] Instead, the flow table must specify the inner protocol at the time it pops the bottommost MPLS label, using the Ethertype argument to the \fBpop_mpls\fR action\[char46]
+.PP
+.SS "Field Details"
+.PP
+.PP
+\fBMPLS Label Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBmpls_label\fR
+Width:;32 bits (only the least-significant 20 bits may be nonzero)
+Format:;decimal
+Masking:;not maskable
+Prerequisites:;MPLS
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;yes (exact match only)
+OXM:;T{
+\fBOXM_OF_MPLS_LABEL\fR (34) since OpenFlow 1.2 and Open vSwitch 1.11
+T}
+NXM:;T{
+none
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+The least significant 20 bits hold the ``label\(cq\(cq field from the MPLS label\[char46] Other bits are zero:
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "zero" width .6
+B1: box "label" width 1.0
+"12" at B0.n above
+"0" at B0.s below
+"20" at B1.n above
+"" at B1.s below
+line <-> "OXM_OF_MPLS_LABEL" above from B0.nw + (0,textht) to B1.ne + (0,textht)
+]
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL OXM_OF_MPLS_LABEL
+.br
+\fL <--------------->
+.br
+\fL    12       20
+.br
+\fL+--------+--------+
+.br
+\fL|  zero  | label  |
+.br
+\fL+--------+--------+
+.br
+\fL    0
+.fi
+\}
+.PP
+.PP
+Most label values are available for any use by deployments\[char46] Values under 16 are reserved\[char46]
+.PP
+.PP
+\fBMPLS Traffic Class Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBmpls_tc\fR
+Width:;8 bits (only the least-significant 3 bits may be nonzero)
+Format:;decimal
+Masking:;not maskable
+Prerequisites:;MPLS
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;yes (exact match only)
+OXM:;T{
+\fBOXM_OF_MPLS_TC\fR (35) since OpenFlow 1.2 and Open vSwitch 1.11
+T}
+NXM:;T{
+none
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+The least significant 3 bits hold the TC field from the MPLS label\[char46] Other bits are zero:
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "zero" width 1.0
+B1: box "TC" width .6
+"5" at B0.n above
+"0" at B0.s below
+"3" at B1.n above
+"" at B1.s below
+line <-> "OXM_OF_MPLS_TC" above from B0.nw + (0,textht) to B1.ne + (0,textht)
+]
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL OXM_OF_MPLS_TC
+.br
+\fL <------------>
+.br
+\fL    5       3
+.br
+\fL+--------+-----+
+.br
+\fL|  zero  | TC  |
+.br
+\fL+--------+-----+
+.br
+\fL    0
+.fi
+\}
+.PP
+.PP
+This field is intended for use for Quality of Service (QoS) and Explicit Congestion Notification purposes, but its particular interpretation is deployment specific\[char46]
+.PP
+.PP
+Before 2009, this field was named EXP and reserved for experimental use [RFC 5462]\[char46]
+.PP
+.PP
+\fBMPLS Bottom of Stack Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBmpls_bos\fR
+Width:;8 bits (only the least-significant 1 bits may be nonzero)
+Format:;decimal
+Masking:;not maskable
+Prerequisites:;MPLS
+Access:;read-only
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+\fBOXM_OF_MPLS_BOS\fR (36) since OpenFlow 1.3 and Open vSwitch 1.11
+T}
+NXM:;T{
+none
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+The least significant bit holds the BOS field from the MPLS label\[char46] Other bits are zero:
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "zero" width 1.3
+B1: box "BOS" width .3
+"7" at B0.n above
+"0" at B0.s below
+"1" at B1.n above
+"" at B1.s below
+line <-> "OXM_OF_MPLS_BOS" above from B0.nw + (0,textht) to B1.ne + (0,textht)
+]
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL OXM_OF_MPLS_BOS
+.br
+\fL <------------->
+.br
+\fL    7       1
+.br
+\fL+--------+------+
+.br
+\fL|  zero  | BOS  |
+.br
+\fL+--------+------+
+.br
+\fL    0
+.fi
+\}
+.PP
+.PP
+This field is useful as part of processing a series of incoming MPLS labels\[char46] A flow that includes a \fBpop_mpls\fR action should generally match on \fBmpls_bos\fR:
+.RS
+.IP \(bu
+When \fBmpls_bos\fR is 1, there is another MPLS label following this one, so the Ethertype passed to \fBpop_mpls\fR should be an MPLS Ethertype\[char46] For example: \fBtable=0,
+dl_type=0x8847, mpls_bos=1, actions=pop_mpls:0x8847,
+goto_table:1\fR
+.IP \(bu
+When \fBmpls_bos\fR is 0, this MPLS label is the last one, so the Ethertype passed to \fBpop_mpls\fR should be a non-MPLS Ethertype such as IPv4\[char46] For example: \fBtable=1, dl_type=0x8847,
+mpls_bos=0, actions=pop_mpls:0x0800, goto_table:2\fR
+.RE
+.PP
+.PP
+\fBMPLS Time-to-Live Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBmpls_ttl\fR
+Width:;8 bits
+Format:;decimal
+Masking:;not maskable
+Prerequisites:;MPLS
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+none
+T}
+NXM:;T{
+\fBNXM_NX_MPLS_TTL\fR (30) since Open vSwitch 2.6
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+Holds the 8-bit time-to-live field from the MPLS label:
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "TTL" width .4
+"8" at B0.n above
+"" at B0.s below
+line <-> "NXM_NX_MPLS_TTL" above from B0.nw + (0,textht) to B0.ne + (0,textht)
+]
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL NXM_NX_MPLS_TTL
+.br
+\fL <------------->
+.br
+\fL        8
+.br
+\fL+---------------+
+.br
+\fL|      TTL      |
+.br
+\fL+---------------+
+.br
+\fL
+.fi
+\}
+.bp
+.SH "LAYER 3: IPV4 AND IPV6 FIELDS"
+.SS "Summary:"
+.TS
+tab(;);
+l l l l l l l.
+Name;Bytes;Mask;RW?;Prereqs;NXM/OXM Support
+\_;\_;\_;\_;\_;\_
+\fBip_src\fR aka \fBnw_src\fR;4;yes;yes;IPv4;OF 1.2+ and OVS 1.1+
+\fBip_dst\fR aka \fBnw_dst\fR;4;yes;yes;IPv4;OF 1.2+ and OVS 1.1+
+\fBipv6_src\fR;16;yes;yes;IPv6;OF 1.2+ and OVS 1.1+
+\fBipv6_dst\fR;16;yes;yes;IPv6;OF 1.2+ and OVS 1.1+
+\fBipv6_label\fR;4 (low 20 bits);yes;yes;IPv6;OF 1.2+ and OVS 1.4+
+\fBnw_proto\fR aka \fBip_proto\fR;1;no;no;IPv4/IPv6;OF 1.2+ and OVS 1.1+
+\fBnw_ttl\fR;1;no;yes;IPv4/IPv6;OVS 1.4+
+\fBip_frag\fR;1 (low 2 bits);yes;no;IPv4/IPv6;OVS 1.3+
+\fBnw_tos\fR;1;no;yes;IPv4/IPv6;OVS 1.1+
+\fBip_dscp\fR;1 (low 6 bits);no;yes;IPv4/IPv6;OF 1.2+ and OVS 1.7+
+\fBnw_ecn\fR aka \fBip_ecn\fR;1 (low 2 bits);no;yes;IPv4/IPv6;OF 1.2+ and OVS 1.4+
+.TE
+.PP
+.SS "IPv4 Specific Fields"
+.PP
+.PP
+These fields are applicable only to IPv4 flows, that is, flows that match on the IPv4 Ethertype \fB0x0800\fR\[char46]
+.PP
+.PP
+\fBIPv4 Source Address Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBip_src\fR (aka \fBnw_src\fR)
+Width:;32 bits
+Format:;IPv4
+Masking:;arbitrary bitwise masks
+Prerequisites:;IPv4
+Access:;read/write
+OpenFlow 1.0:;yes (CIDR match only)
+OpenFlow 1.1:;yes
+OXM:;T{
+\fBOXM_OF_IPV4_SRC\fR (11) since OpenFlow 1.2 and Open vSwitch 1.7
+T}
+NXM:;T{
+\fBNXM_OF_IP_SRC\fR (7) since Open vSwitch 1.1
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+The source address from the IPv4 header:
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "dst" width 0.4
+B1: box "src" width 0.4
+B2: box "type" width 0.4
+"48" at B0.n above
+"" at B0.s below
+"48" at B1.n above
+"" at B1.s below
+"16" at B2.n above
+"0x800" at B2.s below
+line <-> "Ethernet" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+move .1
+[
+B0: box ". . ." width 0.4
+B1: box "proto" width 0.4
+B2: box "src" width 0.4 fill
+B3: box "dst" width 0.4
+"" at B0.n above
+"" at B0.s below
+"8" at B1.n above
+"" at B1.s below
+"32" at B2.n above
+"" at B2.s below
+"32" at B3.n above
+"" at B3.s below
+line <-> "IPv4" above from B0.nw + (0,textht) to B3.ne + (0,textht)
+]
+move .1
+". . ." ljust
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL   Ethernet            IPv4
+.br
+\fL <----------->   <--------------->
+.br
+\fL 48  48   16           8   32  32
+.br
+\fL+---+---+-----+ +---+-----+---+---+
+.br
+\fL|dst|src|type | |...|proto|src|dst| ...
+.br
+\fL+---+---+-----+ +---+-----+---+---+
+.br
+\fL         0x800
+.fi
+\}
+.PP
+.PP
+For historical reasons, in an ARP or RARP flow, Open vSwitch interprets matches on \fBnw_src\fR as actually referring to the ARP SPA\[char46]
+.PP
+.PP
+\fBIPv4 Destination Address Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBip_dst\fR (aka \fBnw_dst\fR)
+Width:;32 bits
+Format:;IPv4
+Masking:;arbitrary bitwise masks
+Prerequisites:;IPv4
+Access:;read/write
+OpenFlow 1.0:;yes (CIDR match only)
+OpenFlow 1.1:;yes
+OXM:;T{
+\fBOXM_OF_IPV4_DST\fR (12) since OpenFlow 1.2 and Open vSwitch 1.7
+T}
+NXM:;T{
+\fBNXM_OF_IP_DST\fR (8) since Open vSwitch 1.1
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+The destination address from the IPv4 header:
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "dst" width 0.4
+B1: box "src" width 0.4
+B2: box "type" width 0.4
+"48" at B0.n above
+"" at B0.s below
+"48" at B1.n above
+"" at B1.s below
+"16" at B2.n above
+"0x800" at B2.s below
+line <-> "Ethernet" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+move .1
+[
+B0: box ". . ." width 0.4
+B1: box "proto" width 0.4
+B2: box "src" width 0.4
+B3: box "dst" width 0.4 fill
+"" at B0.n above
+"" at B0.s below
+"8" at B1.n above
+"" at B1.s below
+"32" at B2.n above
+"" at B2.s below
+"32" at B3.n above
+"" at B3.s below
+line <-> "IPv4" above from B0.nw + (0,textht) to B3.ne + (0,textht)
+]
+move .1
+". . ." ljust
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL   Ethernet            IPv4
+.br
+\fL <----------->   <--------------->
+.br
+\fL 48  48   16           8   32  32
+.br
+\fL+---+---+-----+ +---+-----+---+---+
+.br
+\fL|dst|src|type | |...|proto|src|dst| ...
+.br
+\fL+---+---+-----+ +---+-----+---+---+
+.br
+\fL         0x800
+.fi
+\}
+.PP
+.PP
+For historical reasons, in an ARP or RARP flow, Open vSwitch interprets matches on \fBnw_dst\fR as actually referring to the ARP TPA\[char46]
+.PP
+.SS "IPv6 Specific Fields"
+.PP
+.PP
+These fields apply only to IPv6 flows, that is, flows that match on the IPv6 Ethertype \fB0x86dd\fR\[char46]
+.PP
+.PP
+\fBIPv6 Source Address Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBipv6_src\fR
+Width:;128 bits
+Format:;IPv6
+Masking:;arbitrary bitwise masks
+Prerequisites:;IPv6
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+\fBOXM_OF_IPV6_SRC\fR (26) since OpenFlow 1.2 and Open vSwitch 1.1
+T}
+NXM:;T{
+\fBNXM_NX_IPV6_SRC\fR (19) since Open vSwitch 1.1
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+The source address from the IPv6 header:
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "dst" width 0.4
+B1: box "src" width 0.4
+B2: box "type" width 0.4
+"48" at B0.n above
+"" at B0.s below
+"48" at B1.n above
+"" at B1.s below
+"16" at B2.n above
+"0x86dd" at B2.s below
+line <-> "Ethernet" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+move .1
+[
+B0: box ". . ." width 0.4
+B1: box "next" width 0.3
+B2: box "src" width 0.8 fill
+B3: box "dst" width 0.8
+"" at B0.n above
+"" at B0.s below
+"8" at B1.n above
+"" at B1.s below
+"128" at B2.n above
+"" at B2.s below
+"128" at B3.n above
+"" at B3.s below
+line <-> "IPv6" above from B0.nw + (0,textht) to B3.ne + (0,textht)
+]
+move .1
+". . ." ljust
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL    Ethernet            IPv6
+.br
+\fL <------------>   <-------------->
+.br
+\fL 48  48    16          8   128 128
+.br
+\fL+---+---+------+ +---+----+---+---+
+.br
+\fL|dst|src| type | |...|next|src|dst| ...
+.br
+\fL+---+---+------+ +---+----+---+---+
+.br
+\fL         0x86dd
+.fi
+\}
+.PP
+.PP
+Open vSwitch 1\[char46]8 added support for bitwise matching; earlier versions supported only CIDR masks\[char46]
+.PP
+.PP
+\fBIPv6 Destination Address Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBipv6_dst\fR
+Width:;128 bits
+Format:;IPv6
+Masking:;arbitrary bitwise masks
+Prerequisites:;IPv6
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+\fBOXM_OF_IPV6_DST\fR (27) since OpenFlow 1.2 and Open vSwitch 1.1
+T}
+NXM:;T{
+\fBNXM_NX_IPV6_DST\fR (20) since Open vSwitch 1.1
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+The destination address from the IPv6 header:
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "dst" width 0.4
+B1: box "src" width 0.4
+B2: box "type" width 0.4
+"48" at B0.n above
+"" at B0.s below
+"48" at B1.n above
+"" at B1.s below
+"16" at B2.n above
+"0x86dd" at B2.s below
+line <-> "Ethernet" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+move .1
+[
+B0: box ". . ." width 0.4
+B1: box "next" width 0.3
+B2: box "src" width 0.8
+B3: box "dst" width 0.8 fill
+"" at B0.n above
+"" at B0.s below
+"8" at B1.n above
+"" at B1.s below
+"128" at B2.n above
+"" at B2.s below
+"128" at B3.n above
+"" at B3.s below
+line <-> "IPv6" above from B0.nw + (0,textht) to B3.ne + (0,textht)
+]
+move .1
+". . ." ljust
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL    Ethernet            IPv6
+.br
+\fL <------------>   <-------------->
+.br
+\fL 48  48    16          8   128 128
+.br
+\fL+---+---+------+ +---+----+---+---+
+.br
+\fL|dst|src| type | |...|next|src|dst| ...
+.br
+\fL+---+---+------+ +---+----+---+---+
+.br
+\fL         0x86dd
+.fi
+\}
+.PP
+.PP
+Open vSwitch 1\[char46]8 added support for bitwise matching; earlier versions supported only CIDR masks\[char46]
+.PP
+.PP
+\fBIPv6 Flow Label Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBipv6_label\fR
+Width:;32 bits (only the least-significant 20 bits may be nonzero)
+Format:;hexadecimal
+Masking:;arbitrary bitwise masks
+Prerequisites:;IPv6
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+\fBOXM_OF_IPV6_FLABEL\fR (28) since OpenFlow 1.2 and Open vSwitch 1.7
+T}
+NXM:;T{
+\fBNXM_NX_IPV6_LABEL\fR (27) since Open vSwitch 1.4
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+The least significant 20 bits hold the flow label field from the IPv6 header\[char46] Other bits are zero:
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "zero" width .6
+B1: box "label" width 1.0
+"12" at B0.n above
+"0" at B0.s below
+"20" at B1.n above
+"" at B1.s below
+line <-> "OXM_OF_IPV6_FLABEL" above from B0.nw + (0,textht) to B1.ne + (0,textht)
+]
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL OXM_OF_IPV6_FLABEL
+.br
+\fL <---------------->
+.br
+\fL    12       20
+.br
+\fL+--------+---------+
+.br
+\fL|  zero  |  label  |
+.br
+\fL+--------+---------+
+.br
+\fL    0
+.fi
+\}
+.PP
+.SS "IPv4/IPv6 Fields"
+.PP
+.PP
+These fields exist with at least approximately the same meaning in both IPv4 and IPv6, so they are treated as a single field for matching purposes\[char46] Any flow that matches on the IPv4 Ethertype \fB0x0800\fR or the IPv6 Ethertype \fB0x86dd\fR may match on these fields\[char46]
+.PP
+.PP
+\fBIPv4/v6 Protocol Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBnw_proto\fR (aka \fBip_proto\fR)
+Width:;8 bits
+Format:;decimal
+Masking:;not maskable
+Prerequisites:;IPv4/IPv6
+Access:;read-only
+OpenFlow 1.0:;yes (exact match only)
+OpenFlow 1.1:;yes (exact match only)
+OXM:;T{
+\fBOXM_OF_IP_PROTO\fR (10) since OpenFlow 1.2 and Open vSwitch 1.7
+T}
+NXM:;T{
+\fBNXM_OF_IP_PROTO\fR (6) since Open vSwitch 1.1
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+Matches the IPv4 or IPv6 protocol type\[char46]
+.PP
+.PP
+For historical reasons, in an ARP or RARP flow, Open vSwitch interprets matches on \fBnw_proto\fR as actually referring to the ARP opcode\[char46] The ARP opcode is a 16-bit field, so for matching purposes ARP opcodes greater than 255 are treated as 0; this works adequately because in practice ARP and RARP only use opcodes 1 through 4\[char46]
+.PP
+.PP
+\fBIPv4/v6 TTL/Hop Limit Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBnw_ttl\fR
+Width:;8 bits
+Format:;decimal
+Masking:;not maskable
+Prerequisites:;IPv4/IPv6
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+none
+T}
+NXM:;T{
+\fBNXM_NX_IP_TTL\fR (29) since Open vSwitch 1.4
+T}
+.TE
+.PP
+.PP
+The main reason to match on the TTL or hop limit field is to detect whether a \fBdec_ttl\fR action will fail due to a TTL exceeded error\[char46] Another way that a controller can detect TTL exceeded is to listen for \fBOFPR_INVALID_TTL\fR ``packet-in\(cq\(cq messages via OpenFlow\[char46]
+.PP
+.PP
+\fBIPv4/v6 Fragment Bitmask Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBip_frag\fR
+Width:;8 bits (only the least-significant 2 bits may be nonzero)
+Format:;frag
+Masking:;arbitrary bitwise masks
+Prerequisites:;IPv4/IPv6
+Access:;read-only
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+none
+T}
+NXM:;T{
+\fBNXM_NX_IP_FRAG\fR (26) since Open vSwitch 1.3
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+Specifies what kinds of IP fragments or non-fragments to match\[char46] The value for this field is most conveniently specified as one of the following:
+.RS
+.TP
+\fBno\fR
+Match only non-fragmented packets\[char46]
+.TP
+\fByes\fR
+Matches all fragments\[char46]
+.TP
+\fBfirst\fR
+Matches only fragments with offset 0\[char46]
+.TP
+\fBlater\fR
+Matches only fragments with nonzero offset\[char46]
+.TP
+\fBnot_later\fR
+Matches non-fragmented packets and fragments with zero offset\[char46]
+.RE
+.PP
+.PP
+The field is internally formatted as 2 bits: bit 0 is 1 for an IP fragment with any offset (and otherwise 0), and bit 1 is 1 for an IP fragment with nonzero offset (and otherwise 0), like so:
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "zero" width .9
+B1: box "later" width .3
+B2: box "any" width .3
+"6" at B0.n above
+"0" at B0.s below
+"1" at B1.n above
+"" at B1.s below
+"1" at B2.n above
+"" at B2.s below
+line <-> "NXM_NX_IP_FRAG" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL NXM_NX_IP_FRAG
+.br
+\fL <------------>
+.br
+\fL  6     1    1
+.br
+\fL+----+-----+---+
+.br
+\fL|zero|later|any|
+.br
+\fL+----+-----+---+
+.br
+\fL  0
+.fi
+\}
+.PP
+.PP
+Even though 2 bits have 4 possible values, this field only uses 3 of them:
+.RS
+.IP \(bu
+A packet that is not an IP fragment has value 0\[char46]
+.IP \(bu
+A packet that is an IP fragment with offset 0 (the first fragment) has bit 0 set and thus value 1\[char46]
+.IP \(bu
+A packet that is an IP fragment with nonzero offset has bits 0 and 1 set and thus value 3\[char46]
+.RE
+.PP
+.PP
+The switch may reject matches against values that can never appear\[char46]
+.PP
+.PP
+It is important to understand how this field interacts with the OpenFlow fragment handling mode:
+.RS
+.IP \(bu
+In \fBOFPC_FRAG_DROP\fR mode, the OpenFlow switch drops all IP fragments before they reach the flow table, so every packet that is available for matching will have value 0 in this field\[char46]
+.IP \(bu
+Open vSwitch does not implement \fBOFPC_FRAG_REASM\fR mode, but if it did then IP fragments would be reassembled before they reached the flow table and again every packet available for matching would always have value 0\[char46]
+.IP \(bu
+In \fBOFPC_FRAG_NORMAL\fR mode, all three values are possible, but OpenFlow 1\[char46]0 says that fragments\(cq transport ports are always 0, even for the first fragment, so this does not provide much extra information\[char46]
+.IP \(bu
+In \fBOFPC_FRAG_NX_MATCH\fR mode, all three values are possible\[char46] For fragments with offset 0, Open vSwitch makes L4 header information available\[char46]
+.RE
+.PP
+.PP
+Thus, this field is likely to be most useful for an Open vSwitch switch configured in \fBOFPC_FRAG_NX_MATCH\fR mode\[char46] See the description of the \fBset\-frags\fR command in \fBovs\-ofctl\fR(8), for more details\[char46]
+.PP
+.ST "IPv4/IPv6 TOS Fields"
+.PP
+.PP
+IPv4 and IPv6 contain a one-byte ``type of service\(cq\(cq or TOS field that has the following format:
+.PP
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "DSCP" width .9
+B1: box "ECN" width .3
+"6" at B0.n above
+"" at B0.s below
+"2" at B1.n above
+"" at B1.s below
+line <-> "type of service" above from B0.nw + (0,textht) to B1.ne + (0,textht)
+]
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL type of service
+.br
+\fL <------------->
+.br
+\fL    6       2
+.br
+\fL+--------+------+
+.br
+\fL|  DSCP  | ECN  |
+.br
+\fL+--------+------+
+.br
+\fL
+.fi
+\}
+.PP
+.PP
+\fBIPv4/v6 DSCP (Bits 2-7) Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBnw_tos\fR
+Width:;8 bits
+Format:;decimal
+Masking:;not maskable
+Prerequisites:;IPv4/IPv6
+Access:;read/write
+OpenFlow 1.0:;yes (exact match only)
+OpenFlow 1.1:;yes (exact match only)
+OXM:;T{
+none
+T}
+NXM:;T{
+\fBNXM_OF_IP_TOS\fR (5) since Open vSwitch 1.1
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+This field is the TOS byte with the two ECN bits cleared to 0:
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "DSCP" width .9
+B1: box "zero" width .3
+"6" at B0.n above
+"" at B0.s below
+"2" at B1.n above
+"0" at B1.s below
+line <-> "NXM_OF_IP_TOS" above from B0.nw + (0,textht) to B1.ne + (0,textht)
+]
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL NXM_OF_IP_TOS
+.br
+\fL <----------->
+.br
+\fL   6      2
+.br
+\fL+------+------+
+.br
+\fL| DSCP | zero |
+.br
+\fL+------+------+
+.br
+\fL          0
+.fi
+\}
+.PP
+.PP
+\fBIPv4/v6 DSCP (Bits 0-5) Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBip_dscp\fR
+Width:;8 bits (only the least-significant 6 bits may be nonzero)
+Format:;decimal
+Masking:;not maskable
+Prerequisites:;IPv4/IPv6
+Access:;read/write
+OpenFlow 1.0:;yes (exact match only)
+OpenFlow 1.1:;yes (exact match only)
+OXM:;T{
+\fBOXM_OF_IP_DSCP\fR (8) since OpenFlow 1.2 and Open vSwitch 1.7
+T}
+NXM:;T{
+none
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+This field is the TOS byte shifted right to put the DSCP bits in the 6 least-significant bits:
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "zero" width .3
+B1: box "DSCP" width .9
+"2" at B0.n above
+"0" at B0.s below
+"6" at B1.n above
+"" at B1.s below
+line <-> "OXM_OF_IP_DSCP" above from B0.nw + (0,textht) to B1.ne + (0,textht)
+]
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL OXM_OF_IP_DSCP
+.br
+\fL <------------>
+.br
+\fL    2      6
+.br
+\fL+-------+------+
+.br
+\fL| zero  | DSCP |
+.br
+\fL+-------+------+
+.br
+\fL    0
+.fi
+\}
+.PP
+.PP
+\fBIPv4/v6 ECN Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBnw_ecn\fR (aka \fBip_ecn\fR)
+Width:;8 bits (only the least-significant 2 bits may be nonzero)
+Format:;decimal
+Masking:;not maskable
+Prerequisites:;IPv4/IPv6
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+\fBOXM_OF_IP_ECN\fR (9) since OpenFlow 1.2 and Open vSwitch 1.7
+T}
+NXM:;T{
+\fBNXM_NX_IP_ECN\fR (28) since Open vSwitch 1.4
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+This field is the TOS byte with the DSCP bits cleared to 0:
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "zero" width .9
+B1: box "ECN" width .35
+"6" at B0.n above
+"0" at B0.s below
+"2" at B1.n above
+"" at B1.s below
+line <-> "OXM_OF_IP_ECN" above from B0.nw + (0,textht) to B1.ne + (0,textht)
+]
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL OXM_OF_IP_ECN
+.br
+\fL <----------->
+.br
+\fL    6      2
+.br
+\fL+-------+-----+
+.br
+\fL| zero  | ECN |
+.br
+\fL+-------+-----+
+.br
+\fL    0
+.fi
+\}
+.bp
+.SH "LAYER 3: ARP FIELDS"
+.SS "Summary:"
+.TS
+tab(;);
+l l l l l l l.
+Name;Bytes;Mask;RW?;Prereqs;NXM/OXM Support
+\_;\_;\_;\_;\_;\_
+\fBarp_op\fR;2;no;yes;ARP;OF 1.2+ and OVS 1.1+
+\fBarp_spa\fR;4;yes;yes;ARP;OF 1.2+ and OVS 1.1+
+\fBarp_tpa\fR;4;yes;yes;ARP;OF 1.2+ and OVS 1.1+
+\fBarp_sha\fR;6;yes;yes;ARP;OF 1.2+ and OVS 1.1+
+\fBarp_tha\fR;6;yes;yes;ARP;OF 1.2+ and OVS 1.1+
+.TE
+.PP
+.PP
+In theory, Address Resolution Protocol, or ARP, is a generic protocol generic protocol that can be used to obtain the hardware address that corresponds to any higher-level protocol address\[char46] In contemporary usage, ARP is used only in Ethernet networks to obtain the Ethernet address for a given IPv4 address\[char46] OpenFlow and Open vSwitch only support this usage of ARP\[char46] For this use case, an ARP packet has the following format, with the ARP fields exposed as Open vSwitch fields highlighted:
+.PP
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "dst" width 0.4
+B1: box "src" width 0.4
+B2: box "type" width 0.4
+"48" at B0.n above
+"" at B0.s below
+"48" at B1.n above
+"" at B1.s below
+"16" at B2.n above
+"0x806" at B2.s below
+line <-> "Ethernet" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+move .1
+[
+B0: box "hrd" width .3
+B1: box "pro" width .3
+B2: box "hln" width .2
+B3: box "pln" width .2
+B4: box "op" width .2 fill
+B5: box "sha" width 0.5 fill
+B6: box "spa" width 0.3 fill
+B7: box "tha" width 0.5 fill
+B8: box "tpa" width 0.3 fill
+"16" at B0.n above
+"1" at B0.s below
+"16" at B1.n above
+"0x800" at B1.s below
+"8" at B2.n above
+"6" at B2.s below
+"8" at B3.n above
+"4" at B3.s below
+"16" at B4.n above
+"" at B4.s below
+"48" at B5.n above
+"" at B5.s below
+"16" at B6.n above
+"" at B6.s below
+"48" at B7.n above
+"" at B7.s below
+"16" at B8.n above
+"" at B8.s below
+line <-> "ARP" above from B0.nw + (0,textht) to B8.ne + (0,textht)
+]
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL   Ethernet                      ARP
+.br
+\fL <----------->   <---------------------------------->
+.br
+\fL 48  48   16     16   16    8   8  16 48  16  48  16
+.br
+\fL+---+---+-----+ +---+-----+---+---+--+---+---+---+---+
+.br
+\fL|dst|src|type | |hrd| pro |hln|pln|op|sha|spa|tha|tpa|
+.br
+\fL+---+---+-----+ +---+-----+---+---+--+---+---+---+---+
+.br
+\fL         0x806    1  0x800  6   4
+.fi
+\}
+.PP
+.PP
+The ARP fields are also used for RARP, the Reverse Address Resolution Protocol, which shares ARP\(cqs wire format\[char46]
+.PP
+.PP
+\fBARP Opcode Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBarp_op\fR
+Width:;16 bits
+Format:;decimal
+Masking:;not maskable
+Prerequisites:;ARP
+Access:;read/write
+OpenFlow 1.0:;yes (exact match only)
+OpenFlow 1.1:;yes (exact match only)
+OXM:;T{
+\fBOXM_OF_ARP_OP\fR (21) since OpenFlow 1.2 and Open vSwitch 1.7
+T}
+NXM:;T{
+\fBNXM_OF_ARP_OP\fR (15) since Open vSwitch 1.1
+T}
+.TE
+.PP
+.PP
+Even though this is a 16-bit field, Open vSwitch does not support ARP opcodes greater than 255; it treats them to zero\[char46] This works adequately because in practice ARP and RARP only use opcodes 1 through 4\[char46]
+.PP
+.PP
+\fBARP Source IPv4 Address Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBarp_spa\fR
+Width:;32 bits
+Format:;IPv4
+Masking:;arbitrary bitwise masks
+Prerequisites:;ARP
+Access:;read/write
+OpenFlow 1.0:;yes (CIDR match only)
+OpenFlow 1.1:;yes
+OXM:;T{
+\fBOXM_OF_ARP_SPA\fR (22) since OpenFlow 1.2 and Open vSwitch 1.7
+T}
+NXM:;T{
+\fBNXM_OF_ARP_SPA\fR (16) since Open vSwitch 1.1
+T}
+.TE
+.PP
+.PP
+.PP
+\fBARP Target IPv4 Address Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBarp_tpa\fR
+Width:;32 bits
+Format:;IPv4
+Masking:;arbitrary bitwise masks
+Prerequisites:;ARP
+Access:;read/write
+OpenFlow 1.0:;yes (CIDR match only)
+OpenFlow 1.1:;yes
+OXM:;T{
+\fBOXM_OF_ARP_TPA\fR (23) since OpenFlow 1.2 and Open vSwitch 1.7
+T}
+NXM:;T{
+\fBNXM_OF_ARP_TPA\fR (17) since Open vSwitch 1.1
+T}
+.TE
+.PP
+.PP
+.PP
+\fBARP Source Ethernet Address Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBarp_sha\fR
+Width:;48 bits
+Format:;Ethernet
+Masking:;arbitrary bitwise masks
+Prerequisites:;ARP
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+\fBOXM_OF_ARP_SHA\fR (24) since OpenFlow 1.2 and Open vSwitch 1.7
+T}
+NXM:;T{
+\fBNXM_NX_ARP_SHA\fR (17) since Open vSwitch 1.1
+T}
+.TE
+.PP
+.PP
+.PP
+\fBARP Target Ethernet Address Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBarp_tha\fR
+Width:;48 bits
+Format:;Ethernet
+Masking:;arbitrary bitwise masks
+Prerequisites:;ARP
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+\fBOXM_OF_ARP_THA\fR (25) since OpenFlow 1.2 and Open vSwitch 1.7
+T}
+NXM:;T{
+\fBNXM_NX_ARP_THA\fR (18) since Open vSwitch 1.1
+T}
+.TE
+.bp
+.SH "LAYER 4: TCP, UDP, AND SCTP FIELDS"
+.SS "Summary:"
+.TS
+tab(;);
+l l l l l l l.
+Name;Bytes;Mask;RW?;Prereqs;NXM/OXM Support
+\_;\_;\_;\_;\_;\_
+\fBtcp_src\fR aka \fBtp_src\fR;2;yes;yes;TCP;OF 1.2+ and OVS 1.1+
+\fBtcp_dst\fR aka \fBtp_dst\fR;2;yes;yes;TCP;OF 1.2+ and OVS 1.1+
+\fBtcp_flags\fR;2 (low 12 bits);yes;no;TCP;OF 1.3+ and OVS 2.1+
+\fBudp_src\fR;2;yes;yes;UDP;OF 1.2+ and OVS 1.1+
+\fBudp_dst\fR;2;yes;yes;UDP;OF 1.2+ and OVS 1.1+
+\fBsctp_src\fR;2;yes;yes;SCTP;OF 1.2+ and OVS 2.0+
+\fBsctp_dst\fR;2;yes;yes;SCTP;OF 1.2+ and OVS 2.0+
+.TE
+.PP
+.PP
+For matching purposes, no distinction is made whether these protocols are encapsulated within IPv4 or IPv6\[char46]
+.PP
+.SS "TCP"
+.PP
+.PP
+The following diagram shows TCP within IPv4\[char46] Open vSwitch also supports TCP in IPv6\[char46] Only TCP fields implemented as Open vSwitch fields are shown:
+.PP
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "dst" width 0.4
+B1: box "src" width 0.4
+B2: box "type" width 0.4
+"48" at B0.n above
+"" at B0.s below
+"48" at B1.n above
+"" at B1.s below
+"16" at B2.n above
+"0x800" at B2.s below
+line <-> "Ethernet" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+move .1
+[
+B0: box ". . ." width 0.4
+B1: box "proto" width 0.3
+B2: box "src" width 0.4
+B3: box "dst" width 0.4
+"" at B0.n above
+"" at B0.s below
+"8" at B1.n above
+"6" at B1.s below
+"32" at B2.n above
+"" at B2.s below
+"32" at B3.n above
+"" at B3.s below
+line <-> "IPv4" above from B0.nw + (0,textht) to B3.ne + (0,textht)
+]
+move .1
+[
+B0: box "src" width .2
+B1: box "dst" width .2
+B2: box ". . ." width .75
+B3: box "flags" width .3
+B4: box ". . ." width .6
+"16" at B0.n above
+"" at B0.s below
+"16" at B1.n above
+"" at B1.s below
+"" at B2.n above
+"" at B2.s below
+"12" at B3.n above
+"" at B3.s below
+"" at B4.n above
+"" at B4.s below
+line <-> "TCP" above from B0.nw + (0,textht) to B4.ne + (0,textht)
+]
+move .1
+". . ." ljust
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL   Ethernet            IPv4                   TCP
+.br
+\fL <----------->   <--------------->   <------------------->
+.br
+\fL 48  48   16           8   32  32    16  16       12
+.br
+\fL+---+---+-----+ +---+-----+---+---+ +---+---+---+-----+---+
+.br
+\fL|dst|src|type | |...|proto|src|dst| |src|dst|...|flags|...| ...
+.br
+\fL+---+---+-----+ +---+-----+---+---+ +---+---+---+-----+---+
+.br
+\fL         0x800         6
+.fi
+\}
+.PP
+.PP
+\fBTCP Source Port Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBtcp_src\fR (aka \fBtp_src\fR)
+Width:;16 bits
+Format:;decimal
+Masking:;arbitrary bitwise masks
+Prerequisites:;TCP
+Access:;read/write
+OpenFlow 1.0:;yes (exact match only)
+OpenFlow 1.1:;yes (exact match only)
+OXM:;T{
+\fBOXM_OF_TCP_SRC\fR (13) since OpenFlow 1.2 and Open vSwitch 1.7
+T}
+NXM:;T{
+\fBNXM_OF_TCP_SRC\fR (9) since Open vSwitch 1.1
+T}
+.TE
+.PP
+.PP
+Open vSwitch 1\[char46]6 added support for bitwise matching\[char46]
+.PP
+.PP
+\fBTCP Destination Port Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBtcp_dst\fR (aka \fBtp_dst\fR)
+Width:;16 bits
+Format:;decimal
+Masking:;arbitrary bitwise masks
+Prerequisites:;TCP
+Access:;read/write
+OpenFlow 1.0:;yes (exact match only)
+OpenFlow 1.1:;yes (exact match only)
+OXM:;T{
+\fBOXM_OF_TCP_DST\fR (14) since OpenFlow 1.2 and Open vSwitch 1.7
+T}
+NXM:;T{
+\fBNXM_OF_TCP_DST\fR (10) since Open vSwitch 1.1
+T}
+.TE
+.PP
+.PP
+Open vSwitch 1\[char46]6 added support for bitwise matching\[char46]
+.PP
+.PP
+\fBTCP Flags Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBtcp_flags\fR
+Width:;16 bits (only the least-significant 12 bits may be nonzero)
+Format:;TCP flags
+Masking:;arbitrary bitwise masks
+Prerequisites:;TCP
+Access:;read-only
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+\fBONFOXM_ET_TCP_FLAGS\fR (42) since OpenFlow 1.3 and Open vSwitch 2.4\[char59] \fBOXM_OF_TCP_FLAGS\fR (42) since OpenFlow 1.5 and Open vSwitch 2.3
+T}
+NXM:;T{
+\fBNXM_NX_TCP_FLAGS\fR (34) since Open vSwitch 2.1
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+This field holds the TCP flags\[char46] TCP currently defines 9 flag bits\[char46] An additional 3 bits are reserved\[char46] For more information, see [RFC 793], [RFC 3168], and [RFC 3540]\[char46]
+.PP
+.PP
+Matches on this field are most conveniently written in terms of symbolic names (given in the diagram below), each preceded by either \fB+\fR for a flag that must be set, or \fB\-\fR for a flag that must be unset, without any other delimiters between the flags\[char46] Flags not mentioned are wildcarded\[char46] For example, \fBtcp,tcp_flags=+syn\-ack\fR matches TCP SYNs that are not ACKs, and \fBtcp,tcp_flags=+[200]\fR matches TCP packets with the reserved [200] flag set\[char46] Matches can also be written as \fB\fIflags\fB/\fImask\fB\fR, where \fIflags\fR and \fImask\fR are 16-bit numbers in decimal or in hexadecimal prefixed by \fB0x\fR\[char46]
+.PP
+.PP
+The flag bits are:
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "zero" width .9
+"4" at B0.n above
+"0" at B0.s below
+line <-> invis "" above from B0.nw + (0,textht) to B0.ne + (0,textht)
+]
+[
+B0: box "[800]" width .35
+B1: box "[400]" width .35
+B2: box "[200]" width .35
+"1" at B0.n above
+"" at B0.s below
+"1" at B1.n above
+"" at B1.s below
+"1" at B2.n above
+"" at B2.s below
+line <-> "reserved" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+[
+B0: box "NS" width .35
+B1: box "CWR" width .35
+B2: box "ECE" width .35
+"1" at B0.n above
+"" at B0.s below
+"1" at B1.n above
+"" at B1.s below
+"1" at B2.n above
+"" at B2.s below
+line <-> "later RFCs" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+[
+B0: box "URG" width .35
+B1: box "ACK" width .35
+B2: box "PSH" width .35
+B3: box "RST" width .35
+B4: box "SYN" width .35
+B5: box "FIN" width .35
+"1" at B0.n above
+"" at B0.s below
+"1" at B1.n above
+"" at B1.s below
+"1" at B2.n above
+"" at B2.s below
+"1" at B3.n above
+"" at B3.s below
+"1" at B4.n above
+"" at B4.s below
+"1" at B5.n above
+"" at B5.s below
+line <-> "RFC 793" above from B0.nw + (0,textht) to B5.ne + (0,textht)
+]
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL          reserved      later RFCs         RFC 793
+.br
+\fL      <---------------> <--------> <--------------------->
+.br
+\fL  4     1     1     1   1   1   1   1   1   1   1   1   1
+.br
+\fL+----+-----+-----+-----+--+---+---+---+---+---+---+---+---+
+.br
+\fL|zero|[800]|[400]|[200]|NS|CWR|ECE|URG|ACK|PSH|RST|SYN|FIN|
+.br
+\fL+----+-----+-----+-----+--+---+---+---+---+---+---+---+---+
+.br
+\fL  0
+.fi
+\}
+.PP
+.SS "UDP"
+.PP
+.PP
+The following diagram shows UDP within IPv4\[char46] Open vSwitch also supports UDP in IPv6\[char46] Only UDP fields that Open vSwitch exposes as fields are shown:
+.PP
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "dst" width 0.4
+B1: box "src" width 0.4
+B2: box "type" width 0.4
+"48" at B0.n above
+"" at B0.s below
+"48" at B1.n above
+"" at B1.s below
+"16" at B2.n above
+"0x800" at B2.s below
+line <-> "Ethernet" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+move .1
+[
+B0: box ". . ." width 0.4
+B1: box "proto" width 0.3
+B2: box "src" width 0.4
+B3: box "dst" width 0.4
+"" at B0.n above
+"" at B0.s below
+"8" at B1.n above
+"17" at B1.s below
+"32" at B2.n above
+"" at B2.s below
+"32" at B3.n above
+"" at B3.s below
+line <-> "IPv4" above from B0.nw + (0,textht) to B3.ne + (0,textht)
+]
+move .1
+[
+B0: box "src" width .2
+B1: box "dst" width .2
+B2: box ". . ." width .4
+"16" at B0.n above
+"" at B0.s below
+"16" at B1.n above
+"" at B1.s below
+"" at B2.n above
+"" at B2.s below
+line <-> "UDP" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+move .1
+". . ." ljust
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL   Ethernet            IPv4              UDP
+.br
+\fL <----------->   <--------------->   <--------->
+.br
+\fL 48  48   16           8   32  32    16  16
+.br
+\fL+---+---+-----+ +---+-----+---+---+ +---+---+---+
+.br
+\fL|dst|src|type | |...|proto|src|dst| |src|dst|...| ...
+.br
+\fL+---+---+-----+ +---+-----+---+---+ +---+---+---+
+.br
+\fL         0x800        17
+.fi
+\}
+.PP
+.PP
+\fBUDP Source Port Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBudp_src\fR
+Width:;16 bits
+Format:;decimal
+Masking:;arbitrary bitwise masks
+Prerequisites:;UDP
+Access:;read/write
+OpenFlow 1.0:;yes (exact match only)
+OpenFlow 1.1:;yes (exact match only)
+OXM:;T{
+\fBOXM_OF_UDP_SRC\fR (15) since OpenFlow 1.2 and Open vSwitch 1.7
+T}
+NXM:;T{
+\fBNXM_OF_UDP_SRC\fR (11) since Open vSwitch 1.1
+T}
+.TE
+.PP
+.PP
+.PP
+\fBUDP Destination Port Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBudp_dst\fR
+Width:;16 bits
+Format:;decimal
+Masking:;arbitrary bitwise masks
+Prerequisites:;UDP
+Access:;read/write
+OpenFlow 1.0:;yes (exact match only)
+OpenFlow 1.1:;yes (exact match only)
+OXM:;T{
+\fBOXM_OF_UDP_DST\fR (16) since OpenFlow 1.2 and Open vSwitch 1.7
+T}
+NXM:;T{
+\fBNXM_OF_UDP_DST\fR (12) since Open vSwitch 1.1
+T}
+.TE
+.PP
+.PP
+.SS "SCTP"
+.PP
+.PP
+The following diagram shows SCTP within IPv4\[char46] Open vSwitch also supports SCTP in IPv6\[char46] Only SCTP fields that Open vSwitch exposes as fields are shown:
+.PP
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "dst" width 0.4
+B1: box "src" width 0.4
+B2: box "type" width 0.4
+"48" at B0.n above
+"" at B0.s below
+"48" at B1.n above
+"" at B1.s below
+"16" at B2.n above
+"0x800" at B2.s below
+line <-> "Ethernet" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+move .1
+[
+B0: box ". . ." width 0.4
+B1: box "proto" width 0.3
+B2: box "src" width 0.4
+B3: box "dst" width 0.4
+"" at B0.n above
+"" at B0.s below
+"8" at B1.n above
+"132" at B1.s below
+"32" at B2.n above
+"" at B2.s below
+"32" at B3.n above
+"" at B3.s below
+line <-> "IPv4" above from B0.nw + (0,textht) to B3.ne + (0,textht)
+]
+move .1
+[
+B0: box "src" width .2
+B1: box "dst" width .2
+B2: box ". . ." width .8
+"16" at B0.n above
+"" at B0.s below
+"16" at B1.n above
+"" at B1.s below
+"" at B2.n above
+"" at B2.s below
+line <-> "SCTP" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+move .1
+". . ." ljust
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL   Ethernet            IPv4             SCTP
+.br
+\fL <----------->   <--------------->   <--------->
+.br
+\fL 48  48   16           8   32  32    16  16
+.br
+\fL+---+---+-----+ +---+-----+---+---+ +---+---+---+
+.br
+\fL|dst|src|type | |...|proto|src|dst| |src|dst|...| ...
+.br
+\fL+---+---+-----+ +---+-----+---+---+ +---+---+---+
+.br
+\fL         0x800        132
+.fi
+\}
+.PP
+.PP
+\fBSCTP Source Port Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBsctp_src\fR
+Width:;16 bits
+Format:;decimal
+Masking:;arbitrary bitwise masks
+Prerequisites:;SCTP
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;yes (exact match only)
+OXM:;T{
+\fBOXM_OF_SCTP_SRC\fR (17) since OpenFlow 1.2 and Open vSwitch 2.0
+T}
+NXM:;T{
+none
+T}
+.TE
+.PP
+.PP
+.PP
+\fBSCTP Destination Port Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBsctp_dst\fR
+Width:;16 bits
+Format:;decimal
+Masking:;arbitrary bitwise masks
+Prerequisites:;SCTP
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;yes (exact match only)
+OXM:;T{
+\fBOXM_OF_SCTP_DST\fR (18) since OpenFlow 1.2 and Open vSwitch 2.0
+T}
+NXM:;T{
+none
+T}
+.TE
+.bp
+.SH "LAYER 4: ICMPV4 AND ICMPV6 FIELDS"
+.SS "Summary:"
+.TS
+tab(;);
+l l l l l l l.
+Name;Bytes;Mask;RW?;Prereqs;NXM/OXM Support
+\_;\_;\_;\_;\_;\_
+\fBicmp_type\fR;1;no;yes;ICMPv4;OF 1.2+ and OVS 1.1+
+\fBicmp_code\fR;1;no;yes;ICMPv4;OF 1.2+ and OVS 1.1+
+\fBicmpv6_type\fR;1;no;yes;ICMPv6;OF 1.2+ and OVS 1.1+
+\fBicmpv6_code\fR;1;no;yes;ICMPv6;OF 1.2+ and OVS 1.1+
+\fBnd_target\fR;16;yes;yes;ND;OF 1.2+ and OVS 1.1+
+\fBnd_sll\fR;6;yes;yes;ND solicit;OF 1.2+ and OVS 1.1+
+\fBnd_tll\fR;6;yes;yes;ND advert;OF 1.2+ and OVS 1.1+
+.TE
+.PP
+.SS "ICMPv4"
+.PP
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "dst" width 0.4
+B1: box "src" width 0.4
+B2: box "type" width 0.4
+"48" at B0.n above
+"" at B0.s below
+"48" at B1.n above
+"" at B1.s below
+"16" at B2.n above
+"0x800" at B2.s below
+line <-> "Ethernet" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+move .1
+[
+B0: box ". . ." width 0.4
+B1: box "proto" width 0.3
+B2: box "src" width 0.4
+B3: box "dst" width 0.4
+"" at B0.n above
+"" at B0.s below
+"8" at B1.n above
+"1" at B1.s below
+"32" at B2.n above
+"" at B2.s below
+"32" at B3.n above
+"" at B3.s below
+line <-> "IPv4" above from B0.nw + (0,textht) to B3.ne + (0,textht)
+]
+move .1
+[
+B0: box "type" width .3
+B1: box "code" width .3
+B2: box ". . ." width .8
+"8" at B0.n above
+"" at B0.s below
+"8" at B1.n above
+"" at B1.s below
+"" at B2.n above
+"" at B2.s below
+line <-> "ICMPv4" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+move .1
+". . ." ljust
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL   Ethernet            IPv4             ICMPv4
+.br
+\fL <----------->   <--------------->   <----------->
+.br
+\fL 48  48   16           8   32  32     8    8
+.br
+\fL+---+---+-----+ +---+-----+---+---+ +----+----+---+
+.br
+\fL|dst|src|type | |...|proto|src|dst| |type|code|...| ...
+.br
+\fL+---+---+-----+ +---+-----+---+---+ +----+----+---+
+.br
+\fL         0x800         1
+.fi
+\}
+.PP
+.PP
+\fBICMPv4 Type Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBicmp_type\fR
+Width:;8 bits
+Format:;decimal
+Masking:;not maskable
+Prerequisites:;ICMPv4
+Access:;read/write
+OpenFlow 1.0:;yes (exact match only)
+OpenFlow 1.1:;yes (exact match only)
+OXM:;T{
+\fBOXM_OF_ICMPV4_TYPE\fR (19) since OpenFlow 1.2 and Open vSwitch 1.7
+T}
+NXM:;T{
+\fBNXM_OF_ICMP_TYPE\fR (13) since Open vSwitch 1.1
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+For historical reasons, in an ICMPv4 flow, Open vSwitch interprets matches on \fBtp_src\fR as actually referring to the ICMP type\[char46]
+.PP
+.PP
+\fBICMPv4 Code Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBicmp_code\fR
+Width:;8 bits
+Format:;decimal
+Masking:;not maskable
+Prerequisites:;ICMPv4
+Access:;read/write
+OpenFlow 1.0:;yes (exact match only)
+OpenFlow 1.1:;yes (exact match only)
+OXM:;T{
+\fBOXM_OF_ICMPV4_CODE\fR (20) since OpenFlow 1.2 and Open vSwitch 1.7
+T}
+NXM:;T{
+\fBNXM_OF_ICMP_CODE\fR (14) since Open vSwitch 1.1
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+For historical reasons, in an ICMPv4 flow, Open vSwitch interprets matches on \fBtp_dst\fR as actually referring to the ICMP code\[char46]
+.PP
+.SS "ICMPv6"
+.PP
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "dst" width 0.4
+B1: box "src" width 0.4
+B2: box "type" width 0.4
+"48" at B0.n above
+"" at B0.s below
+"48" at B1.n above
+"" at B1.s below
+"16" at B2.n above
+"0x86dd" at B2.s below
+line <-> "Ethernet" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+move .1
+[
+B0: box ". . ." width 0.2
+B1: box "next" width 0.3
+B2: box "src" width 0.4
+B3: box "dst" width 0.4
+"" at B0.n above
+"" at B0.s below
+"8" at B1.n above
+"58" at B1.s below
+"128" at B2.n above
+"" at B2.s below
+"128" at B3.n above
+"" at B3.s below
+line <-> "IPv6" above from B0.nw + (0,textht) to B3.ne + (0,textht)
+]
+move .1
+[
+B0: box "type" width .3
+B1: box "code" width .3
+B2: box ". . ." width .8
+"8" at B0.n above
+"" at B0.s below
+"8" at B1.n above
+"" at B1.s below
+"" at B2.n above
+"" at B2.s below
+line <-> "ICMPv6" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+move .1
+". . ." ljust
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL    Ethernet            IPv6            ICMPv6
+.br
+\fL <------------>   <-------------->   <----------->
+.br
+\fL 48  48    16          8   128 128    8    8
+.br
+\fL+---+---+------+ +---+----+---+---+ +----+----+---+
+.br
+\fL|dst|src| type | |...|next|src|dst| |type|code|...| ...
+.br
+\fL+---+---+------+ +---+----+---+---+ +----+----+---+
+.br
+\fL         0x86dd        58
+.fi
+\}
+.PP
+.PP
+\fBICMPv6 Type Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBicmpv6_type\fR
+Width:;8 bits
+Format:;decimal
+Masking:;not maskable
+Prerequisites:;ICMPv6
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+\fBOXM_OF_ICMPV6_TYPE\fR (29) since OpenFlow 1.2 and Open vSwitch 1.7
+T}
+NXM:;T{
+\fBNXM_NX_ICMPV6_TYPE\fR (21) since Open vSwitch 1.1
+T}
+.TE
+.PP
+.PP
+.PP
+\fBICMPv6 Code Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBicmpv6_code\fR
+Width:;8 bits
+Format:;decimal
+Masking:;not maskable
+Prerequisites:;ICMPv6
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+\fBOXM_OF_ICMPV6_CODE\fR (30) since OpenFlow 1.2 and Open vSwitch 1.7
+T}
+NXM:;T{
+\fBNXM_NX_ICMPV6_CODE\fR (22) since Open vSwitch 1.1
+T}
+.TE
+.PP
+.PP
+.SS "ICMPv6 Neighbor Discovery"
+.PP
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "dst" width 0.4
+B1: box "src" width 0.4
+B2: box "type" width 0.4
+"48" at B0.n above
+"" at B0.s below
+"48" at B1.n above
+"" at B1.s below
+"16" at B2.n above
+"0x86dd" at B2.s below
+line <-> "Ethernet" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+move .1
+[
+B0: box ". . ." width 0.2
+B1: box "next" width 0.3
+B2: box "src" width 0.4
+B3: box "dst" width 0.4
+"" at B0.n above
+"" at B0.s below
+"8" at B1.n above
+"58" at B1.s below
+"128" at B2.n above
+"" at B2.s below
+"128" at B3.n above
+"" at B3.s below
+line <-> "IPv6" above from B0.nw + (0,textht) to B3.ne + (0,textht)
+]
+move .1
+[
+B0: box "type" width .3
+B1: box "code" width .3
+B2: box ". . ." width .8
+"8" at B0.n above
+"135/136" at B0.s below
+"8" at B1.n above
+"0" at B1.s below
+"" at B2.n above
+"" at B2.s below
+line <-> "ICMPv6" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+move .1
+[
+B0: box "target" width .4
+B1: box "option . . ." width .6
+"128" at B0.n above
+"" at B0.s below
+"" at B1.n above
+"" at B1.s below
+line <-> "ICMPv6 ND" above from B0.nw + (0,textht) to B1.ne + (0,textht)
+]
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL    Ethernet            IPv6              ICMPv6            ICMPv6 ND
+.br
+\fL <------------>   <-------------->   <-------------->   <--------------->
+.br
+\fL 48  48    16          8   128 128      8     8          128
+.br
+\fL+---+---+------+ +---+----+---+---+ +-------+----+---+ +------+----------+
+.br
+\fL|dst|src| type | |...|next|src|dst| | type  |code|...| |target|option ...|
+.br
+\fL+---+---+------+ +---+----+---+---+ +-------+----+---+ +------+----------+
+.br
+\fL         0x86dd        58            135/136  0
+.fi
+\}
+.PP
+.PP
+\fBICMPv6 Neighbor Discovery Target IPv6 Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBnd_target\fR
+Width:;128 bits
+Format:;IPv6
+Masking:;arbitrary bitwise masks
+Prerequisites:;ND
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+\fBOXM_OF_IPV6_ND_TARGET\fR (31) since OpenFlow 1.2 and Open vSwitch 1.7
+T}
+NXM:;T{
+\fBNXM_NX_ND_TARGET\fR (23) since Open vSwitch 1.1
+T}
+.TE
+.PP
+.PP
+.PP
+\fBICMPv6 Neighbor Discovery Source Ethernet Address Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBnd_sll\fR
+Width:;48 bits
+Format:;Ethernet
+Masking:;arbitrary bitwise masks
+Prerequisites:;ND solicit
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+\fBOXM_OF_IPV6_ND_SLL\fR (32) since OpenFlow 1.2 and Open vSwitch 1.7
+T}
+NXM:;T{
+\fBNXM_NX_ND_SLL\fR (24) since Open vSwitch 1.1
+T}
+.TE
+.PP
+.PP
+.PP
+\fBICMPv6 Neighbor Discovery Target Ethernet Address Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBnd_tll\fR
+Width:;48 bits
+Format:;Ethernet
+Masking:;arbitrary bitwise masks
+Prerequisites:;ND advert
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+\fBOXM_OF_IPV6_ND_TLL\fR (33) since OpenFlow 1.2 and Open vSwitch 1.7
+T}
+NXM:;T{
+\fBNXM_NX_ND_TLL\fR (25) since Open vSwitch 1.1
+T}
+.TE
+.PP
+.PP
+.SH "REFERENCES"
+.RS
+.TP
+Casado
+M\[char46] Casado, M\[char46] J\[char46] Freedman, J\[char46] Pettit, J\[char46] Luo, N\[char46] McKeown, and S\[char46] Shenker, ``Ethane: Taking Control of the Enterprise,\(cq\(cq Computer Communications Review, October 2007\[char46]
+.TP
+EXT\-56
+J\[char46] Tonsing, ``Permit one of a set of prerequisites to apply, e\[char46]g\[char46] don\(cqt preclude non-Ethernet media,\(cq\(cq
+.URL "https://rs.opennetworking.org/bugs/browse/EXT\-56"
+(ONF members only)\[char46]
+.TP
+EXT\-112
+J\[char46] Tourrilhes, ``Support non-Ethernet packets throughout the pipeline,\(cq\(cq
+.URL "https://rs.opennetworking.org/bugs/browse/EXT\-112"
+(ONF members only)\[char46]
+.TP
+EXT\-134
+J\[char46] Tourrilhes, ``Match first nibble of the MPLS payload,\(cq\(cq
+.URL "https://rs.opennetworking.org/bugs/browse/EXT\-134"
+(ONF members only)\[char46]
+.TP
+Geneve
+J\[char46] Gross, I\[char46] Ganga, and T\[char46] Sridhar, editors, ``Geneve: Generic Network Virtualization Encapsulation,\(cq\(cq
+.URL "https://datatracker.ietf.org/doc/draft-ietf-nvo3-geneve/"
+\[char46]
+.TP
+IEEE OUI
+IEEE Standards Association, ``MAC Address Block Large (MA-L),\(cq\(cq
+.URL "https://standards.ieee.org/develop/regauth/oui/index.html"
+\[char46]
+.TP
+NSH
+P\[char46] Quinn and U\[char46] Elzur, editors, ``Network Service Header,\(cq\(cq
+.URL "https://datatracker.ietf.org/doc/draft-ietf-sfc-nsh/"
+\[char46]
+.TP
+OpenFlow 1\[char46]0\[char46]1
+Open Networking Foundation, ``OpenFlow Switch Errata, Version 1\[char46]0\[char46]1,\(cq\(cq June 2012\[char46]
+.TP
+OpenFlow 1\[char46]1
+OpenFlow Consortium, ``OpenFlow Switch Specification Version 1\[char46]1\[char46]0 Implemented (Wire Protocol 0x02),\(cq\(cq February 2011\[char46]
+.TP
+OpenFlow 1\[char46]5
+Open Networking Foundation, ``OpenFlow Switch Specification Version 1\[char46]5\[char46]0 (Protocol version 0x06),\(cq\(cq December 2014\[char46]
+.TP
+OpenFlow Extensions 1\[char46]3\[char46]x Package 2
+Open Networking Foundation, ``OpenFlow Extensions 1\[char46]3\[char46]x Package 2,\(cq\(cq December 2013\[char46]
+.TP
+TCP Flags Match Field Extension
+Open Networking Foundation, ``TCP flags match field Extension,\(cq\(cq December 2014\[char46] In [OpenFlow Extensions 1\[char46]3\[char46]x Package 2]\[char46]
+.TP
+Pepelnjak
+I\[char46] Pepelnjak, ``OpenFlow and Fermi Estimates,\(cq\(cq
+.URL "http://blog.ipspace.net/2013/09/openflow-and-fermi-estimates.html"
+\[char46]
+.TP
+RFC 793
+``Transmission Control Protocol,\(cq\(cq
+.URL "http://www.ietf.org/rfc/rfc793.txt"
+\[char46]
+.TP
+RFC 3032
+E\[char46] Rosen, D\[char46] Tappan, G\[char46] Fedorkow, Y\[char46] Rekhter, D\[char46] Farinacci, T\[char46] Li, and A\[char46] Conta, ``MPLS Label Stack Encoding,\(cq\(cq
+.URL "http://www.ietf.org/rfc/rfc3032.txt"
+\[char46]
+.TP
+RFC 3168
+K\[char46] Ramakrishnan, S\[char46] Floyd, and D\[char46] Black, ``The Addition of Explicit Congestion Notification (ECN) to IP,\(cq\(cq
+.URL "https://tools.ietf.org/html/rfc3168"
+\[char46]
+.TP
+RFC 3540
+N\[char46] Spring, D\[char46] Wetherall, and D\[char46] Ely, ``Robust Explicit Congestion Notification (ECN) Signaling with Nonces,\(cq\(cq
+.URL "https://tools.ietf.org/html/rfc3540"
+\[char46]
+.TP
+RFC 4632
+V\[char46] Fuller and T\[char46] Li, ``Classless Inter-domain Routing (CIDR): The Internet Address Assignment and Aggregation Plan,\(cq\(cq
+.URL "https://tools.ietf.org/html/rfc4632"
+\[char46]
+.TP
+RFC 5462
+L\[char46] Andersson and R\[char46] Asati, ``Multiprotocol Label Switching (MPLS) Label Stack Entry: ``EXP\(cq\(cq Field Renamed to ``Traffic Class\(cq\(cq Field,\(cq\(cq
+.URL "http://www.ietf.org/rfc/rfc5462.txt"
+\[char46]
+.TP
+RFC 6830
+D\[char46] Farinacci, V\[char46] Fuller, D\[char46] Meyer, and D\[char46] Lewis, ``The Locator/ID Separation Protocol (LISP),\(cq\(cq
+.URL "http://www.ietf.org/rfc/rfc6830.txt"
+\[char46]
+.TP
+RFC 7348
+M\[char46] Mahalingam, D\[char46] Dutt, K\[char46] Duda, P\[char46] Agarwal, L\[char46] Kreeger, T\[char46] Sridhar, M\[char46] Bursell, and C\[char46] Wright, ``Virtual eXtensible Local Area Network (VXLAN): A Framework for Overlaying Virtualized Layer 2 Networks over Layer 3 Networks, \(cq\(cq
+.URL "https://tools.ietf.org/html/rfc7348"
+\[char46]
+.TP
+Srinivasan
+V\[char46] Srinivasan, S\[char46] Suriy, and G\[char46] Varghese, ``Packet Classification using Tuple Space Search,\(cq\(cq SIGCOMM 1999\[char46]
+.TP
+Pagiamtzis
+K\[char46] Pagiamtzis and A\[char46] Sheikholeslami, ``Content-addressable memory (CAM) circuits and architectures: A tutorial and survey,\(cq\(cq IEEE Journal of Solid-State Circuits, vol\[char46] 41, no\[char46] 3, pp\[char46] 712\-727, March 2006\[char46]
+.TP
+VXLAN Group Policy Option
+M\[char46] Smith and L\[char46] Kreeger, `` VXLAN Group Policy Option\[char46]\(cq\(cq Internet-Draft\[char46]
+.URL "https://tools.ietf.org/html/draft-smith-vxlan-group-policy"
+\[char46]
+.RE
+.SH "AUTHORS"
+.PP
+Ben Pfaff, with advice from Justin Pettit and Jean Tourrilhes\[char46]

@@ -10,7 +10,7 @@
 .  I "\\$1"
 .  RE
 ..
-.TH ovn\-sbctl 8 "2.6.90" "Open vSwitch" "Open vSwitch Manual"
+.TH ovn\-sbctl 8 "2.7.90" "Open vSwitch" "Open vSwitch Manual"
 .\" This program's name:
 .ds PN ovn\-sbctl
 .
@@ -22,10 +22,6 @@ ovn\-sbctl \- utility for querying and configuring \fBOVN_Southbound\fR database
 \fR[\fIargs\fR] [\fB\-\-\fR [\fIoptions\fR] \fIcommand \fR[\fIargs\fR]]...
 .
 .SH DESCRIPTION
-The command should only be used for advanced debugging and troubleshooting
-of the \fBOVN_Southbound\fR database; and should never be used in normal
-operation.
-.PP
 The \fBovn\-sbctl\fR program configures the \fBOVN_Southbound\fR database
 by providing a high\-level interface to its configuration database.  See
 \fBovn\-sb\fR(5) for comprehensive documentation of the database schema.
@@ -58,7 +54,7 @@ the global options by \fB\-\-\fR.
 .IP "\fB\-\-db=\fIserver\fR"
 The OVSDB database remote to contact.  If the \fBOVN_SB_DB\fR
 environment variable is set, its value is used as the default.
-Otherwise, the default is \fBunix:/usr/local/var/run/openvswitch/db.sock\fR, but this
+Otherwise, the default is \fBunix:/home/joe/git/openvswitch/_run/run/db.sock\fR, but this
 default is unlikely to be useful outside of single-machine OVN test
 environments.
 .IP
@@ -140,6 +136,125 @@ to approximately \fIsecs\fR seconds.  If the timeout expires,
 would normally happen only if the database cannot be contacted, or if
 the system is overloaded.)
 .
+.de IQ
+.  br
+.  ns
+.  IP "\\$1"
+..
+.IP "\fB\-v\fR[\fIspec\fR]
+.IQ "\fB\-\-verbose=\fR[\fIspec\fR]
+.
+Sets logging levels.  Without any \fIspec\fR, sets the log level for
+every module and destination to \fBdbg\fR.  Otherwise, \fIspec\fR is a
+list of words separated by spaces or commas or colons, up to one from
+each category below:
+.
+.RS
+.IP \(bu
+A valid module name, as displayed by the \fBvlog/list\fR command on
+\fBovs\-appctl\fR(8), limits the log level change to the specified
+module.
+.
+.IP \(bu
+\fBsyslog\fR, \fBconsole\fR, or \fBfile\fR, to limit the log level
+change to only to the system log, to the console, or to a file,
+respectively.  (If \fB\-\-detach\fR is specified, \fB\*(PN\fR closes
+its standard file descriptors, so logging to the console will have no
+effect.)
+.IP
+On Windows platform, \fBsyslog\fR is accepted as a word and is only
+useful along with the \fB\-\-syslog\-target\fR option (the word has no
+effect otherwise).
+.
+.IP \(bu
+\fBoff\fR, \fBemer\fR, \fBerr\fR, \fBwarn\fR, \fBinfo\fR, or
+\fBdbg\fR, to control the log level.  Messages of the given severity
+or higher will be logged, and messages of lower severity will be
+filtered out.  \fBoff\fR filters out all messages.  See
+\fBovs\-appctl\fR(8) for a definition of each log level.
+.RE
+.
+.IP
+Case is not significant within \fIspec\fR.
+.IP
+Regardless of the log levels set for \fBfile\fR, logging to a file
+will not take place unless \fB\-\-log\-file\fR is also specified (see
+below).
+.IP
+For compatibility with older versions of OVS, \fBany\fR is accepted as
+a word but has no effect.
+.
+.IP "\fB\-v\fR"
+.IQ "\fB\-\-verbose\fR"
+Sets the maximum logging verbosity level, equivalent to
+\fB\-\-verbose=dbg\fR.
+.
+.IP "\fB\-vPATTERN:\fIdestination\fB:\fIpattern\fR"
+.IQ "\fB\-\-verbose=PATTERN:\fIdestination\fB:\fIpattern\fR"
+Sets the log pattern for \fIdestination\fR to \fIpattern\fR.  Refer to
+\fBovs\-appctl\fR(8) for a description of the valid syntax for \fIpattern\fR.
+.
+.IP "\fB\-vFACILITY:\fIfacility\fR"
+.IQ "\fB\-\-verbose=FACILITY:\fIfacility\fR"
+Sets the RFC5424 facility of the log message. \fIfacility\fR can be one of
+\fBkern\fR, \fBuser\fR, \fBmail\fR, \fBdaemon\fR, \fBauth\fR, \fBsyslog\fR,
+\fBlpr\fR, \fBnews\fR, \fBuucp\fR, \fBclock\fR, \fBftp\fR, \fBntp\fR,
+\fBaudit\fR, \fBalert\fR, \fBclock2\fR, \fBlocal0\fR, \fBlocal1\fR,
+\fBlocal2\fR, \fBlocal3\fR, \fBlocal4\fR, \fBlocal5\fR, \fBlocal6\fR or
+\fBlocal7\fR. If this option is not specified, \fBdaemon\fR is used as
+the default for the local system syslog and \fBlocal0\fR is used while sending
+a message to the target provided via the \fB\-\-syslog\-target\fR option.
+.
+.TP
+\fB\-\-log\-file\fR[\fB=\fIfile\fR]
+Enables logging to a file.  If \fIfile\fR is specified, then it is
+used as the exact name for the log file.  The default log file name
+used if \fIfile\fR is omitted is \fB/home/joe/git/openvswitch/_run/log/\*(PN.log\fR.
+.
+.IP "\fB\-\-syslog\-target=\fIhost\fB:\fIport\fR"
+Send syslog messages to UDP \fIport\fR on \fIhost\fR, in addition to
+the system syslog.  The \fIhost\fR must be a numerical IP address, not
+a hostname.
+.
+.IP "\fB\-\-syslog\-method=\fImethod\fR"
+Specify \fImethod\fR how syslog messages should be sent to syslog daemon.
+Following forms are supported:
+.RS
+.IP \(bu
+\fBlibc\fR, use libc \fBsyslog()\fR function.  This is the default behavior.
+Downside of using this options is that libc adds fixed prefix to every
+message before it is actually sent to the syslog daemon over \fB/dev/log\fR
+UNIX domain socket.
+.IP \(bu
+\fBunix:\fIfile\fR\fR, use UNIX domain socket directly.  It is possible to
+specify arbitrary message format with this option.  However,
+\fBrsyslogd 8.9\fR and older versions use hard coded parser function anyway
+that limits UNIX domain socket use.  If you want to use arbitrary message
+format with older \fBrsyslogd\fR versions, then use UDP socket to localhost
+IP address instead.
+.IP \(bu
+\fBudp:\fIip\fR:\fIport\fR\fR, use UDP socket.  With this method it is
+possible to use arbitrary message format also with older \fBrsyslogd\fR.
+When sending syslog messages over UDP socket extra precaution needs to
+be taken into account, for example, syslog daemon needs to be configured
+to listen on the specified UDP port, accidental iptables rules could be
+interfering with local syslog traffic and there are some security
+considerations that apply to UDP sockets, but do not apply to UNIX domain
+sockets.
+.RE
+.de IQ
+.  br
+.  ns
+.  IP "\\$1"
+..
+.IP "\fB\-h\fR"
+.IQ "\fB\-\-help\fR"
+Prints a brief help message to the console.
+.
+.IP "\fB\-V\fR"
+.IQ "\fB\-\-version\fR"
+Prints version information to the console.
+.
 .SS "Table Formatting Options"
 These options control the format of output from the \fBlist\fR and
 \fBfind\fR commands.
@@ -148,11 +263,11 @@ These options control the format of output from the \fBlist\fR and
 Sets the type of table formatting.  The following types of
 \fIformat\fR are available:
 .RS
-.ie '\*(PN'ovs\-vsctl' .IP "\fBtable\fR"
-.el                    .IP "\fBtable\fR (default)"
+.ie '\*(PN'ovsdb\-client' .IP "\fBtable\fR (default)"
+.el                       .IP "\fBtable\fR"
 2-D text tables with aligned columns.
-.ie '\*(PN'ovs\-vsctl' .IP "\fBlist\fR (default)"
-.el                    .IP "\fBlist\fR"
+.ie '\*(PN'ovsdb\-client' .IP "\fBlist\fR"
+.el                       .IP "\fBlist\fR (default)"
 A list with one column per line and rows separated by a blank line.
 .IP "\fBhtml\fR"
 HTML tables.
@@ -215,6 +330,71 @@ compactly.
 .IP "\fB\-\-bare\fR"
 Equivalent to \fB\-\-format=list \-\-data=bare \-\-no\-headings\fR.
 .
+.SS "Public Key Infrastructure Options"
+.de IQ
+.  br
+.  ns
+.  IP "\\$1"
+..
+.IP "\fB\-p\fR \fIprivkey.pem\fR"
+.IQ "\fB\-\-private\-key=\fIprivkey.pem\fR"
+Specifies a PEM file containing the private key used as \fB\*(PN\fR's
+identity for outgoing SSL connections.
+.
+.IP "\fB\-c\fR \fIcert.pem\fR"
+.IQ "\fB\-\-certificate=\fIcert.pem\fR"
+Specifies a PEM file containing a certificate that certifies the
+private key specified on \fB\-p\fR or \fB\-\-private\-key\fR to be
+trustworthy.  The certificate must be signed by the certificate
+authority (CA) that the peer in SSL connections will use to verify it.
+.
+.IP "\fB\-C\fR \fIcacert.pem\fR"
+.IQ "\fB\-\-ca\-cert=\fIcacert.pem\fR"
+Specifies a PEM file containing the CA certificate that \fB\*(PN\fR
+should use to verify certificates presented to it by SSL peers.  (This
+may be the same certificate that SSL peers use to verify the
+certificate specified on \fB\-c\fR or \fB\-\-certificate\fR, or it may
+be a different one, depending on the PKI design in use.)
+.
+.IP "\fB\-C none\fR"
+.IQ "\fB\-\-ca\-cert=none\fR"
+Disables verification of certificates presented by SSL peers.  This
+introduces a security risk, because it means that certificates cannot
+be verified to be those of known trusted hosts.
+.IP "\fB\-\-bootstrap\-ca\-cert=\fIcacert.pem\fR"
+When \fIcacert.pem\fR exists, this option has the same effect as
+\fB\-C\fR or \fB\-\-ca\-cert\fR.  If it does not exist, then
+\fB\*(PN\fR will attempt to obtain the CA certificate from the
+SSL peer on its first SSL connection and save it to the named PEM
+file.  If it is successful, it will immediately drop the connection
+and reconnect, and from then on all SSL connections must be
+authenticated by a certificate signed by the CA certificate thus
+obtained.
+.IP
+\fBThis option exposes the SSL connection to a man-in-the-middle
+attack obtaining the initial CA certificate\fR, but it may be useful
+for bootstrapping.
+.IP
+This option is only useful if the SSL peer sends its CA certificate as
+part of the SSL certificate chain.  The SSL protocol does not require
+the server to send the CA certificate.
+.IP
+This option is mutually exclusive with \fB\-C\fR and
+\fB\-\-ca\-cert\fR.
+.IP "\fB\-\-peer\-ca\-cert=\fIpeer-cacert.pem\fR"
+Specifies a PEM file that contains one or more additional certificates
+to send to SSL peers.  \fIpeer-cacert.pem\fR should be the CA
+certificate used to sign \fB\*(PN\fR's own certificate, that is, the
+certificate specified on \fB\-c\fR or \fB\-\-certificate\fR.  If
+\fB\*(PN\fR's certificate is self-signed, then \fB\-\-certificate\fR
+and \fB\-\-peer\-ca\-cert\fR should specify the same file.
+.IP
+This option is not useful in normal operation, because the SSL peer
+must already have the CA certificate for the peer to have any
+confidence in \fB\*(PN\fR's identity.  However, this offers a way for
+a new installation to bootstrap the CA certificate on its first SSL
+connection.
+.
 .SH COMMANDS
 The commands implemented by \fBovn\-sbctl\fR are described in the
 sections below.
@@ -231,8 +411,8 @@ Prints a brief overview of the database contents.
 .SS "Chassis Commands"
 These commands manipulate \fBOVN_Southbound\fR chassis.
 .
-.IP "[\fB\-\-may\-exist\fR] \fBchassis\-add \fIchassis\fR \fIencap\-type\fR \fIencap-ip\fR"
-Creates a new chassis named \fIchassis\fR.  \fIencap\-type\fR is a
+.IP "[\fB\-\-may\-exist\fR] \fBchassis\-add \fIchassis\fR \fIencap-type\fR \fIencap-ip\fR"
+Creates a new chassis named \fIchassis\fR.  \fIencap-type\fR is a
 comma-separated list of tunnel types.  The chassis will have
 one encap entry for each specified tunnel type with \fIencap-ip\fR
 as the destination IP for each.
@@ -252,16 +432,16 @@ delete a chassis that does not exist has no effect.
 .
 These commands manipulate \fBOVN_Southbound\fR port bindings.
 .
-.IP "[\fB\-\-may\-exist\fR] \fBlsp\-bind \fIlogical\-port\fR \fIchassis\fR"
-Binds the logical port named \fIlogical\-port\fR to \fIchassis\fR.
+.IP "[\fB\-\-may\-exist\fR] \fBlsp\-bind \fIlogical-port\fR \fIchassis\fR"
+Binds the logical port named \fIlogical-port\fR to \fIchassis\fR.
 .IP
 Without \fB\-\-may\-exist\fR, attempting to bind a logical port that
 has already been bound is an error.  With \fB\-\-may\-exist\fR, this
-command does nothing if \fIlogical\-port\fR has already been bound to
+command does nothing if \fIlogical-port\fR has already been bound to
 a chassis.
 .
-.IP "[\fB\-\-if\-exists\fR] \fBlsp\-unbind\fR \fIlogical\-port\fR"
-Resets the binding of \fIlogical\-port\fR to \fINULL\fR.
+.IP "[\fB\-\-if\-exists\fR] \fBlsp\-unbind\fR \fIlogical-port\fR"
+Resets the binding of \fIlogical-port\fR to \fINULL\fR.
 .IP
 Without \fB\-\-if\-exists\fR, attempting to unbind a logical port
 that is not bound is an error.  With \fB\-\-if\-exists\fR, attempting
@@ -269,12 +449,145 @@ to unbind logical port that is not bound has no effect.
 .
 .SS "Logical Flow Commands"
 .
-.IP "\fBlflow\-list\fR [\fIlogical\-datapath\fR]"
-List logical flows. If \fIlogical\-datapath\fR is specified, only list flows for
-that logical datapath.
+.IP "[\fB\-\-uuid\fR] \fBlflow\-list\fR [\fIlogical-datapath\fR] [\fIlflow\fR...]"
+List logical flows.  If \fIlogical-datapath\fR is specified, only list
+flows for that logical datapath.  The \fIlogical-datapath\fR may be
+given as a UUID or as a datapath name (reporting an error if multiple
+datapaths have the same name).
+.IP
+If at least one \fIlflow\fR is given, only matching logical flows, if
+any, are listed.  Each \fIlflow\fR may be specified as a UUID or the
+first few characters of a UUID, optionally prefixed by \fB0x\fR.
+(Because \fBovn\-controller\fR sets OpenFlow flow cookies to the first
+32 bits of the corresponding logical flow's UUID, this makes it easy
+to look up the logical flow that generated a particular OpenFlow
+flow.)
+.IP
+If \fB\-\-uuid\fR is specified, the output includes the first 32 bits
+of each logical flow's UUID.  This makes it easier to find the
+OpenFlow flows that correspond to a given logical flow.
 .
-.IP "\fBdump\-flows\fR [\fIlogical\-datapath\fR]"
+.IP "[\fB\-\-uuid\fR] \fBdump\-flows\fR [\fIlogical-datapath\fR]"
 Alias for \fBlflow\-list\fB.
+.
+.SS "Remote Connectivity Commands"
+.
+These commands manipulate the \fBconnections\fR column in the \fBSB_Global\fR
+table and rows in the \fBConnection\fR table.  When \fBovsdb\-server\fR
+is configured to use the \fBconnections\fR column for OVSDB connections,
+this allows the administrator to use \fBovn\-sbctl\fR to configure database
+connections.
+.
+.IP "\fBget\-connection\fR"
+Prints the configured connection(s).
+.
+.IP "\fBdel\-connection\fR"
+Deletes the configured connection(s).
+.
+.IP "\fBset\-connection\fR [\fIaccess\-specifier\fR] \fItarget\fR\&..."
+Sets the configured manager target or targets.  Each \fItarget\fR may
+be preceded by an optional access-specifier (\fBread\-only\fR or
+\fBread\-write\fR) and may use any of the following forms:
+.
+.RS
+.IP "\fBssl:\fIip\fB:\fIport\fR"
+The specified SSL \fIport\fR on the host at the given \fIip\fR, which
+must be expressed as an IP address (not a DNS name) in IPv4 or IPv6 address
+format.  If \fIip\fR is an IPv6 address, then wrap \fIip\fR with square
+brackets, e.g.: \fBssl:[::1]:6640\fR.
+The \fB\-\-private\-key\fR, \fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR
+options are mandatory when this form is used.
+.
+.IP "\fBtcp:\fIip\fB:\fIport\fR"
+Connect to the given TCP \fIport\fR on \fIip\fR, where \fIip\fR can be IPv4
+or IPv6 address. If \fIip\fR is an IPv6 address, then wrap \fIip\fR with
+square brackets, e.g.: \fBtcp:[::1]:6640\fR.
+.
+.IP "\fBunix:\fIfile\fR"
+On POSIX, connect to the Unix domain server socket named \fIfile\fR.
+.IP
+On Windows, connect to a local named pipe that is represented by a file
+created in the path \fIfile\fR to mimic the behavior of a Unix domain
+socket.
+.IP "\fBpssl:\fIport\fR[\fB:\fIip\fR]"
+Listen on the given SSL \fIport\fR for a connection.  By default,
+connections are not bound to a particular local IP address and
+it listens only on IPv4 (but not IPv6) addresses, but
+specifying \fIip\fR limits connections to those from the given
+\fIip\fR, either IPv4 or IPv6 address.  If \fIip\fR is
+an IPv6 address, then wrap \fIip\fR with square brackets, e.g.:
+\fBpssl:6640:[::1]\fR.  The \fB\-\-private\-key\fR,
+\fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR options are mandatory
+when this form is used.
+.
+.IP "\fBptcp:\fIport\fR[\fB:\fIip\fR]"
+Listen on the given TCP \fIport\fR for a connection.  By default,
+connections are not bound to a particular local IP address and
+it listens only on IPv4 (but not IPv6) addresses, but
+\fIip\fR may be specified to listen only for connections to the given
+\fIip\fR, either IPv4 or IPv6 address.  If \fIip\fR is
+an IPv6 address, then wrap \fIip\fR with square brackets, e.g.:
+\fBptcp:6640:[::1]\fR.
+.
+.IP "\fBpunix:\fIfile\fR"
+On POSIX, listen on the Unix domain server socket named \fIfile\fR for a
+connection.
+.IP
+On Windows, listen on a local named pipe.  A file is created in the
+path \fIfile\fR to mimic the behavior of a Unix domain socket.
+.RE
+
+If provided, the effect of the access specifier persists for subsequent
+targets until changed by another access specifier.
+.
+.SS "SSL Configuration"
+When \fBovsdb\-server\fR is configured to connect using SSL, the
+following parameters are required:
+.TP
+\fIprivate-key\fR
+Specifies a PEM file containing the private key used for SSL connections.
+.TP
+\fIcertificate\fR
+Specifies a PEM file containing a certificate, signed by the
+certificate authority (CA) used by the connection peers, that
+certifies the private key, identifying a trustworthy peer.
+.TP
+\fIca-cert\fR
+Specifies a PEM file containing the CA certificate used to verify that
+the connection peers are trustworthy.
+.PP
+These SSL settings apply to all SSL connections made by the southbound
+database server.
+.
+.IP "\fBget\-ssl\fR"
+Prints the SSL configuration.
+.
+.IP "\fBdel\-ssl\fR"
+Deletes the current SSL configuration.
+.
+.IP "[\fB\-\-bootstrap\fR] \fBset\-ssl\fR \fIprivate-key\fR \fIcertificate\fR \fIca-cert\fR"
+Sets the SSL configuration.  The \fB\-\-bootstrap\fR option is described
+below.
+.
+.ST "CA Certificate Bootstrap"
+.PP
+Ordinarily, all of the files named in the SSL configuration must exist
+before SSL connectivity can be used.  However, if the \fIca-cert\fR file
+does not exist and the \fB\-\-bootstrap\fR
+option is given, then \fBovsdb\-server\fR will attempt to obtain the
+CA certificate from the target on its first SSL connection and
+save it to the named PEM file.  If it is successful, it will
+immediately drop the connection and reconnect, and from then on all
+SSL connections must be authenticated by a certificate signed by the
+CA certificate thus obtained.
+.PP
+\fBThis option exposes the SSL connection to a man-in-the-middle
+attack obtaining the initial CA certificate\fR, but it may be useful
+for bootstrapping.
+.PP
+This option is only useful if the SSL peer sends its CA certificate
+as part of the SSL certificate chain.  The SSL protocol does not
+require the controller to send the CA certificate.
 .
 .ST "Database Values"
 .PP
@@ -307,7 +620,11 @@ single comma.  When multiple values are present, duplicates are not
 allowed, and order is not important.  Conversely, some database
 columns can have an empty set of values, represented as \fB[]\fR, and
 square brackets may optionally enclose other non-empty sets or single
-values as well.
+values as well. For a column accepting a set of integers, database commands
+accept a range. A range is represented by two integers separated by
+\fB-\fR. A range is inclusive. A range has a maximum size of 4096
+elements. If more elements are needed, they can be specified in seperate
+ranges.
 .PP
 A few database columns are ``maps'' of key-value pairs, where the key
 and the value are each some fixed database type.  These are specified
