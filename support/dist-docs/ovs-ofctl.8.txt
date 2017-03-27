@@ -44,9 +44,9 @@ DESCRIPTION
               file   This  is  short  for  unix:file, as long as file does not
                      contain a colon.
 
-              bridge This    is     short     for     unix:/home/joe/git/open‐
-                     vswitch/_run/run/bridge.mgmt,  as long as bridge does not
-                     contain a colon.
+              bridge This   is   short    for    unix:/usr/local/var/run/open‐
+                     vswitch/bridge.mgmt, as long as bridge does not contain a
+                     colon.
 
               [type@]dp
                      Attempts to look up the bridge  associated  with  dp  and
@@ -522,12 +522,12 @@ DESCRIPTION
               Connects  to  switch and prints to the console all OpenFlow mes‐
               sages received.  Unlike other ovs-ofctl commands, if  switch  is
               the  name of a bridge, then the snoop command connects to a Unix
-              domain         socket         named          /home/joe/git/open‐
-              vswitch/_run/run/switch.snoop.   ovs-vswitchd  listens on such a
-              socket for each bridge and sends to it all of the OpenFlow  mes‐
-              sages  sent  to  or  received  from its configured OpenFlow con‐
-              troller.  Thus, this command can be used to view OpenFlow proto‐
-              col activity between a switch and its controller.
+              domain socket named /usr/local/var/run/openvswitch/switch.snoop.
+              ovs-vswitchd  listens on such a socket for each bridge and sends
+              to it all of the OpenFlow messages sent to or received from  its
+              configured  OpenFlow controller.  Thus, this command can be used
+              to view OpenFlow protocol activity between a switch and its con‐
+              troller.
 
               When  a switch has more than one controller configured, only the
               traffic to and from a single controller is output.  If  none  of
@@ -961,11 +961,22 @@ DESCRIPTION
 
               resubmit:port
               resubmit([port],[table])
+              resubmit([port],[table],ct)
                      Re-searches  this OpenFlow flow table (or the table whose
                      number is specified by  table)  with  the  in_port  field
-                     replaced  by port (if port is specified) and executes the
-                     actions found, if any, in addition to any  other  actions
-                     in this flow entry.
+                     replaced  by  port  (if port is specified) and the packet
+                     5-tuple fields swapped with the  corresponding  conntrack
+                     original  direction tuple fields (if ct is specified, see
+                     ct_nw_src above), and executes the actions found, if any,
+                     in addition to any other actions in this flow entry.  The
+                     in_port and swapped 5-tuple fields are  restored  immedi‐
+                     ately after the search, before any actions are executed.
+
+                     The  ct option requires a valid connection tracking state
+                     as a match prerequisite in the flow where this action  is
+                     placed.   Examples  of  valid  connection  tracking state
+                     matches     include     ct_state=+new,     ct_state=+est,
+                     ct_state=+rel, and ct_state=+trk-inv.
 
                      Recursive  resubmit  actions are obeyed up to implementa‐
                      tion-defined limits:
@@ -995,41 +1006,56 @@ DESCRIPTION
                             to any table y > x  does  not  count  against  the
                             recursion limit.
 
-                     Open vSwitch before 1.2.90 did not support table.
+                     Open  vSwitch  before 1.2.90 did not support table.  Open
+                     vSwitch before 2.7 did not support ct.
 
               set_tunnel:id
               set_tunnel64:id
                      If outputting to a port that encapsulates the packet in a
                      tunnel and supports an identifier (such as GRE), sets the
-                     identifier  to id.  If the set_tunnel form is used and id
-                     fits in 32 bits, then this uses an action extension  that
-                     is  supported  by Open vSwitch 1.0 and later.  Otherwise,
-                     if id is a 64-bit value, it requires Open vSwitch 1.1  or
+                     identifier to id.  If the set_tunnel form is used and  id
+                     fits  in 32 bits, then this uses an action extension that
+                     is supported by Open vSwitch 1.0 and  later.   Otherwise,
+                     if  id is a 64-bit value, it requires Open vSwitch 1.1 or
                      later.
 
               set_queue:queue
-                     Sets  the queue that should be used to queue when packets
-                     are output.  The number of supported  queues  depends  on
-                     the  switch; some OpenFlow implementations do not support
+                     Sets the queue that should be used to queue when  packets
+                     are  output.   The  number of supported queues depends on
+                     the switch; some OpenFlow implementations do not  support
                      queuing at all.
 
               pop_queue
-                     Restores the  queue  to  the  value  it  was  before  any
+                     Restores  the  queue  to  the  value  it  was  before any
                      set_queue actions were applied.
 
               ct
               ct([argument][,argument...])
                      Send the packet through the connection tracker.  Refer to
-                     the ct_state documentation above for possible packet  and
+                     the  ct_state documentation above for possible packet and
                      connection states. The following arguments are supported:
 
 
                      commit
-                            Commit  the  connection to the connection tracking
-                            module. Information about the connection  will  be
-                            stored  beyond  the  lifetime of the packet in the
-                            pipeline.  Some ct_state flags are only  available
+                            Commit the connection to the  connection  tracking
+                            module.  Information  about the connection will be
+                            stored beyond the lifetime of the  packet  in  the
+                            pipeline.   Some ct_state flags are only available
                             for committed connections.
+
+                     force
+                            A committed connection always has the directional‐
+                            ity of the packet that caused the connection to be
+                            committed in the first place.  This is the ``orig‐
+                            inal  direction'' of the connection, and the oppo‐
+                            site direction is the ``reply direction''.   If  a
+                            connection  is already committed, but it is in the
+                            wrong direction, force flag may be used  in  addi‐
+                            tion  to  commit flag to effectively terminate the
+                            existing connection and start a  new  one  in  the
+                            current direction.  This flag has no effect if the
+                            original direction of the  connection  is  already
+                            the same as that of the current packet.
 
                      table=number
                             Fork  pipeline  processing  in  two.  The original
@@ -1494,6 +1520,22 @@ DESCRIPTION
                             the specified table with the specified cookie.
 
                             This flag was added in Open vSwitch 2.4.
+
+                     limit=number
+                            If  the number of flows in table table with cookie
+                            id cookie exceeds number, a new flow will  not  be
+                            learned  by  this  action.   By default there's no
+                            limit.
+
+                            This flag was added in Open vSwitch 2.8.
+
+                     result_dst=field[bit]
+                            If learning failed (because the  number  of  flows
+                            exceeds  limit),  the action sets field[bit] to 0,
+                            otherwise it will be set to 1.  field[bit] must be
+                            a single bit.
+
+                            This flag was added in Open vSwitch 2.8.
 
                      field=value
                      field[start..end]=src[start..end]
@@ -2348,7 +2390,7 @@ OPTIONS
               Causes a file (by default, ovs-ofctl.pid) to be created indicat‐
               ing the PID of the running process.  If the pidfile argument  is
               not  specified,  or if it does not begin with /, then it is cre‐
-              ated in /home/joe/git/openvswitch/_run/run.
+              ated in /usr/local/var/run/openvswitch.
 
               If --pidfile is not specified, no pidfile is created.
 
@@ -2428,10 +2470,10 @@ OPTIONS
               Sets  the  name of the control socket on which ovs-ofctl listens
               for runtime management commands  (see  RUNTIME  MANAGEMENT  COM‐
               MANDS,  below).   If  socket does not begin with /, it is inter‐
-              preted as relative  to  /home/joe/git/openvswitch/_run/run.   If
+              preted  as  relative  to   /usr/local/var/run/openvswitch.    If
               --unixctl   is   not   used   at  all,  the  default  socket  is
-              /home/joe/git/openvswitch/_run/run/ovs-ofctl.pid.ctl, where  pid
-              is ovs-ofctl's process ID.
+              /usr/local/var/run/openvswitch/ovs-ofctl.pid.ctl, where  pid  is
+              ovs-ofctl's process ID.
 
               On Windows a local named pipe is used to listen for runtime man‐
               agement commands.  A file is created in  the  absolute  path  as
@@ -2528,8 +2570,8 @@ OPTIONS
        --log-file[=file]
               Enables logging to a file.  If file is  specified,  then  it  is
               used  as  the exact name for the log file.  The default log file
-              name  used   if   file   is   omitted   is   /home/joe/git/open‐
-              vswitch/_run/log/ovs-ofctl.log.
+              name  used  if  file  is  omitted  is   /usr/local/var/log/open‐
+              vswitch/ovs-ofctl.log.
 
        --syslog-target=host:port
               Send  syslog  messages  to  UDP port on host, in addition to the

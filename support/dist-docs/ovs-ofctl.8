@@ -55,7 +55,7 @@ This is short for \fBunix:\fIfile\fR, as long as \fIfile\fR does not
 contain a colon.
 .
 .IP \fIbridge\fR
-This is short for \fBunix:/home/joe/git/openvswitch/_run/run/\fIbridge\fB.mgmt\fR, as long as
+This is short for \fBunix:/usr/local/var/run/openvswitch/\fIbridge\fB.mgmt\fR, as long as
 \fIbridge\fR does not contain a colon.
 .
 .IP [\fItype\fB@\fR]\fIdp\fR
@@ -553,7 +553,7 @@ Connects to \fIswitch\fR and prints to the console all OpenFlow
 messages received.  Unlike other \fBovs\-ofctl\fR commands, if
 \fIswitch\fR is the name of a bridge, then the \fBsnoop\fR command
 connects to a Unix domain socket named
-\fB/home/joe/git/openvswitch/_run/run/\fIswitch\fB.snoop\fR.  \fBovs\-vswitchd\fR listens on
+\fB/usr/local/var/run/openvswitch/\fIswitch\fB.snoop\fR.  \fBovs\-vswitchd\fR listens on
 such a socket for each bridge and sends to it all of the OpenFlow
 messages sent to or received from its configured OpenFlow controller.
 Thus, this command can be used to view OpenFlow protocol activity
@@ -978,10 +978,22 @@ only known to be implemented by Open vSwitch:
 .
 .IP \fBresubmit\fB:\fIport\fR
 .IQ \fBresubmit\fB(\fR[\fIport\fR]\fB,\fR[\fItable\fR]\fB)
+.IQ \fBresubmit\fB(\fR[\fIport\fR]\fB,\fR[\fItable\fR]\fB,ct)
 Re-searches this OpenFlow flow table (or the table whose number is
 specified by \fItable\fR) with the \fBin_port\fR field replaced by
-\fIport\fR (if \fIport\fR is specified) and executes the actions
-found, if any, in addition to any other actions in this flow entry.
+\fIport\fR (if \fIport\fR is specified) and the packet 5-tuple fields
+swapped with the corresponding conntrack original direction tuple
+fields (if \fBct\fR is specified, see \fBct_nw_src\fR above), and
+executes the actions found, if any, in addition to any other actions
+in this flow entry.  The \fBin_port\fR and swapped 5-tuple fields are
+restored immediately after the search, before any actions are
+executed.
+.IP
+The \fBct\fR option requires a valid connection tracking state as a
+match prerequisite in the flow where this action is placed.  Examples
+of valid connection tracking state matches include
+\fBct_state=+new\fR, \fBct_state=+est\fR, \fBct_state=+rel\fR, and
+\fBct_state=+trk-inv\fR.
 .IP
 Recursive \fBresubmit\fR actions are obeyed up to
 implementation-defined limits:
@@ -1006,7 +1018,8 @@ exception: \fBresubmit\fR from table \fIx\fR to any table \fIy\fR >
 \fIx\fR does not count against the recursion limit.
 .RE
 .IP
-Open vSwitch before 1.2.90 did not support \fItable\fR.
+Open vSwitch before 1.2.90 did not support \fItable\fR.  Open vSwitch
+before 2.7 did not support \fBct\fR.
 .
 .IP \fBset_tunnel\fB:\fIid\fR
 .IQ \fBset_tunnel64\fB:\fIid\fR
@@ -1038,6 +1051,18 @@ arguments are supported:
 Commit the connection to the connection tracking module. Information about the
 connection will be stored beyond the lifetime of the packet in the pipeline.
 Some \fBct_state\fR flags are only available for committed connections.
+.RE
+.IP \fBforce\fR
+.RS
+A committed connection always has the directionality of the packet
+that caused the connection to be committed in the first place.  This
+is the ``original direction'' of the connection, and the opposite
+direction is the ``reply direction''.  If a connection is already
+committed, but it is in the wrong direction, \fBforce\fR flag may be
+used in addition to \fBcommit\fR flag to effectively terminate the
+existing connection and start a new one in the current direction.
+This flag has no effect if the original direction of the connection is
+already the same as that of the current packet.
 .RE
 .IP \fBtable=\fInumber\fR
 Fork pipeline processing in two. The original instance of the packet will
@@ -1446,6 +1471,22 @@ the specified table with the specified cookie.
 .
 .IP
 This flag was added in Open vSwitch 2.4.
+.
+.IP \fBlimit=\fInumber\fR
+If the number of flows in table \fBtable\fR with cookie id \fBcookie\fR exceeds
+\fInumber\fR, a new flow will not be learned by this action.  By default
+there's no limit.
+.
+.IP
+This flag was added in Open vSwitch 2.8.
+.
+.IP \fBresult_dst=\fIfield\fB[\fIbit\fB]\fR
+If learning failed (because the number of flows exceeds \fBlimit\fR),
+the action sets \fIfield\fB[\fIbit\fB]\fR to 0, otherwise it will be set to 1.
+\fIfield\fB[\fIbit\fB]\fR must be a single bit.
+.
+.IP
+This flag was added in Open vSwitch 2.8.
 .
 .IP \fIfield\fB=\fIvalue\fR
 .IQ \fIfield\fB[\fIstart\fB..\fIend\fB]=\fIsrc\fB[\fIstart\fB..\fIend\fB]\fR
@@ -2342,7 +2383,7 @@ Causes a file (by default, \fB\*(PN.pid\fR) to be created indicating
 the PID of the running process.  If the \fIpidfile\fR argument is not
 specified, or
 if it does not begin with \fB/\fR, then it is created in
-\fB/home/joe/git/openvswitch/_run/run\fR.
+\fB/usr/local/var/run/openvswitch\fR.
 .IP
 If \fB\-\-pidfile\fR is not specified, no pidfile is created.
 .
@@ -2422,9 +2463,9 @@ specifying this option will cause the daemon process not to start.
 Sets the name of the control socket on which \fB\*(PN\fR listens for
 runtime management commands (see \fBRUNTIME MANAGEMENT COMMANDS\fR,
 below).  If \fIsocket\fR does not begin with \fB/\fR, it is
-interpreted as relative to \fB/home/joe/git/openvswitch/_run/run\fR.  If \fB\-\-unixctl\fR is
+interpreted as relative to \fB/usr/local/var/run/openvswitch\fR.  If \fB\-\-unixctl\fR is
 not used at all, the default socket is
-\fB/home/joe/git/openvswitch/_run/run/\*(PN.\fIpid\fB.ctl\fR, where \fIpid\fR is \fB\*(PN\fR's
+\fB/usr/local/var/run/openvswitch/\*(PN.\fIpid\fB.ctl\fR, where \fIpid\fR is \fB\*(PN\fR's
 process ID.
 .IP
 On Windows a local named pipe is used to listen for runtime management
@@ -2539,7 +2580,7 @@ a message to the target provided via the \fB\-\-syslog\-target\fR option.
 \fB\-\-log\-file\fR[\fB=\fIfile\fR]
 Enables logging to a file.  If \fIfile\fR is specified, then it is
 used as the exact name for the log file.  The default log file name
-used if \fIfile\fR is omitted is \fB/home/joe/git/openvswitch/_run/log/\*(PN.log\fR.
+used if \fIfile\fR is omitted is \fB/usr/local/var/log/openvswitch/\*(PN.log\fR.
 .
 .IP "\fB\-\-syslog\-target=\fIhost\fB:\fIport\fR"
 Send syslog messages to UDP \fIport\fR on \fIhost\fR, in addition to

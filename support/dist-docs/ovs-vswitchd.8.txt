@@ -13,8 +13,8 @@ DESCRIPTION
        on the local machine.
 
        The  database  argument  specifies   how   ovs-vswitchd   connects   to
-       ovsdb-server.       The     default     is     unix:/home/joe/git/open‐
-       vswitch/_run/run/db.sock.  The following forms are accepted:
+       ovsdb-server.     The    default    is    unix:/usr/local/var/run/open‐
+       vswitch/db.sock.  The following forms are accepted:
 
        ssl:ip:port
               The specified SSL port on the host at the given ip,  which  must
@@ -121,7 +121,7 @@ OPTIONS
               Causes a file (by default, ovs-vswitchd.pid) to be created indi‐
               cating the PID of the running process.  If the pidfile  argument
               is  not  specified,  or  if it does not begin with /, then it is
-              created in /home/joe/git/openvswitch/_run/run.
+              created in /usr/local/var/run/openvswitch.
 
               If --pidfile is not specified, no pidfile is created.
 
@@ -320,8 +320,8 @@ OPTIONS
        --log-file[=file]
               Enables  logging  to  a  file.  If file is specified, then it is
               used as the exact name for the log file.  The default  log  file
-              name   used   if   file   is   omitted   is  /home/joe/git/open‐
-              vswitch/_run/log/ovs-vswitchd.log.
+              name   used  if  file  is  omitted  is  /usr/local/var/log/open‐
+              vswitch/ovs-vswitchd.log.
 
        --syslog-target=host:port
               Send syslog messages to UDP port on host,  in  addition  to  the
@@ -361,10 +361,10 @@ OPTIONS
               Sets  the  name of the control socket on which ovs-vswitchd lis‐
               tens for runtime management  commands  (see  RUNTIME  MANAGEMENT
               COMMANDS, below).  If socket does not begin with /, it is inter‐
-              preted as relative  to  /home/joe/git/openvswitch/_run/run.   If
+              preted  as  relative  to   /usr/local/var/run/openvswitch.    If
               --unixctl   is   not   used   at  all,  the  default  socket  is
-              /home/joe/git/openvswitch/_run/run/ovs-vswitchd.pid.ctl,   where
-              pid is ovs-vswitchd's process ID.
+              /usr/local/var/run/openvswitch/ovs-vswitchd.pid.ctl,  where  pid
+              is ovs-vswitchd's process ID.
 
               On Windows a local named pipe is used to listen for runtime man‐
               agement commands.  A file is created in  the  absolute  path  as
@@ -427,6 +427,11 @@ RUNTIME MANAGEMENT COMMANDS
               This  may  cause it to send Topology Change Notifications to its
               peers and flush its MAC table..  If no bridge is given, forces a
               topology change event on all bridges.
+
+       stp/show [bridge]
+              Displays detailed information about spanning tree on the bridge.
+              If bridge is not specified, then displays  detailed  information
+              about all bridges with STP enabled.
 
    BRIDGE COMMANDS
        These commands manage bridges.
@@ -903,52 +908,62 @@ RUNTIME MANAGEMENT COMMANDS
               an action that only OpenFlow 1.1 and  later  supports  (such  as
               push_vlan), -consistent is automatically enabled.
 
-       ofproto/self-check [switch]
-              Runs an internal consistency check on switch, if specified, oth‐
-              erwise on all ofproto instances, and responds with a brief  sum‐
-              mary  of  the  results.  If the summary reports any errors, then
-              the Open vSwitch logs should contain more detailed  information.
-              Please  pass  along  errors reported by this command to the Open
-              vSwitch developers as bugs.
+       Usage examples:
+
+           Trace an unicast ICMP echo request on ingress port 1 to destination
+           MAC 00:00:5E:00:53:01
+               ofproto/trace br in_port=1,icmp,icmp_type=8,\
+               dl_dst=00:00:5E:00:53:01
+
+           Trace an unicast ICMP echo reply on ingress port 1  to  destination
+           MAC 00:00:5E:00:53:01
+               ofproto/trace br in_port=1,icmp,icmp_type=0,\
+               dl_dst=00:00:5E:00:53:01
+
+           Trace an ARP request on ingress port 1
+               ofproto/trace br in_port=1,arp,arp_op=1
+
+           Trace an ARP reply on ingress port 1
+               ofproto/trace br in_port=1,arp,arp_op=2
 
    VLOG COMMANDS
        These commands manage ovs-vswitchd's logging settings.
 
        vlog/set [spec]
-              Sets logging levels.  Without any spec, sets the log  level  for
-              every  module and destination to dbg.  Otherwise, spec is a list
+              Sets  logging  levels.  Without any spec, sets the log level for
+              every module and destination to dbg.  Otherwise, spec is a  list
               of words separated by spaces or commas or colons, up to one from
               each category below:
 
-              ·      A  valid  module name, as displayed by the vlog/list com‐
+              ·      A valid module name, as displayed by the  vlog/list  com‐
                      mand on ovs-appctl(8), limits the log level change to the
                      specified module.
 
-              ·      syslog,  console,  or file, to limit the log level change
-                     to only to the system log, to the console, or to a  file,
+              ·      syslog, console, or file, to limit the log  level  change
+                     to  only to the system log, to the console, or to a file,
                      respectively.
 
-                     On  Windows platform, syslog is accepted as a word and is
-                     only useful along with the  --syslog-target  option  (the
+                     On Windows platform, syslog is accepted as a word and  is
+                     only  useful  along  with the --syslog-target option (the
                      word has no effect otherwise).
 
-              ·      off,  emer,  err,  warn, info, or dbg, to control the log
-                     level.  Messages of the given severity or higher will  be
-                     logged,  and  messages of lower severity will be filtered
-                     out.  off filters out all  messages.   See  ovs-appctl(8)
+              ·      off, emer, err, warn, info, or dbg, to  control  the  log
+                     level.   Messages of the given severity or higher will be
+                     logged, and messages of lower severity will  be  filtered
+                     out.   off  filters  out all messages.  See ovs-appctl(8)
                      for a definition of each log level.
 
               Case is not significant within spec.
 
-              Regardless  of  the  log  levels set for file, logging to a file
-              will not take place unless ovs-vswitchd  was  invoked  with  the
+              Regardless of the log levels set for file,  logging  to  a  file
+              will  not  take  place  unless ovs-vswitchd was invoked with the
               --log-file option.
 
               For compatibility with older versions of OVS, any is accepted as
               a word but has no effect.
 
        vlog/set PATTERN:destination:pattern
-              Sets the log pattern  for  destination  to  pattern.   Refer  to
+              Sets  the  log  pattern  for  destination  to pattern.  Refer to
               ovs-appctl(8) for a description of the valid syntax for pattern.
 
        vlog/list
@@ -958,32 +973,32 @@ RUNTIME MANAGEMENT COMMANDS
               Lists logging patterns used for each destination.
 
        vlog/close
-              Causes  ovs-vswitchd to close its log file, if it is open.  (Use
+              Causes ovs-vswitchd to close its log file, if it is open.   (Use
               vlog/reopen to reopen it later.)
 
        vlog/reopen
-              Causes ovs-vswitchd to close its log file, if it  is  open,  and
-              then  reopen  it.   (This is useful after rotating log files, to
+              Causes  ovs-vswitchd  to  close its log file, if it is open, and
+              then reopen it.  (This is useful after rotating  log  files,  to
               cause a new log file to be used.)
 
-              This has no effect unless  ovs-vswitchd  was  invoked  with  the
+              This  has  no  effect  unless  ovs-vswitchd was invoked with the
               --log-file option.
 
        vlog/disable-rate-limit [module]...
        vlog/enable-rate-limit [module]...
-              By  default,  ovs-vswitchd limits the rate at which certain mes‐
-              sages can be logged.  When a  message  would  appear  more  fre‐
-              quently  than  the  limit,  it  is  suppressed.  This saves disk
-              space, makes logs easier to read, and speeds up  execution,  but
-              occasionally  troubleshooting  requires more detail.  Therefore,
+              By default, ovs-vswitchd limits the rate at which  certain  mes‐
+              sages  can  be  logged.   When  a message would appear more fre‐
+              quently than the limit,  it  is  suppressed.   This  saves  disk
+              space,  makes  logs easier to read, and speeds up execution, but
+              occasionally troubleshooting requires more  detail.   Therefore,
               vlog/disable-rate-limit allows rate limits to be disabled at the
-              level  of  an individual log module.  Specify one or more module
+              level of an individual log module.  Specify one or  more  module
               names, as displayed by the vlog/list command.  Specifying either
-              no  module  names at all or the keyword any disables rate limits
+              no module names at all or the keyword any disables  rate  limits
               for every log module.
 
-              The vlog/enable-rate-limit command, whose syntax is the same  as
-              vlog/disable-rate-limit,  can  be used to re-enable a rate limit
+              The  vlog/enable-rate-limit command, whose syntax is the same as
+              vlog/disable-rate-limit, can be used to re-enable a  rate  limit
               that was previously disabled.
 
    MEMORY COMMANDS
@@ -991,14 +1006,14 @@ RUNTIME MANAGEMENT COMMANDS
 
        memory/show
               Displays  some  basic  statistics  about  ovs-vswitchd's  memory
-              usage.   ovs-vswitchd  also  logs  this  information  soon after
+              usage.  ovs-vswitchd  also  logs  this  information  soon  after
               startup and periodically as its memory consumption grows.
 
    COVERAGE COMMANDS
        These commands manage ovs-vswitchd's ``coverage counters,'' which count
-       the  number of times particular events occur during a daemon's runtime.
+       the number of times particular events occur during a daemon's  runtime.
        In addition to these commands, ovs-vswitchd automatically logs coverage
-       counter  values,  at INFO level, when it detects that the daemon's main
+       counter values, at INFO level, when it detects that the  daemon's  main
        loop takes unusually long to run.
 
        Coverage counters are useful mainly for performance analysis and debug‐
@@ -1006,19 +1021,19 @@ RUNTIME MANAGEMENT COMMANDS
 
        coverage/show
               Displays the averaged per-second rates for the last few seconds,
-              the last minute and the last hour, and the total counts  of  all
+              the  last  minute and the last hour, and the total counts of all
               of the coverage counters.
 
    OPENVSWITCH TUNNELING COMMANDS
        These commands query and modify OVS tunnel components.
 
        ovs/route/add ipv4_address/plen output_bridge [GW]
-              Adds  ipv4_address/plen  route  to  vswitchd routing table. out‐
-              put_bridge needs to be OVS bridge name.  This command is  useful
+              Adds ipv4_address/plen route to  vswitchd  routing  table.  out‐
+              put_bridge  needs to be OVS bridge name.  This command is useful
               if OVS cached routes does not look right.
 
        ovs/route/show
-              Print  all  routes  in  OVS  routing table, This includes routes
+              Print all routes in OVS  routing  table,  This  includes  routes
               cached from system routing table and user configured routes.
 
        ovs/route/del ipv4_address/plen
@@ -1027,13 +1042,13 @@ RUNTIME MANAGEMENT COMMANDS
        tnl/neigh/show
 
        tnl/arp/show
-              OVS builds ARP cache by  snooping  are  messages.  This  command
+              OVS  builds  ARP  cache  by  snooping are messages. This command
               shows ARP cache table.
 
        tnl/neigh/set bridge ip mac
 
        tnl/arp/set bridge ip mac
-              Adds  or  modifies  an  ARP cache entry in bridge, mapping ip to
+              Adds or modifies an ARP cache entry in  bridge,  mapping  ip  to
               mac.
 
        tnl/neigh/flush
@@ -1042,8 +1057,8 @@ RUNTIME MANAGEMENT COMMANDS
               Flush ARP table.
 
        tnl/egress_port_range [num1] [num2]
-              Set range for UDP source port used for UDP  based  Tunnels.  For
-              example  VxLAN.  If  case  of zero arguments this command prints
+              Set  range  for  UDP source port used for UDP based Tunnels. For
+              example VxLAN. If case of zero  arguments  this  command  prints
               current range in use.
 
 OPENFLOW IMPLEMENTATION
@@ -1054,7 +1069,7 @@ OPENFLOW IMPLEMENTATION
        The OpenFlow specification, version 1.2, says:
 
               Switches  that  implement  buffering  are  expected  to  expose,
-              through documentation, both the amount of  available  buffering,
+              through  documentation,  both the amount of available buffering,
               and the length of time before buffers may be reused.
 
        Open vSwitch does not maintains any packet buffers.
@@ -1062,53 +1077,53 @@ OPENFLOW IMPLEMENTATION
    Bundle lifetime
        The OpenFlow specification, version 1.4, says:
 
-              If  the  switch  does  not  receive  any  OFPT_BUNDLE_CONTROL or
-              OFPT_BUNDLE_ADD_MESSAGE message for an opened  bundle_id  for  a
-              switch   defined   time   greater   than  1s,  it  may  send  an
-              ofp_error_msg with OFPET_BUNDLE_FAILED type  and  OFPBFC_TIMEOUT
-              code.   If the switch does not receive any new message in a bun‐
-              dle apart from echo request and replies  for  a  switch  defined
+              If the  switch  does  not  receive  any  OFPT_BUNDLE_CONTROL  or
+              OFPT_BUNDLE_ADD_MESSAGE  message  for  an opened bundle_id for a
+              switch  defined  time  greater  than  1s,   it   may   send   an
+              ofp_error_msg  with  OFPET_BUNDLE_FAILED type and OFPBFC_TIMEOUT
+              code.  If the switch does not receive any new message in a  bun‐
+              dle  apart  from  echo  request and replies for a switch defined
               time  greater  than  1s,  it  may  send  an  ofp_error_msg  with
               OFPET_BUNDLE_FAILED type and OFPBFC_TIMEOUT code.
 
        Open vSwitch implements idle bundle lifetime of 10 seconds.
 
 LIMITS
-       We believe these limits to be accurate as of this writing.  These  lim‐
+       We  believe these limits to be accurate as of this writing.  These lim‐
        its assume the use of the Linux kernel datapath.
 
-       ·      ovs-vswitchd  started  through  ovs-ctl(8)  provides  a limit of
+       ·      ovs-vswitchd started through  ovs-ctl(8)  provides  a  limit  of
               65535 file descriptors.  The limits on the number of bridges and
-              ports  is decided by the availability of file descriptors.  With
-              the Linux kernel datapath, creation of a single bridge  consumes
-              three  file  descriptors  and adding a port consumes "n-handler-
-              threads" file descriptors per  bridge  port.   Performance  will
-              degrade  beyond  1,024  ports per bridge due to fixed hash table
+              ports is decided by the availability of file descriptors.   With
+              the  Linux kernel datapath, creation of a single bridge consumes
+              three file descriptors and adding a  port  consumes  "n-handler-
+              threads"  file  descriptors  per  bridge port.  Performance will
+              degrade beyond 1,024 ports per bridge due to  fixed  hash  table
               sizing.  Other platforms may have different limitations.
 
-       ·      2,048 MAC learning entries per bridge,  by  default.   (This  is
-              configurable  via  other-config:mac-table-size in the Bridge ta‐
+       ·      2,048  MAC  learning  entries  per bridge, by default.  (This is
+              configurable via other-config:mac-table-size in the  Bridge  ta‐
               ble.  See ovs-vswitchd.conf.db(5) for details.)
 
        ·      Kernel flows are limited only by memory available to the kernel.
-              Performance  will  degrade  beyond  1,048,576  kernel  flows per
-              bridge with a 32-bit kernel, beyond 262,144 with a  64-bit  ker‐
+              Performance will  degrade  beyond  1,048,576  kernel  flows  per
+              bridge  with  a 32-bit kernel, beyond 262,144 with a 64-bit ker‐
               nel.  (ovs-vswitchd should never install anywhere near that many
               flows.)
 
-       ·      OpenFlow flows are limited only by  available  memory.   Perfor‐
+       ·      OpenFlow  flows  are  limited only by available memory.  Perfor‐
               mance is linear in the number of unique wildcard patterns.  That
               is, an OpenFlow table that contains many flows that all match on
-              the  same fields in the same way has a constant-time lookup, but
-              a table that contains many flows that match on different  fields
+              the same fields in the same way has a constant-time lookup,  but
+              a  table that contains many flows that match on different fields
               requires lookup time linear in the number of flows.
 
-       ·      255  ports per bridge participating in 802.1D Spanning Tree Pro‐
+       ·      255 ports per bridge participating in 802.1D Spanning Tree  Pro‐
               tocol.
 
        ·      32 mirrors per bridge.
 
-       ·      15 bytes for the name of a port.  (This is a Linux kernel  limi‐
+       ·      15  bytes for the name of a port.  (This is a Linux kernel limi‐
               tation.)
 
 SEE ALSO
