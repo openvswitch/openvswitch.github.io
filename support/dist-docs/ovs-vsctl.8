@@ -10,7 +10,7 @@
 .  I "\\$1"
 .  RE
 ..
-.TH ovs\-vsctl 8 "2.7.90" "Open vSwitch" "Open vSwitch Manual"
+.TH ovs\-vsctl 8 "2.8.90" "Open vSwitch" "Open vSwitch Manual"
 .\" This program's name:
 .ds PN ovs\-vsctl
 .
@@ -79,21 +79,19 @@ the global options by \fB\-\-\fR.
 .IP "\fB\-\-db=\fIserver\fR"
 Sets \fIserver\fR as the database server that \fBovs\-vsctl\fR
 contacts to query or modify configuration.  The default is
-\fBunix:/var/run/openvswitch/db.sock\fR.  \fIserver\fR must take one of the
+\fBunix:/usr/local/var/run/openvswitch/db.sock\fR.  \fIserver\fR must take one of the
 following forms:
 .RS
 .IP "\fBssl:\fIip\fB:\fIport\fR"
-The specified SSL \fIport\fR on the host at the given \fIip\fR, which
-must be expressed as an IP address (not a DNS name) in IPv4 or IPv6 address
-format.  If \fIip\fR is an IPv6 address, then wrap \fIip\fR with square
-brackets, e.g.: \fBssl:[::1]:6640\fR.
-The \fB\-\-private\-key\fR, \fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR
-options are mandatory when this form is used.
-.
-.IP "\fBtcp:\fIip\fB:\fIport\fR"
-Connect to the given TCP \fIport\fR on \fIip\fR, where \fIip\fR can be IPv4
-or IPv6 address. If \fIip\fR is an IPv6 address, then wrap \fIip\fR with
-square brackets, e.g.: \fBtcp:[::1]:6640\fR.
+.IQ "\fBtcp:\fIip\fB:\fIport\fR"
+The given SSL or plain TCP \fIport\fR on the host at the given
+\fIip\fR, which must be expressed as an IP address (not a DNS name) in
+IPv4 or IPv6 address format.  If \fIip\fR is an IPv6 address, then
+wrap \fIip\fR with square brackets, e.g.: \fBssl:[::1]:6640\fR.  On
+Linux, use \fB%\fIdevice\fR to designate a scope for IPv6 link-level
+addresses, e.g. \fBssl:[fe80::1234%eth0]:6653\fR.  For \fBssl\fR, the
+\fB\-\-private\-key\fR, \fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR
+options are mandatory.
 .
 .IP "\fBunix:\fIfile\fR"
 On POSIX, connect to the Unix domain server socket named \fIfile\fR.
@@ -102,24 +100,17 @@ On Windows, connect to a local named pipe that is represented by a file
 created in the path \fIfile\fR to mimic the behavior of a Unix domain
 socket.
 .IP "\fBpssl:\fIport\fR[\fB:\fIip\fR]"
-Listen on the given SSL \fIport\fR for a connection.  By default,
-connections are not bound to a particular local IP address and
-it listens only on IPv4 (but not IPv6) addresses, but
-specifying \fIip\fR limits connections to those from the given
-\fIip\fR, either IPv4 or IPv6 address.  If \fIip\fR is
-an IPv6 address, then wrap \fIip\fR with square brackets, e.g.:
-\fBpssl:6640:[::1]\fR.  The \fB\-\-private\-key\fR,
-\fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR options are mandatory
-when this form is used.
-.
-.IP "\fBptcp:\fIport\fR[\fB:\fIip\fR]"
-Listen on the given TCP \fIport\fR for a connection.  By default,
-connections are not bound to a particular local IP address and
-it listens only on IPv4 (but not IPv6) addresses, but
-\fIip\fR may be specified to listen only for connections to the given
-\fIip\fR, either IPv4 or IPv6 address.  If \fIip\fR is
-an IPv6 address, then wrap \fIip\fR with square brackets, e.g.:
-\fBptcp:6640:[::1]\fR.
+.IQ "\fBptcp:\fIport\fR[\fB:\fIip\fR]"
+Listen on the given SSL or TCP \fIport\fR for a connection.  By
+default, connections are not bound to a particular local IP address
+and it listens only on IPv4 (but not IPv6) addresses, but specifying
+\fIip\fR limits connections to those from the given \fIip\fR, either
+IPv4 or IPv6 address.  If \fIip\fR is an IPv6 address, then wrap
+\fIip\fR with square brackets, e.g.: \fBpssl:6640:[::1]\fR.  On Linux,
+use \fB%\fIdevice\fR to designate a scope for IPv6 link-level
+addresses, e.g. \fBpssl:6653:[fe80::1234%eth0]\fR.  For \fBpssl\fR,
+the \fB\-\-private\-key\fR, \fB\-\-certificate\fR, and
+\fB\-\-ca\-cert\fR options are mandatory.
 .
 .IP "\fBpunix:\fIfile\fR"
 On POSIX, listen on the Unix domain server socket named \fIfile\fR for a
@@ -223,8 +214,10 @@ as text strings.
 .
 .IP "\fB\-d \fIformat\fR"
 .IQ "\fB\-\-data=\fIformat\fR"
-Sets the formatting for cells within output tables.  The following
-types of \fIformat\fR are available:
+Sets the formatting for cells within output tables unless the table
+format is set to \fBjson\fR, in which case \fBjson\fR formatting is
+always used when formatting cells.  The following types of \fIformat\fR
+are available:
 .RS
 .IP "\fBstring\fR (default)"
 The simple format described in the \fBDatabase Values\fR
@@ -236,13 +229,11 @@ are omitted around sets, maps, and empty columns, items within sets
 and maps are space-separated, and strings are never quoted.  This
 format may be easier for scripts to parse.
 .IP "\fBjson\fR"
-JSON.
+The RFC 4627 JSON format as described above.
 .RE
 .IP
-The \fBjson\fR output format always outputs cells in JSON format,
-ignoring this option.
 .
-.IP "\fB\-\-no\-heading\fR"
+.IP "\fB\-\-no\-headings\fR"
 This option suppresses the heading row that otherwise appears in the
 first row of table output.
 .
@@ -394,7 +385,7 @@ a message to the target provided via the \fB\-\-syslog\-target\fR option.
 \fB\-\-log\-file\fR[\fB=\fIfile\fR]
 Enables logging to a file.  If \fIfile\fR is specified, then it is
 used as the exact name for the log file.  The default log file name
-used if \fIfile\fR is omitted is \fB/var/log/openvswitch/\*(PN.log\fR.
+used if \fIfile\fR is omitted is \fB/usr/local/var/log/openvswitch/\*(PN.log\fR.
 .
 .IP "\fB\-\-syslog\-target=\fIhost\fB:\fIport\fR"
 Send syslog messages to UDP \fIport\fR on \fIhost\fR, in addition to
@@ -654,8 +645,11 @@ use any of the following forms:
 The specified \fIport\fR on the host at the given \fIip\fR, which must
 be expressed as an IP address (not a DNS name) in IPv4 or IPv6 address
 format.  Wrap IPv6 addresses in square brackets,
-e.g. \fBtcp:[::1]:6653\fR.  For \fBssl\fR, the \fB\-\-private\-key\fR,
-\fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR options are mandatory.
+e.g. \fBtcp:[::1]:6653\fR.  On Linux, use \fB%\fIdevice\fR to
+designate a scope for IPv6 link-level addresses,
+e.g. \fBtcp:[fe80::1234%eth0]:6653\fR.  For \fBssl\fR, the
+\fB\-\-private\-key\fR, \fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR
+options are mandatory.
 .IP
 If \fIport\fR is not specified, it defaults to 6653.
 .TP
@@ -668,10 +662,12 @@ domain socket.
 .IP "\fBpssl:\fR[\fIport\fR][\fB:\fIip\fR]"
 .IQ "\fBptcp:\fR[\fIport\fR][\fB:\fIip\fR]"
 Listens for OpenFlow connections on \fIport\fR.  The default
-\fIport\fR is 6653.  By default, connections
-are allowed from any IPv4 address.  Specify \fIip\fR as an IPv4
-address or a bracketed IPv6 address (e.g. \fBptcp:6653:[::1]\fR).  DNS
-names may not be used.  For \fBpssl\fR, the
+\fIport\fR is 6653.  By default, connections are allowed from any IPv4
+address.  Specify \fIip\fR as an IPv4 address or a bracketed IPv6
+address (e.g. \fBptcp:6653:[::1]\fR).  On Linux, use \fB%\fIdevice\fR
+to designate a scope for IPv6 link-level addresses,
+e.g. \fBptcp:6653:[fe80::1234%eth0]\fR.  DNS names may
+not be used.  For \fBpssl\fR, the
 \fB\-\-private\-key\fR,\fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR
 options are mandatory.
 .IP
@@ -732,17 +728,15 @@ use any of the following forms:
 .
 .RS
 .IP "\fBssl:\fIip\fB:\fIport\fR"
-The specified SSL \fIport\fR on the host at the given \fIip\fR, which
-must be expressed as an IP address (not a DNS name) in IPv4 or IPv6 address
-format.  If \fIip\fR is an IPv6 address, then wrap \fIip\fR with square
-brackets, e.g.: \fBssl:[::1]:6640\fR.
-The \fB\-\-private\-key\fR, \fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR
-options are mandatory when this form is used.
-.
-.IP "\fBtcp:\fIip\fB:\fIport\fR"
-Connect to the given TCP \fIport\fR on \fIip\fR, where \fIip\fR can be IPv4
-or IPv6 address. If \fIip\fR is an IPv6 address, then wrap \fIip\fR with
-square brackets, e.g.: \fBtcp:[::1]:6640\fR.
+.IQ "\fBtcp:\fIip\fB:\fIport\fR"
+The given SSL or plain TCP \fIport\fR on the host at the given
+\fIip\fR, which must be expressed as an IP address (not a DNS name) in
+IPv4 or IPv6 address format.  If \fIip\fR is an IPv6 address, then
+wrap \fIip\fR with square brackets, e.g.: \fBssl:[::1]:6640\fR.  On
+Linux, use \fB%\fIdevice\fR to designate a scope for IPv6 link-level
+addresses, e.g. \fBssl:[fe80::1234%eth0]:6653\fR.  For \fBssl\fR, the
+\fB\-\-private\-key\fR, \fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR
+options are mandatory.
 .
 .IP "\fBunix:\fIfile\fR"
 On POSIX, connect to the Unix domain server socket named \fIfile\fR.
@@ -751,24 +745,17 @@ On Windows, connect to a local named pipe that is represented by a file
 created in the path \fIfile\fR to mimic the behavior of a Unix domain
 socket.
 .IP "\fBpssl:\fIport\fR[\fB:\fIip\fR]"
-Listen on the given SSL \fIport\fR for a connection.  By default,
-connections are not bound to a particular local IP address and
-it listens only on IPv4 (but not IPv6) addresses, but
-specifying \fIip\fR limits connections to those from the given
-\fIip\fR, either IPv4 or IPv6 address.  If \fIip\fR is
-an IPv6 address, then wrap \fIip\fR with square brackets, e.g.:
-\fBpssl:6640:[::1]\fR.  The \fB\-\-private\-key\fR,
-\fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR options are mandatory
-when this form is used.
-.
-.IP "\fBptcp:\fIport\fR[\fB:\fIip\fR]"
-Listen on the given TCP \fIport\fR for a connection.  By default,
-connections are not bound to a particular local IP address and
-it listens only on IPv4 (but not IPv6) addresses, but
-\fIip\fR may be specified to listen only for connections to the given
-\fIip\fR, either IPv4 or IPv6 address.  If \fIip\fR is
-an IPv6 address, then wrap \fIip\fR with square brackets, e.g.:
-\fBptcp:6640:[::1]\fR.
+.IQ "\fBptcp:\fIport\fR[\fB:\fIip\fR]"
+Listen on the given SSL or TCP \fIport\fR for a connection.  By
+default, connections are not bound to a particular local IP address
+and it listens only on IPv4 (but not IPv6) addresses, but specifying
+\fIip\fR limits connections to those from the given \fIip\fR, either
+IPv4 or IPv6 address.  If \fIip\fR is an IPv6 address, then wrap
+\fIip\fR with square brackets, e.g.: \fBpssl:6640:[::1]\fR.  On Linux,
+use \fB%\fIdevice\fR to designate a scope for IPv6 link-level
+addresses, e.g. \fBpssl:6653:[fe80::1234%eth0]\fR.  For \fBpssl\fR,
+the \fB\-\-private\-key\fR, \fB\-\-certificate\fR, and
+\fB\-\-ca\-cert\fR options are mandatory.
 .
 .IP "\fBpunix:\fIfile\fR"
 On POSIX, listen on the Unix domain server socket named \fIfile\fR for a
@@ -920,10 +907,12 @@ packets on a per-flow basis using OpenFlow \fBsample\fR actions.
 Configuration for Auto Attach within a bridge.
 .PP
 Record names must be specified in full and with correct
-capitalization.  Names of tables and columns are not case-sensitive,
-and \fB\-\-\fR and \fB_\fR are treated interchangeably.  Unique
-abbreviations are acceptable, e.g. \fBnet\fR or \fBn\fR is sufficient
-to identify the \fBNetFlow\fR table.
+capitalization, except that UUIDs may be abbreviated to their first 4
+(or more) hex digits, as long as that is unique within the table.
+Names of tables and columns are not case-sensitive, and \fB\-\fR and
+\fB_\fR are treated interchangeably.  Unique abbreviations of table
+and column names are acceptable, e.g. \fBnet\fR or \fBn\fR is
+sufficient to identify the \fBNetFlow\fR table.
 .
 .ST "Database Values"
 .PP
@@ -1132,7 +1121,7 @@ invocation in contexts where a UUID is expected.  Such references may
 precede or follow the \fBcreate\fR command.
 .
 .RS
-.IP "Caution (ovs-vsctl as exmaple)"
+.IP "Caution (ovs-vsctl as example)"
 Records in the Open vSwitch database are significant only when they
 can be reached directly or indirectly from the \fBOpen_vSwitch\fR
 table.  Except for records in the \fBQoS\fR or \fBQueue\fR tables,
@@ -1154,7 +1143,7 @@ Deletes each specified \fIrecord\fR from \fItable\fR.  Unless
 Deletes all records from the \fItable\fR.
 .
 .RS
-.IP "Caution (ovs-vsctl as exmaple)"
+.IP "Caution (ovs-vsctl as example)"
 The \fBdestroy\fR command is only useful for records in the \fBQoS\fR
 or \fBQueue\fR tables.  Records in other tables are automatically
 deleted from the database when they become unreachable from the
@@ -1180,7 +1169,7 @@ such argument is given, the command waits until all of them are
 satisfied.
 .
 .RS
-.IP "Caution (ovs-vsctl as exmaple)"
+.IP "Caution (ovs-vsctl as example)"
 Usually \fBwait\-until\fR should be placed at the beginning of a set
 of \fBovs\-vsctl\fR commands.  For example, \fBwait\-until bridge br0
 \-\- get bridge br0 datapath_id\fR waits until a bridge named
@@ -1228,7 +1217,7 @@ access port for VLAN 10, and configure it with an IP address:
 .IP
 .B "ovs\-vsctl add\-port br0 vlan10 tag=10 \-\- set Interface vlan10 type=internal"
 .IP
-.B "ifconfig vlan10 192.168.0.123"
+.B "ip addr add 192.168.0.123/24 dev vlan10"
 .
 .PP
 Add a GRE tunnel port \fBgre0\fR to remote IP address 1.2.3.4 to

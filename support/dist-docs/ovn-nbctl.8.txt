@@ -50,14 +50,20 @@ LOGICAL SWITCH COMMANDS
               Lists all existing switches on standard output, one per line.
 
 LOGICAL SWITCH ACL COMMANDS
-       [--log] [--may-exist] acl-add switch direction priority match action
-              Adds  the  specified  ACL  to  switch.  direction must be either
-              from-lport or to-lport. priority must be between  0  and  32767,
-              inclusive.  If --log is specified, packet logging is enabled for
-              the ACL. A full description of the fields are in  ovn-nb(5).  If
+       [--log]   [--severity=severity]   [--name=name]  [--may-exist]  acl-add
+       switch direction priority match verdict
+              Adds the specified ACL  to  switch.  direction  must  be  either
+              from-lport  or  to-lport.  priority must be between 0 and 32767,
+              inclusive. A full description of the fields are in ovn-nb(5). If
               --may-exist  is  specified, adding a duplicated ACL succeeds but
               the ACL is not really created.  Without  --may-exist,  adding  a
               duplicated ACL results in error.
+
+              The --log option enables packet logging for the ACL. The options
+              --severity and --name specify a severity and name, respectively,
+              for  log entries (and also enable logging). The severity must be
+              one of alert, warning, notice, info, or debug. If a severity  is
+              not specified, the default is info.
 
        acl-del switch [direction [priority match]]
               Deletes  ACLs  from  switch. If only switch is supplied, all the
@@ -180,6 +186,22 @@ LOGICAL SWITCH PORT COMMANDS
        lsp-get-options port
               Get the type-specific options for the logical port.
 
+       lsp-set-dhcpv4-options port dhcp_options
+              Set the DHCPv4 options for the logical port. The dhcp_options is
+              a UUID referring to a set of DHCP options  in  the  DHCP_Options
+              table.
+
+       lsp-get-dhcpv4-optoins port
+              Get the configured DHCPv4 options for the logical port.
+
+       lsp-set-dhcpv6-options port dhcp_options
+              Set the DHCPv6 options for the logical port. The dhcp_options is
+              a UUID referring to a set of DHCP options  in  the  DHCP_Options
+              table.
+
+       lsp-get-dhcpv6-optoins port
+              Get the configured DHCPv6 options for the logical port.
+
 LOGICAL ROUTER COMMANDS
        lr-add Creates  a  new,  unnamed logical router, which initially has no
               ports. The router does not have  a  name,  other  commands  must
@@ -242,6 +264,21 @@ LOGICAL ROUTER PORT COMMANDS
        lrp-get-enabled port
               Prints  the administrative state of port, either enabled or dis‐
               abled.
+
+       lrp-set-gateway-chassis port chassis [priority]
+              Set gateway chassis for port. chassis is the name of  the  chas‐
+              sis. This creates a gateway chassis entry in Gateway_Chassis ta‐
+              ble. It won’t check if chassis really exists  in  OVN_Southbound
+              database.  Priority will be set to 0 if priority is not provided
+              by user. priority must be between 0 and 32767, inclusive.
+
+       lrp-del-gateway-chassis port chassis
+              Deletes gateway chassis from port. It is  an  error  if  gateway
+              chassis with chassis for port does not exist.
+
+       lrp-get-gateway-chassis port
+              Lists all the gateway chassis with priority within port on stan‐
+              dard output, one per line, ordered based on priority.
 
 LOGICAL ROUTER STATIC ROUTE COMMANDS
        [--may-exist]  [--policy=POLICY]  lr-route-add  router  prefix  nexthop
@@ -412,7 +449,7 @@ DHCP OPTIONS COMMANDS
 
 DATABASE COMMANDS
        These  commands query and modify the contents of ovsdb tables. They are
-       a slight abstraction of the ovsdb interface and as suchthey operate  at
+       a slight abstraction of the ovsdb interface and as such they operate at
        a lower level than other ovn-nbctl commands.
 
        Identifying Tables, Records, and Columns
@@ -420,9 +457,10 @@ DATABASE COMMANDS
        Each of these commands has a table parameter to identify a table within
        the database. Many of them also take a record parameter that identifies
        a  particular  record  within  a table. The record parameter may be the
-       UUID for a record, and many tables offer additional  ways  to  identify
-       records. Some commands also take column parameters that identify a par‐
-       ticular field within the records in a table.
+       UUID for a record, which may be abbreviated to its first  4  (or  more)
+       hex  digits,  as  long  as that is unique. Many tables offer additional
+       ways to identify records. Some commands  also  take  column  parameters
+       that identify a particular field within the records in a table.
 
        The following tables are currently defined:
 
@@ -430,17 +468,17 @@ DATABASE COMMANDS
                      An L2 logical switch. Records may be identified by name.
 
               Logical_Switch_Port
-                     A port within an L2 logical switch. Records may be  iden‐
+                     A  port within an L2 logical switch. Records may be iden‐
                      tified by name.
 
-              ACL    An  ACL  rule  for  a  logical  switch  that points to it
+              ACL    An ACL rule for  a  logical  switch  that  points  to  it
                      through its acls column.
 
               Logical_Router
                      An L3 logical router. Records may be identified by name.
 
               Logical_Router_Port
-                     A port within an L3 logical router. Records may be  iden‐
+                     A  port within an L3 logical router. Records may be iden‐
                      tified by name.
 
               Logical_Router_Static_Route
@@ -450,7 +488,7 @@ DATABASE COMMANDS
                      An address set that can be used in ACLs.
 
               Load_Balancer
-                     A  load  balancer  for a logical switch that points to it
+                     A load balancer for a logical switch that  points  to  it
                      through its load_balancer column.
 
               NAT    A NAT rule for a Gateway router.
@@ -460,6 +498,13 @@ DATABASE COMMANDS
 
               NB_Global
                      North bound global configurations.
+
+       Record names must be specified in full and with correct capitalization,
+       except that UUIDs may be abbreviated to their first  4  (or  more)  hex
+       digits, as long as that is unique within the table. Names of tables and
+       columns are not case-sensitive, and - and _  are  treated  interchange‐
+       ably.  Unique  abbreviations  of table and column names are acceptable,
+       e.g. d or dhcp is sufficient to identify the DHCP_Options table.
 
        Database Values
 
@@ -679,7 +724,7 @@ DATABASE COMMANDS
                      invocation  in  contexts  where  a UUID is expected. Such
                      references may precede or follow the create command.
 
-                     Caution (ovs-vsctl as exmaple)
+                     Caution (ovs-vsctl as example)
                             Records in the Open vSwitch database are  signifi‐
                             cant  only  when  they  can be reached directly or
                             indirectly from the Open_vSwitch table. Except for
@@ -702,7 +747,7 @@ DATABASE COMMANDS
               --all destroy table
                      Deletes all records from the table.
 
-                     Caution (ovs-vsctl as exmaple)
+                     Caution (ovs-vsctl as example)
                             The destroy command is only useful for records  in
                             the  QoS  or Queue tables. Records in other tables
                             are automatically deleted from the  database  when
@@ -728,7 +773,7 @@ DATABASE COMMANDS
                      such  argument  is  given, the command waits until all of
                      them are satisfied.
 
-                     Caution (ovs-vsctl as exmaple)
+                     Caution (ovs-vsctl as example)
                             Usually wait-until should be placed at the  begin‐
                             ning  of a set of ovs-vsctl commands. For example,
                             wait-until bridge br0  --  get  bridge  br0  data‐
@@ -773,74 +818,75 @@ SSL CONFIGURATION COMMANDS
        del-ssl
               Deletes the current SSL configuration.
 
-       [--bootstrap] set-ssl private-key certificate ca-cert
+       [--bootstrap]  set-ssl  private-key  certificate ca-cert [ssl-protocol-
+       list [ssl-cipher-list]]
               Sets the SSL configuration.
 
 OPTIONS
        --no-wait | --wait=none
        --wait=sb
        --wait=hv
-            These  options control whether and how ovn-nbctl waits for the OVN
-            system to become up-to-date with  changes  made  in  an  ovn-nbctl
+            These options control whether and how ovn-nbctl waits for the  OVN
+            system  to  become  up-to-date  with  changes made in an ovn-nbctl
             invocation.
 
-            By  default, or if --no-wait or --wait=none, ovn-nbctl exits imme‐
-            diately after confirming that changes have been committed  to  the
+            By default, or if --no-wait or --wait=none, ovn-nbctl exits  imme‐
+            diately  after  confirming that changes have been committed to the
             northbound database, without waiting.
 
             With --wait=sb, before ovn-nbctl exits, it waits for ovn-northd to
             bring the southbound database up-to-date with the northbound data‐
             base updates.
 
-            With  --wait=hv, before ovn-nbctl exits, it additionally waits for
-            all OVN chassis (hypervisors and gateways)  to  become  up-to-date
-            with  the northbound database updates. (This can become an indefi‐
+            With --wait=hv, before ovn-nbctl exits, it additionally waits  for
+            all  OVN  chassis  (hypervisors and gateways) to become up-to-date
+            with the northbound database updates. (This can become an  indefi‐
             nite wait if any chassis is malfunctioning.)
 
-            Ordinarily, --wait=sb or --wait=hv only waits for changes  by  the
-            current  ovn-nbctl  invocation to take effect. This means that, if
-            none of the commands supplied to ovn-nbctl  change  the  database,
-            then  the  command  does  not wait at all. Use the sync command to
+            Ordinarily,  --wait=sb  or --wait=hv only waits for changes by the
+            current ovn-nbctl invocation to take effect. This means  that,  if
+            none  of  the  commands supplied to ovn-nbctl change the database,
+            then the command does not wait at all. Use  the  sync  command  to
             override this behavior.
 
        --db database
             The OVSDB database remote to contact. If the OVN_NB_DB environment
-            variable  is set, its value is used as the default. Otherwise, the
-            default  is  unix:/var/run/openvswitch/ovnnb_db.sock,   but   this
-            default  is  unlikely  to  be useful outside of single-machine OVN
-            test environments.
+            variable is set, its value is used as the default. Otherwise,  the
+            default  is unix:/usr/local/var/run/openvswitch/ovnnb_db.sock, but
+            this default is unlikely to be useful  outside  of  single-machine
+            OVN test environments.
 
 LOGGING OPTIONS
        -v[spec]
        --verbose=[spec]
-            Sets logging levels. Without any spec,  sets  the  log  level  for
-            every  module and destination to dbg. Otherwise, spec is a list of
+            Sets  logging  levels.  Without  any  spec, sets the log level for
+            every module and destination to dbg. Otherwise, spec is a list  of
             words separated by spaces or commas or colons, up to one from each
             category below:
 
-            ·      A  valid module name, as displayed by the vlog/list command
+            ·      A valid module name, as displayed by the vlog/list  command
                    on ovs-appctl(8), limits the log level change to the speci‐
                    fied module.
 
-            ·      syslog,  console, or file, to limit the log level change to
-                   only to the system log, to  the  console,  or  to  a  file,
-                   respectively.  (If --detach is specified, the daemon closes
-                   its standard file descriptors, so logging  to  the  console
+            ·      syslog, console, or file, to limit the log level change  to
+                   only  to  the  system  log,  to  the console, or to a file,
+                   respectively. (If --detach is specified, the daemon  closes
+                   its  standard  file  descriptors, so logging to the console
                    will have no effect.)
 
-                   On  Windows  platform,  syslog is accepted as a word and is
+                   On Windows platform, syslog is accepted as a  word  and  is
                    only useful along with the --syslog-target option (the word
                    has no effect otherwise).
 
-            ·      off,  emer,  err,  warn,  info,  or dbg, to control the log
-                   level. Messages of the given severity  or  higher  will  be
-                   logged,  and  messages  of  lower severity will be filtered
-                   out. off filters out all messages. See ovs-appctl(8) for  a
+            ·      off, emer, err, warn, info, or  dbg,  to  control  the  log
+                   level.  Messages  of  the  given severity or higher will be
+                   logged, and messages of lower  severity  will  be  filtered
+                   out.  off filters out all messages. See ovs-appctl(8) for a
                    definition of each log level.
 
             Case is not significant within spec.
 
-            Regardless  of the log levels set for file, logging to a file will
+            Regardless of the log levels set for file, logging to a file  will
             not take place unless --log-file is also specified (see below).
 
             For compatibility with older versions of OVS, any is accepted as a
@@ -848,7 +894,7 @@ LOGGING OPTIONS
 
        -v
        --verbose
-            Sets  the  maximum  logging  verbosity level, equivalent to --ver‐
+            Sets the maximum logging verbosity  level,  equivalent  to  --ver‐
             bose=dbg.
 
        -vPATTERN:destination:pattern
@@ -858,51 +904,128 @@ LOGGING OPTIONS
 
        -vFACILITY:facility
        --verbose=FACILITY:facility
-            Sets  the RFC5424 facility of the log message. facility can be one
+            Sets the RFC5424 facility of the log message. facility can be  one
             of kern, user, mail, daemon, auth, syslog, lpr, news, uucp, clock,
-            ftp,  ntp,  audit,  alert, clock2, local0, local1, local2, local3,
+            ftp, ntp, audit, alert, clock2, local0,  local1,  local2,  local3,
             local4, local5, local6 or local7. If this option is not specified,
-            daemon  is  used  as  the  default for the local system syslog and
-            local0 is used while sending a message to the target provided  via
+            daemon is used as the default for  the  local  system  syslog  and
+            local0  is used while sending a message to the target provided via
             the --syslog-target option.
 
        --log-file[=file]
-            Enables  logging  to a file. If file is specified, then it is used
+            Enables logging to a file. If file is specified, then it  is  used
             as the exact name for the log file. The default log file name used
-            if file is omitted is /var/log/openvswitch/program.log.
+            if file is omitted is /usr/local/var/log/openvswitch/program.log.
 
        --syslog-target=host:port
-            Send  syslog messages to UDP port on host, in addition to the sys‐
-            tem syslog. The host must be a numerical IP address, not  a  host‐
+            Send syslog messages to UDP port on host, in addition to the  sys‐
+            tem  syslog.  The host must be a numerical IP address, not a host‐
             name.
 
        --syslog-method=method
-            Specify  method  as  how  syslog messages should be sent to syslog
+            Specify method as how syslog messages should  be  sent  to  syslog
             daemon. The following forms are supported:
 
-            ·      libc, to use  the  libc  syslog()  function.  This  is  the
-                   default  behavior.  Downside  of using this options is that
-                   libc adds fixed prefix to every message before it is  actu‐
-                   ally  sent  to  the syslog daemon over /dev/log UNIX domain
+            ·      libc,  to  use  the  libc  syslog()  function.  This is the
+                   default behavior. Downside of using this  options  is  that
+                   libc  adds fixed prefix to every message before it is actu‐
+                   ally sent to the syslog daemon over  /dev/log  UNIX  domain
                    socket.
 
             ·      unix:file, to use a UNIX domain socket directly. It is pos‐
                    sible to specify arbitrary message format with this option.
-                   However, rsyslogd 8.9 and older  versions  use  hard  coded
-                   parser  function anyway that limits UNIX domain socket use.
-                   If you want to use  arbitrary  message  format  with  older
-                   rsyslogd  versions,  then  use  UDP  socket to localhost IP
+                   However,  rsyslogd  8.9  and  older versions use hard coded
+                   parser function anyway that limits UNIX domain socket  use.
+                   If  you  want  to  use  arbitrary message format with older
+                   rsyslogd versions, then use  UDP  socket  to  localhost  IP
                    address instead.
 
-            ·      udp:ip:port, to use a UDP socket. With this  method  it  is
-                   possible  to  use  arbitrary message format also with older
-                   rsyslogd. When sending  syslog  messages  over  UDP  socket
-                   extra  precaution needs to be taken into account, for exam‐
-                   ple, syslog daemon needs to be configured to listen on  the
-                   specified  UDP  port,  accidental  iptables  rules could be
-                   interfering with local syslog traffic and  there  are  some
-                   security  considerations  that apply to UDP sockets, but do
+            ·      udp:ip:port,  to  use  a UDP socket. With this method it is
+                   possible to use arbitrary message format  also  with  older
+                   rsyslogd.  When  sending  syslog  messages  over UDP socket
+                   extra precaution needs to be taken into account, for  exam‐
+                   ple,  syslog daemon needs to be configured to listen on the
+                   specified UDP port,  accidental  iptables  rules  could  be
+                   interfering  with  local  syslog traffic and there are some
+                   security considerations that apply to UDP sockets,  but  do
                    not apply to UNIX domain sockets.
+
+TABLE FORMATTING OPTIONS
+       These  options control the format of output from the list and find com‐
+       mands.
+
+              -f format
+              --format=format
+                   Sets the type of table formatting. The following  types  of
+                   format are available:
+
+                   table  2-D text tables with aligned columns.
+
+                   list (default)
+                          A  list  with one column per line and rows separated
+                          by a blank line.
+
+                   html   HTML tables.
+
+                   csv    Comma-separated values as defined in RFC 4180.
+
+                   json   JSON format as defined in RFC 4627. The output is  a
+                          sequence  of JSON objects, each of which corresponds
+                          to one table. Each JSON  object  has  the  following
+                          members with the noted values:
+
+                          caption
+                                 The  table’s  caption. This member is omitted
+                                 if the table has no caption.
+
+                          headings
+                                 An array with one element per  table  column.
+                                 Each  array  element  is  a string giving the
+                                 corresponding column’s heading.
+
+                          data   An array with one element per table row. Each
+                                 element is also an array with one element per
+                                 table column. The elements  of  this  second-
+                                 level array are the cells that constitute the
+                                 table. Cells that  represent  OVSDB  data  or
+                                 data   types  are  expressed  in  the  format
+                                 described in the OVSDB  specification;  other
+                                 cells are simply expressed as text strings.
+
+              -d format
+              --data=format
+                   Sets  the  formatting for cells within output tables unless
+                   the table format is set to json, in which case json format‐
+                   ting  is  always  used when formatting cells. The following
+                   types of format are available:
+
+                   string (default)
+                          The simple format described in the  Database  Values
+                          section of ovs-vsctl(8).
+
+                   bare   The  simple format with punctuation stripped off: []
+                          and {} are omitted around sets, maps, and empty col‐
+                          umns,  items  within  sets  and maps are space-sepa‐
+                          rated, and strings are never quoted. This format may
+                          be easier for scripts to parse.
+
+                   json   The RFC 4627 JSON format as described above.
+
+              --no-headings
+                   This  option  suppresses  the  heading  row  that otherwise
+                   appears in the first row of table output.
+
+              --pretty
+                   By default, JSON in output is printed as compactly as  pos‐
+                   sible. This option causes JSON in output to be printed in a
+                   more readable fashion. Members of objects and  elements  of
+                   arrays are printed one per line, with indentation.
+
+                   This option does not affect JSON in tables, which is always
+                   printed compactly.
+
+              --bare
+                   Equivalent to --format=list --data=bare --no-headings.
 
    PKI Options
        PKI configuration is required to use SSL  for  the  connection  to  the
@@ -969,4 +1092,4 @@ LOGGING OPTIONS
 
 
 
-Open vSwitch 2.7.90                ovn-nbctl                      ovn-nbctl(8)
+Open vSwitch 2.8.90                ovn-nbctl                      ovn-nbctl(8)

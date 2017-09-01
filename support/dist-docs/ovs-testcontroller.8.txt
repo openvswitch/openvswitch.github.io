@@ -23,7 +23,9 @@ DESCRIPTION
                      Listens for OpenFlow connections on  port.   The  default
                      port  is  6653.  By default, connections are allowed from
                      any IPv4 address.  Specify ip as an  IPv4  address  or  a
-                     bracketed IPv6 address (e.g. ptcp:6653:[::1]).  DNS names
+                     bracketed IPv6 address (e.g. ptcp:6653:[::1]).  On Linux,
+                     use %device to designate  a  scope  for  IPv6  link-level
+                     addresses,  e.g.  ptcp:6653:[fe80::1234%eth0].  DNS names
                      may not be used.  For pssl, the  --private-key,--certifi‐
                      cate, and --ca-cert options are mandatory.
 
@@ -36,7 +38,9 @@ DESCRIPTION
                      The specified port on the host at  the  given  ip,  which
                      must  be  expressed  as an IP address (not a DNS name) in
                      IPv4 or IPv6 address  format.   Wrap  IPv6  addresses  in
-                     square  brackets,  e.g.  tcp:[::1]:6653.   For  ssl,  the
+                     square  brackets,  e.g.  tcp:[::1]:6653.   On  Linux, use
+                     %device  to  designate  a  scope  for   IPv6   link-level
+                     addresses, e.g. tcp:[fe80::1234%eth0]:6653.  For ssl, the
                      --private-key, --certificate, and --ca-cert  options  are
                      mandatory.
 
@@ -194,119 +198,121 @@ OPTIONS
               peer must already have the CA certificate for the peer  to  have
               any  confidence in ovs-testcontroller's identity.  However, this
               offers a way for a new installation to bootstrap the CA certifi‐
-              cate  on  its  first  SSL connection.  The following options are
-              valid on POSIX based platforms.
+              cate on its first SSL connection.
+
+   Daemon Options
+       The following options are valid on POSIX based platforms.
 
        --pidfile[=pidfile]
               Causes a file (by default, ovs-testcontroller.pid) to be created
               indicating the PID of the running process.  If the pidfile argu‐
-              ment is not specified, or if it does not begin with /,  then  it
-              is created in /var/run/openvswitch.
+              ment  is  not specified, or if it does not begin with /, then it
+              is created in /usr/local/var/run/openvswitch.
 
               If --pidfile is not specified, no pidfile is created.
 
        --overwrite-pidfile
-              By  default,  when --pidfile is specified and the specified pid‐
+              By default, when --pidfile is specified and the  specified  pid‐
               file  already  exists  and  is  locked  by  a  running  process,
-              ovs-testcontroller  refuses  to start.  Specify --overwrite-pid‐
+              ovs-testcontroller refuses to start.   Specify  --overwrite-pid‐
               file to cause it to instead overwrite the pidfile.
 
               When --pidfile is not specified, this option has no effect.
 
        --detach
-              Runs ovs-testcontroller as a background  process.   The  process
-              forks,  and  in  the  child  it starts a new session, closes the
-              standard file descriptors (which has the  side  effect  of  dis‐
-              abling  logging  to the console), and changes its current direc‐
-              tory to the root (unless --no-chdir is  specified).   After  the
+              Runs  ovs-testcontroller  as  a background process.  The process
+              forks, and in the child it starts  a  new  session,  closes  the
+              standard  file  descriptors  (which  has the side effect of dis‐
+              abling logging to the console), and changes its  current  direc‐
+              tory  to  the  root (unless --no-chdir is specified).  After the
               child completes its initialization, the parent exits.
 
        --monitor
-              Creates  an additional process to monitor the ovs-testcontroller
-              daemon.  If the daemon dies due to a  signal  that  indicates  a
-              programming  error  (SIGABRT,  SIGALRM,  SIGBUS, SIGFPE, SIGILL,
-              SIGPIPE, SIGSEGV, SIGXCPU, or SIGXFSZ) then the monitor  process
-              starts  a  new  copy  of  it.   If  the daemon dies or exits for
+              Creates an additional process to monitor the  ovs-testcontroller
+              daemon.   If  the  daemon  dies due to a signal that indicates a
+              programming error (SIGABRT,  SIGALRM,  SIGBUS,  SIGFPE,  SIGILL,
+              SIGPIPE,  SIGSEGV, SIGXCPU, or SIGXFSZ) then the monitor process
+              starts a new copy of it.   If  the  daemon  dies  or  exits  for
               another reason, the monitor process exits.
 
-              This option is normally used with --detach, but  it  also  func‐
+              This  option  is  normally used with --detach, but it also func‐
               tions without it.
 
        --no-chdir
               By  default,  when  --detach  is  specified,  ovs-testcontroller
-              changes its current working  directory  to  the  root  directory
-              after  it detaches.  Otherwise, invoking ovs-testcontroller from
-              a carelessly chosen directory would  prevent  the  administrator
+              changes  its  current  working  directory  to the root directory
+              after it detaches.  Otherwise, invoking ovs-testcontroller  from
+              a  carelessly  chosen  directory would prevent the administrator
               from unmounting the file system that holds that directory.
 
-              Specifying   --no-chdir  suppresses  this  behavior,  preventing
-              ovs-testcontroller from changing its current working  directory.
+              Specifying  --no-chdir  suppresses  this  behavior,   preventing
+              ovs-testcontroller  from changing its current working directory.
               This may be useful for collecting core files, since it is common
-              behavior to write core dumps into the current working  directory
+              behavior  to write core dumps into the current working directory
               and the root directory is not a good directory to use.
 
               This option has no effect when --detach is not specified.
 
        --no-self-confinement
-              By  default  daemon will try to self-confine itself to work with
-              files under well-know, at  build-time  whitelisted  directories.
-              It  is better to stick with this default behavior and not to use
-              this flag unless some other Access Control is  used  to  confine
+              By default daemon will try to self-confine itself to  work  with
+              files  under  well-know,  at build-time whitelisted directories.
+              It is better to stick with this default behavior and not to  use
+              this  flag  unless  some other Access Control is used to confine
               daemon.  Note that in contrast to other access control implemen‐
-              tations that are typically enforced from kernel-space (e.g.  DAC
-              or  MAC), self-confinement is imposed from the user-space daemon
-              itself and hence should not be considered as a full  confinement
+              tations  that are typically enforced from kernel-space (e.g. DAC
+              or MAC), self-confinement is imposed from the user-space  daemon
+              itself  and hence should not be considered as a full confinement
               strategy, but instead should be viewed as an additional layer of
               security.
 
-       --user Causes ovs-testcontroller to run as a different  user  specified
-              in  "user:group",  thus  dropping  most  of the root privileges.
-              Short forms "user" and ":group" are also allowed,  with  current
-              user  or group are assumed respectively. Only daemons started by
+       --user Causes  ovs-testcontroller  to run as a different user specified
+              in "user:group", thus dropping  most  of  the  root  privileges.
+              Short  forms  "user" and ":group" are also allowed, with current
+              user or group are assumed respectively. Only daemons started  by
               the root user accepts this argument.
 
               On   Linux,   daemons   will   be   granted   CAP_IPC_LOCK   and
-              CAP_NET_BIND_SERVICES  before  dropping root privileges. Daemons
-              that interact with a datapath, such  as  ovs-vswitchd,  will  be
-              granted  two  additional  capabilities, namely CAP_NET_ADMIN and
-              CAP_NET_RAW. The capability change will apply even if  new  user
+              CAP_NET_BIND_SERVICES before dropping root  privileges.  Daemons
+              that  interact  with  a  datapath, such as ovs-vswitchd, will be
+              granted two additional capabilities,  namely  CAP_NET_ADMIN  and
+              CAP_NET_RAW.  The  capability change will apply even if new user
               is "root".
 
               On Windows, this option is not currently supported. For security
-              reasons, specifying this option will cause  the  daemon  process
+              reasons,  specifying  this  option will cause the daemon process
               not to start.
 
        -v[spec]
        --verbose=[spec]
-              Sets  logging  levels.  Without any spec, sets the log level for
-              every module and destination to dbg.  Otherwise, spec is a  list
+              Sets logging levels.  Without any spec, sets the log  level  for
+              every  module and destination to dbg.  Otherwise, spec is a list
               of words separated by spaces or commas or colons, up to one from
               each category below:
 
-              ·      A valid module name, as displayed by the  vlog/list  com‐
+              ·      A  valid  module name, as displayed by the vlog/list com‐
                      mand on ovs-appctl(8), limits the log level change to the
                      specified module.
 
-              ·      syslog, console, or file, to limit the log  level  change
-                     to  only to the system log, to the console, or to a file,
-                     respectively.  (If --detach  is  specified,  ovs-testcon‐
-                     troller  closes its standard file descriptors, so logging
+              ·      syslog,  console,  or file, to limit the log level change
+                     to only to the system log, to the console, or to a  file,
+                     respectively.   (If  --detach  is specified, ovs-testcon‐
+                     troller closes its standard file descriptors, so  logging
                      to the console will have no effect.)
 
-                     On Windows platform, syslog is accepted as a word and  is
-                     only  useful  along  with the --syslog-target option (the
+                     On  Windows platform, syslog is accepted as a word and is
+                     only useful along with the  --syslog-target  option  (the
                      word has no effect otherwise).
 
-              ·      off, emer, err, warn, info, or dbg, to  control  the  log
-                     level.   Messages of the given severity or higher will be
-                     logged, and messages of lower severity will  be  filtered
-                     out.   off  filters  out all messages.  See ovs-appctl(8)
+              ·      off,  emer,  err,  warn, info, or dbg, to control the log
+                     level.  Messages of the given severity or higher will  be
+                     logged,  and  messages of lower severity will be filtered
+                     out.  off filters out all  messages.   See  ovs-appctl(8)
                      for a definition of each log level.
 
               Case is not significant within spec.
 
-              Regardless of the log levels set for file,  logging  to  a  file
-              will  not  take  place  unless --log-file is also specified (see
+              Regardless  of  the  log  levels set for file, logging to a file
+              will not take place unless --log-file  is  also  specified  (see
               below).
 
               For compatibility with older versions of OVS, any is accepted as
@@ -314,76 +320,76 @@ OPTIONS
 
        -v
        --verbose
-              Sets  the  maximum logging verbosity level, equivalent to --ver‐
+              Sets the maximum logging verbosity level, equivalent  to  --ver‐
               bose=dbg.
 
        -vPATTERN:destination:pattern
        --verbose=PATTERN:destination:pattern
-              Sets the log pattern  for  destination  to  pattern.   Refer  to
+              Sets  the  log  pattern  for  destination  to pattern.  Refer to
               ovs-appctl(8) for a description of the valid syntax for pattern.
 
        -vFACILITY:facility
        --verbose=FACILITY:facility
-              Sets  the  RFC5424  facility of the log message. facility can be
-              one of kern, user, mail, daemon, auth, syslog, lpr, news,  uucp,
-              clock,  ftp,  ntp, audit, alert, clock2, local0, local1, local2,
-              local3, local4, local5, local6 or local7. If this option is  not
-              specified,  daemon  is  used as the default for the local system
-              syslog and local0 is used while sending a message to the  target
+              Sets the RFC5424 facility of the log message.  facility  can  be
+              one  of kern, user, mail, daemon, auth, syslog, lpr, news, uucp,
+              clock, ftp, ntp, audit, alert, clock2, local0,  local1,  local2,
+              local3,  local4, local5, local6 or local7. If this option is not
+              specified, daemon is used as the default for  the  local  system
+              syslog  and local0 is used while sending a message to the target
               provided via the --syslog-target option.
 
        --log-file[=file]
-              Enables  logging  to  a  file.  If file is specified, then it is
-              used as the exact name for the log file.  The default  log  file
-              name  used  if file is omitted is /var/log/openvswitch/ovs-test‐
-              controller.log.
+              Enables logging to a file.  If file is  specified,  then  it  is
+              used  as  the exact name for the log file.  The default log file
+              name  used  if  file  is  omitted  is   /usr/local/var/log/open‐
+              vswitch/ovs-testcontroller.log.
 
        --syslog-target=host:port
-              Send syslog messages to UDP port on host,  in  addition  to  the
-              system  syslog.   The host must be a numerical IP address, not a
+              Send  syslog  messages  to  UDP port on host, in addition to the
+              system syslog.  The host must be a numerical IP address,  not  a
               hostname.
 
        --syslog-method=method
               Specify method how syslog messages should be sent to syslog dae‐
               mon.  Following forms are supported:
 
-              ·      libc,  use  libc  syslog() function.  This is the default
-                     behavior.  Downside of using this options  is  that  libc
-                     adds  fixed prefix to every message before it is actually
-                     sent to the  syslog  daemon  over  /dev/log  UNIX  domain
+              ·      libc, use libc syslog() function.  This  is  the  default
+                     behavior.   Downside  of  using this options is that libc
+                     adds fixed prefix to every message before it is  actually
+                     sent  to  the  syslog  daemon  over  /dev/log UNIX domain
                      socket.
 
               ·      unix:file, use UNIX domain socket directly.  It is possi‐
                      ble to specify arbitrary message format with this option.
-                     However,  rsyslogd  8.9 and older versions use hard coded
-                     parser function anyway that  limits  UNIX  domain  socket
-                     use.   If  you  want to use arbitrary message format with
+                     However, rsyslogd 8.9 and older versions use  hard  coded
+                     parser  function  anyway  that  limits UNIX domain socket
+                     use.  If you want to use arbitrary  message  format  with
                      older rsyslogd versions, then use UDP socket to localhost
                      IP address instead.
 
               ·      udp:ip:port, use UDP socket.  With this method it is pos‐
-                     sible to use arbitrary message  format  also  with  older
-                     rsyslogd.   When  sending syslog messages over UDP socket
-                     extra precaution needs to  be  taken  into  account,  for
-                     example,  syslog  daemon needs to be configured to listen
-                     on the specified  UDP  port,  accidental  iptables  rules
-                     could  be interfering with local syslog traffic and there
-                     are some security considerations that apply to UDP  sock‐
+                     sible  to  use  arbitrary  message format also with older
+                     rsyslogd.  When sending syslog messages over  UDP  socket
+                     extra  precaution  needs  to  be  taken into account, for
+                     example, syslog daemon needs to be configured  to  listen
+                     on  the  specified  UDP  port,  accidental iptables rules
+                     could be interfering with local syslog traffic and  there
+                     are  some security considerations that apply to UDP sock‐
                      ets, but do not apply to UNIX domain sockets.
 
        --unixctl=socket
-              Sets  the name of the control socket on which ovs-testcontroller
-              listens for runtime management commands (see RUNTIME  MANAGEMENT
+              Sets the name of the control socket on which  ovs-testcontroller
+              listens  for runtime management commands (see RUNTIME MANAGEMENT
               COMMANDS, below).  If socket does not begin with /, it is inter‐
-              preted as relative to /var/run/openvswitch.  If --unixctl is not
-              used    at   all,   the   default   socket   is   /var/run/open‐
-              vswitch/ovs-testcontroller.pid.ctl, where  pid  is  ovs-testcon‐
-              troller's process ID.
+              preted   as   relative  to  /usr/local/var/run/openvswitch.   If
+              --unixctl  is  not  used  at  all,   the   default   socket   is
+              /usr/local/var/run/openvswitch/ovs-testcontroller.pid.ctl, where
+              pid is ovs-testcontroller's process ID.
 
               On Windows a local named pipe is used to listen for runtime man‐
-              agement commands.  A file is created in  the  absolute  path  as
-              pointed  by socket or if --unixctl is not used at all, a file is
-              created as ovs-testcontroller.ctl in the  configured  OVS_RUNDIR
+              agement  commands.   A  file  is created in the absolute path as
+              pointed by socket or if --unixctl is not used at all, a file  is
+              created  as  ovs-testcontroller.ctl in the configured OVS_RUNDIR
               directory.  The file exists just to mimic the behavior of a Unix
               domain socket.
 
@@ -401,20 +407,28 @@ OPTIONS
               Sets the OpenFlow protocol versions that are allowed when estab‐
               lishing an OpenFlow session.
 
-              The  following  versions  are considered to be ready for general
-              use.  These protocol versions are enabled by default:
+              These protocol versions are enabled by default:
 
               ·      OpenFlow10, for OpenFlow 1.0.
-
-              Support for the following  protocol  versions  is  provided  for
-              testing  and  development  purposes.   They  are  not enabled by
-              default:
+       The following protocol versions are generally supported, but  for  com‐
+       patibility  with older versions of Open vSwitch they are not enabled by
+       default:
 
               ·      OpenFlow11, for OpenFlow 1.1.
 
               ·      OpenFlow12, for OpenFlow 1.2.
 
               ·      OpenFlow13, for OpenFlow 1.3.
+
+              ·      OpenFlow14, for OpenFlow 1.4.
+
+              Support for the following  protocol  versions  is  provided  for
+              testing  and  development  purposes.   They  are  not enabled by
+              default:
+
+              ·      OpenFlow15, for OpenFlow 1.5.
+
+              ·      OpenFlow16, for OpenFlow 1.6.
 
 EXAMPLES
        To bind locally to port 6653 (the default) and wait for  incoming  con‐
@@ -441,4 +455,4 @@ SEE ALSO
 
 
 
-Open vSwitch                        2.6.90               ovs-testcontroller(8)
+Open vSwitch                        2.8.90               ovs-testcontroller(8)

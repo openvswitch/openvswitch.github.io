@@ -160,14 +160,55 @@ OUTPUT
        is least likely to change when logical flow tables are rearranged with‐
        out semantic change.
 
+STATEFUL ACTIONS
+       Some  OVN  logical actions use or update state that is not available in
+       the southbound database. ovn-trace handles these actions  as  described
+       below:
+
+              ct_next
+                     By  default  ovn-trace  treats  flows  as ``tracked’’ and
+                     ``established.’’ See the description of the  --ct  option
+                     for a way to override this behavior.
+
+              ct_dnat (without an argument)
+                     Forks the pipeline. In one fork, advances to the next ta‐
+                     ble as if next; were executed. The packet is not changed,
+                     on the assumption that no NAT state was available. In the
+                     other fork, the pipeline continues without  change  after
+                     the ct_dnat action.
+
+              ct_snat (without an argument)
+                     This  action  distinguishes  between  gateway routers and
+                     distributed routers. A gateway router  is  defined  as  a
+                     logical  datapath  that  contains  an l3gateway port; any
+                     other logical datapath is  a  distributed  router.  On  a
+                     gateway router, ct_snat; is treated as a no-op. On a dis‐
+                     tributed router, it is treated the same way as ct_dnat;.
+
+              ct_dnat(ip)
+              ct_snat(ip)
+                   Forks the pipeline. In one fork, sets ip4.dst (or  ip4.src)
+                   to  ip  and  ct.dnat  (or ct.snat) to 1 and advances to the
+                   next table as if next; were executed. In  the  other  fork,
+                   the pipeline continues without change after the ct_dnat (or
+                   ct_snat) action.
+
+              ct_lb
+                   Not yet implemented; currently implemented as a no-op.
+
+              ct_commit
+              put_arp
+              put_nd
+                   These actions are treated as no-ops.
+
 DAEMON MODE
-       If  ovn-trace  is invoked with the --detach option (see Daemon Options,
+       If ovn-trace is invoked with the --detach option (see  Daemon  Options,
        below), it runs in the background as a daemon and accepts commands from
-       ovs-appctl  (or  another  JSON-RPC  client) indefinitely. The currently
+       ovs-appctl (or another JSON-RPC  client)  indefinitely.  The  currently
        supported commands are described below.
 
               trace [options] datapath microflow
-                     Traces microflow through datapath and  replies  with  the
+                     Traces  microflow  through  datapath and replies with the
                      results of the trace. Accepts the options described under
                      Trace Options below.
 
@@ -178,56 +219,116 @@ OPTIONS
        --detailed
        --summary
        --minimal
-            These options control the form and level of  detail  in  ovn-trace
+            These  options  control  the form and level of detail in ovn-trace
             output. If more than one of these options is specified, all of the
-            selected forms are output, in the order listed above, each  headed
+            selected  forms are output, in the order listed above, each headed
             by a banner line. If none of these options is given, --detailed is
-            the default. See Output, above, for a description of each kind  of
+            the  default. See Output, above, for a description of each kind of
             output.
 
        --all
             Selects all three forms of output.
 
        --ovs[=remote]
-            Makes  ovn-trace  attempt to obtain and display the OpenFlow flows
+            Makes ovn-trace attempt to obtain and display the  OpenFlow  flows
             that correspond to each OVN logical flow. To do so, ovn-trace con‐
-            nects     to     remote     (by    default,    unix:/var/run/open‐
-            vswitch/br-int.mgmt) over OpenFlow and  retrieves  the  flows.  If
-            remote  is  specified,  it  must  be an active OpenFlow connection
+            nects  to  remote   (by   default,   unix:/usr/local/var/run/open‐
+            vswitch/br-int.mgmt)  over  OpenFlow  and  retrieves the flows. If
+            remote is specified, it must  be  an  active  OpenFlow  connection
             method described in ovs-ofctl(8).
 
-            To make the best use of the output, it is important to  understand
-            the   relationship  between  logical  flows  and  OpenFlow  flows.
-            ovn-architecture(7), under Architectural Physical Life Cycle of  a
-            Packet,  describes  this  relationship. Keep in mind the following
+            To  make the best use of the output, it is important to understand
+            the  relationship  between  logical  flows  and  OpenFlow   flows.
+            ovn-architecture(7),  under Architectural Physical Life Cycle of a
+            Packet, describes this relationship. Keep in  mind  the  following
             points:
 
             ·      ovn-trace currently shows all the OpenFlow flows to which a
-                   logical  flow  corresponds,  even  though  an actual packet
+                   logical flow corresponds,  even  though  an  actual  packet
                    ordinarily matches only one of these.
 
-            ·      Some logical flows can map to the Open  vSwitch  ``conjunc‐
-                   tive   match’’  extension  (see  ovs-fields(7)).  Currently
+            ·      Some  logical  flows can map to the Open vSwitch ``conjunc‐
+                   tive  match’’  extension  (see  ovs-fields(7)).   Currently
                    ovn-trace cannot display the flows with conjunction actions
                    that effectively produce the conj_id match.
 
-            ·      Some  logical  flows may not be represented in the OpenFlow
-                   tables on a given hypervisor, if they could not be used  on
+            ·      Some logical flows may not be represented in  the  OpenFlow
+                   tables  on a given hypervisor, if they could not be used on
                    that hypervisor.
 
-            ·      Some  OpenFlow  flows  do  not correspond to logical flows,
-                   such as OpenFlow flows that map between physical and  logi‐
+            ·      Some OpenFlow flows do not  correspond  to  logical  flows,
+                   such  as OpenFlow flows that map between physical and logi‐
                    cal ports. These flows will never show up in a trace.
 
-            ·      When  ovn-trace omits uninteresting logical flows from out‐
+            ·      When ovn-trace omits uninteresting logical flows from  out‐
                    put, it does not look up the corresponding OpenFlow flows.
+
+       --ct=flags
+            This  option sets the ct_state flags that a ct_next logical action
+            will report. The flags must be a comma- or space-separated list of
+            the following connection tracking flags:
+
+            ·      trk:  Include  to  indicate  connection  tracking has taken
+                   place. (This bit is set automatically even if not listed in
+                   flags.
+
+            ·      new: Include to indicate a new flow.
+
+            ·      est: Include to indicate an established flow.
+
+            ·      rel: Include to indicate a related flow.
+
+            ·      rpl: Include to indicate a reply flow.
+
+            ·      inv: Include to indicate a connection entry in a bad state.
+
+            ·      dnat:  Include  to  indicate  a packet whose destination IP
+                   address has been changed.
+
+            ·      snat: Include to indicate a packet whose source IP  address
+                   has been changed.
+
+            The  ct_next action is used to implement the OVN distributed fire‐
+            wall. For testing, useful flag combinations include:
+
+            ·      trk,new: A packet in a flow in either direction  through  a
+                   firewall that has not yet been committed (with ct_commit).
+
+            ·      trk,est:  A packet in an established flow going out through
+                   a firewall.
+
+            ·      trk,rpl: A packet coming in through a firewall in reply  to
+                   an established flow.
+
+            ·      trk,inv: An invalid packet in either direction.
+
+            A  packet  might  pass through the connection tracker twice in one
+            trip through OVN: once following egress from a  VM  as  it  passes
+            outward through a firewall, and once preceding ingress to a second
+            VM as it passes inward  through  a  firewall.  Use  multiple  --ct
+            options to specify the flags for multiple ct_next actions.
+
+            When  --ct  is  unspecified,  or when there are fewer --ct options
+            than ct_next actions, the flags default to trk,est.
+
+       --friendly-names
+       --no-friendly-names
+            When cloud management systems such as OpenStack are layered on top
+            of  OVN, they often use long, human-unfriendly names for ports and
+            datapaths, for example, ones that include entire  UUIDs.  They  do
+            usually include friendlier names, but the long, hard-to-read names
+            are the ones that appear in matches and actions.  By  default,  or
+            with  --friendly-names,  ovn-trace  substitutes  these  friendlier
+            names for the long names in its output. Use --no-friendly-names to
+            disable  this  behavior; this option might be useful, for example,
+            if a program is going to parse ovn-trace output.
 
    Daemon Options
        --pidfile[=pidfile]
               Causes a file (by default, program.pid) to be created indicating
               the  PID  of the running process. If the pidfile argument is not
               specified, or if it does not begin with /, then it is created in
-              /var/run/openvswitch.
+              /usr/local/var/run/openvswitch.
 
               If --pidfile is not specified, no pidfile is created.
 
@@ -362,7 +463,7 @@ OPTIONS
        --log-file[=file]
             Enables logging to a file. If file is specified, then it  is  used
             as the exact name for the log file. The default log file name used
-            if file is omitted is /var/log/openvswitch/program.log.
+            if file is omitted is /usr/local/var/log/openvswitch/program.log.
 
        --syslog-target=host:port
             Send syslog messages to UDP port on host, in addition to the  sys‐
@@ -434,9 +535,9 @@ OPTIONS
        --db database
               The  OVSDB database remote to contact. If the OVN_SB_DB environ‐
               ment variable is set, its value is used as the  default.  Other‐
-              wise, the default is unix:/var/run/openvswitch/db.sock, but this
-              default is unlikely to be useful outside of  single-machine  OVN
-              test environments.
+              wise,     the     default    is    unix:/usr/local/var/run/open‐
+              vswitch/db.sock, but this default is unlikely to be useful  out‐
+              side of single-machine OVN test environments.
 
               -h
               --help
@@ -448,4 +549,4 @@ OPTIONS
 
 
 
-Open vSwitch 2.7.90                ovn-trace                      ovn-trace(8)
+Open vSwitch 2.8.90                ovn-trace                      ovn-trace(8)

@@ -1,6 +1,6 @@
 '\" p
 .\" -*- nroff -*-
-.TH "ovn-northd" 8 "ovn-northd" "Open vSwitch 2\[char46]7\[char46]90" "Open vSwitch Manual"
+.TH "ovn-northd" 8 "ovn-northd" "Open vSwitch 2\[char46]8\[char46]90" "Open vSwitch Manual"
 .fp 5 L CR              \\" Make fixed-width font available as \\fL.
 .de TQ
 .  br
@@ -25,39 +25,169 @@ ovn-northd \- Open Virtual Network central control daemon
 .PP
 .PP
 \fBovn\-northd\fR is a centralized daemon responsible for translating the high-level OVN configuration into logical configuration consumable by daemons such as \fBovn\-controller\fR\[char46] It translates the logical network configuration in terms of conventional network concepts, taken from the OVN Northbound Database (see \fBovn\-nb\fR(5)), into logical datapath flows in the OVN Southbound Database (see \fBovn\-sb\fR(5)) below it\[char46]
-.SH "CONFIGURATION"
-.PP
-.PP
-\fBovn\-northd\fR requires a connection to the Northbound and Southbound databases\[char46] The defaults are \fBovnnb_db\[char46]sock\fR and \fBovnsb_db\[char46]sock\fR respectively in the local Open vSwitch\(cqs \(dqrun\(dq directory\[char46] This may be overridden with the following commands:
-.RS
-.IP \(bu
+.SH "OPTIONS"
+.TP
 \fB\-\-ovnnb\-db=\fIdatabase\fB\fR
-.IP
-The database containing the OVN Northbound Database\[char46]
-.IP \(bu
+The OVSDB database containing the OVN Northbound Database\[char46] If the \fBOVN_NB_DB\fR environment variable is set, its value is used as the default\[char46] Otherwise, the default is \fBunix:/usr/local/var/run/openvswitch/ovnnb_db\[char46]sock\fR\[char46]
+.TP
 \fB\-\-ovnsb\-db=\fIdatabase\fB\fR
-.IP
-The database containing the OVN Southbound Database\[char46]
-.RE
+The OVSDB database containing the OVN Southbound Database\[char46] If the \fBOVN_SB_DB\fR environment variable is set, its value is used as the default\[char46] Otherwise, the default is \fBunix:/usr/local/var/run/openvswitch/ovnsb_db\[char46]sock\fR\[char46]
 .PP
 .PP
-The \fIdatabase\fR argument must take one of the following forms:
+\fIdatabase\fR in the above options must take one of the following forms:
 .RS
-.IP \(bu
-\fBssl:\fIip\fB:\fIport\fB\fR
-.IP
+.TP
+\fBssl:\fR\fIip\fR\fB:\fR\fIport\fR
 The specified SSL \fIport\fR on the host at the given \fIip\fR, which must be expressed as an IP address (not a DNS name) in IPv4 or IPv6 address format\[char46] If \fIip\fR is an IPv6 address, then wrap \fIip\fR with square brackets, e\[char46]g\[char46]: \fBssl:[::1]:6640\fR\[char46] The \fB\-\-private\-key\fR, \fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR options are mandatory when this form is used\[char46]
-.IP \(bu
-\fBtcp:\fIip\fB:\fIport\fB\fR
-.IP
-Connect to the given TCP \fIport\fR on \fIip\fR, where \fIip\fR can be IPv4 or IPv6 address\[char46] If \fIip\fR is an IPv6 address, then wrap \fIip\fR with square brackets, e\[char46]g\[char46]: \fBtcp:[::1]:6640\fR\[char46]
-.IP \(bu
-\fBunix:\fIfile\fB\fR
-.IP
+.TP
+\fBtcp:\fR\fIip\fR\fB:\fR\fIport\fR
+Connect to the given TCP \fIport\fR on \fIip\fR, where \fIip\fR can be an IPv4 or IPv6 address\[char46] If \fIip\fR is an IPv6 address, then wrap \fIip\fR with square brackets, e\[char46]g\[char46]: \fBtcp:[::1]:6640\fR\[char46]
+.TP
+\fBunix:\fR\fIfile\fR
 On POSIX, connect to the Unix domain server socket named \fIfile\fR\[char46]
 .IP
-On Windows, connect to a localhost TCP port whose value is written in \fIfile\fR\[char46]
+On Windows, connect to a local named pipe that is represented by a file created in the path \fIfile\fR to mimic the behavior of a Unix domain socket\[char46]
 .RE
+.RS
+.TP
+\fBpssl:\fR\fIport\fR\fB:\fR\fIip\fR
+Listen on the given SSL \fIport\fR for a connection\[char46] By default, connections are not bound to a particular local IP address and it listens only on IPv4 (but not IPv6) addresses, but specifying \fIip\fR limits connections to those from the given \fIip\fR, either IPv4 or IPv6 address\[char46] If \fIip\fR is an IPv6 address, then wrap \fIip\fR with square brackets, e\[char46]g\[char46]: \fBpssl:6640:[::1]\fR\[char46] The \fB\-\-private\-key\fR, \fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR options are mandatory when this form is used\[char46]
+.TP
+\fBptcp:\fR\fIport\fR\fB:\fR\fIip\fR
+Listen on the given TCP \fIport\fR for a connection\[char46] By default, connections are not bound to a particular local IP address and it listens only on IPv4 (but not IPv6) addresses, but \fIip\fR may be specified to listen only for connections to the given \fIip\fR, either IPv4 or IPv6 address\[char46] If \fIip\fR is an IPv6 address, then wrap \fIip\fR with square brackets, e\[char46]g\[char46]: \fBptcp:6640:[::1]\fR\[char46]
+.TP
+\fBpunix:\fR\fIfile\fR
+On POSIX, listen on the Unix domain server socket named \fIfile\fR for a connection\[char46]
+.IP
+On Windows, listen on a local named pipe\[char46] A file is created in the path \fIfile\fR to mimic the behavior of a Unix domain socket\[char46]
+.RE
+.SS "Daemon Options"
+.TP
+\fB\-\-pidfile\fR[\fB=\fR\fIpidfile\fR]
+Causes a file (by default, \fB\fIprogram\fB\[char46]pid\fR) to be created indicating the PID of the running process\[char46] If the \fIpidfile\fR argument is not specified, or if it does not begin with \fB/\fR, then it is created in \fB/usr/local/var/run/openvswitch\fR\[char46]
+.IP
+If \fB\-\-pidfile\fR is not specified, no pidfile is created\[char46]
+.TP
+\fB\-\-overwrite\-pidfile\fR
+By default, when \fB\-\-pidfile\fR is specified and the specified pidfile already exists and is locked by a running process, the daemon refuses to start\[char46] Specify \fB\-\-overwrite\-pidfile\fR to cause it to instead overwrite the pidfile\[char46]
+.IP
+When \fB\-\-pidfile\fR is not specified, this option has no effect\[char46]
+.TP
+\fB\-\-detach\fR
+Runs this program as a background process\[char46] The process forks, and in the child it starts a new session, closes the standard file descriptors (which has the side effect of disabling logging to the console), and changes its current directory to the root (unless \fB\-\-no\-chdir\fR is specified)\[char46] After the child completes its initialization, the parent exits\[char46]
+.TP
+\fB\-\-monitor\fR
+Creates an additional process to monitor this program\[char46] If it dies due to a signal that indicates a programming error (\fBSIGABRT\fR, \fBSIGALRM\fR, \fBSIGBUS\fR, \fBSIGFPE\fR, \fBSIGILL\fR, \fBSIGPIPE\fR, \fBSIGSEGV\fR, \fBSIGXCPU\fR, or \fBSIGXFSZ\fR) then the monitor process starts a new copy of it\[char46] If the daemon dies or exits for another reason, the monitor process exits\[char46]
+.IP
+This option is normally used with \fB\-\-detach\fR, but it also functions without it\[char46]
+.TP
+\fB\-\-no\-chdir\fR
+By default, when \fB\-\-detach\fR is specified, the daemon changes its current working directory to the root directory after it detaches\[char46] Otherwise, invoking the daemon from a carelessly chosen directory would prevent the administrator from unmounting the file system that holds that directory\[char46]
+.IP
+Specifying \fB\-\-no\-chdir\fR suppresses this behavior, preventing the daemon from changing its current working directory\[char46] This may be useful for collecting core files, since it is common behavior to write core dumps into the current working directory and the root directory is not a good directory to use\[char46]
+.IP
+This option has no effect when \fB\-\-detach\fR is not specified\[char46]
+.TP
+\fB\-\-no\-self\-confinement\fR
+By default this daemon will try to self-confine itself to work with files under well-known directories whitelisted at build time\[char46] It is better to stick with this default behavior and not to use this flag unless some other Access Control is used to confine daemon\[char46] Note that in contrast to other access control implementations that are typically enforced from kernel-space (e\[char46]g\[char46] DAC or MAC), self-confinement is imposed from the user-space daemon itself and hence should not be considered as a full confinement strategy, but instead should be viewed as an additional layer of security\[char46]
+.TP
+\fB\-\-user=\fR\fIuser\fR\fB:\fR\fIgroup\fR
+Causes this program to run as a different user specified in \fIuser\fR\fB:\fR\fIgroup\fR, thus dropping most of the root privileges\[char46] Short forms \fIuser\fR and \fB:\fR\fIgroup\fR are also allowed, with current user or group assumed, respectively\[char46] Only daemons started by the root user accepts this argument\[char46]
+.IP
+On Linux, daemons will be granted \fBCAP_IPC_LOCK\fR and \fBCAP_NET_BIND_SERVICES\fR before dropping root privileges\[char46] Daemons that interact with a datapath, such as \fBovs\-vswitchd\fR, will be granted two additional capabilities, namely \fBCAP_NET_ADMIN\fR and \fBCAP_NET_RAW\fR\[char46] The capability change will apply even if the new user is root\[char46]
+.IP
+On Windows, this option is not currently supported\[char46] For security reasons, specifying this option will cause the daemon process not to start\[char46]
+.SS "Logging Options"
+.TP
+\fB\-v\fR[\fIspec\fR]
+.TQ .5in
+\fB\-\-verbose=\fR[\fIspec\fR]
+Sets logging levels\[char46] Without any \fIspec\fR, sets the log level for every module and destination to \fBdbg\fR\[char46] Otherwise, \fIspec\fR is a list of words separated by spaces or commas or colons, up to one from each category below:
+.RS
+.IP \(bu
+A valid module name, as displayed by the \fBvlog/list\fR command on \fBovs\-appctl\fR(8), limits the log level change to the specified module\[char46]
+.IP \(bu
+\fBsyslog\fR, \fBconsole\fR, or \fBfile\fR, to limit the log level change to only to the system log, to the console, or to a file, respectively\[char46] (If \fB\-\-detach\fR is specified, the daemon closes its standard file descriptors, so logging to the console will have no effect\[char46])
+.IP
+On Windows platform, \fBsyslog\fR is accepted as a word and is only useful along with the \fB\-\-syslog\-target\fR option (the word has no effect otherwise)\[char46]
+.IP \(bu
+\fBoff\fR, \fBemer\fR, \fBerr\fR, \fBwarn\fR, \fBinfo\fR, or \fBdbg\fR, to control the log level\[char46] Messages of the given severity or higher will be logged, and messages of lower severity will be filtered out\[char46] \fBoff\fR filters out all messages\[char46] See \fBovs\-appctl\fR(8) for a definition of each log level\[char46]
+.RE
+.IP
+Case is not significant within \fIspec\fR\[char46]
+.IP
+Regardless of the log levels set for \fBfile\fR, logging to a file will not take place unless \fB\-\-log\-file\fR is also specified (see below)\[char46]
+.IP
+For compatibility with older versions of OVS, \fBany\fR is accepted as a word but has no effect\[char46]
+.TP
+\fB\-v\fR
+.TQ .5in
+\fB\-\-verbose\fR
+Sets the maximum logging verbosity level, equivalent to \fB\-\-verbose=dbg\fR\[char46]
+.TP
+\fB\-vPATTERN:\fR\fIdestination\fR\fB:\fR\fIpattern\fR
+.TQ .5in
+\fB\-\-verbose=PATTERN:\fR\fIdestination\fR\fB:\fR\fIpattern\fR
+Sets the log pattern for \fIdestination\fR to \fIpattern\fR\[char46] Refer to \fBovs\-appctl\fR(8) for a description of the valid syntax for \fIpattern\fR\[char46]
+.TP
+\fB\-vFACILITY:\fR\fIfacility\fR
+.TQ .5in
+\fB\-\-verbose=FACILITY:\fR\fIfacility\fR
+Sets the RFC5424 facility of the log message\[char46] \fIfacility\fR can be one of \fBkern\fR, \fBuser\fR, \fBmail\fR, \fBdaemon\fR, \fBauth\fR, \fBsyslog\fR, \fBlpr\fR, \fBnews\fR, \fBuucp\fR, \fBclock\fR, \fBftp\fR, \fBntp\fR, \fBaudit\fR, \fBalert\fR, \fBclock2\fR, \fBlocal0\fR, \fBlocal1\fR, \fBlocal2\fR, \fBlocal3\fR, \fBlocal4\fR, \fBlocal5\fR, \fBlocal6\fR or \fBlocal7\fR\[char46] If this option is not specified, \fBdaemon\fR is used as the default for the local system syslog and \fBlocal0\fR is used while sending a message to the target provided via the \fB\-\-syslog\-target\fR option\[char46]
+.TP
+\fB\-\-log\-file\fR[\fB=\fR\fIfile\fR]
+Enables logging to a file\[char46] If \fIfile\fR is specified, then it is used as the exact name for the log file\[char46] The default log file name used if \fIfile\fR is omitted is \fB/usr/local/var/log/openvswitch/\fIprogram\fB\[char46]log\fR\[char46]
+.TP
+\fB\-\-syslog\-target=\fR\fIhost\fR\fB:\fR\fIport\fR
+Send syslog messages to UDP \fIport\fR on \fIhost\fR, in addition to the system syslog\[char46] The \fIhost\fR must be a numerical IP address, not a hostname\[char46]
+.TP
+\fB\-\-syslog\-method=\fR\fImethod\fR
+Specify \fImethod\fR as how syslog messages should be sent to syslog daemon\[char46] The following forms are supported:
+.RS
+.IP \(bu
+\fBlibc\fR, to use the libc \fBsyslog()\fR function\[char46] This is the default behavior\[char46] Downside of using this options is that libc adds fixed prefix to every message before it is actually sent to the syslog daemon over \fB/dev/log\fR UNIX domain socket\[char46]
+.IP \(bu
+\fBunix:\fIfile\fB\fR, to use a UNIX domain socket directly\[char46] It is possible to specify arbitrary message format with this option\[char46] However, \fBrsyslogd 8\[char46]9\fR and older versions use hard coded parser function anyway that limits UNIX domain socket use\[char46] If you want to use arbitrary message format with older \fBrsyslogd\fR versions, then use UDP socket to localhost IP address instead\[char46]
+.IP \(bu
+\fBudp:\fIip\fB:\fIport\fB\fR, to use a UDP socket\[char46] With this method it is possible to use arbitrary message format also with older \fBrsyslogd\fR\[char46] When sending syslog messages over UDP socket extra precaution needs to be taken into account, for example, syslog daemon needs to be configured to listen on the specified UDP port, accidental iptables rules could be interfering with local syslog traffic and there are some security considerations that apply to UDP sockets, but do not apply to UNIX domain sockets\[char46]
+.RE
+.SS "PKI Options"
+.PP
+.PP
+PKI configuration is required in order to use SSL for the connections to the Northbound and Southbound databases\[char46]
+.RS
+.TP
+\fB\-p\fR \fIprivkey\[char46]pem\fR
+.TQ .5in
+\fB\-\-private\-key=\fR\fIprivkey\[char46]pem\fR
+Specifies a PEM file containing the private key used as identity for outgoing SSL connections\[char46]
+.TP
+\fB\-c\fR \fIcert\[char46]pem\fR
+.TQ .5in
+\fB\-\-certificate=\fR\fIcert\[char46]pem\fR
+Specifies a PEM file containing a certificate that certifies the private key specified on \fB\-p\fR or \fB\-\-private\-key\fR to be trustworthy\[char46] The certificate must be signed by the certificate authority (CA) that the peer in SSL connections will use to verify it\[char46]
+.TP
+\fB\-C\fR \fIcacert\[char46]pem\fR
+.TQ .5in
+\fB\-\-ca\-cert=\fR\fIcacert\[char46]pem\fR
+Specifies a PEM file containing the CA certificate for verifying certificates presented to this program by SSL peers\[char46] (This may be the same certificate that SSL peers use to verify the certificate specified on \fB\-c\fR or \fB\-\-certificate\fR, or it may be a different one, depending on the PKI design in use\[char46])
+.TP
+\fB\-C none\fR
+.TQ .5in
+\fB\-\-ca\-cert=none\fR
+Disables verification of certificates presented by SSL peers\[char46] This introduces a security risk, because it means that certificates cannot be verified to be those of known trusted hosts\[char46]
+.RE
+.SS "Other Options"
+.TP
+\fB\-h\fR
+.TQ .5in
+\fB\-\-help\fR
+Prints a brief help message to the console\[char46]
+.TP
+\fB\-V\fR
+.TQ .5in
+\fB\-\-version\fR
+Prints version information to the console\[char46]
 .SH "RUNTIME MANAGEMENT COMMANDS"
 .PP
 .PP
@@ -67,6 +197,10 @@ On Windows, connect to a localhost TCP port whose value is written in \fIfile\fR
 \fBexit\fR
 Causes \fBovn\-northd\fR to gracefully terminate\[char46]
 .RE
+.SH "ACTIVE-STANDBY FOR HIGH AVAILABILITY"
+.PP
+.PP
+You may run \fBovn\-northd\fR more than once in an OVN deployment\[char46] OVN will automatically ensure that only one of them is active at a time\[char46] If multiple instances of \fBovn\-northd\fR are running and the active \fBovn\-northd\fR fails, one of the hot standby instances of \fBovn\-northd\fR will automatically take over\[char46]
 .SH "LOGICAL FLOW TABLE STRUCTURE"
 .PP
 .PP
@@ -128,7 +262,7 @@ One priority\-0 fallback flow that matches all packets and advances to the next 
 .ST "Ingress Table 3: \fBfrom\-lport\fR Pre-ACLs"
 .PP
 .PP
-This table prepares flows for possible stateful ACL processing in ingress table \fBACLs\fR\[char46] It contains a priority\-0 flow that simply moves traffic to the next table\[char46] If stateful ACLs are used in the logical datapath, a priority\-100 flow is added that sets a hint (with \fBreg0[0] = 1; next;\fR) for table \fBPre\-stateful\fR to send IP packets to the connection tracker before eventually advancing to ingress table \fBACLs\fR\[char46]
+This table prepares flows for possible stateful ACL processing in ingress table \fBACLs\fR\[char46] It contains a priority\-0 flow that simply moves traffic to the next table\[char46] If stateful ACLs are used in the logical datapath, a priority\-100 flow is added that sets a hint (with \fBreg0[0] = 1; next;\fR) for table \fBPre\-stateful\fR to send IP packets to the connection tracker before eventually advancing to ingress table \fBACLs\fR\[char46] If special ports such as route ports or localnet ports can\(cqt use ct(), a priority\-110 flow is added to skip over stateful ACLs\[char46]
 .ST "Ingress Table 4: Pre-LB"
 .PP
 .PP
@@ -240,7 +374,7 @@ Priority\-50 flows that match ARP requests to each known IP address \fIA\fR of e
 \fB        \fR
 .fi
 .IP
-These flows are omitted for logical ports (other than router ports) that are down\[char46]
+These flows are omitted for logical ports (other than router ports or \fBlocalport\fR ports) that are down\[char46]
 .IP \(bu
 Priority\-50 flows that match IPv6 ND neighbor solicitations to each known IP address \fIA\fR (and \fIA\fR\(cqs solicited node address) of every logical switch port, and respond with neighbor advertisements directly with corresponding Ethernet address \fIE\fR:
 .IP
@@ -268,7 +402,7 @@ Priority\-50 flows that match IPv6 ND neighbor solicitations to each known IP ad
 \fB        \fR
 .fi
 .IP
-These flows are omitted for logical ports (other than router ports) that are down\[char46]
+These flows are omitted for logical ports (other than router ports or \fBlocalport\fR ports) that are down\[char46]
 .IP \(bu
 Priority\-100 flows with match criteria like the ARP and ND flows above, except that they only match packets from the \fBinport\fR that owns the IP addresses in question, with action \fBnext;\fR\[char46] These flows prevent OVN from replying to, for example, an ARP request emitted by a VM for its own IP address\[char46] A VM only makes this kind of request to attempt to detect a duplicate IP address assignment, so sending a reply will prevent the VM from accepting the IP address that it owns\[char46]
 .IP
@@ -382,7 +516,55 @@ where \fIE\fR is the server MAC address and \fIS\fR is the server IPv6 LLA addre
 .IP \(bu
 A priority\-0 flow that matches all packets to advances to table 12\[char46]
 .RE
-.ST "Ingress Table 13 Destination Lookup"
+.ST "Ingress Table 13 DNS Lookup"
+.PP
+.PP
+This table looks up and resolves the DNS names to the corresponding configured IP address(es)\[char46]
+.RS
+.IP \(bu
+A priority\-100 logical flow for each logical switch datapath if it is configured with DNS records, which matches the IPv4 and IPv6 packets with \fBudp\[char46]dst\fR = 53 and applies the action \fBdns_lookup\fR and advances the packet to the next table\[char46]
+.IP
+.nf
+\fB
+.br
+\fBreg0[4] = dns_lookup(); next;
+.br
+\fB        \fR
+.fi
+.IP
+For valid DNS packets, this transforms the packet into a DNS reply if the DNS name can be resolved, and stores 1 into reg0[4]\[char46] For failed DNS resolution or other kinds of packets, it just stores 0 into reg0[4]\[char46] Either way, it continues to the next table\[char46]
+.RE
+.ST "Ingress Table 14 DNS Responses"
+.PP
+.PP
+This table implements DNS responder for the DNS replies generated by the previous table\[char46]
+.RS
+.IP \(bu
+A priority\-100 logical flow for each logical switch datapath if it is configured with DNS records, which matches the IPv4 and IPv6 packets with \fBudp\[char46]dst = 53 && reg0[4] == 1\fR and responds back to the \fBinport\fR after applying these actions\[char46] If \fBreg0[4]\fR is set to 1, it means that the action \fBdns_lookup\fR was successful\[char46]
+.IP
+.nf
+\fB
+.br
+\fBeth\[char46]dst <\-> eth\[char46]src;
+.br
+\fBip4\[char46]src <\-> ip4\[char46]dst;
+.br
+\fBudp\[char46]dst = udp\[char46]src;
+.br
+\fBudp\[char46]src = 53;
+.br
+\fBoutport = \fR\fIP\fB\fR;
+.br
+\fBflags\[char46]loopback = 1;
+.br
+\fBoutput;
+.br
+\fB        \fR
+.fi
+.IP
+(This terminates ingress packet processing; the packet does not go to the next ingress table\[char46])
+.RE
+.ST "Ingress Table 15 Destination Lookup"
 .PP
 .PP
 This table implements switching behavior\[char46] It contains these logical flows:
@@ -433,7 +615,13 @@ This is similar to ingress table \fBQoS marking\fR except for \fBto\-lport\fR qo
 This is similar to ingress table \fBStateful\fR except that there are no rules added for load balancing new connections\[char46]
 .PP
 .PP
-Also a priority 34000 logical flow is added for each logical port which has DHCPv4 options defined to allow the DHCPv4 reply packet and which has DHCPv6 options defined to allow the DHCPv6 reply packet from the \fBIngress Table 12: DHCP responses\fR\[char46]
+Also the following flows are added\[char46]
+.RS
+.IP \(bu
+A priority 34000 logical flow is added for each logical port which has DHCPv4 options defined to allow the DHCPv4 reply packet and which has DHCPv6 options defined to allow the DHCPv6 reply packet from the \fBIngress Table 12: DHCP responses\fR\[char46]
+.IP \(bu
+A priority 34000 logical flow is added for each logical switch datapath configured with DNS records with the match \fBudp\[char46]dst = 53\fR to allow the DNS reply packet from the \fBIngress Table 14:DNS responses\fR\[char46]
+.RE
 .ST "Egress Table 7: Egress Port Security - IP"
 .PP
 .PP

@@ -1,6 +1,6 @@
 '\" p
 .\" -*- nroff -*-
-.TH "ovn-sb" 5 " DB Schema 1.9.0" "Open vSwitch 2.7.90" "Open vSwitch Manual"
+.TH "ovn-sb" 5 " DB Schema 1.15.0" "Open vSwitch 2.8.90" "Open vSwitch Manual"
 .fp 5 L CR              \\" Make fixed-width font available as \\fL.
 .de TQ
 .  br
@@ -27,32 +27,32 @@ The OVN Southbound database sits at the center of the OVN architecture\[char46] 
 .PP
 .PP
 The OVN Southbound database contains classes of data with different properties, as described in the sections below\[char46]
-.ST "Physical Network (PN) data"
+.ST "Physical network"
 .PP
 .PP
-PN tables contain information about the chassis nodes in the system\[char46] This contains all the information necessary to wire the overlay, such as IP addresses, supported tunnel types, and security keys\[char46]
+Physical network tables contain information about the chassis nodes in the system\[char46] This contains all the information necessary to wire the overlay, such as IP addresses, supported tunnel types, and security keys\[char46]
 .PP
 .PP
-The amount of PN data is small (O(n) in the number of chassis) and it changes infrequently, so it can be replicated to every chassis\[char46]
+The amount of physical network data is small (O(n) in the number of chassis) and it changes infrequently, so it can be replicated to every chassis\[char46]
 .PP
 .PP
-The \fBChassis\fR table comprises the PN tables\[char46]
-.ST "Logical Network (LN) data"
+The \fBChassis\fR and \fBEncap\fR tables are the physical network tables\[char46]
+.ST "Logical Network"
 .PP
 .PP
-LN tables contain the topology of logical switches and routers, ACLs, firewall rules, and everything needed to describe how packets traverse a logical network, represented as logical datapath flows (see Logical Datapath Flows, below)\[char46]
+Logical network tables contain the topology of logical switches and routers, ACLs, firewall rules, and everything needed to describe how packets traverse a logical network, represented as logical datapath flows (see Logical Datapath Flows, below)\[char46]
 .PP
 .PP
-LN data may be large (O(n) in the number of logical ports, ACL rules, etc\[char46])\[char46] Thus, to improve scaling, each chassis should receive only data related to logical networks in which that chassis participates\[char46] Past experience shows that in the presence of large logical networks, even finer-grained partitioning of data, e\[char46]g\[char46] designing logical flows so that only the chassis hosting a logical port needs related flows, pays off scale-wise\[char46] (This is not necessary initially but it is worth bearing in mind in the design\[char46])
+Logical network data may be large (O(n) in the number of logical ports, ACL rules, etc\[char46])\[char46] Thus, to improve scaling, each chassis should receive only data related to logical networks in which that chassis participates\[char46]
 .PP
 .PP
-The LN is a slave of the cloud management system running northbound of OVN\[char46] That CMS determines the entire OVN logical configuration and therefore the LN\(cqs content at any given time is a deterministic function of the CMS\(cqs configuration, although that happens indirectly via the \fBOVN_Northbound\fR database and \fBovn\-northd\fR\[char46]
+The logical network data is ultimately controlled by the cloud management system (CMS) running northbound of OVN\[char46] That CMS determines the entire OVN logical configuration and therefore the logical network data at any given time is a deterministic function of the CMS\(cqs configuration, although that happens indirectly via the \fBOVN_Northbound\fR database and \fBovn\-northd\fR\[char46]
 .PP
 .PP
-LN data is likely to change more quickly than PN data\[char46] This is especially true in a container environment where VMs are created and destroyed (and therefore added to and deleted from logical switches) quickly\[char46]
+Logical network data is likely to change more quickly than physical network data\[char46] This is especially true in a container environment where containers are created and destroyed (and therefore added to and deleted from logical switches) quickly\[char46]
 .PP
 .PP
-\fBLogical_Flow\fR and \fBMulticast_Group\fR contain LN data\[char46]
+The \fBLogical_Flow\fR, \fBMulticast_Group\fR, \fBAddress_Group\fR, \fBDHCP_Options\fR, \fBDHCPv6_Options\fR, and \fBDNS\fR tables contain logical network data\[char46]
 .ST "Logical-physical bindings"
 .PP
 .PP
@@ -125,6 +125,18 @@ OVSDB client connections\[char46]
 .TQ 1in
 \fBSSL\fR
 SSL configuration\[char46]
+.TQ 1in
+\fBDNS\fR
+Native DNS resolution
+.TQ 1in
+\fBRBAC_Role\fR
+RBAC_Role configuration\[char46]
+.TQ 1in
+\fBRBAC_Permission\fR
+RBAC_Permission configuration\[char46]
+.TQ 1in
+\fBGateway_Chassis\fR
+Gateway_Chassis configuration\[char46]
 .\" check if in troff mode (TTY)
 .if t \{
 .bp
@@ -143,68 +155,91 @@ represent strong references; thin lines represent weak references.
 .PS
 linethick = 1;
 linethick = 0.5;
-box at 0.5385732492,0.863591869 wid 0.789313742 height 0.334285 "Address_Set"
-box at 0.5385732492,0.863591869 wid 0.733758186444444 height 0.278729444444444
-linethick = 0.5;
-box at 0.5385732492,1.365019369 wid 1.021441246 height 0.334285 "Multicast_Group"
-box at 0.5385732492,1.365019369 wid 0.965885690444444 height 0.278729444444444
-linethick = 0.5;
-box at 2.535016869,1.643545631 wid 0.826419377 height 0.334285 "Port_Binding"
-box at 2.535016869,1.643545631 wid 0.770863821444444 height 0.278729444444444
-linethick = 0.5;
-box at 4.698576246,0.91928375 wid 1.077133127 height 0.334285 "Datapath_Binding"
-box at 4.698576246,0.91928375 wid 1.02157757144444 height 0.278729444444444
-linethick = 0.5;
-box at 0.5385732492,2.395686881 wid 0.714968758 height 0.334285 "SB_Global"
-box at 0.5385732492,2.395686881 wid 0.659413202444444 height 0.278729444444444
+box at 0.4174975812,1.23089125 wid 0.611869562 height 0.259135 "Address_Set"
+box at 0.4174975812,1.23089125 wid 0.556314006444445 height 0.203579444444444
 linethick = 1;
-box at 2.535016869,2.646400631 wid 0.733555004 height 0.334285 "Connection"
-linethick = 1;
-box at 2.535016869,2.144973131 wid 0.5014275 height 0.334285 "SSL"
+box at 4.102988109,2.116251891 wid 0.813372938 height 0.259135 "Gateway_Chassis"
 linethick = 0.5;
-box at 2.535016869,0.66857 wid 0.854298746 height 0.334285 "Logical_Flow"
-box at 2.535016869,0.66857 wid 0.798743190444444 height 0.278729444444444
+box at 5.3122675,1.864320844 wid 0.4174975812 height 0.259135 "Chassis"
+box at 5.3122675,1.864320844 wid 0.361942025644444 height 0.203579444444444
+linethick = 1;
+box at 6.30579109,1.864320844 wid 0.3887025 height 0.259135 "Encap"
 linethick = 0.5;
-box at 4.698576246,1.829274377 wid 0.5385732492 height 0.334285 "Chassis"
-box at 4.698576246,1.829274377 wid 0.483017693644444 height 0.278729444444444
-linethick = 1;
-box at 6.249257504,1.829274377 wid 0.5014275 height 0.334285 "Encap"
+box at 0.4174975812,1.61959375 wid 0.791812906 height 0.259135 "Multicast_Group"
+box at 0.4174975812,1.61959375 wid 0.736257350444444 height 0.203579444444444
 linethick = 0.5;
-box at 2.535016869,0.1671425 wid 0.909990627 height 0.334285 "MAC_Binding"
-box at 2.535016869,0.1671425 wid 0.854435071444444 height 0.278729444444444
+box at 2.292619172,1.705989359 wid 0.640633547 height 0.259135 "Port_Binding"
+box at 2.292619172,1.705989359 wid 0.585077991444444 height 0.203579444444444
 linethick = 0.5;
-box at 0.5385732492,2.897114381 wid 1.077133127 height 0.334285 "DHCPv6_Options"
-box at 0.5385732492,2.897114381 wid 1.02157757144444 height 0.278729444444444
+box at 4.102988109,0.9069725 wid 0.834984797 height 0.259135 "Datapath_Binding"
+box at 4.102988109,0.9069725 wid 0.779429241444444 height 0.203579444444444
 linethick = 0.5;
-box at 0.5385732492,3.398541881 wid 0.947163119 height 0.334285 "DHCP_Options"
-box at 0.5385732492,3.398541881 wid 0.891607563444444 height 0.278729444444444
+box at 2.292619172,2.094691859 wid 0.871004562 height 0.259135 "RBAC_Permission"
+box at 2.292619172,2.094691859 wid 0.815449006444445 height 0.203579444444444
 linethick = 0.5;
-spline -> from 1.049521186,1.435620361 to 1.049521186,1.435620361 to 1.381399334,1.482420261 to 1.810888702,1.542858989 to 2.120971468,1.586583467
-"ports+" at 1.578560627,1.620346252
+box at 0.4174975812,2.677745609 wid 0.554237938 height 0.259135 "SB_Global"
+box at 0.4174975812,2.677745609 wid 0.498682382444444 height 0.203579444444444
 linethick = 1;
-spline -> from 1.050457184,1.318353183 to 1.050457184,1.318353183 to 1.721768321,1.254972747 to 2.947925701,1.135298717 to 3.992833754,1.012148123 to 4.046118783,1.005863565 to 4.10167695,0.998977294 to 4.15716826,0.991957309
-"datapath" at 2.535016869,1.276768129
+box at 2.292619172,2.872096859 wid 0.568645844 height 0.259135 "Connection"
 linethick = 1;
-spline -> from 2.951402265,1.549678403 to 2.951402265,1.549678403 to 3.310023213,1.465037441 to 3.803962729,1.343223987 to 3.992833754,1.272154996 to 4.128553464,1.221076248 to 4.272496585,1.151010112 to 4.394109468,1.086827392
-"datapath" at 3.574977504,1.555361248
+box at 2.292619172,2.483394359 wid 0.3887025 height 0.259135 "SSL"
 linethick = 0.5;
-spline -> from 2.950265696,1.678712413 to 2.950265696,1.678712413 to 3.383833341,1.716286047 to 4.058286757,1.774652208 to 4.426869398,1.806542997
-"chassis?" at 3.574977504,1.824661244
+box at 2.292619172,0.9069725 wid 0.662245406 height 0.259135 "Logical_Flow"
+box at 2.292619172,0.9069725 wid 0.606689850444444 height 0.203579444444444
+linethick = 0.5;
+box at 2.292619172,0.51827 wid 0.705417297 height 0.259135 "MAC_Binding"
+box at 2.292619172,0.51827 wid 0.649861741444444 height 0.203579444444444
+linethick = 0.5;
+box at 0.4174975812,2.094691859 wid 0.619021688 height 0.259135 "RBAC_Role"
+box at 0.4174975812,2.094691859 wid 0.563466132444444 height 0.203579444444444
+linethick = 0.5;
+box at 2.292619172,0.1295675 wid 0.3887025 height 0.259135 "DNS"
+box at 2.292619172,0.1295675 wid 0.333146944444444 height 0.203579444444444
+linethick = 0.5;
+box at 0.4174975812,3.066448109 wid 0.834984797 height 0.259135 "DHCPv6_Options"
+box at 0.4174975812,3.066448109 wid 0.779429241444444 height 0.203579444444444
+linethick = 0.5;
+box at 0.4174975812,3.455150609 wid 0.734233109 height 0.259135 "DHCP_Options"
+box at 0.4174975812,3.455150609 wid 0.678677553444444 height 0.203579444444444
+linethick = 0.5;
+spline -> from 4.512369582,2.030996476 to 4.512369582,2.030996476 to 4.709726798,1.989845838 to 4.938128387,1.942268652 to 5.100243243,1.908529275
+"chassis?" at 4.811981469,2.047892078
 linethick = 1;
-spline -> from 0.896886655,2.439946215 to 0.896886655,2.439946215 to 1.253969892,2.485208404 to 1.806141855,2.555207683 to 2.166768513,2.600937871
-"connections*" at 1.578560627,2.632494375
+spline -> from 5.52268512,1.864320844 to 5.52268512,1.864320844 to 5.69630557,1.864320844 to 5.9393742,1.864320844 to 6.10884849,1.864320844
+"encaps+" at 5.81602594,1.918324578
+linethick = 0.5;
+spline -> from 0.815186883,1.637888681 to 0.815186883,1.637888681 to 1.159162682,1.653747743 to 1.650327161,1.676396142 to 1.970255232,1.69111501
+"ports+" at 1.346050844,1.731177281
 linethick = 1;
-spline -> from 0.896886655,2.351494404 to 0.896886655,2.351494404 to 1.29502009,2.301017369 to 1.935643864,2.219786114 to 2.282965979,2.175794208
-"ssl?" at 1.578560627,2.363194379
+spline -> from 0.815446018,1.554913654 to 0.815446018,1.554913654 to 1.412855847,1.455924084 to 2.575957381,1.255923691 to 3.555902297,1.043743953 to 3.597985821,1.034622401 to 3.641779636,1.02461979 to 3.685469797,1.01425439
+"datapath" at 2.292619172,1.421666437
 linethick = 1;
-spline -> from 2.962968526,0.717509324 to 2.962968526,0.717509324 to 3.304340368,0.757422953 to 3.788585619,0.813983975 to 4.157435688,0.85710674
-"logical_datapath" at 3.574977504,0.905377494
+spline -> from 2.614827631,1.790363715 to 2.614827631,1.790363715 to 2.694071114,1.810472591 to 2.778808259,1.831462526 to 2.857688953,1.849912938 to 3.136466386,1.915214958 to 3.451833681,1.982641885 to 3.695472408,2.033276864
+"gateway_chassis*" at 3.206795625,2.047892078
+linethick = 0.5;
+spline -> from 2.613687437,1.719982649 to 2.613687437,1.719982649 to 3.046702022,1.739262293 to 3.84193551,1.775903982 to 4.520454594,1.813945 to 4.717138059,1.824984151 to 4.941134353,1.839392057 to 5.100606032,1.849964765
+"chassis?" at 4.102988109,1.867948734
 linethick = 1;
-spline -> from 4.971219092,1.829274377 to 4.971219092,1.829274377 to 5.259573333,1.829274377 to 5.718011782,1.829274377 to 5.997674613,1.829274377
-"encaps+" at 5.617859996,1.898939371
+spline -> from 2.614516669,1.608502772 to 2.614516669,1.608502772 to 2.693811979,1.58538793 to 2.778652778,1.561340202 to 2.857688953,1.540402094 to 3.165955949,1.458774569 to 3.271579375,1.519360332 to 3.555902297,1.374866656 to 3.723044372,1.289922203 to 3.882101435,1.143873717 to 3.985237165,1.037524713
+"datapath" at 3.206795625,1.594405828
 linethick = 1;
-spline -> from 2.992318749,0.2660774886 to 2.992318749,0.2660774886 to 3.282344415,0.3360968247 to 3.665568739,0.4398856315 to 3.992833754,0.5664258754 to 4.126882039,0.6182400504 to 4.269287449,0.687624245 to 4.390164905,0.751205252
-"datapath" at 3.574977504,0.6360708123
+spline -> from 0.696192091,2.706613248 to 0.696192091,2.706613248 to 1.048149248,2.743099456 to 1.650638123,2.805550991 to 2.00622317,2.842399988
+"connections*" at 1.346050844,2.861265016
+linethick = 1;
+spline -> from 0.695259205,2.62970198 to 0.695259205,2.62970198 to 0.781343852,2.615967825 to 0.876705532,2.601819054 to 0.964552297,2.59135 to 1.365382315,2.543461852 to 1.836852534,2.510707188 to 2.09640215,2.494692645
+"ssl?" at 1.346050844,2.645353734
+linethick = 1;
+spline -> from 2.624674761,0.9069725 to 2.624674761,0.9069725 to 2.922731838,0.9069725 to 3.361654701,0.9069725 to 3.683811333,0.9069725
+"logical_datapath" at 3.206795625,0.960976234
+linethick = 1;
+spline -> from 2.647530468,0.584297598 to 2.647530468,0.584297598 to 2.901223633,0.632704016 to 3.250433959,0.701582099 to 3.555902297,0.770201047 to 3.597933994,0.779633561 to 3.641675982,0.789895307 to 3.685314316,0.800364361
+"datapath" at 3.206795625,0.824204781
+linethick = 0.5;
+spline -> from 0.72713281,2.094691859 to 0.72713281,2.094691859 to 1.035037017,2.094691859 to 1.510135126,2.094691859 to 1.856235832,2.094691859
+"permissions value*" at 1.346050844,2.148643766
+linethick = 1;
+spline -> from 2.487022249,0.1615499417 to 2.487022249,0.1615499417 to 2.742425705,0.2086969636 to 3.200161769,0.3111330291 to 3.555902297,0.4894749188 to 3.706511559,0.564966127 to 3.857172648,0.683960919 to 3.962122323,0.775642882
+"datapaths+" at 3.206795625,0.543457922
 .ps +3
 .PE
 .RE\}
@@ -260,7 +295,7 @@ Global SSL configuration\[char46]
 .PP
 .PP
 .PP
-Each row in this table represents a hypervisor or gateway (a chassis) in the physical network (PN)\[char46] Each chassis, via \fBovn\-controller\fR/\fBovn\-controller\-vtep\fR, adds and updates its own row, and keeps a copy of the remaining rows to determine how to reach other hypervisors\[char46]
+Each row in this table represents a hypervisor or gateway (a chassis) in the physical network\[char46] Each chassis, via \fBovn\-controller\fR/\fBovn\-controller\-vtep\fR, adds and updates its own row, and keeps a copy of the remaining rows to determine how to reach other hypervisors\[char46]
 .PP
 .PP
 When a chassis shuts down gracefully, it should remove its own row\[char46] (This is not critical because resources hosted on the chassis are equally unreachable regardless of whether the row is present\[char46]) If a chassis shuts down permanently without removing its row, some kind of manual or automatic cleanup is eventually needed; we can devise a process for that as necessary\[char46]
@@ -352,6 +387,9 @@ map of string-string pairs
 .TQ 3.00in
 \fBip\fR
 string
+.TQ 3.00in
+\fBchassis_name\fR
+string
 .SS "Details:
 .IP "\fBtype\fR: string, one of \fBgeneve\fR, \fBstt\fR, or \fBvxlan\fR"
 The encapsulation to use to transmit packets to this chassis\[char46] Hypervisors must use either \fBgeneve\fR or \fBstt\fR\[char46] Gateways may use \fBvxlan\fR, \fBgeneve\fR, or \fBstt\fR\[char46]
@@ -367,6 +405,8 @@ Not all devices see such a benefit\[char46] The most notable exception is hardwa
 \fBcsum\fR defaults to \fBfalse\fR for hardware VTEPs and \fBtrue\fR for all other cases\[char46]
 .IP "\fBip\fR: string"
 The IPv4 address of the encapsulation tunnel endpoint\[char46]
+.IP "\fBchassis_name\fR: string"
+The name of the chassis that created this encap\[char46]
 .bp
 .SH "Address_Set TABLE"
 .PP
@@ -438,7 +478,7 @@ The description earlier assumed that \fBoutport\fR referred to a logical port\[c
 string, either \fBegress\fR or \fBingress\fR
 .TQ 3.00in
 \fBtable_id\fR
-integer, in range 0 to 15
+integer, in range 0 to 23
 .TQ 3.00in
 \fBpriority\fR
 integer, in range 0 to 65,535
@@ -451,6 +491,9 @@ string
 .TQ 3.00in
 \fBexternal_ids : stage-name\fR
 optional string
+.TQ 3.00in
+\fBexternal_ids : stage-hint\fR
+optional string, containing an uuid
 .TQ 3.00in
 \fBexternal_ids : source\fR
 optional string
@@ -466,7 +509,7 @@ map of string-string pairs
 The logical datapath to which the logical flow belongs\[char46]
 .IP "\fBpipeline\fR: string, either \fBegress\fR or \fBingress\fR"
 The primary flows used for deciding on a packet\(cqs destination are the \fBingress\fR flows\[char46] The \fBegress\fR flows implement ACLs\[char46] See \fBLogical Life Cycle of a Packet\fR, above, for details\[char46]
-.IP "\fBtable_id\fR: integer, in range 0 to 15"
+.IP "\fBtable_id\fR: integer, in range 0 to 23"
 The stage in the logical pipeline, analogous to an OpenFlow table number\[char46]
 .IP "\fBpriority\fR: integer, in range 0 to 65,535"
 The flow\(cqs priority\[char46] Flows with numerically higher priority take precedence over those with lower\[char46] If two logical datapath flows with the same priority both match, then the one actually applied to the packet is undefined\[char46]
@@ -621,8 +664,10 @@ The \fBreg\fR\fIX\fR symbols are 32-bit integers\[char46] The \fBxxreg\fR\fIX\fR
 .IP \(bu
 \fBct_mark\fR \fBct_label\fR
 .IP \(bu
-\fBct_state\fR, which has the following Boolean subfields:
+\fBct_state\fR, which has several Boolean subfields\[char46] The \fBct_next\fR action initializes the following subfields:
 .RS
+.IP \(bu
+\fBct\[char46]trk\fR: Always set to true by \fBct_next\fR to indicate that connection tracking has taken place\[char46] All other \fBct\fR subfields have \fBct\[char46]trk\fR as a prerequisite\[char46]
 .IP \(bu
 \fBct\[char46]new\fR: True for a new flow
 .IP \(bu
@@ -635,15 +680,13 @@ The \fBreg\fR\fIX\fR symbols are 32-bit integers\[char46] The \fBxxreg\fR\fIX\fR
 \fBct\[char46]inv\fR: True for a connection entry in a bad state
 .RE
 .IP
-The above subfields of \fBct_state\fR are initialized by the \fBct_next\fR action, described later\[char46]
+The \fBct_dnat\fR, \fBct_snat\fR, and \fBct_lb\fR actions initialize the following subfields:
 .RS
 .IP \(bu
 \fBct\[char46]dnat\fR: True for a packet whose destination IP address has been changed\[char46]
 .IP \(bu
 \fBct\[char46]snat\fR: True for a packet whose source IP address has been changed\[char46]
 .RE
-.IP
-The above subfields of \fBct_state\fR are initialized by the actions like \fBct_dnat\fR, \fBct_snat\fR and \fBct_lb\fR described later\[char46]
 .RE
 .IP
 The following predicates are supported:
@@ -911,6 +954,41 @@ This is a logical equivalent of the OpenFlow \fBset_queue\fR action\[char46] It 
 With one or more arguments, \fBct_lb\fR commits the packet to the connection tracking table and DNATs the packet\(cqs destination IP address (and port) to the IP address or addresses (and optional ports) specified in the string\[char46] If multiple comma-separated IP addresses are specified, each is given equal weight for picking the DNAT address\[char46] Processing automatically moves on to the next table, as if \fBnext;\fR were specified, and later tables act on the packet as modified by the connection tracker\[char46] Connection tracking state is scoped by the logical port when the action is used in a flow for a logical switch, so overlapping addresses may be used\[char46] Connection tracking state is scoped by the logical topology when the action is used in a flow for a router\[char46]
 .IP
 Without arguments, \fBct_lb\fR sends the packet to the connection tracking table to NAT the packets\[char46] If the packet is part of an established connection that was previously committed to the connection tracker via \fBct_lb(\fR\[char46]\[char46]\[char46]\fB)\fR, it will automatically get DNATed to the same IP address as the first packet in that connection\[char46]
+.TP
+\fB\fIR\fB = dns_lookup();\fR
+\fBParameters\fR: No parameters\[char46]
+.IP
+\fBResult\fR: stored to a 1-bit subfield \fIR\fR\[char46]
+.IP
+Valid only in the ingress pipeline\[char46]
+.IP
+When this action is applied to a valid DNS request (a UDP packet typically directed to port 53), it attempts to resolve the query using the contents of the \fBDNS\fR table\[char46] If it is successful, it changes the packet into a DNS reply and stores 1 in \fIR\fR\[char46] If the action is applied to a non-DNS packet, an invalid DNS request packet, or a valid DNS request for which the \fBDNS\fR table does not supply an answer, it leaves the packet unchanged and stores 0 in \fIR\fR\[char46]
+.IP
+Regardless of success, the action does not make any of the changes to the flow that are necessary to direct the packet back to the requester\[char46] The logical pipeline can implement this behavior with matches and actions in later tables\[char46]
+.IP
+\fBExample:\fR \fB
+reg0[3] = dns_lookup();
+\fR
+.IP
+\fBPrerequisite:\fR \fBudp\fR
+.RE
+.RS
+.TP
+\fBlog(\fIkey\fB=\fIvalue\fB, \fR\[char46]\[char46]\[char46]\fB);\fR
+Causes \fBovn\-controller\fR to log the packet on the chassis that processes it\[char46] Packet logging currently uses the same logging mechanism as other Open vSwitch and OVN messages, which means that whether and where log messages appear depends on the local logging configuration that can be configured with \fBovs\-appctl\fR, etc\[char46]
+.IP
+The \fBlog\fR action takes zero or more of the following key-value pair arguments that control what is logged:
+.RS
+.TP
+\fBname=\fR\fIstring\fR
+An optional name for the ACL\[char46] The \fIstring\fR is currently limited to 64 bytes\[char46]
+.TP
+\fBseverity=\fR\fIlevel\fR
+Indicates the severity of the event\[char46] The \fIlevel\fR is one of following (from more to less serious): \fBalert\fR, \fBwarning\fR, \fBnotice\fR, \fBinfo\fR, or \fBdebug\fR\[char46] If a severity is not provided, the default is \fBinfo\fR\[char46]
+.TP
+\fBverdict=\fR\fIvalue\fR
+The verdict for packets matching the flow\[char46] The value must be one of \fBallow\fR, \fBdeny\fR, or \fBreject\fR\[char46]
+.RE
 .RE
 .IP
 The following actions will likely be useful later, but they have not been thought out carefully\[char46]
@@ -966,6 +1044,8 @@ Details TBD\[char46]
 .RE
 .IP "\fBexternal_ids : stage-name\fR: optional string"
 Human-readable name for this flow\(cqs stage in the pipeline\[char46]
+.IP "\fBexternal_ids : stage-hint\fR: optional string, containing an uuid"
+UUID of a \fBOVN_Northbound\fR record that caused this logical flow to be created\[char46] Currently used only for attribute of logical flows to northbound \fBACL\fR records\[char46]
 .IP "\fBexternal_ids : source\fR: optional string"
 Source file and line number of the code that added this flow to the pipeline\[char46]
 .ST "Common Columns:"
@@ -1011,7 +1091,10 @@ The logical ports included in the multicast group\[char46] All of these ports mu
 .PP
 .PP
 .PP
-Each row in this table identifies physical bindings of a logical datapath\[char46] A logical datapath implements a logical pipeline among the ports in the \fBPort_Binding\fR table associated with it\[char46] In practice, the pipeline in a given logical datapath implements either a logical switch or a logical router\[char46]
+Each row in this table represents a logical datapath, which implements a logical pipeline among the ports in the \fBPort_Binding\fR table associated with it\[char46] In practice, the pipeline in a given logical datapath implements either a logical switch or a logical router\[char46]
+.PP
+.PP
+The main purpose of a row in this table is provide a physical binding for a logical datapath\[char46] A logical datapath does not have a physical location, so its physical binding information is limited: just \fBtunnel_key\fR\[char46] The rest of the data in this table does not affect packet forwarding\[char46]
 .SS "Summary:
 .TQ 3.00in
 \fBtunnel_key\fR
@@ -1025,9 +1108,16 @@ optional string, containing an uuid
 .TQ 2.75in
 \fBexternal_ids : logical-router\fR
 optional string, containing an uuid
-.TQ 2.75in
+.TQ .25in
+\fINaming:\fR
+.RS .25in
+.TQ 2.50in
 \fBexternal_ids : name\fR
 optional string
+.TQ 2.50in
+\fBexternal_ids : name2\fR
+optional string
+.RE
 .RE
 .TQ .25in
 \fICommon Columns:\fR
@@ -1048,8 +1138,15 @@ Each row in \fBDatapath_Binding\fR is associated with some logical datapath\[cha
 For a logical datapath that represents a logical switch, \fBovn\-northd\fR stores in this key the UUID of the corresponding \fBLogical_Switch\fR row in the \fBOVN_Northbound\fR database\[char46]
 .IP "\fBexternal_ids : logical-router\fR: optional string, containing an uuid"
 For a logical datapath that represents a logical router, \fBovn\-northd\fR stores in this key the UUID of the corresponding \fBLogical_Router\fR row in the \fBOVN_Northbound\fR database\[char46]
+.ST "Naming:"
+.PP
+.PP
+.PP
+\fBovn\-northd\fR copies these from the name fields in the \fBOVN_Northbound\fR database, either from \fBname\fR and \fBexternal_ids:neutron:router_name\fR in the \fBLogical_Router\fR table or from \fBname\fR and \fBexternal_ids:neutron:network_name\fR in the \fBLogical_Switch\fR table\[char46]
 .IP "\fBexternal_ids : name\fR: optional string"
-\fBovn\-northd\fR copies this from the \fBLogical_Router\fR or \fBLogical_Switch\fR table in the \fBOVN_Northbound\fR database, when that column is nonempty\[char46]
+A name for the logical datapath\[char46]
+.IP "\fBexternal_ids : name2\fR: optional string"
+Another name for the logical datapath\[char46]
 .ST "Common Columns:"
 .PP
 The overall purpose of these columns is described under \fBCommon
@@ -1060,7 +1157,7 @@ Columns\fR at the beginning of this document\[char46]
 .PP
 .PP
 .PP
-Most rows in this table identify the physical location of a logical port\[char46] (The exceptions are logical patch ports, which do not have any physical location\[char46])
+Each row in this table binds a logical port to a realization\[char46] For most logical ports, this means binding to some physical location, for example by binding a logical port to a VIF that belongs to a VM running on a particular hypervisor\[char46] Other logical ports, such as logical patch ports, can be realized without a specific physical location, but their bindings are still expressed through rows in this table\[char46]
 .PP
 .PP
 For every \fBLogical_Switch_Port\fR record in \fBOVN_Northbound\fR database, \fBovn\-northd\fR creates a record in this table\[char46] \fBovn\-northd\fR populates and maintains every column except the \fBchassis\fR column, which it leaves empty in new records\[char46]
@@ -1084,6 +1181,9 @@ string (must be unique within table)
 \fBchassis\fR
 optional weak reference to \fBChassis\fR
 .TQ 2.75in
+\fBgateway_chassis\fR
+set of \fBGateway_Chassis\fRs
+.TQ 2.75in
 \fBtunnel_key\fR
 integer, in range 1 to 32,767
 .TQ 2.75in
@@ -1099,6 +1199,9 @@ string
 .TQ 2.75in
 \fBoptions : peer\fR
 optional string
+.TQ 2.75in
+\fBnat_addresses\fR
+set of strings
 .RE
 .TQ .25in
 \fIL3 Gateway Options:\fR
@@ -1112,6 +1215,9 @@ optional string
 .TQ 2.75in
 \fBoptions : nat-addresses\fR
 optional string
+.TQ 2.75in
+\fBnat_addresses\fR
+set of strings
 .RE
 .TQ .25in
 \fILocalnet Options:\fR
@@ -1150,6 +1256,9 @@ optional string
 \fIVMI (or VIF) Options:\fR
 .RS .25in
 .TQ 2.75in
+\fBoptions : requested-chassis\fR
+optional string
+.TQ 2.75in
 \fBoptions : qos_max_rate\fR
 optional string
 .TQ 2.75in
@@ -1179,6 +1288,20 @@ optional string
 \fBtag\fR
 optional integer, in range 1 to 4,095
 .RE
+.TQ .25in
+\fINaming:\fR
+.RS .25in
+.TQ 2.75in
+\fBexternal_ids : name\fR
+optional string
+.RE
+.TQ .25in
+\fICommon Columns:\fR
+.RS .25in
+.TQ 2.75in
+\fBexternal_ids\fR
+map of string-string pairs
+.RE
 .SS "Details:
 .ST "Core Features:"
 .PP
@@ -1199,12 +1322,19 @@ The physical location of the hardware_vtep gateway\[char46] To successfully iden
 localnet
 Always empty\[char46] A localnet port is realized on every chassis that has connectivity to the corresponding physical network\[char46]
 .TP
+localport
+Always empty\[char46] A localport port is present on every chassis\[char46]
+.TP
 l3gateway
 The physical location of the L3 gateway\[char46] To successfully identify a chassis, this column must be a \fBChassis\fR record\[char46] This is populated by \fBovn\-controller\fR based on the value of the \fBoptions:l3gateway\-chassis\fR column in this table\[char46]
 .TP
 l2gateway
 The physical location of this L2 gateway\[char46] To successfully identify a chassis, this column must be a \fBChassis\fR record\[char46] This is populated by \fBovn\-controller\fR based on the value of the \fBoptions:l2gateway\-chassis\fR column in this table\[char46]
 .RE
+.IP "\fBgateway_chassis\fR: set of \fBGateway_Chassis\fRs"
+A list of \fBGateway_Chassis\fR\[char46]
+.IP
+This should only be populated for ports with \fBtype\fR set to \fBchassisredirect\fR\[char46] This column defines the list of chassis used as gateways where traffic will be redirected through\[char46]
 .IP "\fBtunnel_key\fR: integer, in range 1 to 32,767"
 A number that represents the logical port in the key (e\[char46]g\[char46] STT key or Geneve TLV) field carried within tunnel protocol packets\[char46]
 .IP
@@ -1229,6 +1359,9 @@ One of a pair of logical ports that act as if connected by a patch cable across 
 \fBlocalnet\fR
 A connection to a locally accessible network from each \fBovn\-controller\fR instance\[char46] A logical switch can only have a single \fBlocalnet\fR port attached\[char46] This is used to model direct connectivity to an existing network\[char46]
 .TP
+\fBlocalport\fR
+A connection to a local VIF\[char46] Traffic that arrives on a \fBlocalport\fR is never forwarded over a tunnel to another chassis\[char46] These ports are present on every chassis and have the same address in all of them\[char46] This is used to model connectivity to local services that run on every hypervisor\[char46]
+.TP
 \fBl2gateway\fR
 An L2 connection to a physical network\[char46] The chassis this \fBPort_Binding\fR is bound to will serve as an L2 gateway to the network named by \fBoptions\fR:\fBnetwork_name\fR\[char46]
 .TP
@@ -1245,6 +1378,9 @@ A logical port that represents a particular instance, bound to a specific chassi
 These options apply to logical ports with \fBtype\fR of \fBpatch\fR\[char46]
 .IP "\fBoptions : peer\fR: optional string"
 The \fBlogical_port\fR in the \fBPort_Binding\fR record for the other side of the patch\[char46] The named \fBlogical_port\fR must specify this \fBlogical_port\fR in its own \fBpeer\fR option\[char46] That is, the two patch logical ports must have reversed \fBlogical_port\fR and \fBpeer\fR values\[char46]
+.IP "\fBnat_addresses\fR: set of strings"
+MAC address followed by a list of SNAT and DNAT external IP addresses, followed by \fBis_chassis_resident(\(dq\fIlport\fB\(dq)\fR, where \fIlport\fR is the name of a logical port on the same chassis where the corresponding NAT rules are applied\[char46] This is used to send gratuitous ARPs for SNAT and DNAT external IP addresses via \fBlocalnet\fR, from the chassis where \fIlport\fR resides\[char46] Example: \fB80:fa:5b:06:72:b7 158\[char46]36\[char46]44\[char46]22
+158\[char46]36\[char46]44\[char46]24 is_chassis_resident(\(dqfoo1\(dq)\fR\[char46] This would result in generation of gratuitous ARPs for IP addresses 158\[char46]36\[char46]44\[char46]22 and 158\[char46]36\[char46]44\[char46]24 with a MAC address of 80:fa:5b:06:72:b7 from the chassis where the logical port \(dqfoo1\(dq resides\[char46]
 .ST "L3 Gateway Options:"
 .PP
 .PP
@@ -1255,8 +1391,9 @@ The \fBlogical_port\fR in the \fBPort_Binding\fR record for the other side of th
 .IP "\fBoptions : l3gateway-chassis\fR: optional string"
 The \fBchassis\fR in which the port resides\[char46]
 .IP "\fBoptions : nat-addresses\fR: optional string"
-MAC address of the \fBl3gateway\fR port followed by a list of SNAT and DNAT IP addresses\[char46] This is used to send gratuitous ARPs for SNAT and DNAT IP addresses via \fBlocalnet\fR and is valid for only L3 gateway ports\[char46] Example: \fB80:fa:5b:06:72:b7 158\[char46]36\[char46]44\[char46]22
-158\[char46]36\[char46]44\[char46]24\fR\[char46] This would result in generation of gratuitous ARPs for IP addresses 158\[char46]36\[char46]44\[char46]22 and 158\[char46]36\[char46]44\[char46]24 with a MAC address of 80:fa:5b:06:72:b7\[char46]
+MAC address of the \fBl3gateway\fR port followed by a list of SNAT and DNAT external IP addresses\[char46] This is used to send gratuitous ARPs for SNAT and DNAT external IP addresses via \fBlocalnet\fR\[char46] Example: \fB80:fa:5b:06:72:b7 158\[char46]36\[char46]44\[char46]22 158\[char46]36\[char46]44\[char46]24\fR\[char46] This would result in generation of gratuitous ARPs for IP addresses 158\[char46]36\[char46]44\[char46]22 and 158\[char46]36\[char46]44\[char46]24 with a MAC address of 80:fa:5b:06:72:b7\[char46] This is used in OVS versions prior to 2\[char46]8\[char46]
+.IP "\fBnat_addresses\fR: set of strings"
+MAC address of the \fBl3gateway\fR port followed by a list of SNAT and DNAT external IP addresses\[char46] This is used to send gratuitous ARPs for SNAT and DNAT external IP addresses via \fBlocalnet\fR\[char46] Example: \fB80:fa:5b:06:72:b7 158\[char46]36\[char46]44\[char46]22 158\[char46]36\[char46]44\[char46]24\fR\[char46] This would result in generation of gratuitous ARPs for IP addresses 158\[char46]36\[char46]44\[char46]22 and 158\[char46]36\[char46]44\[char46]24 with a MAC address of 80:fa:5b:06:72:b7\[char46] This is used in OVS version 2\[char46]8 and later versions\[char46]
 .ST "Localnet Options:"
 .PP
 .PP
@@ -1301,6 +1438,8 @@ Required\[char46] A logical switch name connected by the VTEP gateway\[char46] M
 .PP
 .PP
 These options apply to logical ports with \fBtype\fR having (empty string)
+.IP "\fBoptions : requested-chassis\fR: optional string"
+If set, identifies a specific chassis (by name) that is allowed to bind this port\[char46] Using this option will prevent thrashing between two chassis trying to bind the same port during a live migration\[char46] It can also prevent similar thrashing due to a mis-configuration, if a port is accidentally created on more than one chassis\[char46]
 .IP "\fBoptions : qos_max_rate\fR: optional string"
 If set, indicates the maximum rate for data sent from this interface, in bit/s\[char46] The traffic will be shaped according to this limit\[char46]
 .IP "\fBoptions : qos_burst\fR: optional string"
@@ -1328,6 +1467,18 @@ This is taken from \fBparent_name\fR in the OVN_Northbound database\(cqs \fBLogi
 Identifies the VLAN tag in the network traffic associated with that container\(cqs network interface\[char46]
 .IP
 This column is used for a different purpose when \fBtype\fR is \fBlocalnet\fR (see \fBLocalnet Options\fR, above) or \fBl2gateway\fR (see \fBL2 Gateway Options\fR, above)\[char46]
+.ST "Naming:"
+.PP
+.IP "\fBexternal_ids : name\fR: optional string"
+For a logical switch port, \fBovn\-northd\fR copies this from \fBexternal_ids:neutron:port_name\fR in the \fBLogical_Switch_Port\fR table in the OVN_Northbound database, if it is a nonempty string\[char46]
+.IP
+For a logical switch port, \fBovn\-northd\fR does not currently set this key\[char46]
+.ST "Common Columns:"
+.PP
+.IP "\fBexternal_ids\fR: map of string-string pairs"
+See \fBExternal IDs\fR at the beginning of this document\[char46]
+.IP
+The \fBovn\-northd\fR program populates this column with all entries into the \fBexternal_ids\fR column of the \fBLogical_Switch_Port\fR table of the \fBOVN_Northbound\fR database\[char46]
 .bp
 .SH "MAC_Binding TABLE"
 .PP
@@ -1530,6 +1681,9 @@ string (must be unique within table)
 .TQ 2.75in
 \fBread_only\fR
 boolean
+.TQ 2.75in
+\fBrole\fR
+string
 .RE
 .TQ .25in
 \fIClient Failure Detection and Handling:\fR
@@ -1622,6 +1776,8 @@ If \fIport\fR is not specified, it defaults to 6640\[char46]
 When multiple clients are configured, the \fBtarget\fR values must be unique\[char46] Duplicate \fBtarget\fR values yield unspecified results\[char46]
 .IP "\fBread_only\fR: boolean"
 \fBtrue\fR to restrict these connections to read-only transactions, \fBfalse\fR to allow them to modify the database\[char46]
+.IP "\fBrole\fR: string"
+String containing role name for this connection entry\[char46]
 .ST "Client Failure Detection and Handling:"
 .PP
 .IP "\fBmax_backoff\fR: optional integer, at least 1,000"
@@ -1701,6 +1857,12 @@ string
 .TQ 3.00in
 \fBbootstrap_ca_cert\fR
 boolean
+.TQ 3.00in
+\fBssl_protocols\fR
+string
+.TQ 3.00in
+\fBssl_ciphers\fR
+string
 .TQ .25in
 \fICommon Columns:\fR
 .RS .25in
@@ -1719,6 +1881,125 @@ Name of a PEM file containing the CA certificate used to verify that the switch 
 If set to \fBtrue\fR, then Open vSwitch will attempt to obtain the CA certificate from the controller on its first SSL connection and save it to the named PEM file\[char46] If it is successful, it will immediately drop the connection and reconnect, and from then on all SSL connections must be authenticated by a certificate signed by the CA certificate thus obtained\[char46] \fBThis option exposes the
 SSL connection to a man\-in\-the\-middle attack obtaining the initial
 CA certificate\[char46]\fR It may still be useful for bootstrapping\[char46]
+.IP "\fBssl_protocols\fR: string"
+List of SSL protocols to be enabled for SSL connections\[char46] The default when this option is omitted is \fBTLSv1,TLSv1\[char46]1,TLSv1\[char46]2\fR\[char46]
+.IP "\fBssl_ciphers\fR: string"
+List of ciphers (in OpenSSL cipher string format) to be supported for SSL connections\[char46] The default when this option is omitted is \fBHIGH:!aNULL:!MD5\fR\[char46]
+.ST "Common Columns:"
+.PP
+The overall purpose of these columns is described under \fBCommon
+Columns\fR at the beginning of this document\[char46]
+.IP "\fBexternal_ids\fR: map of string-string pairs"
+.bp
+.SH "DNS TABLE"
+.PP
+.PP
+.PP
+Each row in this table stores the DNS records\[char46] The OVN action \fBdns_lookup\fR uses this table for DNS resolution\[char46]
+.SS "Summary:
+.TQ 3.00in
+\fBrecords\fR
+map of string-string pairs
+.TQ 3.00in
+\fBdatapaths\fR
+set of 1 or more \fBDatapath_Binding\fRs
+.TQ .25in
+\fICommon Columns:\fR
+.RS .25in
+.TQ 2.75in
+\fBexternal_ids\fR
+map of string-string pairs
+.RE
+.SS "Details:
+.IP "\fBrecords\fR: map of string-string pairs"
+Key-value pair of DNS records with \fBDNS query name\fR as the key and a string of IP address(es) separated by comma or space as the value\[char46]
+.IP
+\fBExample: \fR \(dqvm1\[char46]ovn\[char46]org\(dq = \(dq10\[char46]0\[char46]0\[char46]4 aef0::4\(dq
+.IP "\fBdatapaths\fR: set of 1 or more \fBDatapath_Binding\fRs"
+The DNS records defined in the column \fBrecords\fR will be applied only to the DNS queries originating from the datapaths defined in this column\[char46]
+.ST "Common Columns:"
+.PP
+.IP "\fBexternal_ids\fR: map of string-string pairs"
+See \fBExternal IDs\fR at the beginning of this document\[char46]
+.bp
+.SH "RBAC_Role TABLE"
+.PP
+Role table for role-based access controls\[char46]
+.SS "Summary:
+.TQ 3.00in
+\fBname\fR
+string
+.TQ 3.00in
+\fBpermissions\fR
+map of string-weak reference to \fBRBAC_Permission\fR pairs
+.SS "Details:
+.IP "\fBname\fR: string"
+The role name, corresponding to the \fBrole\fR column in the \fBConnection\fR table\[char46]
+.IP "\fBpermissions\fR: map of string-weak reference to \fBRBAC_Permission\fR pairs"
+A mapping of table names to rows in the \fBRBAC_Permission\fR table\[char46]
+.bp
+.SH "RBAC_Permission TABLE"
+.PP
+Permissions table for role-based access controls\[char46]
+.SS "Summary:
+.TQ 3.00in
+\fBtable\fR
+string
+.TQ 3.00in
+\fBauthorization\fR
+set of strings
+.TQ 3.00in
+\fBinsert_delete\fR
+boolean
+.TQ 3.00in
+\fBupdate\fR
+set of strings
+.SS "Details:
+.IP "\fBtable\fR: string"
+Name of table to which this row applies\[char46]
+.IP "\fBauthorization\fR: set of strings"
+Set of strings identifying columns and column:key pairs to be compared with client ID\[char46] At least one match is required in order to be authorized\[char46] A zero-length string is treated as a special value indicating all clients should be considered authorized\[char46]
+.IP "\fBinsert_delete\fR: boolean"
+When \(dqtrue\(dq, row insertions and authorized row deletions are permitted\[char46]
+.IP "\fBupdate\fR: set of strings"
+Set of strings identifying columns and column:key pairs that authorized clients are allowed to modify\[char46]
+.bp
+.SH "Gateway_Chassis TABLE"
+.PP
+.PP
+.PP
+Association of \fBPort_Binding\fR rows of \fBtype\fR \fBchassisredirect\fR to a \fBChassis\fR\[char46] The traffic going out through a specific \fBchassisredirect\fR port will be redirected to a chassis, or a set of them in high availability configurations\[char46]
+.SS "Summary:
+.TQ 3.00in
+\fBname\fR
+string (must be unique within table)
+.TQ 3.00in
+\fBchassis\fR
+optional weak reference to \fBChassis\fR
+.TQ 3.00in
+\fBpriority\fR
+integer, in range 0 to 32,767
+.TQ 3.00in
+\fBoptions\fR
+map of string-string pairs
+.TQ .25in
+\fICommon Columns:\fR
+.RS .25in
+.TQ 2.75in
+\fBexternal_ids\fR
+map of string-string pairs
+.RE
+.SS "Details:
+.IP "\fBname\fR: string (must be unique within table)"
+Name of the \fBGateway_Chassis\fR\[char46]
+.IP
+A suggested, but not required naming convention is \fB${port_name}_${chassis_name}\fR\[char46]
+.IP "\fBchassis\fR: optional weak reference to \fBChassis\fR"
+The \fBChassis\fR to which we send the traffic\[char46]
+.IP "\fBpriority\fR: integer, in range 0 to 32,767"
+This is the priority the specific \fBChassis\fR among all Gateway_Chassis belonging to the same \fBPort_Binding\fR\[char46]
+.IP "\fBoptions\fR: map of string-string pairs"
+Reserved for future use\[char46]
 .ST "Common Columns:"
 .PP
 The overall purpose of these columns is described under \fBCommon

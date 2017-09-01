@@ -1,6 +1,6 @@
 '\" p
 .\" -*- nroff -*-
-.TH "ovn-trace" 8 "ovn-trace" "Open vSwitch 2\[char46]7\[char46]90" "Open vSwitch Manual"
+.TH "ovn-trace" 8 "ovn-trace" "Open vSwitch 2\[char46]8\[char46]90" "Open vSwitch Manual"
 .fp 5 L CR              \\" Make fixed-width font available as \\fL.
 .de TQ
 .  br
@@ -152,6 +152,36 @@ reg0;\fR might be show as \fBip4\[char46]dst = 192\[char46]168\[char46]0\[char46
 .PP
 .PP
 The minimal output format reflects the externally seen behavior of the logical networks more than it does the implementation\[char46] This makes this output format the most suitable for use in regression tests, because it is least likely to change when logical flow tables are rearranged without semantic change\[char46]
+.SH "STATEFUL ACTIONS"
+.PP
+.PP
+Some OVN logical actions use or update state that is not available in the southbound database\[char46] \fBovn\-trace\fR handles these actions as described below:
+.RS
+.TP
+\fBct_next\fR
+By default \fBovn\-trace\fR treats flows as ``tracked\(cq\(cq and ``established\[char46]\(cq\(cq See the description of the \fB\-\-ct\fR option for a way to override this behavior\[char46]
+.TP
+\fBct_dnat\fR (without an argument)
+Forks the pipeline\[char46] In one fork, advances to the next table as if \fBnext;\fR were executed\[char46] The packet is not changed, on the assumption that no NAT state was available\[char46] In the other fork, the pipeline continues without change after the \fBct_dnat\fR action\[char46]
+.TP
+\fBct_snat\fR (without an argument)
+This action distinguishes between gateway routers and distributed routers\[char46] A gateway router is defined as a logical datapath that contains an \fBl3gateway\fR port; any other logical datapath is a distributed router\[char46] On a gateway router, \fBct_snat;\fR is treated as a no-op\[char46] On a distributed router, it is treated the same way as \fBct_dnat;\fR\[char46]
+.TP
+\fBct_dnat(\fIip\fB)\fR
+.TQ .5in
+\fBct_snat(\fIip\fB)\fR
+Forks the pipeline\[char46] In one fork, sets \fBip4\[char46]dst\fR (or \fBip4\[char46]src\fR) to \fIip\fR and \fBct\[char46]dnat\fR (or \fBct\[char46]snat\fR) to 1 and advances to the next table as if \fBnext;\fR were executed\[char46] In the other fork, the pipeline continues without change after the \fBct_dnat\fR (or \fBct_snat\fR) action\[char46]
+.TP
+\fBct_lb\fR
+Not yet implemented; currently implemented as a no-op\[char46]
+.TP
+\fBct_commit\fR
+.TQ .5in
+\fBput_arp\fR
+.TQ .5in
+\fBput_nd\fR
+These actions are treated as no-ops\[char46]
+.RE
 .SH "DAEMON MODE"
 .PP
 .PP
@@ -180,7 +210,7 @@ These options control the form and level of detail in \fBovn\-trace\fR output\[c
 Selects all three forms of output\[char46]
 .TP
 \fB\-\-ovs\fR[\fB=\fR\fIremote\fR]
-Makes \fBovn\-trace\fR attempt to obtain and display the OpenFlow flows that correspond to each OVN logical flow\[char46] To do so, \fBovn\-trace\fR connects to \fIremote\fR (by default, \fBunix:/var/run/openvswitch/br\-int\[char46]mgmt\fR) over OpenFlow and retrieves the flows\[char46] If \fIremote\fR is specified, it must be an active OpenFlow connection method described in \fBovs\-ofctl\fR(8)\[char46]
+Makes \fBovn\-trace\fR attempt to obtain and display the OpenFlow flows that correspond to each OVN logical flow\[char46] To do so, \fBovn\-trace\fR connects to \fIremote\fR (by default, \fBunix:/usr/local/var/run/openvswitch/br\-int\[char46]mgmt\fR) over OpenFlow and retrieves the flows\[char46] If \fIremote\fR is specified, it must be an active OpenFlow connection method described in \fBovs\-ofctl\fR(8)\[char46]
 .IP
 To make the best use of the output, it is important to understand the relationship between logical flows and OpenFlow flows\[char46] \fBovn\-architecture\fR(7), under \fBArchitectural Physical Life
 Cycle of a Packet\fR, describes this relationship\[char46] Keep in mind the following points:
@@ -196,10 +226,52 @@ Some OpenFlow flows do not correspond to logical flows, such as OpenFlow flows t
 .IP \(bu
 When \fBovn\-trace\fR omits uninteresting logical flows from output, it does not look up the corresponding OpenFlow flows\[char46]
 .RE
+.TP
+\fB\-\-ct=\fIflags\fB\fR
+This option sets the \fBct_state\fR flags that a \fBct_next\fR logical action will report\[char46] The \fIflags\fR must be a comma- or space-separated list of the following connection tracking flags:
+.RS
+.IP \(bu
+\fBtrk\fR: Include to indicate connection tracking has taken place\[char46] (This bit is set automatically even if not listed in \fIflags\fR\[char46]
+.IP \(bu
+\fBnew\fR: Include to indicate a new flow\[char46]
+.IP \(bu
+\fBest\fR: Include to indicate an established flow\[char46]
+.IP \(bu
+\fBrel\fR: Include to indicate a related flow\[char46]
+.IP \(bu
+\fBrpl\fR: Include to indicate a reply flow\[char46]
+.IP \(bu
+\fBinv\fR: Include to indicate a connection entry in a bad state\[char46]
+.IP \(bu
+\fBdnat\fR: Include to indicate a packet whose destination IP address has been changed\[char46]
+.IP \(bu
+\fBsnat\fR: Include to indicate a packet whose source IP address has been changed\[char46]
+.RE
+.IP
+The \fBct_next\fR action is used to implement the OVN distributed firewall\[char46] For testing, useful flag combinations include:
+.RS
+.IP \(bu
+\fBtrk,new\fR: A packet in a flow in either direction through a firewall that has not yet been committed (with \fBct_commit\fR)\[char46]
+.IP \(bu
+\fBtrk,est\fR: A packet in an established flow going out through a firewall\[char46]
+.IP \(bu
+\fBtrk,rpl\fR: A packet coming in through a firewall in reply to an established flow\[char46]
+.IP \(bu
+\fBtrk,inv\fR: An invalid packet in either direction\[char46]
+.RE
+.IP
+A packet might pass through the connection tracker twice in one trip through OVN: once following egress from a VM as it passes outward through a firewall, and once preceding ingress to a second VM as it passes inward through a firewall\[char46] Use multiple \fB\-\-ct\fR options to specify the flags for multiple \fBct_next\fR actions\[char46]
+.IP
+When \fB\-\-ct\fR is unspecified, or when there are fewer \fB\-\-ct\fR options than \fBct_next\fR actions, the \fIflags\fR default to \fBtrk,est\fR\[char46]
+.TP
+\fB\-\-friendly\-names\fR
+.TQ .5in
+\fB\-\-no\-friendly\-names\fR
+When cloud management systems such as OpenStack are layered on top of OVN, they often use long, human-unfriendly names for ports and datapaths, for example, ones that include entire UUIDs\[char46] They do usually include friendlier names, but the long, hard-to-read names are the ones that appear in matches and actions\[char46] By default, or with \fB\-\-friendly\-names\fR, \fBovn\-trace\fR substitutes these friendlier names for the long names in its output\[char46] Use \fB\-\-no\-friendly\-names\fR to disable this behavior; this option might be useful, for example, if a program is going to parse \fBovn\-trace\fR output\[char46]
 .SS "Daemon Options"
 .TP
 \fB\-\-pidfile\fR[\fB=\fR\fIpidfile\fR]
-Causes a file (by default, \fB\fIprogram\fB\[char46]pid\fR) to be created indicating the PID of the running process\[char46] If the \fIpidfile\fR argument is not specified, or if it does not begin with \fB/\fR, then it is created in \fB/var/run/openvswitch\fR\[char46]
+Causes a file (by default, \fB\fIprogram\fB\[char46]pid\fR) to be created indicating the PID of the running process\[char46] If the \fIpidfile\fR argument is not specified, or if it does not begin with \fB/\fR, then it is created in \fB/usr/local/var/run/openvswitch\fR\[char46]
 .IP
 If \fB\-\-pidfile\fR is not specified, no pidfile is created\[char46]
 .TP
@@ -271,7 +343,7 @@ Sets the log pattern for \fIdestination\fR to \fIpattern\fR\[char46] Refer to \f
 Sets the RFC5424 facility of the log message\[char46] \fIfacility\fR can be one of \fBkern\fR, \fBuser\fR, \fBmail\fR, \fBdaemon\fR, \fBauth\fR, \fBsyslog\fR, \fBlpr\fR, \fBnews\fR, \fBuucp\fR, \fBclock\fR, \fBftp\fR, \fBntp\fR, \fBaudit\fR, \fBalert\fR, \fBclock2\fR, \fBlocal0\fR, \fBlocal1\fR, \fBlocal2\fR, \fBlocal3\fR, \fBlocal4\fR, \fBlocal5\fR, \fBlocal6\fR or \fBlocal7\fR\[char46] If this option is not specified, \fBdaemon\fR is used as the default for the local system syslog and \fBlocal0\fR is used while sending a message to the target provided via the \fB\-\-syslog\-target\fR option\[char46]
 .TP
 \fB\-\-log\-file\fR[\fB=\fR\fIfile\fR]
-Enables logging to a file\[char46] If \fIfile\fR is specified, then it is used as the exact name for the log file\[char46] The default log file name used if \fIfile\fR is omitted is \fB/var/log/openvswitch/\fIprogram\fB\[char46]log\fR\[char46]
+Enables logging to a file\[char46] If \fIfile\fR is specified, then it is used as the exact name for the log file\[char46] The default log file name used if \fIfile\fR is omitted is \fB/usr/local/var/log/openvswitch/\fIprogram\fB\[char46]log\fR\[char46]
 .TP
 \fB\-\-syslog\-target=\fR\fIhost\fR\fB:\fR\fIport\fR
 Send syslog messages to UDP \fIport\fR on \fIhost\fR, in addition to the system syslog\[char46] The \fIhost\fR must be a numerical IP address, not a hostname\[char46]
@@ -315,7 +387,7 @@ Disables verification of certificates presented by SSL peers\[char46] This intro
 .SS "Other Options"
 .TP
 \fB\-\-db\fR \fIdatabase\fR
-The OVSDB database remote to contact\[char46] If the \fBOVN_SB_DB\fR environment variable is set, its value is used as the default\[char46] Otherwise, the default is \fBunix:/var/run/openvswitch/db\[char46]sock\fR, but this default is unlikely to be useful outside of single-machine OVN test environments\[char46]
+The OVSDB database remote to contact\[char46] If the \fBOVN_SB_DB\fR environment variable is set, its value is used as the default\[char46] Otherwise, the default is \fBunix:/usr/local/var/run/openvswitch/db\[char46]sock\fR, but this default is unlikely to be useful outside of single-machine OVN test environments\[char46]
 .RS
 .TP
 \fB\-h\fR

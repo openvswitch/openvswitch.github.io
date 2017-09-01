@@ -4,7 +4,7 @@
 .  ns
 .  IP "\\$1"
 ..
-.TH ovs\-testcontroller 8 "2.6.90" "Open vSwitch" "Open vSwitch Manual"
+.TH ovs\-testcontroller 8 "2.8.90" "Open vSwitch" "Open vSwitch Manual"
 .ds PN ovs\-testcontroller
 .
 .SH NAME
@@ -28,10 +28,12 @@ one or more of the following OpenFlow connection methods:
 .IP "\fBpssl:\fR[\fIport\fR][\fB:\fIip\fR]"
 .IQ "\fBptcp:\fR[\fIport\fR][\fB:\fIip\fR]"
 Listens for OpenFlow connections on \fIport\fR.  The default
-\fIport\fR is 6653.  By default, connections
-are allowed from any IPv4 address.  Specify \fIip\fR as an IPv4
-address or a bracketed IPv6 address (e.g. \fBptcp:6653:[::1]\fR).  DNS
-names may not be used.  For \fBpssl\fR, the
+\fIport\fR is 6653.  By default, connections are allowed from any IPv4
+address.  Specify \fIip\fR as an IPv4 address or a bracketed IPv6
+address (e.g. \fBptcp:6653:[::1]\fR).  On Linux, use \fB%\fIdevice\fR
+to designate a scope for IPv6 link-level addresses,
+e.g. \fBptcp:6653:[fe80::1234%eth0]\fR.  DNS names may
+not be used.  For \fBpssl\fR, the
 \fB\-\-private\-key\fR,\fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR
 options are mandatory.
 .IP
@@ -44,8 +46,11 @@ named \fIfile\fR.
 The specified \fIport\fR on the host at the given \fIip\fR, which must
 be expressed as an IP address (not a DNS name) in IPv4 or IPv6 address
 format.  Wrap IPv6 addresses in square brackets,
-e.g. \fBtcp:[::1]:6653\fR.  For \fBssl\fR, the \fB\-\-private\-key\fR,
-\fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR options are mandatory.
+e.g. \fBtcp:[::1]:6653\fR.  On Linux, use \fB%\fIdevice\fR to
+designate a scope for IPv6 link-level addresses,
+e.g. \fBtcp:[fe80::1234%eth0]:6653\fR.  For \fBssl\fR, the
+\fB\-\-private\-key\fR, \fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR
+options are mandatory.
 .IP
 If \fIport\fR is not specified, it defaults to 6653.
 .TP
@@ -208,6 +213,8 @@ confidence in \fB\*(PN\fR's identity.  However, this offers a way for
 a new installation to bootstrap the CA certificate on its first SSL
 connection.
 .ds DD
+.SS "Daemon Options"
+.PP
 The following options are valid on POSIX based platforms.
 .TP
 \fB\-\-pidfile\fR[\fB=\fIpidfile\fR]
@@ -215,7 +222,7 @@ Causes a file (by default, \fB\*(PN.pid\fR) to be created indicating
 the PID of the running process.  If the \fIpidfile\fR argument is not
 specified, or
 if it does not begin with \fB/\fR, then it is created in
-\fB/var/run/openvswitch\fR.
+\fB/usr/local/var/run/openvswitch\fR.
 .IP
 If \fB\-\-pidfile\fR is not specified, no pidfile is created.
 .
@@ -364,7 +371,7 @@ a message to the target provided via the \fB\-\-syslog\-target\fR option.
 \fB\-\-log\-file\fR[\fB=\fIfile\fR]
 Enables logging to a file.  If \fIfile\fR is specified, then it is
 used as the exact name for the log file.  The default log file name
-used if \fIfile\fR is omitted is \fB/var/log/openvswitch/\*(PN.log\fR.
+used if \fIfile\fR is omitted is \fB/usr/local/var/log/openvswitch/\*(PN.log\fR.
 .
 .IP "\fB\-\-syslog\-target=\fIhost\fB:\fIport\fR"
 Send syslog messages to UDP \fIport\fR on \fIhost\fR, in addition to
@@ -401,9 +408,9 @@ sockets.
 Sets the name of the control socket on which \fB\*(PN\fR listens for
 runtime management commands (see \fBRUNTIME MANAGEMENT COMMANDS\fR,
 below).  If \fIsocket\fR does not begin with \fB/\fR, it is
-interpreted as relative to \fB/var/run/openvswitch\fR.  If \fB\-\-unixctl\fR is
+interpreted as relative to \fB/usr/local/var/run/openvswitch\fR.  If \fB\-\-unixctl\fR is
 not used at all, the default socket is
-\fB/var/run/openvswitch/\*(PN.\fIpid\fB.ctl\fR, where \fIpid\fR is \fB\*(PN\fR's
+\fB/usr/local/var/run/openvswitch/\*(PN.\fIpid\fB.ctl\fR, where \fIpid\fR is \fB\*(PN\fR's
 process ID.
 .IP
 On Windows a local named pipe is used to listen for runtime management
@@ -437,7 +444,6 @@ Sets the OpenFlow protocol versions that are allowed when establishing
 an OpenFlow session.
 .
 .IP
-The following versions are considered to be ready for general use.
 These protocol versions are enabled by default:
 .
 .RS
@@ -445,9 +451,9 @@ These protocol versions are enabled by default:
 \fBOpenFlow10\fR, for OpenFlow 1.0.
 .RE
 .
-.IP
-Support for the following protocol versions is provided for testing
-and development purposes.  They are not enabled by default:
+The following protocol versions are generally supported, but for
+compatibility with older versions of Open vSwitch they are not enabled
+by default:
 .
 .RS
 .IP \(bu
@@ -458,6 +464,21 @@ and development purposes.  They are not enabled by default:
 .
 .IP \(bu
 \fBOpenFlow13\fR, for OpenFlow 1.3.
+.
+.IP \(bu
+\fBOpenFlow14\fR, for OpenFlow 1.4.
+.RE
+.
+.IP
+Support for the following protocol versions is provided for testing
+and development purposes.  They are not enabled by default:
+.
+.RS
+.IP \(bu
+\fBOpenFlow15\fR, for OpenFlow 1.5.
+.
+.IP \(bu
+\fBOpenFlow16\fR, for OpenFlow 1.6.
 .RE
 .
 .SH EXAMPLES

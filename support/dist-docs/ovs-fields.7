@@ -1,6 +1,6 @@
 '\" tp
 .\" -*- mode: troff; coding: utf-8 -*-
-.TH "ovs\-fields" 7 "2.7.90" "Open vSwitch" "Open vSwitch Manual"
+.TH "ovs\-fields" 7 "2.8.90" "Open vSwitch" "Open vSwitch Manual"
 .fp 5 L CR              \" Make fixed-width font available as \fL.
 .de ST
 .  PP
@@ -42,11 +42,13 @@ This document aims to comprehensively document all of the fields, both standard 
 A \fIfield\fR is a property of a packet\[char46] Most familiarly, \fIdata
 fields\fR are fields that can be extracted from a packet\[char46] Most data fields are copied directly from protocol headers, e\[char46]g\[char46] at layer 2, the Ethernet source and destination addresses, or the VLAN ID; at layer 3, the IPv4 or IPv6 source and destination; and at layer 4, the TCP or UDP ports\[char46] Other data fields are computed, e\[char46]g\[char46] \fBip_frag\fR describes whether a packet is a fragment but it is not copied directly from the IP header\[char46]
 .PP
-Some data fields, called \fIroot fields\fR, are always present as a consequence of the basic networking technology in use\[char46] The Ethernet header fields are root fields in current versions of Open vSwitch, though future versions might support other roots\[char46] (Currently, to support LISP tunnels, which do not encapsulate an Ethernet header, Open vSwitch synthesizes one\[char46])
+Data fields that are always present as a consequence of the basic networking technology in use are called called \fIroot fields\fR\[char46] Open vSwitch 2\[char46]7 and earlier considered Ethernet fields to be root fields, and this remains the default mode of operation for Open vSwitch bridges\[char46] When a packet is received from a non-Ethernet interfaces, such as a layer\-3 LISP tunnel, Open vSwitch 2\[char46]7 and earlier force-fit the packet to this Ethernet-centric point of view by pretending that an Ethernet header is present whose Ethernet type that indicates the packet\(cqs actual type (and whose source and destination addresses are all-zero)\[char46]
 .PP
-Other data fields are not always present\[char46] A packet contains ARP fields, for example, only when its Ethernet header indicates the Ethertype for ARP, 0x0806\[char46] In this documentation, we say that a field is \fIapplicable\fR when it is present in a packet, and \fIinapplicable\fR when it is not\[char46] (These are not standard terms\[char46]) We refer to the conditions that determine whether a field is applicable as \fIprerequisites\fR\[char46] Some VLAN-related fields are a special case: these fields are always applicable, but have a designated value or bit that indicates whether a VLAN header is present, with the remaining values or bits indicating the VLAN header\(cqs content (if it is present)\[char46]
+Open vSwitch 2\[char46]8 and later implement the ``packet type-aware pipeline\(cq\(cq concept introduced in OpenFlow 1\[char46]5\[char46] Such a pipeline does not have any root fields\[char46] Instead, a new metadata field, \fBpacket_type\fR, indicates the basic type of the packet, which can be Ethernet, IPv4, IPv6, or another type\[char46] For backward compatibility, by default Open vSwitch 2\[char46]8 imitates the behavior of Open vSwitch 2\[char46]7 and earlier\[char46] Later versions of Open vSwitch may change the default, and in the meantime controllers can turn off this legacy behavior, on a port-by-port basis, by setting \fBoptions:packet_type\fR to \fBptap\fR in the \fBInterface\fR table\[char46] This is significant only for ports that can handle non-Ethernet packets, which is currently just LISP, VXLAN-GPE, and GRE tunnel ports\[char46] See \fBovs\-vwitchd\[char46]conf\[char46]db\fR(5) for more information\[char46]
 .PP
-An inapplicable field does not have a value, not even a nominal ``value\(cq\(cq such as all-zero-bits\[char46] In many circumstances, OpenFlow and Open vSwitch allow references only to applicable fields\[char46] For example, one may match (see \fIMatching\fR, below) a given field only if the match includes the field\(cqs prerequisite, e\[char46]g\[char46] matching an ARP field is only allowed if one also matches on Ethertype 0x0806\[char46]
+Non-root data fields are not always present\[char46] A packet contains ARP fields, for example, only when its packet type is ARP or when it is an Ethernet packet whose Ethernet header indicates the Ethertype for ARP, 0x0806\[char46] In this documentation, we say that a field is \fIapplicable\fR when it is present in a packet, and \fIinapplicable\fR when it is not\[char46] (These are not standard terms\[char46]) We refer to the conditions that determine whether a field is applicable as \fIprerequisites\fR\[char46] Some VLAN-related fields are a special case: these fields are always applicable for Ethernet packets, but have a designated value or bit that indicates whether a VLAN header is present, with the remaining values or bits indicating the VLAN header\(cqs content (if it is present)\[char46]
+.PP
+An inapplicable field does not have a value, not even a nominal ``value\(cq\(cq such as all-zero-bits\[char46] In many circumstances, OpenFlow and Open vSwitch allow references only to applicable fields\[char46] For example, one may match (see \fIMatching\fR, below) a given field only if the match includes the field\(cqs prerequisite, e\[char46]g\[char46] matching an ARP field is only allowed if one also matches on Ethertype 0x0806 or the \fBpacket_type\fR for ARP in a packet type-aware bridge\[char46]
 .PP
 Sometimes a packet may contain multiple instances of a header\[char46] For example, a packet may contain multiple VLAN or MPLS headers, and tunnels can cause any data field to recur\[char46] OpenFlow and Open vSwitch do not address these cases uniformly\[char46] For VLAN and MPLS headers, only the outermost header is accessible, so that inner headers may be accessed only by ``popping\(cq\(cq (removing) the outer header\[char46] (Open vSwitch supports only a single VLAN header in any case\[char46]) For tunnels, e\[char46]g\[char46] GRE or VXLAN, the outer header and inner headers are treated as different data fields\[char46]
 .PP
@@ -159,6 +161,9 @@ All of these supported forms of matching are special cases of bitwise matching\[
 .PP
 Some matches are very commonly used, so Open vSwitch accepts shorthand notations\[char46] In some cases, Open vSwitch also uses shorthand notations when it displays matches\[char46] The following shorthands are defined, with their long forms shown on the right side:
 .RS
+.TP
+\fBeth\fR
+\fBpacket_type=(0,0)\fR (Open vSwitch 2\[char46]8 and later)
 .TP
 \fBip\fR
 \fBeth_type=0x0800\fR
@@ -379,7 +384,7 @@ Reserved for the OpenFlow specification\[char46]
 Experimental use\[char46]
 .RE
 .PP
-When \fBclass\fR is 0xffff, the OXM header is extended to 64 bits by using the first 32 bits of the body as an \fBexperimenter\fR field whose most significant byte is zero and whose remaining bytes are an Organizationally Unique Identifier (OUI) assigned by the IEEE [IEEE OUI], as shown below\[char46] OpenFlow says that support for experimenter fields is optional\[char46] Open vSwitch 2\[char46]4 and later does support them, primarily so that it can support the \fBONFOXM_ET_\fR* code points defined by official Open Networking Foundation extensions to OpenFlow 1\[char46]3 in e\[char46]g\[char46] [TCP Flags Match Field Extension]\[char46]
+When \fBclass\fR is 0xffff, the OXM header is extended to 64 bits by using the first 32 bits of the body as an \fBexperimenter\fR field whose most significant byte is zero and whose remaining bytes are an Organizationally Unique Identifier (OUI) assigned by the IEEE [IEEE OUI], as shown below\[char46]
 .PP
 .\" check if in troff mode (TTY)
 .if t \{
@@ -443,6 +448,16 @@ line <-> invis "" above from B0.nw + (0,textht) to B0.ne + (0,textht)
 .fi
 \}
 .PP
+OpenFlow says that support for experimenter fields is optional\[char46] Open vSwitch 2\[char46]4 and later does support them, so that it can support the following experimenter classes:
+.RS
+.TP
+0x4f4e4600 (\fBONFOXM_ET\fR)
+Used by official Open Networking Foundation extensions in OpenFlow 1\[char46]3 and later\[char46] e\[char46]g\[char46] [TCP Flags Match Field Extension]\[char46]
+.TP
+0x005ad650 (\fBNXOXM_NSH\fR)
+Used by Open vSwitch for NSH extensions, in the absence of an official ONF-assigned class\[char46] (This OUI is randomly generated\[char46])
+.RE
+.PP
 Taken as a unit, \fBclass\fR (or \fBvendor\fR), \fBfield\fR, and \fBexperimenter\fR (when present) uniquely identify a particular field\[char46]
 .PP
 When \fBhasmask\fR (abbreviated \fBHM\fR above) is 0, the OXM is an exact match on an entire field\[char46] In this case, the body (excluding the experimenter field, if present) is a single value to be matched\[char46]
@@ -491,17 +506,13 @@ PBB UCA\[char46]
 OpenFlow 1\[char46]5 added OXMs for the following fields supported by Open vSwitch:
 .RS
 .IP \(bu
+Packet type\[char46]
+.IP \(bu
 TCP flags\[char46]
 .IP \(bu
 Packet registers\[char46]
 .IP \(bu
 The output port in the OpenFlow action set\[char46]
-.RE
-.PP
-OpenFlow 1\[char46]5 also added OXMs for the following fields not documented here and not yet implemented by Open vSwitch:
-.RS
-.IP \(bu
-Packet type\[char46]
 .RE
 .SH "FIELDS REFERENCE"
 .PP
@@ -624,6 +635,7 @@ Prefix;Vendor;Class
 \fBOXM_OF\fR;(none);\fL0x8000\fR;
 \fBOXM_OF_PKT_REG\fR;(none);\fL0x8001\fR;
 \fBNXOXM_ET\fR;\fL0x00002320\fR;\fL0xffff\fR;
+\fBNXOXM_NSH\fR;\fL0x005ad650\fR;\fL0xffff\fR;
 \fBONFOXM_ET\fR;\fL0x4f4e4600\fR;\fL0xffff\fR;
 .TE
 .IP
@@ -789,6 +801,221 @@ T}
 .PP
 .PP
 Used for conjunctive matching\[char46] See above for more information\[char46]
+.bp
+.SH "NETWORK SERVICE HEADER FIELDS"
+.SS "Summary:"
+.TS
+tab(;);
+l l l l l l l.
+Name;Bytes;Mask;RW?;Prereqs;NXM/OXM Support
+\_;\_;\_;\_;\_;\_
+\fBnsh_flags\fR;1;yes;yes;NSH;OF 1.3+ and OVS 2.8+
+\fBnsh_mdtype\fR;1;no;no;NSH;OF 1.3+ and OVS 2.8+
+\fBnsh_np\fR;1;no;no;NSH;OF 1.3+ and OVS 2.8+
+\fBnsh_spi\fR aka \fBnsp\fR;4 (low 24 bits);no;yes;NSH;OF 1.3+ and OVS 2.8+
+\fBnsh_si\fR aka \fBnsi\fR;1;no;yes;NSH;OF 1.3+ and OVS 2.8+
+\fBnsh_c1\fR aka \fBnshc1\fR;4;yes;yes;NSH;OF 1.3+ and OVS 2.8+
+\fBnsh_c2\fR aka \fBnshc2\fR;4;yes;yes;NSH;OF 1.3+ and OVS 2.8+
+\fBnsh_c3\fR aka \fBnshc3\fR;4;yes;yes;NSH;OF 1.3+ and OVS 2.8+
+\fBnsh_c4\fR aka \fBnshc4\fR;4;yes;yes;NSH;OF 1.3+ and OVS 2.8+
+.TE
+.PP
+.PP
+\fBflags field (8 bits) Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBnsh_flags\fR
+Width:;8 bits
+Format:;decimal
+Masking:;arbitrary bitwise masks
+Prerequisites:;NSH
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+\fBNXOXM_NSH_FLAGS\fR (1) since OpenFlow 1.3 and Open vSwitch 2.8
+T}
+NXM:;T{
+none
+T}
+.TE
+.PP
+.PP
+.PP
+\fBmdtype field (8 bits) Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBnsh_mdtype\fR
+Width:;8 bits
+Format:;decimal
+Masking:;not maskable
+Prerequisites:;NSH
+Access:;read-only
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+\fBNXOXM_NSH_MDTYPE\fR (2) since OpenFlow 1.3 and Open vSwitch 2.8
+T}
+NXM:;T{
+none
+T}
+.TE
+.PP
+.PP
+.PP
+\fBnp (next protocol) field (8 bits) Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBnsh_np\fR
+Width:;8 bits
+Format:;decimal
+Masking:;not maskable
+Prerequisites:;NSH
+Access:;read-only
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+\fBNXOXM_NSH_NP\fR (3) since OpenFlow 1.3 and Open vSwitch 2.8
+T}
+NXM:;T{
+none
+T}
+.TE
+.PP
+.PP
+.PP
+\fBspi (service path identifier) field (24 bits) Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBnsh_spi\fR (aka \fBnsp\fR)
+Width:;32 bits (only the least-significant 24 bits may be nonzero)
+Format:;hexadecimal
+Masking:;not maskable
+Prerequisites:;NSH
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+\fBNXOXM_NSH_SPI\fR (4) since OpenFlow 1.3 and Open vSwitch 2.8
+T}
+NXM:;T{
+none
+T}
+.TE
+.PP
+.PP
+.PP
+\fBsi (service index) field (8 bits) Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBnsh_si\fR (aka \fBnsi\fR)
+Width:;8 bits
+Format:;decimal
+Masking:;not maskable
+Prerequisites:;NSH
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+\fBNXOXM_NSH_SI\fR (5) since OpenFlow 1.3 and Open vSwitch 2.8
+T}
+NXM:;T{
+none
+T}
+.TE
+.PP
+.PP
+.PP
+\fBc1 (Network Platform Context) field (32 bits) Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBnsh_c1\fR (aka \fBnshc1\fR)
+Width:;32 bits
+Format:;hexadecimal
+Masking:;arbitrary bitwise masks
+Prerequisites:;NSH
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+\fBNXOXM_NSH_C1\fR (6) since OpenFlow 1.3 and Open vSwitch 2.8
+T}
+NXM:;T{
+none
+T}
+.TE
+.PP
+.PP
+.PP
+\fBc2 (Network Shared Context) field (32 bits) Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBnsh_c2\fR (aka \fBnshc2\fR)
+Width:;32 bits
+Format:;hexadecimal
+Masking:;arbitrary bitwise masks
+Prerequisites:;NSH
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+\fBNXOXM_NSH_C2\fR (7) since OpenFlow 1.3 and Open vSwitch 2.8
+T}
+NXM:;T{
+none
+T}
+.TE
+.PP
+.PP
+.PP
+\fBc3 (Service Platform Context) field (32 bits) Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBnsh_c3\fR (aka \fBnshc3\fR)
+Width:;32 bits
+Format:;hexadecimal
+Masking:;arbitrary bitwise masks
+Prerequisites:;NSH
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+\fBNXOXM_NSH_C3\fR (8) since OpenFlow 1.3 and Open vSwitch 2.8
+T}
+NXM:;T{
+none
+T}
+.TE
+.PP
+.PP
+.PP
+\fBc4 (Service Shared Context) field (32 bits) Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBnsh_c4\fR (aka \fBnshc4\fR)
+Width:;32 bits
+Format:;hexadecimal
+Masking:;arbitrary bitwise masks
+Prerequisites:;NSH
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+\fBNXOXM_NSH_C4\fR (9) since OpenFlow 1.3 and Open vSwitch 2.8
+T}
+NXM:;T{
+none
+T}
+.TE
 .bp
 .SH "TUNNEL FIELDS"
 .SS "Summary:"
@@ -1854,6 +2081,7 @@ Name;Bytes;Mask;RW?;Prereqs;NXM/OXM Support
 \fBskb_priority\fR;4;no;no;none;
 \fBpkt_mark\fR;4;yes;yes;none;OVS 2.0+
 \fBactset_output\fR;4;no;no;none;OF 1.3+ and OVS 2.4+
+\fBpacket_type\fR;4;no;no;none;OF 1.5+ and OVS 2.8+
 .TE
 .PP
 .PP
@@ -2141,6 +2369,220 @@ Holds the output port currently in the OpenFlow action set (i\[char46]e\[char46]
 .PP
 .PP
 Open vSwitch allows any table to match this field\[char46] OpenFlow, however, only requires this field to be matchable from within an OpenFlow egress table (a feature that Open vSwitch does not yet implement)\[char46]
+.PP
+.PP
+.PP
+.PP
+\fBPacket Type Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBpacket_type\fR
+Width:;32 bits
+Format:;packet type
+Masking:;not maskable
+Prerequisites:;none
+Access:;read-only
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+\fBOXM_OF_PACKET_TYPE\fR (44) since OpenFlow 1.5 and Open vSwitch 2.8
+T}
+NXM:;T{
+none
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+The type of the packet in the format specified in OpenFlow 1\[char46]5:
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "ns" width .75
+B1: box "ns_type" width .75
+"16" at B0.n above
+"" at B0.s below
+"16" at B1.n above
+"" at B1.s below
+line <-> "Packet type" above from B0.nw + (0,textht) to B1.ne + (0,textht)
+]
+move .1
+". . ." ljust
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL Packet type
+.br
+\fL <--------->
+.br
+\fL 16    16
+.br
+\fL+---+-------+
+.br
+\fL|ns |ns_type| ...
+.br
+\fL+---+-------+
+.br
+\fL
+.fi
+\}
+.PP
+.PP
+The upper 16 bits, \fIns\fR, are a namespace\[char46] The meaning of \fIns_type\fR depends on the namespace\[char46] The packet type field is specified and displayed in the format \fB(\fIns\fB,\fIns_type\fB)\fR\[char46]
+.PP
+.PP
+Open vSwitch currently supports the following classes of packet types for matching:
+.RS
+.TP
+\fB(0,0)\fR
+Ethernet\[char46]
+.TP
+\fB(1,\fIethertype\fB)\fR
+The specified \fIethertype\fR\[char46] Open vSwitch can forward packets with any \fIethertype\fR, but it can only match on and process data fields for the following supported packet types:
+.RS
+.TP
+\fB(1,0x800)\fR
+IPv4
+.TP
+\fB(1,0x806)\fR
+ARP
+.TP
+\fB(1,0x86dd)\fR
+IPv6
+.TP
+\fB(1,0x8847)\fR
+MPLS
+.TP
+\fB(1,0x8848)\fR
+MPLS multicast
+.TP
+\fB(1,0x8035)\fR
+RARP
+.TP
+\fB(1,0x894f)\fR
+NSH
+.RE
+.RE
+.PP
+.PP
+Consider the distinction between a packet with \fBpacket_type=(0,0),
+dl_type=0x800\fR and one with \fBpacket_type=(1,0x800)\fR\[char46] The former is an Ethernet frame that contains an IPv4 packet, like this:
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "dst" width 0.4
+B1: box "src" width 0.4
+B2: box "type" width 0.4
+"48" at B0.n above
+"" at B0.s below
+"48" at B1.n above
+"" at B1.s below
+"16" at B2.n above
+"0x800" at B2.s below
+line <-> "Ethernet" above from B0.nw + (0,textht) to B2.ne + (0,textht)
+]
+move .1
+[
+B0: box ". . ." width 0.4
+B1: box "proto" width 0.4
+B2: box "src" width 0.4
+B3: box "dst" width 0.4
+"" at B0.n above
+"" at B0.s below
+"8" at B1.n above
+"" at B1.s below
+"32" at B2.n above
+"" at B2.s below
+"32" at B3.n above
+"" at B3.s below
+line <-> "IPv4" above from B0.nw + (0,textht) to B3.ne + (0,textht)
+]
+move .1
+". . ." ljust
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL   Ethernet            IPv4
+.br
+\fL <----------->   <--------------->
+.br
+\fL 48  48   16           8   32  32
+.br
+\fL+---+---+-----+ +---+-----+---+---+
+.br
+\fL|dst|src|type | |...|proto|src|dst| ...
+.br
+\fL+---+---+-----+ +---+-----+---+---+
+.br
+\fL         0x800
+.fi
+\}
+.PP
+.PP
+The latter is an IPv4 packet not encapsulated inside any outer frame, like this:
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box ". . ." width 0.4
+B1: box "proto" width 0.4
+B2: box "src" width 0.4
+B3: box "dst" width 0.4
+"" at B0.n above
+"" at B0.s below
+"8" at B1.n above
+"" at B1.s below
+"32" at B2.n above
+"" at B2.s below
+"32" at B3.n above
+"" at B3.s below
+line <-> "IPv4" above from B0.nw + (0,textht) to B3.ne + (0,textht)
+]
+move .1
+". . ." ljust
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL       IPv4
+.br
+\fL <--------------->
+.br
+\fL       8   32  32
+.br
+\fL+---+-----+---+---+
+.br
+\fL|...|proto|src|dst| ...
+.br
+\fL+---+-----+---+---+
+.br
+\fL
+.fi
+\}
+.PP
+.PP
+Matching on \fBpacket_type\fR is a pre-requisite for matching on any data field, but for backward compatibility, when a match on a data field is present without a \fBpacket_type\fR match, Open vSwitch acts as though a match on \fB(0,0)\fR (Ethernet) had been supplied\[char46] Similarly, when Open vSwitch sends flow match information to a controller, e\[char46]g\[char46] in a reply to a request to dump the flow table, Open vSwitch omits a match on packet type (0,0) if it would be implied by a data field match\[char46]
 .bp
 .SH "CONNECTION TRACKING FIELDS"
 .SS "Summary:"
@@ -2694,9 +3136,9 @@ tab(;);
 l l l l l l l.
 Name;Bytes;Mask;RW?;Prereqs;NXM/OXM Support
 \_;\_;\_;\_;\_;\_
-\fBeth_src\fR aka \fBdl_src\fR;6;yes;yes;none;OF 1.2+ and OVS 1.1+
-\fBeth_dst\fR aka \fBdl_dst\fR;6;yes;yes;none;OF 1.2+ and OVS 1.1+
-\fBeth_type\fR aka \fBdl_type\fR;2;no;no;none;OF 1.2+ and OVS 1.1+
+\fBeth_src\fR aka \fBdl_src\fR;6;yes;yes;Ethernet;OF 1.2+ and OVS 1.1+
+\fBeth_dst\fR aka \fBdl_dst\fR;6;yes;yes;Ethernet;OF 1.2+ and OVS 1.1+
+\fBeth_type\fR aka \fBdl_type\fR;2;no;no;Ethernet;OF 1.2+ and OVS 1.1+
 .TE
 .PP
 .PP
@@ -2711,7 +3153,7 @@ Name:;\fBeth_src\fR (aka \fBdl_src\fR)
 Width:;48 bits
 Format:;Ethernet
 Masking:;arbitrary bitwise masks
-Prerequisites:;none
+Prerequisites:;Ethernet
 Access:;read/write
 OpenFlow 1.0:;yes (exact match only)
 OpenFlow 1.1:;yes
@@ -2778,7 +3220,7 @@ Name:;\fBeth_dst\fR (aka \fBdl_dst\fR)
 Width:;48 bits
 Format:;Ethernet
 Masking:;arbitrary bitwise masks
-Prerequisites:;none
+Prerequisites:;Ethernet
 Access:;read/write
 OpenFlow 1.0:;yes (exact match only)
 OpenFlow 1.1:;yes
@@ -2862,7 +3304,7 @@ Name:;\fBeth_type\fR (aka \fBdl_type\fR)
 Width:;16 bits
 Format:;hexadecimal
 Masking:;not maskable
-Prerequisites:;none
+Prerequisites:;Ethernet
 Access:;read-only
 OpenFlow 1.0:;yes (exact match only)
 OpenFlow 1.1:;yes (exact match only)
@@ -3136,11 +3578,11 @@ tab(;);
 l l l l l l l.
 Name;Bytes;Mask;RW?;Prereqs;NXM/OXM Support
 \_;\_;\_;\_;\_;\_
-\fBdl_vlan\fR;2 (low 12 bits);no;yes;none;
-\fBdl_vlan_pcp\fR;1 (low 3 bits);no;yes;none;
-\fBvlan_vid\fR;2 (low 12 bits);yes;yes;none;OF 1.2+ and OVS 1.7+
+\fBdl_vlan\fR;2 (low 12 bits);no;yes;Ethernet;
+\fBdl_vlan_pcp\fR;1 (low 3 bits);no;yes;Ethernet;
+\fBvlan_vid\fR;2 (low 12 bits);yes;yes;Ethernet;OF 1.2+ and OVS 1.7+
 \fBvlan_pcp\fR;1 (low 3 bits);no;yes;VLAN VID;OF 1.2+ and OVS 1.7+
-\fBvlan_tci\fR;2;yes;yes;none;OVS 1.1+
+\fBvlan_tci\fR;2;yes;yes;Ethernet;OVS 1.1+
 .TE
 .PP
 .PP
@@ -3268,7 +3710,7 @@ Name:;\fBvlan_vid\fR
 Width:;16 bits (only the least-significant 12 bits may be nonzero)
 Format:;decimal
 Masking:;arbitrary bitwise masks
-Prerequisites:;none
+Prerequisites:;Ethernet
 Access:;read/write
 OpenFlow 1.0:;yes (exact match only)
 OpenFlow 1.1:;yes (exact match only)
@@ -3426,7 +3868,7 @@ Name:;\fBvlan_tci\fR
 Width:;16 bits
 Format:;hexadecimal
 Masking:;arbitrary bitwise masks
-Prerequisites:;none
+Prerequisites:;Ethernet
 Access:;read/write
 OpenFlow 1.0:;yes (exact match only)
 OpenFlow 1.1:;yes (exact match only)

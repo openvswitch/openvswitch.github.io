@@ -1,6 +1,6 @@
 '\" p
 .\" -*- nroff -*-
-.TH "ovn-nbctl" 8 "ovn-nbctl" "Open vSwitch 2\[char46]7\[char46]90" "Open vSwitch Manual"
+.TH "ovn-nbctl" 8 "ovn-nbctl" "Open vSwitch 2\[char46]8\[char46]90" "Open vSwitch Manual"
 .fp 5 L CR              \\" Make fixed-width font available as \\fL.
 .de TQ
 .  br
@@ -49,8 +49,10 @@ Deletes \fIswitch\fR\[char46] It is an error if \fIswitch\fR does not exist, unl
 Lists all existing switches on standard output, one per line\[char46]
 .SH "LOGICAL SWITCH ACL COMMANDS"
 .TP
-[\fB\-\-log\fR] [\fB\-\-may\-exist\fR] \fBacl\-add\fR \fIswitch\fR \fIdirection\fR \fIpriority\fR \fImatch\fR \fIaction\fR
-Adds the specified ACL to \fIswitch\fR\[char46] \fIdirection\fR must be either \fBfrom\-lport\fR or \fBto\-lport\fR\[char46] \fIpriority\fR must be between \fB0\fR and \fB32767\fR, inclusive\[char46] If \fB\-\-log\fR is specified, packet logging is enabled for the ACL\[char46] A full description of the fields are in \fBovn\-nb\fR(5)\[char46] If \fB\-\-may\-exist\fR is specified, adding a duplicated ACL succeeds but the ACL is not really created\[char46] Without \fB\-\-may\-exist\fR, adding a duplicated ACL results in error\[char46]
+[\fB\-\-log\fR] [\fB\-\-severity=\fR\fIseverity\fR] [\fB\-\-name=\fR\fIname\fR] [\fB\-\-may\-exist\fR] \fBacl\-add\fR \fIswitch\fR \fIdirection\fR \fIpriority\fR \fImatch\fR \fIverdict\fR
+Adds the specified ACL to \fIswitch\fR\[char46] \fIdirection\fR must be either \fBfrom\-lport\fR or \fBto\-lport\fR\[char46] \fIpriority\fR must be between \fB0\fR and \fB32767\fR, inclusive\[char46] A full description of the fields are in \fBovn\-nb\fR(5)\[char46] If \fB\-\-may\-exist\fR is specified, adding a duplicated ACL succeeds but the ACL is not really created\[char46] Without \fB\-\-may\-exist\fR, adding a duplicated ACL results in error\[char46]
+.IP
+The \fB\-\-log\fR option enables packet logging for the ACL\[char46] The options \fB\-\-severity\fR and \fB\-\-name\fR specify a severity and name, respectively, for log entries (and also enable logging)\[char46] The severity must be one of \fBalert\fR, \fBwarning\fR, \fBnotice\fR, \fBinfo\fR, or \fBdebug\fR\[char46] If a severity is not specified, the default is \fBinfo\fR\[char46]
 .TP
 \fBacl\-del\fR \fIswitch\fR [\fIdirection\fR [\fIpriority\fR \fImatch\fR]]
 Deletes ACLs from \fIswitch\fR\[char46] If only \fIswitch\fR is supplied, all the ACLs from the logical switch are deleted\[char46] If \fIdirection\fR is also specified, then all the flows in that direction will be deleted from the logical switch\[char46] If all the fields are given, then a single flow that matches all the fields will be deleted\[char46]
@@ -131,6 +133,18 @@ Set type-specific key-value options for the logical port\[char46]
 .TP
 \fBlsp\-get\-options\fR \fIport\fR
 Get the type-specific options for the logical port\[char46]
+.TP
+\fBlsp\-set\-dhcpv4\-options\fR \fIport\fR \fIdhcp_options\fR
+Set the DHCPv4 options for the logical port\[char46] The \fIdhcp_options\fR is a UUID referring to a set of DHCP options in the \fBDHCP_Options\fR table\[char46]
+.TP
+\fBlsp\-get\-dhcpv4\-optoins\fR \fIport\fR
+Get the configured DHCPv4 options for the logical port\[char46]
+.TP
+\fBlsp\-set\-dhcpv6\-options\fR \fIport\fR \fIdhcp_options\fR
+Set the DHCPv6 options for the logical port\[char46] The \fIdhcp_options\fR is a UUID referring to a set of DHCP options in the \fBDHCP_Options\fR table\[char46]
+.TP
+\fBlsp\-get\-dhcpv6\-optoins\fR \fIport\fR
+Get the configured DHCPv6 options for the logical port\[char46]
 .SH "LOGICAL ROUTER COMMANDS"
 .TP
 \fBlr\-add\fR
@@ -168,6 +182,15 @@ Set the administrative state of \fIport\fR, either \fBenabled\fR or \fBdisabled\
 .TP
 \fBlrp\-get\-enabled\fR \fIport\fR
 Prints the administrative state of \fIport\fR, either \fBenabled\fR or \fBdisabled\fR\[char46]
+.TP
+\fBlrp\-set\-gateway\-chassis\fR \fIport\fR \fIchassis\fR [\fIpriority\fR]
+Set gateway chassis for \fIport\fR\[char46] \fIchassis\fR is the name of the chassis\[char46] This creates a gateway chassis entry in Gateway_Chassis table\[char46] It won\(cqt check if chassis really exists in OVN_Southbound database\[char46] Priority will be set to 0 if \fIpriority\fR is not provided by user\[char46] \fIpriority\fR must be between \fB0\fR and \fB32767\fR, inclusive\[char46]
+.TP
+\fBlrp\-del\-gateway\-chassis\fR \fIport\fR \fIchassis\fR
+Deletes gateway chassis from \fIport\fR\[char46] It is an error if gateway chassis with \fIchassis\fR for \fIport\fR does not exist\[char46]
+.TP
+\fBlrp\-get\-gateway\-chassis\fR \fIport\fR
+Lists all the gateway chassis with priority within \fIport\fR on standard output, one per line, ordered based on priority\[char46]
 .SH "LOGICAL ROUTER STATIC ROUTE COMMANDS"
 .TP
 [\fB\-\-may\-exist\fR] [\fB\-\-policy\fR=\fIPOLICY\fR] \fBlr\-route\-add\fR \fIrouter\fR \fIprefix\fR \fInexthop\fR [\fIport\fR]
@@ -263,12 +286,12 @@ Lists the DHCP Options for the \fIdhcp-option\fR UUID\[char46]
 .SH "DATABASE COMMANDS"
 .PP
 .PP
-These commands query and modify the contents of \fBovsdb\fR tables\[char46] They are a slight abstraction of the \fBovsdb\fR interface and as suchthey operate at a lower level than other \fBovn\-nbctl\fR commands\[char46]
+These commands query and modify the contents of \fBovsdb\fR tables\[char46] They are a slight abstraction of the \fBovsdb\fR interface and as such they operate at a lower level than other \fBovn\-nbctl\fR commands\[char46]
 .PP
 \fIIdentifying Tables, Records, and Columns\fR
 .PP
 .PP
-Each of these commands has a \fItable\fR parameter to identify a table within the database\[char46] Many of them also take a \fIrecord\fR parameter that identifies a particular record within a table\[char46] The \fIrecord\fR parameter may be the UUID for a record, and many tables offer additional ways to identify records\[char46] Some commands also take \fIcolumn\fR parameters that identify a particular field within the records in a table\[char46]
+Each of these commands has a \fItable\fR parameter to identify a table within the database\[char46] Many of them also take a \fIrecord\fR parameter that identifies a particular record within a table\[char46] The \fIrecord\fR parameter may be the UUID for a record, which may be abbreviated to its first 4 (or more) hex digits, as long as that is unique\[char46] Many tables offer additional ways to identify records\[char46] Some commands also take \fIcolumn\fR parameters that identify a particular field within the records in a table\[char46]
 .PP
 .PP
 The following tables are currently defined:
@@ -307,6 +330,9 @@ DHCP options\[char46]
 \fBNB_Global\fR
 North bound global configurations\[char46]
 .RE
+.PP
+.PP
+Record names must be specified in full and with correct capitalization, except that UUIDs may be abbreviated to their first 4 (or more) hex digits, as long as that is unique within the table\[char46] Names of tables and columns are not case-sensitive, and \fB\-\fR and \fB_\fR are treated interchangeably\[char46] Unique abbreviations of table and column names are acceptable, e\[char46]g\[char46] \fBd\fR or \fBdhcp\fR is sufficient to identify the \fBDHCP_Options\fR table\[char46]
 .PP
 .PP
 .PP
@@ -424,7 +450,7 @@ Creates a new record in \fItable\fR and sets the initial values of each \fIcolum
 If \fB@\fR\fIname\fR is specified, then the UUID for the new row may be referred to by that name elsewhere in the same \fB\e*(PN\fR invocation in contexts where a UUID is expected\[char46] Such references may precede or follow the \fBcreate\fR command\[char46]
 .RS
 .TP
-Caution (ovs-vsctl as exmaple)
+Caution (ovs-vsctl as example)
 Records in the Open vSwitch database are significant only when they can be reached directly or indirectly from the \fBOpen_vSwitch\fR table\[char46] Except for records in the \fBQoS\fR or \fBQueue\fR tables, records that are not reachable from the \fBOpen_vSwitch\fR table are automatically deleted from the database\[char46] This deletion happens immediately, without waiting for additional \fBovs\-vsctl\fR commands or other database activity\[char46] Thus, a \fBcreate\fR command must generally be accompanied by additional commands \fIwithin the same\fR \fBovs\-vsctl\fR \fIinvocation\fR to add a chain of references to the newly created record from the top-level \fBOpen_vSwitch\fR record\[char46] The \fBEXAMPLES\fR section gives some examples that show how to do this\[char46]
 .RE
 .TP
@@ -435,7 +461,7 @@ Deletes each specified \fIrecord\fR from \fItable\fR\[char46] Unless \fB\-\-if\-
 Deletes all records from the \fItable\fR\[char46]
 .RS
 .TP
-Caution (ovs-vsctl as exmaple)
+Caution (ovs-vsctl as example)
 The \fBdestroy\fR command is only useful for records in the \fBQoS\fR or \fBQueue\fR tables\[char46] Records in other tables are automatically deleted from the database when they become unreachable from the \fBOpen_vSwitch\fR table\[char46] This means that deleting the last reference to a record is sufficient for deleting the record itself\[char46] For records in these tables, \fBdestroy\fR is silently ignored\[char46] See the \fBEXAMPLES\fR section below for more information\[char46]
 .RE
 .TP
@@ -445,7 +471,7 @@ Waits until \fItable\fR contains a record named \fIrecord\fR whose \fIcolumn\fR 
 If no \fIcolumn\fR[\fB:\fR\fIkey\fR]\fB=\fR\fIvalue\fR arguments are given, this command waits only until \fIrecord\fR exists\[char46] If more than one such argument is given, the command waits until all of them are satisfied\[char46]
 .RS
 .TP
-Caution (ovs-vsctl as exmaple)
+Caution (ovs-vsctl as example)
 Usually \fBwait\-until\fR should be placed at the beginning of a set of \fBovs\-vsctl\fR commands\[char46] For example, \fBwait\-until bridge br0
 \-\- get bridge br0 datapath_id\fR waits until a bridge named \fBbr0\fR is created, then prints its \fBdatapath_id\fR column, whereas \fBget bridge br0 datapath_id \-\- wait\-until bridge br0\fR will abort if no bridge named \fBbr0\fR exists when \fBovs\-vsctl\fR initially connects to the database\[char46]
 .RE
@@ -477,7 +503,7 @@ Prints the SSL configuration\[char46]
 \fBdel\-ssl\fR
 Deletes the current SSL configuration\[char46]
 .TP
-[\fB\-\-bootstrap\fR] \fBset\-ssl\fR \fIprivate-key\fR \fIcertificate\fR \fIca-cert\fR
+[\fB\-\-bootstrap\fR] \fBset\-ssl\fR \fIprivate-key\fR \fIcertificate\fR \fIca-cert\fR [\fIssl-protocol-list\fR [\fIssl-cipher-list\fR]]
 Sets the SSL configuration\[char46]
 .SH "OPTIONS"
 .TP
@@ -497,7 +523,7 @@ With \fB\-\-wait=hv\fR, before \fBovn\-nbctl\fR exits, it additionally waits for
 Ordinarily, \fB\-\-wait=sb\fR or \fB\-\-wait=hv\fR only waits for changes by the current \fBovn\-nbctl\fR invocation to take effect\[char46] This means that, if none of the commands supplied to \fBovn\-nbctl\fR change the database, then the command does not wait at all\[char46] Use the \fBsync\fR command to override this behavior\[char46]
 .TP
 \fB\-\-db\fR \fIdatabase\fR
-The OVSDB database remote to contact\[char46] If the \fBOVN_NB_DB\fR environment variable is set, its value is used as the default\[char46] Otherwise, the default is \fBunix:/var/run/openvswitch/ovnnb_db\[char46]sock\fR, but this default is unlikely to be useful outside of single-machine OVN test environments\[char46]
+The OVSDB database remote to contact\[char46] If the \fBOVN_NB_DB\fR environment variable is set, its value is used as the default\[char46] Otherwise, the default is \fBunix:/usr/local/var/run/openvswitch/ovnnb_db\[char46]sock\fR, but this default is unlikely to be useful outside of single-machine OVN test environments\[char46]
 .SH "LOGGING OPTIONS"
 .TP
 \fB\-v\fR[\fIspec\fR]
@@ -537,7 +563,7 @@ Sets the log pattern for \fIdestination\fR to \fIpattern\fR\[char46] Refer to \f
 Sets the RFC5424 facility of the log message\[char46] \fIfacility\fR can be one of \fBkern\fR, \fBuser\fR, \fBmail\fR, \fBdaemon\fR, \fBauth\fR, \fBsyslog\fR, \fBlpr\fR, \fBnews\fR, \fBuucp\fR, \fBclock\fR, \fBftp\fR, \fBntp\fR, \fBaudit\fR, \fBalert\fR, \fBclock2\fR, \fBlocal0\fR, \fBlocal1\fR, \fBlocal2\fR, \fBlocal3\fR, \fBlocal4\fR, \fBlocal5\fR, \fBlocal6\fR or \fBlocal7\fR\[char46] If this option is not specified, \fBdaemon\fR is used as the default for the local system syslog and \fBlocal0\fR is used while sending a message to the target provided via the \fB\-\-syslog\-target\fR option\[char46]
 .TP
 \fB\-\-log\-file\fR[\fB=\fR\fIfile\fR]
-Enables logging to a file\[char46] If \fIfile\fR is specified, then it is used as the exact name for the log file\[char46] The default log file name used if \fIfile\fR is omitted is \fB/var/log/openvswitch/\fIprogram\fB\[char46]log\fR\[char46]
+Enables logging to a file\[char46] If \fIfile\fR is specified, then it is used as the exact name for the log file\[char46] The default log file name used if \fIfile\fR is omitted is \fB/usr/local/var/log/openvswitch/\fIprogram\fB\[char46]log\fR\[char46]
 .TP
 \fB\-\-syslog\-target=\fR\fIhost\fR\fB:\fR\fIport\fR
 Send syslog messages to UDP \fIport\fR on \fIhost\fR, in addition to the system syslog\[char46] The \fIhost\fR must be a numerical IP address, not a hostname\[char46]
@@ -551,6 +577,70 @@ Specify \fImethod\fR as how syslog messages should be sent to syslog daemon\[cha
 \fBunix:\fIfile\fB\fR, to use a UNIX domain socket directly\[char46] It is possible to specify arbitrary message format with this option\[char46] However, \fBrsyslogd 8\[char46]9\fR and older versions use hard coded parser function anyway that limits UNIX domain socket use\[char46] If you want to use arbitrary message format with older \fBrsyslogd\fR versions, then use UDP socket to localhost IP address instead\[char46]
 .IP \(bu
 \fBudp:\fIip\fB:\fIport\fB\fR, to use a UDP socket\[char46] With this method it is possible to use arbitrary message format also with older \fBrsyslogd\fR\[char46] When sending syslog messages over UDP socket extra precaution needs to be taken into account, for example, syslog daemon needs to be configured to listen on the specified UDP port, accidental iptables rules could be interfering with local syslog traffic and there are some security considerations that apply to UDP sockets, but do not apply to UNIX domain sockets\[char46]
+.RE
+.SH "TABLE FORMATTING OPTIONS"
+These options control the format of output from the \fBlist\fR and \fBfind\fR commands\[char46]
+.RS
+.TP
+\fB\-f\fR \fIformat\fR
+.TQ .5in
+\fB\-\-format=\fR\fIformat\fR
+Sets the type of table formatting\[char46] The following types of \fIformat\fR are available:
+.RS
+.TP
+\fBtable\fR
+2-D text tables with aligned columns\[char46]
+.TP
+\fBlist\fR (default)
+A list with one column per line and rows separated by a blank line\[char46]
+.TP
+\fBhtml\fR
+HTML tables\[char46]
+.TP
+\fBcsv\fR
+Comma-separated values as defined in RFC 4180\[char46]
+.TP
+\fBjson\fR
+JSON format as defined in RFC 4627\[char46] The output is a sequence of JSON objects, each of which corresponds to one table\[char46] Each JSON object has the following members with the noted values:
+.RS
+.TP
+\fBcaption\fR
+The table\(cqs caption\[char46] This member is omitted if the table has no caption\[char46]
+.TP
+\fBheadings\fR
+An array with one element per table column\[char46] Each array element is a string giving the corresponding column\(cqs heading\[char46]
+.TP
+\fBdata\fR
+An array with one element per table row\[char46] Each element is also an array with one element per table column\[char46] The elements of this second-level array are the cells that constitute the table\[char46] Cells that represent OVSDB data or data types are expressed in the format described in the OVSDB specification; other cells are simply expressed as text strings\[char46]
+.RE
+.RE
+.TP
+\fB\-d\fR \fIformat\fR
+.TQ .5in
+\fB\-\-data=\fR\fIformat\fR
+Sets the formatting for cells within output tables unless the table format is set to \fBjson\fR, in which case \fBjson\fR formatting is always used when formatting cells\[char46] The following types of \fIformat\fR are available:
+.RS
+.TP
+\fBstring\fR (default)
+The simple format described in the \fBDatabase Values\fR section of \fBovs\-vsctl\fR(8)\[char46]
+.TP
+\fBbare\fR
+The simple format with punctuation stripped off: \fB[]\fR and \fB{}\fR are omitted around sets, maps, and empty columns, items within sets and maps are space-separated, and strings are never quoted\[char46] This format may be easier for scripts to parse\[char46]
+.TP
+\fBjson\fR
+The RFC 4627 JSON format as described above\[char46]
+.RE
+.TP
+\fB\-\-no\-headings\fR
+This option suppresses the heading row that otherwise appears in the first row of table output\[char46]
+.TP
+\fB\-\-pretty\fR
+By default, JSON in output is printed as compactly as possible\[char46] This option causes JSON in output to be printed in a more readable fashion\[char46] Members of objects and elements of arrays are printed one per line, with indentation\[char46]
+.IP
+This option does not affect JSON in tables, which is always printed compactly\[char46]
+.TP
+\fB\-\-bare\fR
+Equivalent to \fB\-\-format=list \-\-data=bare \-\-no\-headings\fR\[char46]
 .RE
 .SS "PKI Options"
 .PP

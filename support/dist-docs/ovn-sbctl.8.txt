@@ -41,24 +41,22 @@ OPTIONS
        --db=server
               The OVSDB database remote to contact.  If the OVN_SB_DB environ‐
               ment variable is set, its value is used as the default.   Other‐
-              wise,  the  default  is unix:/var/run/openvswitch/ovnsb_db.sock,
-              but this default is unlikely to be  useful  outside  of  single-
-              machine OVN test environments.
+              wise,     the     default    is    unix:/usr/local/var/run/open‐
+              vswitch/ovnsb_db.sock, but this default is unlikely to be useful
+              outside of single-machine OVN test environments.
 
               server must take one of the following forms:
 
               ssl:ip:port
-                     The specified SSL port on the host at the given ip, which
-                     must be expressed as an IP address (not a  DNS  name)  in
-                     IPv4  or  IPv6 address format.  If ip is an IPv6 address,
-                     then wrap ip with square brackets, e.g.:  ssl:[::1]:6640.
-                     The  --private-key,  --certificate, and --ca-cert options
-                     are mandatory when this form is used.
-
               tcp:ip:port
-                     Connect to the given TCP port on ip, where ip can be IPv4
-                     or  IPv6  address. If ip is an IPv6 address, then wrap ip
-                     with square brackets, e.g.: tcp:[::1]:6640.
+                     The  given SSL or plain TCP port on the host at the given
+                     ip, which must be expressed as an IP address (not  a  DNS
+                     name)  in  IPv4 or IPv6 address format.  If ip is an IPv6
+                     address,  then  wrap  ip  with  square  brackets,   e.g.:
+                     ssl:[::1]:6640.   On  Linux,  use  %device to designate a
+                     scope    for    IPv6    link-level    addresses,     e.g.
+                     ssl:[fe80::1234%eth0]:6653.   For ssl, the --private-key,
+                     --certificate, and --ca-cert options are mandatory.
 
               unix:file
                      On POSIX, connect to the Unix domain server socket  named
@@ -69,46 +67,41 @@ OPTIONS
                      behavior of a Unix domain socket.
 
               pssl:port[:ip]
-                     Listen  on  the  given  SSL  port  for  a connection.  By
+              ptcp:port[:ip]
+                     Listen on the given SSL or TCP port for a connection.  By
                      default, connections are not bound to a particular  local
                      IP  address  and  it  listens only on IPv4 (but not IPv6)
                      addresses, but specifying ip limits connections to  those
                      from the given ip, either IPv4 or IPv6 address.  If ip is
                      an IPv6 address, then wrap ip with square brackets, e.g.:
-                     pssl:6640:[::1].   The  --private-key, --certificate, and
-                     --ca-cert options are mandatory when this form is used.
-
-              ptcp:port[:ip]
-                     Listen on the  given  TCP  port  for  a  connection.   By
-                     default,  connections are not bound to a particular local
-                     IP address and it listens only on  IPv4  (but  not  IPv6)
-                     addresses,  but  ip  may  be specified to listen only for
-                     connections to the given ip, either IPv4 or IPv6 address.
-                     If ip is an IPv6 address, then wrap ip with square brack‐
-                     ets, e.g.: ptcp:6640:[::1].
+                     pssl:6640:[::1].   On  Linux,  use %device to designate a
+                     scope    for    IPv6    link-level    addresses,     e.g.
+                     pssl:6653:[fe80::1234%eth0].    For   pssl,   the  --pri‐
+                     vate-key, --certificate, and --ca-cert options are manda‐
+                     tory.
 
               punix:file
-                     On POSIX, listen on the Unix domain server  socket  named
+                     On  POSIX,  listen on the Unix domain server socket named
                      file for a connection.
 
                      On Windows, listen on a local named pipe.  A file is cre‐
-                     ated in the path file to mimic the  behavior  of  a  Unix
+                     ated  in  the  path  file to mimic the behavior of a Unix
                      domain socket.
 
        --no-syslog
-              By  default, ovn-sbctl logs its arguments and the details of any
-              changes that it makes to the system log.  This  option  disables
+              By default, ovn-sbctl logs its arguments and the details of  any
+              changes  that  it makes to the system log.  This option disables
               this logging.
 
               This option is equivalent to --verbose=sbctl:syslog:warn.
 
        --oneline
-              Modifies  the  output format so that the output for each command
-              is printed on a single line.   New-line  characters  that  would
+              Modifies the output format so that the output for  each  command
+              is  printed  on  a  single line.  New-line characters that would
               otherwise separate lines are printed as \n, and any instances of
               \ that would otherwise appear in the output are doubled.  Prints
-              a  blank  line for each command that has no output.  This option
-              does not affect the formatting of output from the list  or  find
+              a blank line for each command that has no output.   This  option
+              does  not  affect the formatting of output from the list or find
               commands; see Table Formatting Options below.
 
        --dry-run
@@ -116,44 +109,44 @@ OPTIONS
 
        -t secs
        --timeout=secs
-              By  default,  or with a secs of 0, ovn-sbctl waits forever for a
-              response from the  database.   This  option  limits  runtime  to
-              approximately  secs  seconds.  If the timeout expires, ovn-sbctl
+              By default, or with a secs of 0, ovn-sbctl waits forever  for  a
+              response  from  the  database.   This  option  limits runtime to
+              approximately secs seconds.  If the timeout  expires,  ovn-sbctl
               will exit with a SIGALRM signal.  (A timeout would normally hap‐
-              pen  only  if the database cannot be contacted, or if the system
+              pen only if the database cannot be contacted, or if  the  system
               is overloaded.)
 
        -v[spec]
        --verbose=[spec]
-              Sets logging levels.  Without any spec, sets the log  level  for
-              every  module and destination to dbg.  Otherwise, spec is a list
+              Sets  logging  levels.  Without any spec, sets the log level for
+              every module and destination to dbg.  Otherwise, spec is a  list
               of words separated by spaces or commas or colons, up to one from
               each category below:
 
-              ·      A  valid  module name, as displayed by the vlog/list com‐
+              ·      A valid module name, as displayed by the  vlog/list  com‐
                      mand on ovs-appctl(8), limits the log level change to the
                      specified module.
 
-              ·      syslog,  console,  or file, to limit the log level change
-                     to only to the system log, to the console, or to a  file,
-                     respectively.    (If  --detach  is  specified,  ovn-sbctl
-                     closes its standard file descriptors, so logging  to  the
+              ·      syslog, console, or file, to limit the log  level  change
+                     to  only to the system log, to the console, or to a file,
+                     respectively.   (If  --detach  is  specified,   ovn-sbctl
+                     closes  its  standard file descriptors, so logging to the
                      console will have no effect.)
 
-                     On  Windows platform, syslog is accepted as a word and is
-                     only useful along with the  --syslog-target  option  (the
+                     On Windows platform, syslog is accepted as a word and  is
+                     only  useful  along  with the --syslog-target option (the
                      word has no effect otherwise).
 
-              ·      off,  emer,  err,  warn, info, or dbg, to control the log
-                     level.  Messages of the given severity or higher will  be
-                     logged,  and  messages of lower severity will be filtered
-                     out.  off filters out all  messages.   See  ovs-appctl(8)
+              ·      off, emer, err, warn, info, or dbg, to  control  the  log
+                     level.   Messages of the given severity or higher will be
+                     logged, and messages of lower severity will  be  filtered
+                     out.   off  filters  out all messages.  See ovs-appctl(8)
                      for a definition of each log level.
 
               Case is not significant within spec.
 
-              Regardless  of  the  log  levels set for file, logging to a file
-              will not take place unless --log-file  is  also  specified  (see
+              Regardless of the log levels set for file,  logging  to  a  file
+              will  not  take  place  unless --log-file is also specified (see
               below).
 
               For compatibility with older versions of OVS, any is accepted as
@@ -161,61 +154,61 @@ OPTIONS
 
        -v
        --verbose
-              Sets the maximum logging verbosity level, equivalent  to  --ver‐
+              Sets  the  maximum logging verbosity level, equivalent to --ver‐
               bose=dbg.
 
        -vPATTERN:destination:pattern
        --verbose=PATTERN:destination:pattern
-              Sets  the  log  pattern  for  destination  to pattern.  Refer to
+              Sets the log pattern  for  destination  to  pattern.   Refer  to
               ovs-appctl(8) for a description of the valid syntax for pattern.
 
        -vFACILITY:facility
        --verbose=FACILITY:facility
-              Sets the RFC5424 facility of the log message.  facility  can  be
-              one  of kern, user, mail, daemon, auth, syslog, lpr, news, uucp,
-              clock, ftp, ntp, audit, alert, clock2, local0,  local1,  local2,
-              local3,  local4, local5, local6 or local7. If this option is not
-              specified, daemon is used as the default for  the  local  system
-              syslog  and local0 is used while sending a message to the target
+              Sets  the  RFC5424  facility of the log message. facility can be
+              one of kern, user, mail, daemon, auth, syslog, lpr, news,  uucp,
+              clock,  ftp,  ntp, audit, alert, clock2, local0, local1, local2,
+              local3, local4, local5, local6 or local7. If this option is  not
+              specified,  daemon  is  used as the default for the local system
+              syslog and local0 is used while sending a message to the  target
               provided via the --syslog-target option.
 
        --log-file[=file]
-              Enables logging to a file.  If file is  specified,  then  it  is
-              used  as  the exact name for the log file.  The default log file
-              name   used   if   file    is    omitted    is    /var/log/open‐
+              Enables  logging  to  a  file.  If file is specified, then it is
+              used as the exact name for the log file.  The default  log  file
+              name   used  if  file  is  omitted  is  /usr/local/var/log/open‐
               vswitch/ovn-sbctl.log.
 
        --syslog-target=host:port
-              Send  syslog  messages  to  UDP port on host, in addition to the
-              system syslog.  The host must be a numerical IP address,  not  a
+              Send syslog messages to UDP port on host,  in  addition  to  the
+              system  syslog.   The host must be a numerical IP address, not a
               hostname.
 
        --syslog-method=method
               Specify method how syslog messages should be sent to syslog dae‐
               mon.  Following forms are supported:
 
-              ·      libc, use libc syslog() function.  This  is  the  default
-                     behavior.   Downside  of  using this options is that libc
-                     adds fixed prefix to every message before it is  actually
-                     sent  to  the  syslog  daemon  over  /dev/log UNIX domain
+              ·      libc,  use  libc  syslog() function.  This is the default
+                     behavior.  Downside of using this options  is  that  libc
+                     adds  fixed prefix to every message before it is actually
+                     sent to the  syslog  daemon  over  /dev/log  UNIX  domain
                      socket.
 
               ·      unix:file, use UNIX domain socket directly.  It is possi‐
                      ble to specify arbitrary message format with this option.
-                     However, rsyslogd 8.9 and older versions use  hard  coded
-                     parser  function  anyway  that  limits UNIX domain socket
-                     use.  If you want to use arbitrary  message  format  with
+                     However,  rsyslogd  8.9 and older versions use hard coded
+                     parser function anyway that  limits  UNIX  domain  socket
+                     use.   If  you  want to use arbitrary message format with
                      older rsyslogd versions, then use UDP socket to localhost
                      IP address instead.
 
               ·      udp:ip:port, use UDP socket.  With this method it is pos‐
-                     sible  to  use  arbitrary  message format also with older
-                     rsyslogd.  When sending syslog messages over  UDP  socket
-                     extra  precaution  needs  to  be  taken into account, for
-                     example, syslog daemon needs to be configured  to  listen
-                     on  the  specified  UDP  port,  accidental iptables rules
-                     could be interfering with local syslog traffic and  there
-                     are  some security considerations that apply to UDP sock‐
+                     sible to use arbitrary message  format  also  with  older
+                     rsyslogd.   When  sending syslog messages over UDP socket
+                     extra precaution needs to  be  taken  into  account,  for
+                     example,  syslog  daemon needs to be configured to listen
+                     on the specified  UDP  port,  accidental  iptables  rules
+                     could  be interfering with local syslog traffic and there
+                     are some security considerations that apply to UDP  sock‐
                      ets, but do not apply to UNIX domain sockets.
 
        -h
@@ -226,68 +219,67 @@ OPTIONS
               Prints version information to the console.
 
    Table Formatting Options
-       These options control the format of output from the list and find  com‐
+       These  options control the format of output from the list and find com‐
        mands.
 
        -f format
        --format=format
-              Sets  the type of table formatting.  The following types of for‐
+              Sets the type of table formatting.  The following types of  for‐
               mat are available:
 
               table  2-D text tables with aligned columns.
 
               list (default)
-                     A list with one column per line and rows separated  by  a
+                     A  list  with one column per line and rows separated by a
                      blank line.
 
               html   HTML tables.
 
               csv    Comma-separated values as defined in RFC 4180.
 
-              json   JSON  format  as  defined  in  RFC 4627.  The output is a
-                     sequence of JSON objects, each of  which  corresponds  to
-                     one  table.   Each  JSON object has the following members
+              json   JSON format as defined in RFC  4627.   The  output  is  a
+                     sequence  of  JSON  objects, each of which corresponds to
+                     one table.  Each JSON object has  the  following  members
                      with the noted values:
 
                      caption
-                            The table's caption.  This member  is  omitted  if
+                            The  table's  caption.   This member is omitted if
                             the table has no caption.
 
                      headings
-                            An  array with one element per table column.  Each
+                            An array with one element per table column.   Each
                             array element is a string giving the corresponding
                             column's heading.
 
-                     data   An  array  with  one  element per table row.  Each
-                            element is also an array with one element per  ta‐
-                            ble  column.   The  elements  of this second-level
-                            array are the cells  that  constitute  the  table.
-                            Cells  that represent OVSDB data or data types are
-                            expressed in the format  described  in  the  OVSDB
+                     data   An array with one element  per  table  row.   Each
+                            element  is also an array with one element per ta‐
+                            ble column.  The  elements  of  this  second-level
+                            array  are  the  cells  that constitute the table.
+                            Cells that represent OVSDB data or data types  are
+                            expressed  in  the  format  described in the OVSDB
                             specification; other cells are simply expressed as
                             text strings.
 
        -d format
        --data=format
-              Sets the formatting for cells within output tables.  The follow‐
-              ing types of format are available:
+              Sets  the  formatting  for cells within output tables unless the
+              table format is set to json, in which case  json  formatting  is
+              always  used when formatting cells.  The following types of for‐
+              mat are available:
 
               string (default)
-                     The  simple  format described in the Database Values sec‐
+                     The simple format described in the Database  Values  sec‐
                      tion of ovs-vsctl(8).
 
-              bare   The simple format with punctuation stripped off:  []  and
-                     {}  are  omitted  around  sets,  maps, and empty columns,
-                     items within  sets  and  maps  are  space-separated,  and
-                     strings  are never quoted.  This format may be easier for
+              bare   The  simple  format with punctuation stripped off: [] and
+                     {} are omitted around  sets,  maps,  and  empty  columns,
+                     items  within  sets  and  maps  are  space-separated, and
+                     strings are never quoted.  This format may be easier  for
                      scripts to parse.
 
-              json   JSON.
+              json   The RFC 4627 JSON format as described above.
 
-              The json output format always  outputs  cells  in  JSON  format,
-              ignoring this option.
-
-       --no-heading
+       --no-headings
               This option suppresses the heading row that otherwise appears in
               the first row of table output.
 
@@ -413,23 +405,37 @@ COMMANDS
               logical port that is not bound has no effect.
 
    Logical Flow Commands
-       [--uuid] lflow-list [logical-datapath] [lflow...]
+       [--uuid]   [--ovs[=remote]]   [--stats]  lflow-list  [logical-datapath]
+       [lflow...]
               List logical flows.  If logical-datapath is specified, only list
-              flows for that logical datapath.  The  logical-datapath  may  be
-              given  as  a  UUID  or as a datapath name (reporting an error if
+              flows  for  that  logical datapath.  The logical-datapath may be
+              given as a UUID or as a datapath name  (reporting  an  error  if
               multiple datapaths have the same name).
 
-              If at least one lflow is given, only matching logical flows,  if
-              any,  are  listed.  Each lflow may be specified as a UUID or the
-              first few characters of  a  UUID,  optionally  prefixed  by  0x.
-              (Because  ovn-controller sets OpenFlow flow cookies to the first
-              32 bits of the corresponding logical flow's UUID, this makes  it
-              easy  to  look  up  the logical flow that generated a particular
+              If  at least one lflow is given, only matching logical flows, if
+              any, are listed.  Each lflow may be specified as a UUID  or  the
+              first  few  characters  of  a  UUID,  optionally prefixed by 0x.
+              (Because ovn-controller sets OpenFlow flow cookies to the  first
+              32  bits of the corresponding logical flow's UUID, this makes it
+              easy to look up the logical flow  that  generated  a  particular
               OpenFlow flow.)
 
               If --uuid is specified, the output includes the first 32 bits of
-              each  logical  flow's  UUID.   This  makes it easier to find the
+              each logical flow's UUID.  This makes  it  easier  to  find  the
               OpenFlow flows that correspond to a given logical flow.
+
+              If  --ovs  is included, ovn-sbctl attempts to obtain and display
+              the OpenFlow flows that correspond to each OVN logical flow.  To
+              do    so,    ovn-sbctl   connects   to   remote   (by   default,
+              unix:/usr/local/var/run/openvswitch/br-int.mgmt)  over  OpenFlow
+              and  retrieves the flows.  If remote is specified, it must be an
+              active OpenFlow connection  method  described  in  ovs-ofctl(8).
+              Please  see  the  discussion of the similar --ovs option in ovn-
+              trace(8) for more information about the OpenFlow flow output.
+
+              By  default,  OpenFlow  flow  output  includes  only  match  and
+              actions.   Add --stats to include all OpenFlow information, such
+              as packet and byte counters, duration, and timeouts.
 
        [--uuid] dump-flows [logical-datapath]
               Alias for lflow-list.
@@ -452,17 +458,15 @@ COMMANDS
               read-write) and may use any of the following forms:
 
               ssl:ip:port
-                     The specified SSL port on the host at the given ip, which
-                     must be expressed as an IP address (not a  DNS  name)  in
-                     IPv4  or  IPv6 address format.  If ip is an IPv6 address,
-                     then wrap ip with square brackets, e.g.:  ssl:[::1]:6640.
-                     The  --private-key,  --certificate, and --ca-cert options
-                     are mandatory when this form is used.
-
               tcp:ip:port
-                     Connect to the given TCP port on ip, where ip can be IPv4
-                     or  IPv6  address. If ip is an IPv6 address, then wrap ip
-                     with square brackets, e.g.: tcp:[::1]:6640.
+                     The  given SSL or plain TCP port on the host at the given
+                     ip, which must be expressed as an IP address (not  a  DNS
+                     name)  in  IPv4 or IPv6 address format.  If ip is an IPv6
+                     address,  then  wrap  ip  with  square  brackets,   e.g.:
+                     ssl:[::1]:6640.   On  Linux,  use  %device to designate a
+                     scope    for    IPv6    link-level    addresses,     e.g.
+                     ssl:[fe80::1234%eth0]:6653.   For ssl, the --private-key,
+                     --certificate, and --ca-cert options are mandatory.
 
               unix:file
                      On POSIX, connect to the Unix domain server socket  named
@@ -473,53 +477,48 @@ COMMANDS
                      behavior of a Unix domain socket.
 
               pssl:port[:ip]
-                     Listen  on  the  given  SSL  port  for  a connection.  By
+              ptcp:port[:ip]
+                     Listen on the given SSL or TCP port for a connection.  By
                      default, connections are not bound to a particular  local
                      IP  address  and  it  listens only on IPv4 (but not IPv6)
                      addresses, but specifying ip limits connections to  those
                      from the given ip, either IPv4 or IPv6 address.  If ip is
                      an IPv6 address, then wrap ip with square brackets, e.g.:
-                     pssl:6640:[::1].   The  --private-key, --certificate, and
-                     --ca-cert options are mandatory when this form is used.
-
-              ptcp:port[:ip]
-                     Listen on the  given  TCP  port  for  a  connection.   By
-                     default,  connections are not bound to a particular local
-                     IP address and it listens only on  IPv4  (but  not  IPv6)
-                     addresses,  but  ip  may  be specified to listen only for
-                     connections to the given ip, either IPv4 or IPv6 address.
-                     If ip is an IPv6 address, then wrap ip with square brack‐
-                     ets, e.g.: ptcp:6640:[::1].
+                     pssl:6640:[::1].   On  Linux,  use %device to designate a
+                     scope    for    IPv6    link-level    addresses,     e.g.
+                     pssl:6653:[fe80::1234%eth0].    For   pssl,   the  --pri‐
+                     vate-key, --certificate, and --ca-cert options are manda‐
+                     tory.
 
               punix:file
-                     On POSIX, listen on the Unix domain server  socket  named
+                     On  POSIX,  listen on the Unix domain server socket named
                      file for a connection.
 
                      On Windows, listen on a local named pipe.  A file is cre‐
-                     ated in the path file to mimic the  behavior  of  a  Unix
+                     ated  in  the  path  file to mimic the behavior of a Unix
                      domain socket.
 
        If provided, the effect of the access specifier persists for subsequent
        targets until changed by another access specifier.
 
    SSL Configuration
-       When ovsdb-server is configured to connect  using  SSL,  the  following
+       When  ovsdb-server  is  configured  to connect using SSL, the following
        parameters are required:
 
        private-key
-              Specifies  a  PEM  file  containing the private key used for SSL
+              Specifies a PEM file containing the private  key  used  for  SSL
               connections.
 
        certificate
-              Specifies a PEM file containing a  certificate,  signed  by  the
-              certificate  authority  (CA)  used by the connection peers, that
+              Specifies  a  PEM  file  containing a certificate, signed by the
+              certificate authority (CA) used by the  connection  peers,  that
               certifies the private key, identifying a trustworthy peer.
 
        ca-cert
-              Specifies a PEM file containing the CA certificate used to  ver‐
+              Specifies  a PEM file containing the CA certificate used to ver‐
               ify that the connection peers are trustworthy.
 
-       These  SSL settings apply to all SSL connections made by the southbound
+       These SSL settings apply to all SSL connections made by the  southbound
        database server.
 
        get-ssl
@@ -528,7 +527,8 @@ COMMANDS
        del-ssl
               Deletes the current SSL configuration.
 
-       [--bootstrap] set-ssl private-key certificate ca-cert
+       [--bootstrap]  set-ssl  private-key  certificate ca-cert [ssl-protocol-
+       list [ssl-cipher-list]]
               Sets the SSL configuration.  The --bootstrap option is described
               below.
 
@@ -550,6 +550,27 @@ COMMANDS
        This option is only useful if the SSL peer sends its CA certificate  as
        part  of  the SSL certificate chain.  The SSL protocol does not require
        the controller to send the CA certificate.
+
+   Database Commands
+       These commands query and modify the contents of ovsdb tables.  They are
+       a slight abstraction of the ovsdb interface and as such they operate at
+       a lower level than other ovs-sbctl commands.
+
+     Identifying Tables, Records, and Columns
+
+       Each of these commands has a table parameter to identify a table within
+       the  database.   Many of them also take a record parameter that identi‐
+       fies a particular record within a table.  The record parameter  may  be
+       the  UUID  for a record, and many tables offer additional ways to iden‐
+       tify records.  Some commands also take column parameters that  identify
+       a particular field within the records in a table.
+
+       Record names must be specified in full and with correct capitalization,
+       except that UUIDs may be abbreviated to their first  4  (or  more)  hex
+       digits,  as  long  as that is unique within the table.  Names of tables
+       and columns are not case-sensitive, and -  and  _  are  treated  inter‐
+       changeably.  Unique abbreviations of table and column names are accept‐
+       able, e.g. addr or a is sufficient to identify the Address_Set table.
 
      Database Values
 
@@ -758,7 +779,7 @@ COMMANDS
               tion  in contexts where a UUID is expected.  Such references may
               precede or follow the create command.
 
-              Caution (ovs-vsctl as exmaple)
+              Caution (ovs-vsctl as example)
                      Records in the Open vSwitch database are significant only
                      when  they can be reached directly or indirectly from the
                      Open_vSwitch table.  Except for records  in  the  QoS  or
@@ -780,7 +801,7 @@ COMMANDS
        --all destroy table
               Deletes all records from the table.
 
-              Caution (ovs-vsctl as exmaple)
+              Caution (ovs-vsctl as example)
                      The destroy command is only useful for records in the QoS
                      or Queue tables.  Records in other tables  are  automati‐
                      cally deleted from the database when they become unreach‐
@@ -803,7 +824,7 @@ COMMANDS
               only  until  record  exists.   If more than one such argument is
               given, the command waits until all of them are satisfied.
 
-              Caution (ovs-vsctl as exmaple)
+              Caution (ovs-vsctl as example)
                      Usually wait-until should be placed at the beginning of a
                      set  of  ovs-vsctl  commands.   For  example,  wait-until
                      bridge br0 -- get bridge br0 datapath_id  waits  until  a
@@ -831,4 +852,4 @@ SEE ALSO
 
 
 
-Open vSwitch                        2.7.90                        ovn-sbctl(8)
+Open vSwitch                        2.8.90                        ovn-sbctl(8)

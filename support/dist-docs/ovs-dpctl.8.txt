@@ -116,7 +116,7 @@ DESCRIPTION
               "total" displays number of masks in the datapath. "hit/pkt" dis‐
               plays the average number of masks visited per packet; the  ratio
               between "hit" and total number of packets processed by the data‐
-              path".
+              path.
 
               If one or more datapaths  are  specified,  information  on  only
               those  datapaths  are  displayed.  Otherwise, ovs-dpctl displays
@@ -133,20 +133,26 @@ DESCRIPTION
        datapath exists, in which case that datapath is the default.  When mul‐
        tiple datapaths exist, then a datapath name is required.
 
-       [-m | --more] dump-flows [dp] [filter=filter]
+       [-m | --more] [--names | --no-names]  dump-flows  [dp]  [filter=filter]
+       [type=type]
               Prints to the console all flow entries in datapath dp's flow ta‐
-              ble.   Without  -m  or  --more, output omits match fields that a
-              flow wildcards entirely; with -m or --more, output includes  all
+              ble.  Without -m or --more, output omits  match  fields  that  a
+              flow  wildcards entirely; with -m or --more, output includes all
               wildcarded fields.
 
-              If  filter=filter  is  specified,  only  displays the flows that
-              match the filter. filter is a flow in the form similiar to  that
-              accepted  by  ovs-ofctl(8)'s  add-flow  command. (This is not an
-              OpenFlow flow: besides  other  differences,  it  never  contains
-              wildcards.)   The  filter  is  also  useful  to match wildcarded
+              If filter=filter is specified,  only  displays  the  flows  that
+              match  the filter. filter is a flow in the form similiar to that
+              accepted by ovs-ofctl(8)'s add-flow command.  (This  is  not  an
+              OpenFlow  flow:  besides  other  differences,  it never contains
+              wildcards.)  The filter  is  also  useful  to  match  wildcarded
               fields   in   the   datapath   flow.   As   an   example,   fil‐
-              ter='tcp,tp_src=100'  will  match  the  datapath flow containing
+              ter='tcp,tp_src=100' will match  the  datapath  flow  containing
               'tcp(src=80/0xff00,dst=8080/0xff)'.
+
+              If  type=type  is  specified,  only displays flows of a specific
+              type.  type can be offloaded to display only offloaded rules  or
+              OVS  to  display only non-offloaded rules.  By default both off‐
+              loaded and non-offloaded rules are displayed.
 
        add-flow [dp] flow actions
 
@@ -170,89 +176,130 @@ DESCRIPTION
               statistics printed if -s or --statistics is also  specified  are
               those from just before clearing the statistics.
 
+              NOTE:  flow  and  actions  do  not  match  the  syntax used with
+              ovs-ofctl(8)'s add-flow command.
+
+              Usage Examples
+
+              Forward ARP between ports 1 and 2 on datapath myDP:
+
+                     ovs-dpctl add-flow myDP \
+                       "in_port(1),eth(),eth_type(0x0806),arp()" 2
+
+                     ovs-dpctl add-flow myDP \
+                       "in_port(2),eth(),eth_type(0x0806),arp()" 1
+
+              Forward all IPv4 traffic between two addresses on ports 1 and 2:
+
+                     ovs-dpctl add-flow myDP \
+                       "in_port(1),eth(),eth_type(0x800),\
+                        ipv4(src=172.31.110.4,dst=172.31.110.5)" 2
+
+                     ovs-dpctl add-flow myDP \
+                       "in_port(2),eth(),eth_type(0x800),\
+                        ipv4(src=172.31.110.5,dst=172.31.110.4)" 1
+
        [-s | --statistics] del-flow [dp] flow
-              Deletes  the flow from dp's flow table that matches flow.  If -s
-              or --statistics is specified, then del-flow prints  the  deleted
+              Deletes the flow from dp's flow table that matches flow.  If  -s
+              or  --statistics  is specified, then del-flow prints the deleted
               flow's statistics.
 
-       get-flow [dp] ufid:ufid
-              Fetches  the  flow  from  dp's flow table with unique identifier
-              ufid.  ufid must be specified as  a  string  of  32  hexadecimal
+       [-m | --more] [--names | --no-names] get-flow [dp] ufid:ufid
+              Fetches the flow from dp's flow  table  with  unique  identifier
+              ufid.   ufid  must  be  specified  as a string of 32 hexadecimal
               characters.
 
        del-flows [dp]
               Deletes all flow entries from datapath dp's flow table.
 
    CONNECTION TRACKING TABLE DEBUGGING COMMANDS
-       The  following  commands are primarily useful for debugging the connec‐
+       The following commands are primarily useful for debugging  the  connec‐
        tion tracking entries in the datapath.
 
-       The dp argument to each of these commands is optional when exactly  one
+       The  dp argument to each of these commands is optional when exactly one
        datapath exists, in which case that datapath is the default.  When mul‐
        tiple datapaths exist, then a datapath name is required.
 
-       N.B.(Linux specific): the system datapaths (i.e. the Linux kernel  mod‐
-       ule  Open  vSwitch  datapaths) share a single connection tracking table
+       N.B.(Linux  specific): the system datapaths (i.e. the Linux kernel mod‐
+       ule Open vSwitch datapaths) share a single  connection  tracking  table
        (which is also used by other kernel subsystems, such as iptables, nfta‐
        bles and the regular host stack).  Therefore, the following commands do
        not apply specifically to one datapath.
 
        [-m | --more] [-s | --statistics] dump-conntrack [dp] [zone=zone]
-              Prints to the console all the connection entries in the  tracker
-              used  by  dp.  If zone=zone is specified, only shows the connec‐
+              Prints  to the console all the connection entries in the tracker
+              used by dp.  If zone=zone is specified, only shows  the  connec‐
               tions  in  zone.   With  --more,  some  implementation  specific
-              details  are included. With --statistics timeouts and timestamps
+              details are included. With --statistics timeouts and  timestamps
               are added to the output.
 
        flush-conntrack [dp] [zone=zone]
-              Flushes all the connection entries in the tracker  used  by  dp.
+              Flushes  all  the  connection entries in the tracker used by dp.
               If zone=zone is specified, only flushes the connections in zone.
+
+       ct-stats-show [dp] [zone=zone] [verbose]
+              Displays the number of connections grouped by protocol  used  by
+              dp.  If zone=zone is specified, numbers refer to the connections
+              in zone. The verbose option allows to group by connection  state
+              for each protocol.
+
+       ct-bkts [dp] [gt=Threshold]
+              For  each ConnTracker bucket, displays the number of connections
+              used by dp.  If gt=Threshold is specified,  bucket  numbers  are
+              displayed  when the number of connections in a bucket is greater
+              than Threshold.
 
 OPTIONS
        -s
        --statistics
-              Causes  the  show  command to print packet and byte counters for
+              Causes the show command to print packet and  byte  counters  for
               each port within the datapaths that it shows.
 
        -m
-       --more Increases the verbosity of dump-flows output.
+       --more Increases verbosity of output for dump-flows and get-flow.
+
+       --names
+       --no-names
+              Enables  or  disables  showing port names in place of numbers in
+              output for dump-flows and get-flow.  By default, names are shown
+              if at least one -m or --more is specified.
 
        -t
        --timeout=secs
-              Limits ovs-dpctl runtime to approximately secs seconds.  If  the
+              Limits  ovs-dpctl runtime to approximately secs seconds.  If the
               timeout expires, ovs-dpctl will exit with a SIGALRM signal.
 
        -v[spec]
        --verbose=[spec]
-              Sets  logging  levels.  Without any spec, sets the log level for
-              every module and destination to dbg.  Otherwise, spec is a  list
+              Sets logging levels.  Without any spec, sets the log  level  for
+              every  module and destination to dbg.  Otherwise, spec is a list
               of words separated by spaces or commas or colons, up to one from
               each category below:
 
-              ·      A valid module name, as displayed by the  vlog/list  com‐
+              ·      A  valid  module name, as displayed by the vlog/list com‐
                      mand on ovs-appctl(8), limits the log level change to the
                      specified module.
 
-              ·      syslog, console, or file, to limit the log  level  change
-                     to  only to the system log, to the console, or to a file,
-                     respectively.   (If  --detach  is  specified,   ovs-dpctl
-                     closes  its  standard file descriptors, so logging to the
+              ·      syslog,  console,  or file, to limit the log level change
+                     to only to the system log, to the console, or to a  file,
+                     respectively.    (If  --detach  is  specified,  ovs-dpctl
+                     closes its standard file descriptors, so logging  to  the
                      console will have no effect.)
 
-                     On Windows platform, syslog is accepted as a word and  is
-                     only  useful  along  with the --syslog-target option (the
+                     On  Windows platform, syslog is accepted as a word and is
+                     only useful along with the  --syslog-target  option  (the
                      word has no effect otherwise).
 
-              ·      off, emer, err, warn, info, or dbg, to  control  the  log
-                     level.   Messages of the given severity or higher will be
-                     logged, and messages of lower severity will  be  filtered
-                     out.   off  filters  out all messages.  See ovs-appctl(8)
+              ·      off,  emer,  err,  warn, info, or dbg, to control the log
+                     level.  Messages of the given severity or higher will  be
+                     logged,  and  messages of lower severity will be filtered
+                     out.  off filters out all  messages.   See  ovs-appctl(8)
                      for a definition of each log level.
 
               Case is not significant within spec.
 
-              Regardless of the log levels set for file,  logging  to  a  file
-              will  not  take  place  unless --log-file is also specified (see
+              Regardless  of  the  log  levels set for file, logging to a file
+              will not take place unless --log-file  is  also  specified  (see
               below).
 
               For compatibility with older versions of OVS, any is accepted as
@@ -260,61 +307,61 @@ OPTIONS
 
        -v
        --verbose
-              Sets  the  maximum logging verbosity level, equivalent to --ver‐
+              Sets the maximum logging verbosity level, equivalent  to  --ver‐
               bose=dbg.
 
        -vPATTERN:destination:pattern
        --verbose=PATTERN:destination:pattern
-              Sets the log pattern  for  destination  to  pattern.   Refer  to
+              Sets  the  log  pattern  for  destination  to pattern.  Refer to
               ovs-appctl(8) for a description of the valid syntax for pattern.
 
        -vFACILITY:facility
        --verbose=FACILITY:facility
-              Sets  the  RFC5424  facility of the log message. facility can be
-              one of kern, user, mail, daemon, auth, syslog, lpr, news,  uucp,
-              clock,  ftp,  ntp, audit, alert, clock2, local0, local1, local2,
-              local3, local4, local5, local6 or local7. If this option is  not
-              specified,  daemon  is  used as the default for the local system
-              syslog and local0 is used while sending a message to the  target
+              Sets the RFC5424 facility of the log message.  facility  can  be
+              one  of kern, user, mail, daemon, auth, syslog, lpr, news, uucp,
+              clock, ftp, ntp, audit, alert, clock2, local0,  local1,  local2,
+              local3,  local4, local5, local6 or local7. If this option is not
+              specified, daemon is used as the default for  the  local  system
+              syslog  and local0 is used while sending a message to the target
               provided via the --syslog-target option.
 
        --log-file[=file]
-              Enables  logging  to  a  file.  If file is specified, then it is
-              used as the exact name for the log file.  The default  log  file
-              name    used    if    file    is   omitted   is   /var/log/open‐
+              Enables logging to a file.  If file is  specified,  then  it  is
+              used  as  the exact name for the log file.  The default log file
+              name  used  if  file  is  omitted  is   /usr/local/var/log/open‐
               vswitch/ovs-dpctl.log.
 
        --syslog-target=host:port
-              Send syslog messages to UDP port on host,  in  addition  to  the
-              system  syslog.   The host must be a numerical IP address, not a
+              Send  syslog  messages  to  UDP port on host, in addition to the
+              system syslog.  The host must be a numerical IP address,  not  a
               hostname.
 
        --syslog-method=method
               Specify method how syslog messages should be sent to syslog dae‐
               mon.  Following forms are supported:
 
-              ·      libc,  use  libc  syslog() function.  This is the default
-                     behavior.  Downside of using this options  is  that  libc
-                     adds  fixed prefix to every message before it is actually
-                     sent to the  syslog  daemon  over  /dev/log  UNIX  domain
+              ·      libc, use libc syslog() function.  This  is  the  default
+                     behavior.   Downside  of  using this options is that libc
+                     adds fixed prefix to every message before it is  actually
+                     sent  to  the  syslog  daemon  over  /dev/log UNIX domain
                      socket.
 
               ·      unix:file, use UNIX domain socket directly.  It is possi‐
                      ble to specify arbitrary message format with this option.
-                     However,  rsyslogd  8.9 and older versions use hard coded
-                     parser function anyway that  limits  UNIX  domain  socket
-                     use.   If  you  want to use arbitrary message format with
+                     However, rsyslogd 8.9 and older versions use  hard  coded
+                     parser  function  anyway  that  limits UNIX domain socket
+                     use.  If you want to use arbitrary  message  format  with
                      older rsyslogd versions, then use UDP socket to localhost
                      IP address instead.
 
               ·      udp:ip:port, use UDP socket.  With this method it is pos‐
-                     sible to use arbitrary message  format  also  with  older
-                     rsyslogd.   When  sending syslog messages over UDP socket
-                     extra precaution needs to  be  taken  into  account,  for
-                     example,  syslog  daemon needs to be configured to listen
-                     on the specified  UDP  port,  accidental  iptables  rules
-                     could  be interfering with local syslog traffic and there
-                     are some security considerations that apply to UDP  sock‐
+                     sible  to  use  arbitrary  message format also with older
+                     rsyslogd.  When sending syslog messages over  UDP  socket
+                     extra  precaution  needs  to  be  taken into account, for
+                     example, syslog daemon needs to be configured  to  listen
+                     on  the  specified  UDP  port,  accidental iptables rules
+                     could be interfering with local syslog traffic and  there
+                     are  some security considerations that apply to UDP sock‐
                      ets, but do not apply to UNIX domain sockets.
 
        -h
@@ -329,4 +376,4 @@ SEE ALSO
 
 
 
-Open vSwitch                        2.6.90                        ovs-dpctl(8)
+Open vSwitch                        2.8.90                        ovs-dpctl(8)

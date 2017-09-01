@@ -20,45 +20,45 @@ ovn-sb(5)                     Open vSwitch Manual                    ovn-sb(5)
        The  OVN  Southbound  database  contains classes of data with different
        properties, as described in the sections below.
 
-     <u>P</u><u>h</u><u>y</u><u>s</u><u>i</u><u>c</u><u>a</u><u>l</u> <u>N</u><u>e</u><u>t</u><u>w</u><u>o</u><u>r</u><u>k</u> <u>(</u><u>P</u><u>N</u><u>)</u> <u>d</u><u>a</u><u>t</u><u>a</u>
+     <u>P</u><u>h</u><u>y</u><u>s</u><u>i</u><u>c</u><u>a</u><u>l</u> <u>n</u><u>e</u><u>t</u><u>w</u><u>o</u><u>r</u><u>k</u>
 
-       PN tables contain information about the chassis nodes  in  the  system.
-       This  contains  all the information necessary to wire the overlay, such
-       as IP addresses, supported tunnel types, and security keys.
+       Physical network tables contain information about the chassis nodes  in
+       the  system.  This  contains  all the information necessary to wire the
+       overlay, such as IP addresses, supported  tunnel  types,  and  security
+       keys.
 
-       The amount of PN data is small (O(n) in the number of chassis)  and  it
-       changes infrequently, so it can be replicated to every chassis.
+       The  amount  of  physical  network data is small (O(n) in the number of
+       chassis) and it changes infrequently, so it can be replicated to  every
+       chassis.
 
-       The <b>C</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b> table comprises the PN tables.
+       The <b>C</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b> and <b>E</b><b>n</b><b>c</b><b>a</b><b>p</b> tables are the physical network tables.
 
-     <u>L</u><u>o</u><u>g</u><u>i</u><u>c</u><u>a</u><u>l</u> <u>N</u><u>e</u><u>t</u><u>w</u><u>o</u><u>r</u><u>k</u> <u>(</u><u>L</u><u>N</u><u>)</u> <u>d</u><u>a</u><u>t</u><u>a</u>
+     <u>L</u><u>o</u><u>g</u><u>i</u><u>c</u><u>a</u><u>l</u> <u>N</u><u>e</u><u>t</u><u>w</u><u>o</u><u>r</u><u>k</u>
 
-       LN  tables  contain the topology of logical switches and routers, ACLs,
-       firewall rules, and everything needed to describe how packets  traverse
-       a  logical  network, represented as logical datapath flows (see Logical
-       Datapath Flows, below).
+       Logical  network  tables  contain  the topology of logical switches and
+       routers, ACLs, firewall rules, and everything needed  to  describe  how
+       packets  traverse  a  logical  network, represented as logical datapath
+       flows (see Logical Datapath Flows, below).
 
-       LN data may be large (O(n) in the number of logical ports,  ACL  rules,
-       etc.).  Thus, to improve scaling, each chassis should receive only data
-       related to logical networks in which that  chassis  participates.  Past
-       experience  shows  that in the presence of large logical networks, even
-       finer-grained partitioning of data, e.g.  designing  logical  flows  so
-       that  only the chassis hosting a logical port needs related flows, pays
-       off scale-wise. (This is not necessary initially but it is worth  bear‐
-       ing in mind in the design.)
+       Logical network data may be large (O(n) in the number of logical ports,
+       ACL rules, etc.). Thus, to improve scaling, each chassis should receive
+       only data related to logical networks in which  that  chassis  partici‐
+       pates.
 
-       The  LN is a slave of the cloud management system running northbound of
-       OVN. That CMS determines  the  entire  OVN  logical  configuration  and
-       therefore  the  LN’s content at any given time is a deterministic func‐
-       tion of the CMS’s configuration, although that happens  indirectly  via
-       the <b>O</b><b>V</b><b>N</b><b>_</b><b>N</b><b>o</b><b>r</b><b>t</b><b>h</b><b>b</b><b>o</b><b>u</b><b>n</b><b>d</b> database and <b>o</b><b>v</b><b>n</b><b>-</b><b>n</b><b>o</b><b>r</b><b>t</b><b>h</b><b>d</b>.
+       The  logical network data is ultimately controlled by the cloud manage‐
+       ment system (CMS) running northbound of OVN. That  CMS  determines  the
+       entire OVN logical configuration and therefore the logical network data
+       at any given time is a deterministic function of the  CMS’s  configura‐
+       tion,  although that happens indirectly via the <b>O</b><b>V</b><b>N</b><b>_</b><b>N</b><b>o</b><b>r</b><b>t</b><b>h</b><b>b</b><b>o</b><b>u</b><b>n</b><b>d</b> database
+       and <b>o</b><b>v</b><b>n</b><b>-</b><b>n</b><b>o</b><b>r</b><b>t</b><b>h</b><b>d</b>.
 
-       LN  data  is  likely to change more quickly than PN data. This is espe‐
-       cially true in a  container  environment  where  VMs  are  created  and
-       destroyed  (and  therefore  added to and deleted from logical switches)
-       quickly.
+       Logical network data is likely to change  more  quickly  than  physical
+       network  data. This is especially true in a container environment where
+       containers are created  and  destroyed  (and  therefore  added  to  and
+       deleted from logical switches) quickly.
 
-       <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>F</b><b>l</b><b>o</b><b>w</b> and <b>M</b><b>u</b><b>l</b><b>t</b><b>i</b><b>c</b><b>a</b><b>s</b><b>t</b><b>_</b><b>G</b><b>r</b><b>o</b><b>u</b><b>p</b> contain LN data.
+       The   <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>F</b><b>l</b><b>o</b><b>w</b>,   <b>M</b><b>u</b><b>l</b><b>t</b><b>i</b><b>c</b><b>a</b><b>s</b><b>t</b><b>_</b><b>G</b><b>r</b><b>o</b><b>u</b><b>p</b>,   <b>A</b><b>d</b><b>d</b><b>r</b><b>e</b><b>s</b><b>s</b><b>_</b><b>G</b><b>r</b><b>o</b><b>u</b><b>p</b>,   <b>D</b><b>H</b><b>C</b><b>P</b><b>_</b><b>O</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>,
+       <b>D</b><b>H</b><b>C</b><b>P</b><b>v</b><b>6</b><b>_</b><b>O</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>, and <b>D</b><b>N</b><b>S</b> tables contain logical network data.
 
      <u>L</u><u>o</u><u>g</u><u>i</u><u>c</u><u>a</u><u>l</u><u>-</u><u>p</u><u>h</u><u>y</u><u>s</u><u>i</u><u>c</u><u>a</u><u>l</u> <u>b</u><u>i</u><u>n</u><u>d</u><u>i</u><u>n</u><u>g</u><u>s</u>
 
@@ -131,6 +131,12 @@ ovn-sb(5)                     Open vSwitch Manual                    ovn-sb(5)
        <b>C</b><b>o</b><b>n</b><b>n</b><b>e</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>
                  OVSDB client connections.
        <b>S</b><b>S</b><b>L</b>       SSL configuration.
+       <b>D</b><b>N</b><b>S</b>       Native DNS resolution
+       <b>R</b><b>B</b><b>A</b><b>C</b><b>_</b><b>R</b><b>o</b><b>l</b><b>e</b> RBAC_Role configuration.
+       <b>R</b><b>B</b><b>A</b><b>C</b><b>_</b><b>P</b><b>e</b><b>r</b><b>m</b><b>i</b><b>s</b><b>s</b><b>i</b><b>o</b><b>n</b>
+                 RBAC_Permission configuration.
+       <b>G</b><b>a</b><b>t</b><b>e</b><b>w</b><b>a</b><b>y</b><b>_</b><b>C</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b>
+                 Gateway_Chassis configuration.
 
 <b>S</b><b>B</b><b>_</b><b>G</b><b>l</b><b>o</b><b>b</b><b>a</b><b>l</b> <b>T</b><b>A</b><b>B</b><b>L</b><b>E</b>
        Southbound  configuration  for  an  OVN  system.  This  table must have
@@ -177,7 +183,7 @@ ovn-sb(5)                     Open vSwitch Manual                    ovn-sb(5)
 
 <b>C</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b> <b>T</b><b>A</b><b>B</b><b>L</b><b>E</b>
        Each  row  in this table represents a hypervisor or gateway (a chassis)
-       in the physical network (PN). Each chassis, via <b>o</b><b>v</b><b>n</b><b>-</b><b>c</b><b>o</b><b>n</b><b>t</b><b>r</b><b>o</b><b>l</b><b>l</b><b>e</b><b>r</b>/<b>o</b><b>v</b><b>n</b><b>-</b><b>c</b><b>o</b><b>n</b><b>‐</b>
+       in the physical  network.  Each  chassis,  via  <b>o</b><b>v</b><b>n</b><b>-</b><b>c</b><b>o</b><b>n</b><b>t</b><b>r</b><b>o</b><b>l</b><b>l</b><b>e</b><b>r</b>/<b>o</b><b>v</b><b>n</b><b>-</b><b>c</b><b>o</b><b>n</b><b>‐</b>
        <b>t</b><b>r</b><b>o</b><b>l</b><b>l</b><b>e</b><b>r</b><b>-</b><b>v</b><b>t</b><b>e</b><b>p</b>,  adds  and  updates  its own row, and keeps a copy of the
        remaining rows to determine how to reach other hypervisors.
 
@@ -283,6 +289,7 @@ ovn-sb(5)                     Open vSwitch Manual                    ovn-sb(5)
        <b>t</b><b>y</b><b>p</b><b>e</b>                          string, one of <b>g</b><b>e</b><b>n</b><b>e</b><b>v</b><b>e</b>, <b>s</b><b>t</b><b>t</b>, or <b>v</b><b>x</b><b>l</b><b>a</b><b>n</b>
        <b>o</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>                       map of string-string pairs
        <b>i</b><b>p</b>                            string
+       <b>c</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b><b>_</b><b>n</b><b>a</b><b>m</b><b>e</b>                  string
 
    <b>D</b><b>e</b><b>t</b><b>a</b><b>i</b><b>l</b><b>s</b><b>:</b>
        <b>t</b><b>y</b><b>p</b><b>e</b>: string, one of <b>g</b><b>e</b><b>n</b><b>e</b><b>v</b><b>e</b>, <b>s</b><b>t</b><b>t</b>, or <b>v</b><b>x</b><b>l</b><b>a</b><b>n</b>
@@ -330,6 +337,9 @@ ovn-sb(5)                     Open vSwitch Manual                    ovn-sb(5)
 
        <b>i</b><b>p</b>: string
               The IPv4 address of the encapsulation tunnel endpoint.
+
+       <b>c</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b><b>_</b><b>n</b><b>a</b><b>m</b><b>e</b>: string
+              The name of the chassis that created this encap.
 
 <b>A</b><b>d</b><b>d</b><b>r</b><b>e</b><b>s</b><b>s</b><b>_</b><b>S</b><b>e</b><b>t</b> <b>T</b><b>A</b><b>B</b><b>L</b><b>E</b>
        See the documentation for the <b>A</b><b>d</b><b>d</b><b>r</b><b>e</b><b>s</b><b>s</b><b>_</b><b>S</b><b>e</b><b>t</b> table in  the  <b>O</b><b>V</b><b>N</b><b>_</b><b>N</b><b>o</b><b>r</b><b>t</b><b>h</b><b>b</b><b>o</b><b>u</b><b>n</b><b>d</b>
@@ -437,11 +447,12 @@ ovn-sb(5)                     Open vSwitch Manual                    ovn-sb(5)
    <b>S</b><b>u</b><b>m</b><b>m</b><b>a</b><b>r</b><b>y</b><b>:</b>
        <b>l</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>d</b><b>a</b><b>t</b><b>a</b><b>p</b><b>a</b><b>t</b><b>h</b>              <b>D</b><b>a</b><b>t</b><b>a</b><b>p</b><b>a</b><b>t</b><b>h</b><b>_</b><b>B</b><b>i</b><b>n</b><b>d</b><b>i</b><b>n</b><b>g</b>
        <b>p</b><b>i</b><b>p</b><b>e</b><b>l</b><b>i</b><b>n</b><b>e</b>                      string, either <b>e</b><b>g</b><b>r</b><b>e</b><b>s</b><b>s</b> or <b>i</b><b>n</b><b>g</b><b>r</b><b>e</b><b>s</b><b>s</b>
-       <b>t</b><b>a</b><b>b</b><b>l</b><b>e</b><b>_</b><b>i</b><b>d</b>                      integer, in range 0 to 15
+       <b>t</b><b>a</b><b>b</b><b>l</b><b>e</b><b>_</b><b>i</b><b>d</b>                      integer, in range 0 to 23
        <b>p</b><b>r</b><b>i</b><b>o</b><b>r</b><b>i</b><b>t</b><b>y</b>                      integer, in range 0 to 65,535
        <b>m</b><b>a</b><b>t</b><b>c</b><b>h</b>                         string
        <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>                       string
        <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b> <b>:</b> <b>s</b><b>t</b><b>a</b><b>g</b><b>e</b><b>-</b><b>n</b><b>a</b><b>m</b><b>e</b>     optional string
+       <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b> <b>:</b> <b>s</b><b>t</b><b>a</b><b>g</b><b>e</b><b>-</b><b>h</b><b>i</b><b>n</b><b>t</b>     optional string, containing an uuid
        <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b> <b>:</b> <b>s</b><b>o</b><b>u</b><b>r</b><b>c</b><b>e</b>         optional string
        <u>C</u><u>o</u><u>m</u><u>m</u><u>o</u><u>n</u> <u>C</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u><u>s</u><u>:</u>
          <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b>                map of string-string pairs
@@ -455,7 +466,7 @@ ovn-sb(5)                     Open vSwitch Manual                    ovn-sb(5)
               are the <b>i</b><b>n</b><b>g</b><b>r</b><b>e</b><b>s</b><b>s</b> flows. The <b>e</b><b>g</b><b>r</b><b>e</b><b>s</b><b>s</b> flows implement ACLs. See <b>L</b><b>o</b><b>g</b><b>‐</b>
               <b>i</b><b>c</b><b>a</b><b>l</b> <b>L</b><b>i</b><b>f</b><b>e</b> <b>C</b><b>y</b><b>c</b><b>l</b><b>e</b> <b>o</b><b>f</b> <b>a</b> <b>P</b><b>a</b><b>c</b><b>k</b><b>e</b><b>t</b>, above, for details.
 
-       <b>t</b><b>a</b><b>b</b><b>l</b><b>e</b><b>_</b><b>i</b><b>d</b>: integer, in range 0 to 15
+       <b>t</b><b>a</b><b>b</b><b>l</b><b>e</b><b>_</b><b>i</b><b>d</b>: integer, in range 0 to 23
               The stage in the logical pipeline, analogous to an OpenFlow  ta‐
               ble number.
 
@@ -707,7 +718,12 @@ ovn-sb(5)                     Open vSwitch Manual                    ovn-sb(5)
 
               ·      <b>c</b><b>t</b><b>_</b><b>m</b><b>a</b><b>r</b><b>k</b> <b>c</b><b>t</b><b>_</b><b>l</b><b>a</b><b>b</b><b>e</b><b>l</b>
 
-              ·      <b>c</b><b>t</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>e</b>, which has the following Boolean subfields:
+              ·      <b>c</b><b>t</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>e</b>,  which  has  several  Boolean  subfields.   The
+                     <b>c</b><b>t</b><b>_</b><b>n</b><b>e</b><b>x</b><b>t</b> action initializes the following subfields:
+
+                     ·      <b>c</b><b>t</b><b>.</b><b>t</b><b>r</b><b>k</b>:  Always set to true by <b>c</b><b>t</b><b>_</b><b>n</b><b>e</b><b>x</b><b>t</b> to indicate
+                            that connection  tracking  has  taken  place.  All
+                            other <b>c</b><b>t</b> subfields have <b>c</b><b>t</b><b>.</b><b>t</b><b>r</b><b>k</b> as a prerequisite.
 
                      ·      <b>c</b><b>t</b><b>.</b><b>n</b><b>e</b><b>w</b>: True for a new flow
 
@@ -719,17 +735,14 @@ ovn-sb(5)                     Open vSwitch Manual                    ovn-sb(5)
 
                      ·      <b>c</b><b>t</b><b>.</b><b>i</b><b>n</b><b>v</b>: True for a connection entry in a bad state
 
-                     The above subfields of <b>c</b><b>t</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>e</b> are  initialized  by  the
-                     <b>c</b><b>t</b><b>_</b><b>n</b><b>e</b><b>x</b><b>t</b> action, described later.
+                     The  <b>c</b><b>t</b><b>_</b><b>d</b><b>n</b><b>a</b><b>t</b>,  <b>c</b><b>t</b><b>_</b><b>s</b><b>n</b><b>a</b><b>t</b>,  and <b>c</b><b>t</b><b>_</b><b>l</b><b>b</b> actions initialize the
+                     following subfields:
 
-                     ·      <b>c</b><b>t</b><b>.</b><b>d</b><b>n</b><b>a</b><b>t</b>:  True  for  a packet whose destination IP
+                     ·      <b>c</b><b>t</b><b>.</b><b>d</b><b>n</b><b>a</b><b>t</b>: True for a packet  whose  destination  IP
                             address has been changed.
 
                      ·      <b>c</b><b>t</b><b>.</b><b>s</b><b>n</b><b>a</b><b>t</b>: True for a packet whose source IP address
                             has been changed.
-
-                     The  above  subfields  of <b>c</b><b>t</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>e</b> are initialized by the
-                     actions like <b>c</b><b>t</b><b>_</b><b>d</b><b>n</b><b>a</b><b>t</b>, <b>c</b><b>t</b><b>_</b><b>s</b><b>n</b><b>a</b><b>t</b> and <b>c</b><b>t</b><b>_</b><b>l</b><b>b</b> described later.
 
               The following predicates are supported:
 
@@ -1151,19 +1164,69 @@ ovn-sb(5)                     Open vSwitch Manual                    ovn-sb(5)
                    cally get DNATed to the same IP address as the first packet
                    in that connection.
 
+              <u>R</u> <b>=</b> <b>d</b><b>n</b><b>s</b><b>_</b><b>l</b><b>o</b><b>o</b><b>k</b><b>u</b><b>p</b><b>(</b><b>)</b><b>;</b>
+                   <b>P</b><b>a</b><b>r</b><b>a</b><b>m</b><b>e</b><b>t</b><b>e</b><b>r</b><b>s</b>: No parameters.
+
+                   <b>R</b><b>e</b><b>s</b><b>u</b><b>l</b><b>t</b>: stored to a 1-bit subfield <u>R</u>.
+
+                   Valid only in the ingress pipeline.
+
+                   When  this  action is applied to a valid DNS request (a UDP
+                   packet typically directed  to  port  53),  it  attempts  to
+                   resolve  the  query using the contents of the <b>D</b><b>N</b><b>S</b> table. If
+                   it is successful, it changes the packet into  a  DNS  reply
+                   and  stores  1  in <u>R</u>. If the action is applied to a non-DNS
+                   packet, an invalid DNS  request  packet,  or  a  valid  DNS
+                   request  for which the <b>D</b><b>N</b><b>S</b> table does not supply an answer,
+                   it leaves the packet unchanged and stores 0 in <u>R</u>.
+
+                   Regardless of success, the action does not make any of  the
+                   changes to the flow that are necessary to direct the packet
+                   back to the requester. The logical pipeline  can  implement
+                   this behavior with matches and actions in later tables.
+
+                   <b>E</b><b>x</b><b>a</b><b>m</b><b>p</b><b>l</b><b>e</b><b>:</b> <b>r</b><b>e</b><b>g</b><b>0</b><b>[</b><b>3</b><b>]</b> <b>=</b> <b>d</b><b>n</b><b>s</b><b>_</b><b>l</b><b>o</b><b>o</b><b>k</b><b>u</b><b>p</b><b>(</b><b>)</b><b>;</b>
+
+                   <b>P</b><b>r</b><b>e</b><b>r</b><b>e</b><b>q</b><b>u</b><b>i</b><b>s</b><b>i</b><b>t</b><b>e</b><b>:</b> <b>u</b><b>d</b><b>p</b>
+
+              <b>l</b><b>o</b><b>g</b><b>(</b><u>k</u><u>e</u><u>y</u><b>=</b><u>v</u><u>a</u><u>l</u><u>u</u><u>e</u><b>,</b> ...<b>)</b><b>;</b>
+                     Causes  <b>o</b><b>v</b><b>n</b><b>-</b><b>c</b><b>o</b><b>n</b><b>t</b><b>r</b><b>o</b><b>l</b><b>l</b><b>e</b><b>r</b>  to  log the packet on the chassis
+                     that processes it. Packet logging currently uses the same
+                     logging mechanism as other Open vSwitch and OVN messages,
+                     which means that whether and where  log  messages  appear
+                     depends  on  the  local logging configuration that can be
+                     configured with <b>o</b><b>v</b><b>s</b><b>-</b><b>a</b><b>p</b><b>p</b><b>c</b><b>t</b><b>l</b>, etc.
+
+                     The <b>l</b><b>o</b><b>g</b> action takes zero or more of the  following  key-
+                     value pair arguments that control what is logged:
+
+                     <b>n</b><b>a</b><b>m</b><b>e</b><b>=</b><u>s</u><u>t</u><u>r</u><u>i</u><u>n</u><u>g</u>
+                            An  optional  name for the ACL. The <u>s</u><u>t</u><u>r</u><u>i</u><u>n</u><u>g</u> is cur‐
+                            rently limited to 64 bytes.
+
+                     <b>s</b><b>e</b><b>v</b><b>e</b><b>r</b><b>i</b><b>t</b><b>y</b><b>=</b><u>l</u><u>e</u><u>v</u><u>e</u><u>l</u>
+                            Indicates the severity of the event. The <u>l</u><u>e</u><u>v</u><u>e</u><u>l</u>  is
+                            one  of  following  (from  more  to less serious):
+                            <b>a</b><b>l</b><b>e</b><b>r</b><b>t</b>, <b>w</b><b>a</b><b>r</b><b>n</b><b>i</b><b>n</b><b>g</b>,  <b>n</b><b>o</b><b>t</b><b>i</b><b>c</b><b>e</b>,  <b>i</b><b>n</b><b>f</b><b>o</b>,  or  <b>d</b><b>e</b><b>b</b><b>u</b><b>g</b>.  If  a
+                            severity is not provided, the default is <b>i</b><b>n</b><b>f</b><b>o</b>.
+
+                     <b>v</b><b>e</b><b>r</b><b>d</b><b>i</b><b>c</b><b>t</b><b>=</b><u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>
+                            The  verdict  for  packets  matching the flow. The
+                            value must be one of <b>a</b><b>l</b><b>l</b><b>o</b><b>w</b>, <b>d</b><b>e</b><b>n</b><b>y</b>, or <b>r</b><b>e</b><b>j</b><b>e</b><b>c</b><b>t</b>.
+
               The following actions will likely be useful later, but they have
               not been thought out carefully.
 
               <b>i</b><b>c</b><b>m</b><b>p</b><b>4</b> <b>{</b> <u>a</u><u>c</u><u>t</u><u>i</u><u>o</u><u>n</u><b>;</b> ... <b>}</b><b>;</b>
-                     Temporarily replaces the IPv4 packet being  processed  by
-                     an  ICMPv4  packet and executes each nested <u>a</u><u>c</u><u>t</u><u>i</u><u>o</u><u>n</u> on the
-                     ICMPv4 packet. Actions following  the  <u>i</u><u>c</u><u>m</u><u>p</u><u>4</u>  action,  if
+                     Temporarily  replaces  the IPv4 packet being processed by
+                     an ICMPv4 packet and executes each nested <u>a</u><u>c</u><u>t</u><u>i</u><u>o</u><u>n</u>  on  the
+                     ICMPv4  packet.  Actions  following  the <u>i</u><u>c</u><u>m</u><u>p</u><u>4</u> action, if
                      any, apply to the original, unmodified packet.
 
-                     The  ICMPv4  packet  that this action operates on is ini‐
-                     tialized based on the IPv4  packet  being  processed,  as
+                     The ICMPv4 packet that this action operates  on  is  ini‐
+                     tialized  based  on  the  IPv4 packet being processed, as
                      follows. These are default values that the nested actions
-                     will probably want to change. Ethernet  and  IPv4  fields
+                     will  probably  want  to change. Ethernet and IPv4 fields
                      not listed here are not changed:
 
                      ·      <b>i</b><b>p</b><b>.</b><b>p</b><b>r</b><b>o</b><b>t</b><b>o</b> <b>=</b> <b>1</b> (ICMPv4)
@@ -1179,7 +1242,7 @@ ovn-sb(5)                     Open vSwitch Manual                    ovn-sb(5)
                      <b>P</b><b>r</b><b>e</b><b>r</b><b>e</b><b>q</b><b>u</b><b>i</b><b>s</b><b>i</b><b>t</b><b>e</b><b>:</b> <b>i</b><b>p</b><b>4</b>
 
               <b>t</b><b>c</b><b>p</b><b>_</b><b>r</b><b>e</b><b>s</b><b>e</b><b>t</b><b>;</b>
-                     This  action  transforms the current TCP packet according
+                     This action transforms the current TCP  packet  according
                      to the following pseudocode:
 
                      <b>i</b><b>f</b> <b>(</b><b>t</b><b>c</b><b>p</b><b>.</b><b>a</b><b>c</b><b>k</b><b>)</b> <b>{</b>
@@ -1190,7 +1253,7 @@ ovn-sb(5)                     Open vSwitch Manual                    ovn-sb(5)
                      <b>}</b>
                      <b>t</b><b>c</b><b>p</b><b>.</b><b>f</b><b>l</b><b>a</b><b>g</b><b>s</b> <b>=</b> <b>R</b><b>S</b><b>T</b><b>;</b>
 
-                     Then, the action drops all TCP options and payload  data,
+                     Then,  the action drops all TCP options and payload data,
                      and updates the TCP checksum.
 
                      Details TBD.
@@ -1200,13 +1263,18 @@ ovn-sb(5)                     Open vSwitch Manual                    ovn-sb(5)
        <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b> <b>:</b> <b>s</b><b>t</b><b>a</b><b>g</b><b>e</b><b>-</b><b>n</b><b>a</b><b>m</b><b>e</b>: optional string
               Human-readable name for this flow’s stage in the pipeline.
 
+       <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b> <b>:</b> <b>s</b><b>t</b><b>a</b><b>g</b><b>e</b><b>-</b><b>h</b><b>i</b><b>n</b><b>t</b>: optional string, containing an uuid
+              UUID of a <b>O</b><b>V</b><b>N</b><b>_</b><b>N</b><b>o</b><b>r</b><b>t</b><b>h</b><b>b</b><b>o</b><b>u</b><b>n</b><b>d</b> record that caused this logical flow to
+              be  created.  Currently used only for attribute of logical flows
+              to northbound <b>A</b><b>C</b><b>L</b> records.
+
        <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b> <b>:</b> <b>s</b><b>o</b><b>u</b><b>r</b><b>c</b><b>e</b>: optional string
-              Source  file and line number of the code that added this flow to
+              Source file and line number of the code that added this flow  to
               the pipeline.
 
      <u>C</u><u>o</u><u>m</u><u>m</u><u>o</u><u>n</u> <u>C</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u><u>s</u><u>:</u>
 
-       The overall purpose of these columns is described under <b>C</b><b>o</b><b>m</b><b>m</b><b>o</b><b>n</b>  <b>C</b><b>o</b><b>l</b><b>u</b><b>m</b><b>n</b><b>s</b>
+       The  overall purpose of these columns is described under <b>C</b><b>o</b><b>m</b><b>m</b><b>o</b><b>n</b> <b>C</b><b>o</b><b>l</b><b>u</b><b>m</b><b>n</b><b>s</b>
        at the beginning of this document.
 
        <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b>: map of string-string pairs
@@ -1214,11 +1282,11 @@ ovn-sb(5)                     Open vSwitch Manual                    ovn-sb(5)
 <b>M</b><b>u</b><b>l</b><b>t</b><b>i</b><b>c</b><b>a</b><b>s</b><b>t</b><b>_</b><b>G</b><b>r</b><b>o</b><b>u</b><b>p</b> <b>T</b><b>A</b><b>B</b><b>L</b><b>E</b>
        The rows in this table define multicast groups of logical ports. Multi‐
        cast groups allow a single packet transmitted over a tunnel to a hyper‐
-       visor  to  be  delivered to multiple VMs on that hypervisor, which uses
+       visor to be delivered to multiple VMs on that  hypervisor,  which  uses
        bandwidth more efficiently.
 
-       Each row in this table defines a logical multicast group numbered  <b>t</b><b>u</b><b>n</b><b>‐</b>
-       <b>n</b><b>e</b><b>l</b><b>_</b><b>k</b><b>e</b><b>y</b>  within  <b>d</b><b>a</b><b>t</b><b>a</b><b>p</b><b>a</b><b>t</b><b>h</b>,  whose logical ports are listed in the <b>p</b><b>o</b><b>r</b><b>t</b><b>s</b>
+       Each  row in this table defines a logical multicast group numbered <b>t</b><b>u</b><b>n</b><b>‐</b>
+       <b>n</b><b>e</b><b>l</b><b>_</b><b>k</b><b>e</b><b>y</b> within <b>d</b><b>a</b><b>t</b><b>a</b><b>p</b><b>a</b><b>t</b><b>h</b>, whose logical ports are listed  in  the  <b>p</b><b>o</b><b>r</b><b>t</b><b>s</b>
        column.
 
    <b>S</b><b>u</b><b>m</b><b>m</b><b>a</b><b>r</b><b>y</b><b>:</b>
@@ -1233,33 +1301,38 @@ ovn-sb(5)                     Open vSwitch Manual                    ovn-sb(5)
               The logical datapath in which the multicast group resides.
 
        <b>t</b><b>u</b><b>n</b><b>n</b><b>e</b><b>l</b><b>_</b><b>k</b><b>e</b><b>y</b>: integer, in range 32,768 to 65,535
-              The  value  used to designate this logical egress port in tunnel
-              encapsulations. An index forces the key to be unique within  the
-              <b>d</b><b>a</b><b>t</b><b>a</b><b>p</b><b>a</b><b>t</b><b>h</b>.  The unusual range ensures that multicast group IDs do
+              The value used to designate this logical egress port  in  tunnel
+              encapsulations.  An index forces the key to be unique within the
+              <b>d</b><b>a</b><b>t</b><b>a</b><b>p</b><b>a</b><b>t</b><b>h</b>. The unusual range ensures that multicast group IDs  do
               not overlap with logical port IDs.
 
        <b>n</b><b>a</b><b>m</b><b>e</b>: string
-              The logical multicast group’s name. An index forces the name  to
-              be  unique  within  the  <b>d</b><b>a</b><b>t</b><b>a</b><b>p</b><b>a</b><b>t</b><b>h</b>.  Logical flows in the ingress
-              pipeline may output to the group just as for individual  logical
+              The  logical multicast group’s name. An index forces the name to
+              be unique within the <b>d</b><b>a</b><b>t</b><b>a</b><b>p</b><b>a</b><b>t</b><b>h</b>.  Logical  flows  in  the  ingress
+              pipeline  may output to the group just as for individual logical
               ports, by assigning the group’s name to <b>o</b><b>u</b><b>t</b><b>p</b><b>o</b><b>r</b><b>t</b> and executing an
               <b>o</b><b>u</b><b>t</b><b>p</b><b>u</b><b>t</b> action.
 
-              Multicast group names and logical  port  names  share  a  single
-              namespace  and  thus should not overlap (but the database schema
+              Multicast  group  names  and  logical  port names share a single
+              namespace and thus should not overlap (but the  database  schema
               cannot enforce this). To try to avoid conflicts, <b>o</b><b>v</b><b>n</b><b>-</b><b>n</b><b>o</b><b>r</b><b>t</b><b>h</b><b>d</b> uses
               names that begin with <b>_</b><b>M</b><b>C</b><b>_</b>.
 
        <b>p</b><b>o</b><b>r</b><b>t</b><b>s</b>: set of 1 or more weak reference to <b>P</b><b>o</b><b>r</b><b>t</b><b>_</b><b>B</b><b>i</b><b>n</b><b>d</b><b>i</b><b>n</b><b>g</b>s
-              The  logical ports included in the multicast group. All of these
+              The logical ports included in the multicast group. All of  these
               ports must be in the <b>d</b><b>a</b><b>t</b><b>a</b><b>p</b><b>a</b><b>t</b><b>h</b> logical datapath (but the database
               schema cannot enforce this).
 <b>D</b><b>a</b><b>t</b><b>a</b><b>p</b><b>a</b><b>t</b><b>h</b><b>_</b><b>B</b><b>i</b><b>n</b><b>d</b><b>i</b><b>n</b><b>g</b> <b>T</b><b>A</b><b>B</b><b>L</b><b>E</b>
-       Each  row in this table identifies physical bindings of a logical data‐
-       path. A logical datapath implements a logical pipeline among the  ports
-       in the <b>P</b><b>o</b><b>r</b><b>t</b><b>_</b><b>B</b><b>i</b><b>n</b><b>d</b><b>i</b><b>n</b><b>g</b> table associated with it. In practice, the pipeline
-       in a given logical datapath implements either a  logical  switch  or  a
-       logical router.
+       Each row in this table represents a logical datapath, which  implements
+       a logical pipeline among the ports in the <b>P</b><b>o</b><b>r</b><b>t</b><b>_</b><b>B</b><b>i</b><b>n</b><b>d</b><b>i</b><b>n</b><b>g</b> table associated
+       with it. In practice, the pipeline in a given logical  datapath  imple‐
+       ments either a logical switch or a logical router.
+
+       The  main  purpose of a row in this table is provide a physical binding
+       for a logical datapath. A logical datapath does  not  have  a  physical
+       location,  so  its  physical  binding information is limited: just <b>t</b><b>u</b><b>n</b><b>‐</b>
+       <b>n</b><b>e</b><b>l</b><b>_</b><b>k</b><b>e</b><b>y</b>. The rest of the data in this table does not affect packet for‐
+       warding.
 
    <b>S</b><b>u</b><b>m</b><b>m</b><b>a</b><b>r</b><b>y</b><b>:</b>
        <b>t</b><b>u</b><b>n</b><b>n</b><b>e</b><b>l</b><b>_</b><b>k</b><b>e</b><b>y</b>                    integer,  in  range 1 to 16,777,215 (must
@@ -1269,7 +1342,9 @@ ovn-sb(5)                     Open vSwitch Manual                    ovn-sb(5)
                                      optional string, containing an uuid
          <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b> <b>:</b> <b>l</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>-</b><b>r</b><b>o</b><b>u</b><b>t</b><b>e</b><b>r</b>
                                      optional string, containing an uuid
-         <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b> <b>:</b> <b>n</b><b>a</b><b>m</b><b>e</b>         optional string
+         <u>N</u><u>a</u><u>m</u><u>i</u><u>n</u><u>g</u><u>:</u>
+            <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b> <b>:</b> <b>n</b><b>a</b><b>m</b><b>e</b>      optional string
+            <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b> <b>:</b> <b>n</b><b>a</b><b>m</b><b>e</b><b>2</b>     optional string
        <u>C</u><u>o</u><u>m</u><u>m</u><u>o</u><u>n</u> <u>C</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u><u>s</u><u>:</u>
          <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b>                map of string-string pairs
 
@@ -1297,22 +1372,33 @@ ovn-sb(5)                     Open vSwitch Manual                    ovn-sb(5)
               <b>o</b><b>v</b><b>n</b><b>-</b><b>n</b><b>o</b><b>r</b><b>t</b><b>h</b><b>d</b> stores in this key the UUID of the corresponding <b>L</b><b>o</b><b>g</b><b>‐</b>
               <b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>R</b><b>o</b><b>u</b><b>t</b><b>e</b><b>r</b> row in the <b>O</b><b>V</b><b>N</b><b>_</b><b>N</b><b>o</b><b>r</b><b>t</b><b>h</b><b>b</b><b>o</b><b>u</b><b>n</b><b>d</b> database.
 
+     <u>N</u><u>a</u><u>m</u><u>i</u><u>n</u><u>g</u><u>:</u>
+
+       <b>o</b><b>v</b><b>n</b><b>-</b><b>n</b><b>o</b><b>r</b><b>t</b><b>h</b><b>d</b> copies these from the  name  fields  in  the  <b>O</b><b>V</b><b>N</b><b>_</b><b>N</b><b>o</b><b>r</b><b>t</b><b>h</b><b>b</b><b>o</b><b>u</b><b>n</b><b>d</b>
+       database,  either from <b>n</b><b>a</b><b>m</b><b>e</b> and <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b><b>:</b><b>n</b><b>e</b><b>u</b><b>t</b><b>r</b><b>o</b><b>n</b><b>:</b><b>r</b><b>o</b><b>u</b><b>t</b><b>e</b><b>r</b><b>_</b><b>n</b><b>a</b><b>m</b><b>e</b> in the
+       <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>R</b><b>o</b><b>u</b><b>t</b><b>e</b><b>r</b> table or from <b>n</b><b>a</b><b>m</b><b>e</b> and <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b><b>:</b><b>n</b><b>e</b><b>u</b><b>t</b><b>r</b><b>o</b><b>n</b><b>:</b><b>n</b><b>e</b><b>t</b><b>w</b><b>o</b><b>r</b><b>k</b><b>_</b><b>n</b><b>a</b><b>m</b><b>e</b>
+       in the <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b> table.
+
        <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b> <b>:</b> <b>n</b><b>a</b><b>m</b><b>e</b>: optional string
-              <b>o</b><b>v</b><b>n</b><b>-</b><b>n</b><b>o</b><b>r</b><b>t</b><b>h</b><b>d</b> copies this from the <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>R</b><b>o</b><b>u</b><b>t</b><b>e</b><b>r</b> or <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>
-              table  in  the  <b>O</b><b>V</b><b>N</b><b>_</b><b>N</b><b>o</b><b>r</b><b>t</b><b>h</b><b>b</b><b>o</b><b>u</b><b>n</b><b>d</b>  database,  when  that  column is
-              nonempty.
+              A name for the logical datapath.
+
+       <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b> <b>:</b> <b>n</b><b>a</b><b>m</b><b>e</b><b>2</b>: optional string
+              Another name for the logical datapath.
 
      <u>C</u><u>o</u><u>m</u><u>m</u><u>o</u><u>n</u> <u>C</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u><u>s</u><u>:</u>
 
-       The overall purpose of these columns is described under <b>C</b><b>o</b><b>m</b><b>m</b><b>o</b><b>n</b>  <b>C</b><b>o</b><b>l</b><b>u</b><b>m</b><b>n</b><b>s</b>
+       The  overall purpose of these columns is described under <b>C</b><b>o</b><b>m</b><b>m</b><b>o</b><b>n</b> <b>C</b><b>o</b><b>l</b><b>u</b><b>m</b><b>n</b><b>s</b>
        at the beginning of this document.
 
        <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b>: map of string-string pairs
 
 <b>P</b><b>o</b><b>r</b><b>t</b><b>_</b><b>B</b><b>i</b><b>n</b><b>d</b><b>i</b><b>n</b><b>g</b> <b>T</b><b>A</b><b>B</b><b>L</b><b>E</b>
-       Most  rows  in  this  table identify the physical location of a logical
-       port. (The exceptions are logical patch ports, which do  not  have  any
-       physical location.)
+       Each row in this table binds a logical port to a realization. For  most
+       logical  ports, this means binding to some physical location, for exam‐
+       ple by binding a logical port to a VIF that belongs to a VM running  on
+       a  particular  hypervisor.  Other  logical ports, such as logical patch
+       ports, can be realized without a specific physical location, but  their
+       bindings are still expressed through rows in this table.
 
        For   every  <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>_</b><b>P</b><b>o</b><b>r</b><b>t</b>  record  in  <b>O</b><b>V</b><b>N</b><b>_</b><b>N</b><b>o</b><b>r</b><b>t</b><b>h</b><b>b</b><b>o</b><b>u</b><b>n</b><b>d</b>  database,
        <b>o</b><b>v</b><b>n</b><b>-</b><b>n</b><b>o</b><b>r</b><b>t</b><b>h</b><b>d</b> creates a record in this  table.  <b>o</b><b>v</b><b>n</b><b>-</b><b>n</b><b>o</b><b>r</b><b>t</b><b>h</b><b>d</b>  populates  and
@@ -1342,16 +1428,19 @@ ovn-sb(5)                     Open vSwitch Manual                    ovn-sb(5)
          <b>d</b><b>a</b><b>t</b><b>a</b><b>p</b><b>a</b><b>t</b><b>h</b>                    <b>D</b><b>a</b><b>t</b><b>a</b><b>p</b><b>a</b><b>t</b><b>h</b><b>_</b><b>B</b><b>i</b><b>n</b><b>d</b><b>i</b><b>n</b><b>g</b>
          <b>l</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b>                string (must be unique within table)
          <b>c</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b>                     optional weak reference to <b>C</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b>
+         <b>g</b><b>a</b><b>t</b><b>e</b><b>w</b><b>a</b><b>y</b><b>_</b><b>c</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b>             set of <b>G</b><b>a</b><b>t</b><b>e</b><b>w</b><b>a</b><b>y</b><b>_</b><b>C</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b>s
          <b>t</b><b>u</b><b>n</b><b>n</b><b>e</b><b>l</b><b>_</b><b>k</b><b>e</b><b>y</b>                  integer, in range 1 to 32,767
          <b>m</b><b>a</b><b>c</b>                         set of strings
          <b>t</b><b>y</b><b>p</b><b>e</b>                        string
        <u>P</u><u>a</u><u>t</u><u>c</u><u>h</u> <u>O</u><u>p</u><u>t</u><u>i</u><u>o</u><u>n</u><u>s</u><u>:</u>
          <b>o</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b> <b>:</b> <b>p</b><b>e</b><b>e</b><b>r</b>              optional string
+         <b>n</b><b>a</b><b>t</b><b>_</b><b>a</b><b>d</b><b>d</b><b>r</b><b>e</b><b>s</b><b>s</b><b>e</b><b>s</b>               set of strings
        <u>L</u><u>3</u> <u>G</u><u>a</u><u>t</u><u>e</u><u>w</u><u>a</u><u>y</u> <u>O</u><u>p</u><u>t</u><u>i</u><u>o</u><u>n</u><u>s</u><u>:</u>
          <b>o</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b> <b>:</b> <b>p</b><b>e</b><b>e</b><b>r</b>              optional string
          <b>o</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b> <b>:</b> <b>l</b><b>3</b><b>g</b><b>a</b><b>t</b><b>e</b><b>w</b><b>a</b><b>y</b><b>-</b><b>c</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b>
                                      optional string
          <b>o</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b> <b>:</b> <b>n</b><b>a</b><b>t</b><b>-</b><b>a</b><b>d</b><b>d</b><b>r</b><b>e</b><b>s</b><b>s</b><b>e</b><b>s</b>     optional string
+         <b>n</b><b>a</b><b>t</b><b>_</b><b>a</b><b>d</b><b>d</b><b>r</b><b>e</b><b>s</b><b>s</b><b>e</b><b>s</b>               set of strings
        <u>L</u><u>o</u><u>c</u><u>a</u><u>l</u><u>n</u><u>e</u><u>t</u> <u>O</u><u>p</u><u>t</u><u>i</u><u>o</u><u>n</u><u>s</u><u>:</u>
          <b>o</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b> <b>:</b> <b>n</b><b>e</b><b>t</b><b>w</b><b>o</b><b>r</b><b>k</b><b>_</b><b>n</b><b>a</b><b>m</b><b>e</b>      optional string
          <b>t</b><b>a</b><b>g</b>                         optional integer, in range 1 to 4,095
@@ -1366,6 +1455,8 @@ ovn-sb(5)                     Open vSwitch Manual                    ovn-sb(5)
          <b>o</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b> <b>:</b> <b>v</b><b>t</b><b>e</b><b>p</b><b>-</b><b>l</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>-</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b>
                                      optional string
        <u>V</u><u>M</u><u>I</u> <u>(</u><u>o</u><u>r</u> <u>V</u><u>I</u><u>F</u><u>)</u> <u>O</u><u>p</u><u>t</u><u>i</u><u>o</u><u>n</u><u>s</u><u>:</u>
+         <b>o</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b> <b>:</b> <b>r</b><b>e</b><b>q</b><b>u</b><b>e</b><b>s</b><b>t</b><b>e</b><b>d</b><b>-</b><b>c</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b>
+                                     optional string
          <b>o</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b> <b>:</b> <b>q</b><b>o</b><b>s</b><b>_</b><b>m</b><b>a</b><b>x</b><b>_</b><b>r</b><b>a</b><b>t</b><b>e</b>      optional string
          <b>o</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b> <b>:</b> <b>q</b><b>o</b><b>s</b><b>_</b><b>b</b><b>u</b><b>r</b><b>s</b><b>t</b>         optional string
          <b>o</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b> <b>:</b> <b>q</b><b>d</b><b>i</b><b>s</b><b>c</b><b>_</b><b>q</b><b>u</b><b>e</b><b>u</b><b>e</b><b>_</b><b>i</b><b>d</b>    optional string, containing  an  integer,
@@ -1376,6 +1467,10 @@ ovn-sb(5)                     Open vSwitch Manual                    ovn-sb(5)
        <u>N</u><u>e</u><u>s</u><u>t</u><u>e</u><u>d</u> <u>C</u><u>o</u><u>n</u><u>t</u><u>a</u><u>i</u><u>n</u><u>e</u><u>r</u><u>s</u><u>:</u>
          <b>p</b><b>a</b><b>r</b><b>e</b><b>n</b><b>t</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b>                 optional string
          <b>t</b><b>a</b><b>g</b>                         optional integer, in range 1 to 4,095
+       <u>N</u><u>a</u><u>m</u><u>i</u><u>n</u><u>g</u><u>:</u>
+         <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b> <b>:</b> <b>n</b><b>a</b><b>m</b><b>e</b>         optional string
+       <u>C</u><u>o</u><u>m</u><u>m</u><u>o</u><u>n</u> <u>C</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u><u>s</u><u>:</u>
+         <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b>                map of string-string pairs
 
    <b>D</b><b>e</b><b>t</b><b>a</b><b>i</b><b>l</b><b>s</b><b>:</b>
      <u>C</u><u>o</u><u>r</u><u>e</u> <u>F</u><u>e</u><u>a</u><u>t</u><u>u</u><u>r</u><u>e</u><u>s</u><u>:</u>
@@ -1406,8 +1501,12 @@ ovn-sb(5)                     Open vSwitch Manual                    ovn-sb(5)
                      sis  that  has connectivity to the corresponding physical
                      network.
 
+              localport
+                     Always empty. A localport port is present on every  chas‐
+                     sis.
+
               l3gateway
-                     The physical location of the L3 gateway. To  successfully
+                     The  physical location of the L3 gateway. To successfully
                      identify a chassis, this column must be a <b>C</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b> record.
                      This is populated by <b>o</b><b>v</b><b>n</b><b>-</b><b>c</b><b>o</b><b>n</b><b>t</b><b>r</b><b>o</b><b>l</b><b>l</b><b>e</b><b>r</b> based on the value of
                      the <b>o</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b><b>:</b><b>l</b><b>3</b><b>g</b><b>a</b><b>t</b><b>e</b><b>w</b><b>a</b><b>y</b><b>-</b><b>c</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b> column in this table.
@@ -1418,21 +1517,28 @@ ovn-sb(5)                     Open vSwitch Manual                    ovn-sb(5)
                      This is populated by <b>o</b><b>v</b><b>n</b><b>-</b><b>c</b><b>o</b><b>n</b><b>t</b><b>r</b><b>o</b><b>l</b><b>l</b><b>e</b><b>r</b> based on the value of
                      the <b>o</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b><b>:</b><b>l</b><b>2</b><b>g</b><b>a</b><b>t</b><b>e</b><b>w</b><b>a</b><b>y</b><b>-</b><b>c</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b> column in this table.
 
+       <b>g</b><b>a</b><b>t</b><b>e</b><b>w</b><b>a</b><b>y</b><b>_</b><b>c</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b>: set of <b>G</b><b>a</b><b>t</b><b>e</b><b>w</b><b>a</b><b>y</b><b>_</b><b>C</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b>s
+              A list of <b>G</b><b>a</b><b>t</b><b>e</b><b>w</b><b>a</b><b>y</b><b>_</b><b>C</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b>.
+
+              This  should  only be populated for ports with <b>t</b><b>y</b><b>p</b><b>e</b> set to <b>c</b><b>h</b><b>a</b><b>s</b><b>‐</b>
+              <b>s</b><b>i</b><b>s</b><b>r</b><b>e</b><b>d</b><b>i</b><b>r</b><b>e</b><b>c</b><b>t</b>. This column defines the list  of  chassis  used  as
+              gateways where traffic will be redirected through.
+
        <b>t</b><b>u</b><b>n</b><b>n</b><b>e</b><b>l</b><b>_</b><b>k</b><b>e</b><b>y</b>: integer, in range 1 to 32,767
-              A number that represents the logical port in the key  (e.g.  STT
+              A  number  that represents the logical port in the key (e.g. STT
               key or Geneve TLV) field carried within tunnel protocol packets.
 
               The tunnel ID must be unique within the scope of a logical data‐
               path.
 
        <b>m</b><b>a</b><b>c</b>: set of strings
-              The Ethernet address or addresses used as a  source  address  on
+              The  Ethernet  address  or addresses used as a source address on
               the logical port, each in the form <u>x</u><u>x</u>:<u>x</u><u>x</u>:<u>x</u><u>x</u>:<u>x</u><u>x</u>:<u>x</u><u>x</u>:<u>x</u><u>x</u>. The string
               <b>u</b><b>n</b><b>k</b><b>n</b><b>o</b><b>w</b><b>n</b> is also allowed to indicate that the logical port has an
               unknown set of (additional) source addresses.
 
-              A  VM interface would ordinarily have a single Ethernet address.
-              A gateway port might initially only have <b>u</b><b>n</b><b>k</b><b>n</b><b>o</b><b>w</b><b>n</b>, and  then  add
+              A VM interface would ordinarily have a single Ethernet  address.
+              A  gateway  port might initially only have <b>u</b><b>n</b><b>k</b><b>n</b><b>o</b><b>w</b><b>n</b>, and then add
               MAC addresses to the set as it learns new source addresses.
 
        <b>t</b><b>y</b><b>p</b><b>e</b>: string
@@ -1443,22 +1549,30 @@ ovn-sb(5)                     Open vSwitch Manual                    ovn-sb(5)
               (empty string)
                      VM (or VIF) interface.
 
-              <b>p</b><b>a</b><b>t</b><b>c</b><b>h</b>  One  of  a pair of logical ports that act as if connected
+              <b>p</b><b>a</b><b>t</b><b>c</b><b>h</b>  One of a pair of logical ports that act as  if  connected
                      by a patch cable. Useful for connecting two logical data‐
-                     paths,  e.g.  to  connect  a  logical router to a logical
+                     paths, e.g. to connect a  logical  router  to  a  logical
                      switch or to another logical router.
 
               <b>l</b><b>3</b><b>g</b><b>a</b><b>t</b><b>e</b><b>w</b><b>a</b><b>y</b>
-                     One of a pair of logical ports that act as  if  connected
+                     One  of  a pair of logical ports that act as if connected
                      by a patch cable across multiple chassis. Useful for con‐
-                     necting a logical switch with a Gateway router (which  is
+                     necting  a logical switch with a Gateway router (which is
                      only resident on a particular chassis).
 
               <b>l</b><b>o</b><b>c</b><b>a</b><b>l</b><b>n</b><b>e</b><b>t</b>
-                     A  connection  to  a locally accessible network from each
+                     A connection to a locally accessible  network  from  each
                      <b>o</b><b>v</b><b>n</b><b>-</b><b>c</b><b>o</b><b>n</b><b>t</b><b>r</b><b>o</b><b>l</b><b>l</b><b>e</b><b>r</b> instance. A logical switch can only have a
-                     single  <b>l</b><b>o</b><b>c</b><b>a</b><b>l</b><b>n</b><b>e</b><b>t</b>  port  attached.  This  is used to model
+                     single <b>l</b><b>o</b><b>c</b><b>a</b><b>l</b><b>n</b><b>e</b><b>t</b> port attached.  This  is  used  to  model
                      direct connectivity to an existing network.
+
+              <b>l</b><b>o</b><b>c</b><b>a</b><b>l</b><b>p</b><b>o</b><b>r</b><b>t</b>
+                     A  connection  to  a local VIF. Traffic that arrives on a
+                     <b>l</b><b>o</b><b>c</b><b>a</b><b>l</b><b>p</b><b>o</b><b>r</b><b>t</b> is never forwarded over  a  tunnel  to  another
+                     chassis.  These  ports  are  present on every chassis and
+                     have the same address in all of them.  This  is  used  to
+                     model  connectivity  to  local services that run on every
+                     hypervisor.
 
               <b>l</b><b>2</b><b>g</b><b>a</b><b>t</b><b>e</b><b>w</b><b>a</b><b>y</b>
                      An L2 connection to a physical network. The chassis  this
@@ -1492,6 +1606,19 @@ ovn-sb(5)                     Open vSwitch Manual                    ovn-sb(5)
               <b>c</b><b>a</b><b>l</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b> in its own <b>p</b><b>e</b><b>e</b><b>r</b> option. That is, the two patch  logical
               ports must have reversed <b>l</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b> and <b>p</b><b>e</b><b>e</b><b>r</b> values.
 
+       <b>n</b><b>a</b><b>t</b><b>_</b><b>a</b><b>d</b><b>d</b><b>r</b><b>e</b><b>s</b><b>s</b><b>e</b><b>s</b>: set of strings
+              MAC  address  followed  by  a  list of SNAT and DNAT external IP
+              addresses, followed by <b>i</b><b>s</b><b>_</b><b>c</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b><b>_</b><b>r</b><b>e</b><b>s</b><b>i</b><b>d</b><b>e</b><b>n</b><b>t</b><b>(</b><b>"</b><u>l</u><u>p</u><u>o</u><u>r</u><u>t</u><b>"</b><b>)</b>, where <u>l</u><u>p</u><u>o</u><u>r</u><u>t</u>
+              is the name of a logical port on the same chassis where the cor‐
+              responding NAT rules are applied. This is used  to  send  gratu‐
+              itous ARPs for SNAT and DNAT external IP addresses via <b>l</b><b>o</b><b>c</b><b>a</b><b>l</b><b>n</b><b>e</b><b>t</b>,
+              from the chassis where <u>l</u><u>p</u><u>o</u><u>r</u><u>t</u> resides. Example: <b>8</b><b>0</b><b>:</b><b>f</b><b>a</b><b>:</b><b>5</b><b>b</b><b>:</b><b>0</b><b>6</b><b>:</b><b>7</b><b>2</b><b>:</b><b>b</b><b>7</b>
+              <b>1</b><b>5</b><b>8</b><b>.</b><b>3</b><b>6</b><b>.</b><b>4</b><b>4</b><b>.</b><b>2</b><b>2</b>   <b>1</b><b>5</b><b>8</b><b>.</b><b>3</b><b>6</b><b>.</b><b>4</b><b>4</b><b>.</b><b>2</b><b>4</b>   <b>i</b><b>s</b><b>_</b><b>c</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b><b>_</b><b>r</b><b>e</b><b>s</b><b>i</b><b>d</b><b>e</b><b>n</b><b>t</b><b>(</b><b>"</b><b>f</b><b>o</b><b>o</b><b>1</b><b>"</b><b>)</b>.  This
+              would result in generation of gratuitous ARPs for  IP  addresses
+              158.36.44.22   and   158.36.44.24   with   a   MAC   address  of
+              80:fa:5b:06:72:b7 from the chassis where the logical port "foo1"
+              resides.
+
      <u>L</u><u>3</u> <u>G</u><u>a</u><u>t</u><u>e</u><u>w</u><u>a</u><u>y</u> <u>O</u><u>p</u><u>t</u><u>i</u><u>o</u><u>n</u><u>s</u><u>:</u>
 
        These options apply to logical ports with <b>t</b><b>y</b><b>p</b><b>e</b> of <b>l</b><b>3</b><b>g</b><b>a</b><b>t</b><b>e</b><b>w</b><b>a</b><b>y</b>.
@@ -1508,12 +1635,21 @@ ovn-sb(5)                     Open vSwitch Manual                    ovn-sb(5)
 
        <b>o</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b> <b>:</b> <b>n</b><b>a</b><b>t</b><b>-</b><b>a</b><b>d</b><b>d</b><b>r</b><b>e</b><b>s</b><b>s</b><b>e</b><b>s</b>: optional string
               MAC address of the <b>l</b><b>3</b><b>g</b><b>a</b><b>t</b><b>e</b><b>w</b><b>a</b><b>y</b> port followed by a list of SNAT and
-              DNAT IP addresses. This is used to send gratuitous ARPs for SNAT
-              and  DNAT  IP  addresses  via  <b>l</b><b>o</b><b>c</b><b>a</b><b>l</b><b>n</b><b>e</b><b>t</b> and is valid for only L3
-              gateway   ports.   Example:    <b>8</b><b>0</b><b>:</b><b>f</b><b>a</b><b>:</b><b>5</b><b>b</b><b>:</b><b>0</b><b>6</b><b>:</b><b>7</b><b>2</b><b>:</b><b>b</b><b>7</b>    <b>1</b><b>5</b><b>8</b><b>.</b><b>3</b><b>6</b><b>.</b><b>4</b><b>4</b><b>.</b><b>2</b><b>2</b>
-              <b>1</b><b>5</b><b>8</b><b>.</b><b>3</b><b>6</b><b>.</b><b>4</b><b>4</b><b>.</b><b>2</b><b>4</b>. This would result in generation of gratuitous ARPs
-              for IP  addresses  158.36.44.22  and  158.36.44.24  with  a  MAC
-              address of 80:fa:5b:06:72:b7.
+              DNAT external IP addresses. This is used to send gratuitous ARPs
+              for  SNAT  and DNAT external IP addresses via <b>l</b><b>o</b><b>c</b><b>a</b><b>l</b><b>n</b><b>e</b><b>t</b>. Example:
+              <b>8</b><b>0</b><b>:</b><b>f</b><b>a</b><b>:</b><b>5</b><b>b</b><b>:</b><b>0</b><b>6</b><b>:</b><b>7</b><b>2</b><b>:</b><b>b</b><b>7</b> <b>1</b><b>5</b><b>8</b><b>.</b><b>3</b><b>6</b><b>.</b><b>4</b><b>4</b><b>.</b><b>2</b><b>2</b> <b>1</b><b>5</b><b>8</b><b>.</b><b>3</b><b>6</b><b>.</b><b>4</b><b>4</b><b>.</b><b>2</b><b>4</b>. This  would  result
+              in  generation  of gratuitous ARPs for IP addresses 158.36.44.22
+              and 158.36.44.24 with a MAC address of  80:fa:5b:06:72:b7.  This
+              is used in OVS versions prior to 2.8.
+
+       <b>n</b><b>a</b><b>t</b><b>_</b><b>a</b><b>d</b><b>d</b><b>r</b><b>e</b><b>s</b><b>s</b><b>e</b><b>s</b>: set of strings
+              MAC address of the <b>l</b><b>3</b><b>g</b><b>a</b><b>t</b><b>e</b><b>w</b><b>a</b><b>y</b> port followed by a list of SNAT and
+              DNAT external IP addresses. This is used to send gratuitous ARPs
+              for  SNAT  and DNAT external IP addresses via <b>l</b><b>o</b><b>c</b><b>a</b><b>l</b><b>n</b><b>e</b><b>t</b>. Example:
+              <b>8</b><b>0</b><b>:</b><b>f</b><b>a</b><b>:</b><b>5</b><b>b</b><b>:</b><b>0</b><b>6</b><b>:</b><b>7</b><b>2</b><b>:</b><b>b</b><b>7</b> <b>1</b><b>5</b><b>8</b><b>.</b><b>3</b><b>6</b><b>.</b><b>4</b><b>4</b><b>.</b><b>2</b><b>2</b> <b>1</b><b>5</b><b>8</b><b>.</b><b>3</b><b>6</b><b>.</b><b>4</b><b>4</b><b>.</b><b>2</b><b>4</b>. This  would  result
+              in  generation  of gratuitous ARPs for IP addresses 158.36.44.22
+              and 158.36.44.24 with a MAC address of  80:fa:5b:06:72:b7.  This
+              is used in OVS version 2.8 and later versions.
 
      <u>L</u><u>o</u><u>c</u><u>a</u><u>l</u><u>n</u><u>e</u><u>t</u> <u>O</u><u>p</u><u>t</u><u>i</u><u>o</u><u>n</u><u>s</u><u>:</u>
 
@@ -1578,18 +1714,26 @@ ovn-sb(5)                     Open vSwitch Manual                    ovn-sb(5)
 
        These options apply to logical ports with <b>t</b><b>y</b><b>p</b><b>e</b> having (empty string)
 
+       <b>o</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b> <b>:</b> <b>r</b><b>e</b><b>q</b><b>u</b><b>e</b><b>s</b><b>t</b><b>e</b><b>d</b><b>-</b><b>c</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b>: optional string
+              If  set, identifies a specific chassis (by name) that is allowed
+              to bind this port. Using  this  option  will  prevent  thrashing
+              between  two  chassis trying to bind the same port during a live
+              migration. It can also prevent similar thrashing due to  a  mis-
+              configuration,  if  a  port is accidentally created on more than
+              one chassis.
+
        <b>o</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b> <b>:</b> <b>q</b><b>o</b><b>s</b><b>_</b><b>m</b><b>a</b><b>x</b><b>_</b><b>r</b><b>a</b><b>t</b><b>e</b>: optional string
-              If  set,  indicates  the  maximum  rate  for data sent from this
-              interface, in bit/s. The traffic will  be  shaped  according  to
+              If set, indicates the maximum  rate  for  data  sent  from  this
+              interface,  in  bit/s.  The  traffic will be shaped according to
               this limit.
 
        <b>o</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b> <b>:</b> <b>q</b><b>o</b><b>s</b><b>_</b><b>b</b><b>u</b><b>r</b><b>s</b><b>t</b>: optional string
               If set, indicates the maximum burst size for data sent from this
               interface, in bits.
 
-       <b>o</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b> <b>:</b> <b>q</b><b>d</b><b>i</b><b>s</b><b>c</b><b>_</b><b>q</b><b>u</b><b>e</b><b>u</b><b>e</b><b>_</b><b>i</b><b>d</b>: optional string, containing  an  integer,  in
+       <b>o</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>  <b>:</b>  <b>q</b><b>d</b><b>i</b><b>s</b><b>c</b><b>_</b><b>q</b><b>u</b><b>e</b><b>u</b><b>e</b><b>_</b><b>i</b><b>d</b>:  optional string, containing an integer, in
        range 1 to 61,440
-              Indicates  the queue number on the physical device. This is same
+              Indicates the queue number on the physical device. This is  same
               as the <b>q</b><b>u</b><b>e</b><b>u</b><b>e</b><b>_</b><b>i</b><b>d</b> used in OpenFlow in <b>s</b><b>t</b><b>r</b><b>u</b><b>c</b><b>t</b> <b>o</b><b>f</b><b>p</b><b>_</b><b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>_</b><b>e</b><b>n</b><b>q</b><b>u</b><b>e</b><b>u</b><b>e</b>.
 
      <u>C</u><u>h</u><u>a</u><u>s</u><u>s</u><u>i</u><u>s</u> <u>R</u><u>e</u><u>d</u><u>i</u><u>r</u><u>e</u><u>c</u><u>t</u> <u>O</u><u>p</u><u>t</u><u>i</u><u>o</u><u>n</u><u>s</u><u>:</u>
@@ -1597,32 +1741,51 @@ ovn-sb(5)                     Open vSwitch Manual                    ovn-sb(5)
        These options apply to logical ports with <b>t</b><b>y</b><b>p</b><b>e</b> of <b>c</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b><b>r</b><b>e</b><b>d</b><b>i</b><b>r</b><b>e</b><b>c</b><b>t</b>.
 
        <b>o</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b> <b>:</b> <b>d</b><b>i</b><b>s</b><b>t</b><b>r</b><b>i</b><b>b</b><b>u</b><b>t</b><b>e</b><b>d</b><b>-</b><b>p</b><b>o</b><b>r</b><b>t</b>: optional string
-              The name of the distributed port for which this  <b>c</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b><b>r</b><b>e</b><b>d</b><b>i</b><b>r</b><b>e</b><b>c</b><b>t</b>
+              The  name of the distributed port for which this <b>c</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b><b>r</b><b>e</b><b>d</b><b>i</b><b>r</b><b>e</b><b>c</b><b>t</b>
               port represents a particular instance.
 
        <b>o</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b> <b>:</b> <b>r</b><b>e</b><b>d</b><b>i</b><b>r</b><b>e</b><b>c</b><b>t</b><b>-</b><b>c</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b>: optional string
-              The  <b>c</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b> that this <b>c</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b><b>r</b><b>e</b><b>d</b><b>i</b><b>r</b><b>e</b><b>c</b><b>t</b> port is bound to. This is
-              taken from <b>o</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b><b>:</b><b>r</b><b>e</b><b>d</b><b>i</b><b>r</b><b>e</b><b>c</b><b>t</b><b>-</b><b>c</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b> in the OVN_Northbound  data‐
+              The <b>c</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b> that this <b>c</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b><b>r</b><b>e</b><b>d</b><b>i</b><b>r</b><b>e</b><b>c</b><b>t</b> port is bound to. This  is
+              taken  from <b>o</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b><b>:</b><b>r</b><b>e</b><b>d</b><b>i</b><b>r</b><b>e</b><b>c</b><b>t</b><b>-</b><b>c</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b> in the OVN_Northbound data‐
               base’s <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>R</b><b>o</b><b>u</b><b>t</b><b>e</b><b>r</b><b>_</b><b>P</b><b>o</b><b>r</b><b>t</b> table.
 
      <u>N</u><u>e</u><u>s</u><u>t</u><u>e</u><u>d</u> <u>C</u><u>o</u><u>n</u><u>t</u><u>a</u><u>i</u><u>n</u><u>e</u><u>r</u><u>s</u><u>:</u>
 
        These columns support containers nested within a VM. Specifically, they
-       are used when <b>t</b><b>y</b><b>p</b><b>e</b> is empty and <b>l</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b> identifies  the  interface
-       of  a  container  spawned inside a VM. They are empty for containers or
+       are  used  when <b>t</b><b>y</b><b>p</b><b>e</b> is empty and <b>l</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b> identifies the interface
+       of a container spawned inside a VM. They are empty  for  containers  or
        VMs that run directly on a hypervisor.
 
        <b>p</b><b>a</b><b>r</b><b>e</b><b>n</b><b>t</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b>: optional string
-              This is taken from <b>p</b><b>a</b><b>r</b><b>e</b><b>n</b><b>t</b><b>_</b><b>n</b><b>a</b><b>m</b><b>e</b> in the OVN_Northbound  database’s
+              This  is taken from <b>p</b><b>a</b><b>r</b><b>e</b><b>n</b><b>t</b><b>_</b><b>n</b><b>a</b><b>m</b><b>e</b> in the OVN_Northbound database’s
               <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>_</b><b>P</b><b>o</b><b>r</b><b>t</b> table.
 
        <b>t</b><b>a</b><b>g</b>: optional integer, in range 1 to 4,095
-              Identifies  the  VLAN tag in the network traffic associated with
+              Identifies the VLAN tag in the network traffic  associated  with
               that container’s network interface.
 
-              This column is used for a different purpose when <b>t</b><b>y</b><b>p</b><b>e</b> is  <b>l</b><b>o</b><b>c</b><b>a</b><b>l</b><b>‐</b>
-              <b>n</b><b>e</b><b>t</b>  (see  <b>L</b><b>o</b><b>c</b><b>a</b><b>l</b><b>n</b><b>e</b><b>t</b> <b>O</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>, above) or <b>l</b><b>2</b><b>g</b><b>a</b><b>t</b><b>e</b><b>w</b><b>a</b><b>y</b> (see <b>L</b><b>2</b> <b>G</b><b>a</b><b>t</b><b>e</b><b>w</b><b>a</b><b>y</b>
+              This  column is used for a different purpose when <b>t</b><b>y</b><b>p</b><b>e</b> is <b>l</b><b>o</b><b>c</b><b>a</b><b>l</b><b>‐</b>
+              <b>n</b><b>e</b><b>t</b> (see <b>L</b><b>o</b><b>c</b><b>a</b><b>l</b><b>n</b><b>e</b><b>t</b> <b>O</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>, above) or <b>l</b><b>2</b><b>g</b><b>a</b><b>t</b><b>e</b><b>w</b><b>a</b><b>y</b> (see  <b>L</b><b>2</b>  <b>G</b><b>a</b><b>t</b><b>e</b><b>w</b><b>a</b><b>y</b>
               <b>O</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>, above).
+
+     <u>N</u><u>a</u><u>m</u><u>i</u><u>n</u><u>g</u><u>:</u>
+
+       <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b> <b>:</b> <b>n</b><b>a</b><b>m</b><b>e</b>: optional string
+              For  a  logical  switch port, <b>o</b><b>v</b><b>n</b><b>-</b><b>n</b><b>o</b><b>r</b><b>t</b><b>h</b><b>d</b> copies this from <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>‐</b>
+              <b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b><b>:</b><b>n</b><b>e</b><b>u</b><b>t</b><b>r</b><b>o</b><b>n</b><b>:</b><b>p</b><b>o</b><b>r</b><b>t</b><b>_</b><b>n</b><b>a</b><b>m</b><b>e</b> in the  <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>_</b><b>P</b><b>o</b><b>r</b><b>t</b>  table  in
+              the OVN_Northbound database, if it is a nonempty string.
+
+              For  a  logical  switch  port, <b>o</b><b>v</b><b>n</b><b>-</b><b>n</b><b>o</b><b>r</b><b>t</b><b>h</b><b>d</b> does not currently set
+              this key.
+
+     <u>C</u><u>o</u><u>m</u><u>m</u><u>o</u><u>n</u> <u>C</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u><u>s</u><u>:</u>
+
+       <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b>: map of string-string pairs
+              See <b>E</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b> <b>I</b><b>D</b><b>s</b> at the beginning of this document.
+
+              The <b>o</b><b>v</b><b>n</b><b>-</b><b>n</b><b>o</b><b>r</b><b>t</b><b>h</b><b>d</b> program populates this column  with  all  entries
+              into the <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b> column of the <b>L</b><b>o</b><b>g</b><b>i</b><b>c</b><b>a</b><b>l</b><b>_</b><b>S</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>_</b><b>P</b><b>o</b><b>r</b><b>t</b> table of
+              the <b>O</b><b>V</b><b>N</b><b>_</b><b>N</b><b>o</b><b>r</b><b>t</b><b>h</b><b>b</b><b>o</b><b>u</b><b>n</b><b>d</b> database.
 
 <b>M</b><b>A</b><b>C</b><b>_</b><b>B</b><b>i</b><b>n</b><b>d</b><b>i</b><b>n</b><b>g</b> <b>T</b><b>A</b><b>B</b><b>L</b><b>E</b>
        Each row in this table specifies a binding from an  IP  address  to  an
@@ -1852,6 +2015,7 @@ ovn-sb(5)                     Open vSwitch Manual                    ovn-sb(5)
        <u>C</u><u>o</u><u>r</u><u>e</u> <u>F</u><u>e</u><u>a</u><u>t</u><u>u</u><u>r</u><u>e</u><u>s</u><u>:</u>
          <b>t</b><b>a</b><b>r</b><b>g</b><b>e</b><b>t</b>                      string (must be unique within table)
          <b>r</b><b>e</b><b>a</b><b>d</b><b>_</b><b>o</b><b>n</b><b>l</b><b>y</b>                   boolean
+         <b>r</b><b>o</b><b>l</b><b>e</b>                        string
        <u>C</u><u>l</u><u>i</u><u>e</u><u>n</u><u>t</u> <u>F</u><u>a</u><u>i</u><u>l</u><u>u</u><u>r</u><u>e</u> <u>D</u><u>e</u><u>t</u><u>e</u><u>c</u><u>t</u><u>i</u><u>o</u><u>n</u> <u>a</u><u>n</u><u>d</u> <u>H</u><u>a</u><u>n</u><u>d</u><u>l</u><u>i</u><u>n</u><u>g</u><u>:</u>
          <b>m</b><b>a</b><b>x</b><b>_</b><b>b</b><b>a</b><b>c</b><b>k</b><b>o</b><b>f</b><b>f</b>                 optional integer, at least 1,000
          <b>i</b><b>n</b><b>a</b><b>c</b><b>t</b><b>i</b><b>v</b><b>i</b><b>t</b><b>y</b><b>_</b><b>p</b><b>r</b><b>o</b><b>b</b><b>e</b>            optional integer
@@ -1939,6 +2103,9 @@ ovn-sb(5)                     Open vSwitch Manual                    ovn-sb(5)
        <b>r</b><b>e</b><b>a</b><b>d</b><b>_</b><b>o</b><b>n</b><b>l</b><b>y</b>: boolean
               <b>t</b><b>r</b><b>u</b><b>e</b>  to  restrict  these connections to read-only transactions,
               <b>f</b><b>a</b><b>l</b><b>s</b><b>e</b> to allow them to modify the database.
+
+       <b>r</b><b>o</b><b>l</b><b>e</b>: string
+              String containing role name for this connection entry.
 
      <u>C</u><u>l</u><u>i</u><u>e</u><u>n</u><u>t</u> <u>F</u><u>a</u><u>i</u><u>l</u><u>u</u><u>r</u><u>e</u> <u>D</u><u>e</u><u>t</u><u>e</u><u>c</u><u>t</u><u>i</u><u>o</u><u>n</u> <u>a</u><u>n</u><u>d</u> <u>H</u><u>a</u><u>n</u><u>d</u><u>l</u><u>i</u><u>n</u><u>g</u><u>:</u>
 
@@ -2054,6 +2221,8 @@ ovn-sb(5)                     Open vSwitch Manual                    ovn-sb(5)
        <b>c</b><b>e</b><b>r</b><b>t</b><b>i</b><b>f</b><b>i</b><b>c</b><b>a</b><b>t</b><b>e</b>                   string
        <b>c</b><b>a</b><b>_</b><b>c</b><b>e</b><b>r</b><b>t</b>                       string
        <b>b</b><b>o</b><b>o</b><b>t</b><b>s</b><b>t</b><b>r</b><b>a</b><b>p</b><b>_</b><b>c</b><b>a</b><b>_</b><b>c</b><b>e</b><b>r</b><b>t</b>             boolean
+       <b>s</b><b>s</b><b>l</b><b>_</b><b>p</b><b>r</b><b>o</b><b>t</b><b>o</b><b>c</b><b>o</b><b>l</b><b>s</b>                 string
+       <b>s</b><b>s</b><b>l</b><b>_</b><b>c</b><b>i</b><b>p</b><b>h</b><b>e</b><b>r</b><b>s</b>                   string
        <u>C</u><u>o</u><u>m</u><u>m</u><u>o</u><u>n</u> <u>C</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u><u>s</u><u>:</u>
          <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b>                map of string-string pairs
 
@@ -2083,14 +2252,132 @@ ovn-sb(5)                     Open vSwitch Manual                    ovn-sb(5)
               <b>i</b><b>n</b><b>i</b><b>t</b><b>i</b><b>a</b><b>l</b> <b>C</b><b>A</b> <b>c</b><b>e</b><b>r</b><b>t</b><b>i</b><b>f</b><b>i</b><b>c</b><b>a</b><b>t</b><b>e</b><b>.</b> It may still be  useful  for  bootstrap‐
               ping.
 
+       <b>s</b><b>s</b><b>l</b><b>_</b><b>p</b><b>r</b><b>o</b><b>t</b><b>o</b><b>c</b><b>o</b><b>l</b><b>s</b>: string
+              List  of  SSL  protocols  to be enabled for SSL connections. The
+              default when this option is omitted is <b>T</b><b>L</b><b>S</b><b>v</b><b>1</b><b>,</b><b>T</b><b>L</b><b>S</b><b>v</b><b>1</b><b>.</b><b>1</b><b>,</b><b>T</b><b>L</b><b>S</b><b>v</b><b>1</b><b>.</b><b>2</b>.
+
+       <b>s</b><b>s</b><b>l</b><b>_</b><b>c</b><b>i</b><b>p</b><b>h</b><b>e</b><b>r</b><b>s</b>: string
+              List of ciphers (in OpenSSL cipher string  format)  to  be  sup‐
+              ported  for  SSL  connections.  The  default when this option is
+              omitted is <b>H</b><b>I</b><b>G</b><b>H</b><b>:</b><b>!</b><b>a</b><b>N</b><b>U</b><b>L</b><b>L</b><b>:</b><b>!</b><b>M</b><b>D</b><b>5</b>.
+
      <u>C</u><u>o</u><u>m</u><u>m</u><u>o</u><u>n</u> <u>C</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u><u>s</u><u>:</u>
 
-       The  overall purpose of these columns is described under <b>C</b><b>o</b><b>m</b><b>m</b><b>o</b><b>n</b> <b>C</b><b>o</b><b>l</b><b>u</b><b>m</b><b>n</b><b>s</b>
+       The overall purpose of these columns is described under <b>C</b><b>o</b><b>m</b><b>m</b><b>o</b><b>n</b>  <b>C</b><b>o</b><b>l</b><b>u</b><b>m</b><b>n</b><b>s</b>
+       at the beginning of this document.
+
+       <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b>: map of string-string pairs
+
+<b>D</b><b>N</b><b>S</b> <b>T</b><b>A</b><b>B</b><b>L</b><b>E</b>
+       Each  row  in  this  table  stores  the  DNS  records.  The  OVN action
+       <b>d</b><b>n</b><b>s</b><b>_</b><b>l</b><b>o</b><b>o</b><b>k</b><b>u</b><b>p</b> uses this table for DNS resolution.
+
+   <b>S</b><b>u</b><b>m</b><b>m</b><b>a</b><b>r</b><b>y</b><b>:</b>
+       <b>r</b><b>e</b><b>c</b><b>o</b><b>r</b><b>d</b><b>s</b>                       map of string-string pairs
+       <b>d</b><b>a</b><b>t</b><b>a</b><b>p</b><b>a</b><b>t</b><b>h</b><b>s</b>                     set of 1 or more <b>D</b><b>a</b><b>t</b><b>a</b><b>p</b><b>a</b><b>t</b><b>h</b><b>_</b><b>B</b><b>i</b><b>n</b><b>d</b><b>i</b><b>n</b><b>g</b>s
+       <u>C</u><u>o</u><u>m</u><u>m</u><u>o</u><u>n</u> <u>C</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u><u>s</u><u>:</u>
+         <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b>                map of string-string pairs
+
+   <b>D</b><b>e</b><b>t</b><b>a</b><b>i</b><b>l</b><b>s</b><b>:</b>
+       <b>r</b><b>e</b><b>c</b><b>o</b><b>r</b><b>d</b><b>s</b>: map of string-string pairs
+              Key-value pair of DNS records with <b>D</b><b>N</b><b>S</b> <b>q</b><b>u</b><b>e</b><b>r</b><b>y</b> <b>n</b><b>a</b><b>m</b><b>e</b> as the key and
+              a  string  of  IP address(es) separated by comma or space as the
+              value.
+
+              <b>E</b><b>x</b><b>a</b><b>m</b><b>p</b><b>l</b><b>e</b><b>:</b>  "vm1.ovn.org" = "10.0.0.4 aef0::4"
+
+       <b>d</b><b>a</b><b>t</b><b>a</b><b>p</b><b>a</b><b>t</b><b>h</b><b>s</b>: set of 1 or more <b>D</b><b>a</b><b>t</b><b>a</b><b>p</b><b>a</b><b>t</b><b>h</b><b>_</b><b>B</b><b>i</b><b>n</b><b>d</b><b>i</b><b>n</b><b>g</b>s
+              The DNS records defined in the column <b>r</b><b>e</b><b>c</b><b>o</b><b>r</b><b>d</b><b>s</b>  will  be  applied
+              only  to  the DNS queries originating from the datapaths defined
+              in this column.
+
+     <u>C</u><u>o</u><u>m</u><u>m</u><u>o</u><u>n</u> <u>C</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u><u>s</u><u>:</u>
+
+       <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b>: map of string-string pairs
+              See <b>E</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b> <b>I</b><b>D</b><b>s</b> at the beginning of this document.
+
+<b>R</b><b>B</b><b>A</b><b>C</b><b>_</b><b>R</b><b>o</b><b>l</b><b>e</b> <b>T</b><b>A</b><b>B</b><b>L</b><b>E</b>
+       Role table for role-based access controls.
+
+   <b>S</b><b>u</b><b>m</b><b>m</b><b>a</b><b>r</b><b>y</b><b>:</b>
+       <b>n</b><b>a</b><b>m</b><b>e</b>                          string
+       <b>p</b><b>e</b><b>r</b><b>m</b><b>i</b><b>s</b><b>s</b><b>i</b><b>o</b><b>n</b><b>s</b>                   map of string-weak reference to <b>R</b><b>B</b><b>A</b><b>C</b><b>_</b><b>P</b><b>e</b><b>r</b><b>‐</b>
+                                     <b>m</b><b>i</b><b>s</b><b>s</b><b>i</b><b>o</b><b>n</b> pairs
+
+   <b>D</b><b>e</b><b>t</b><b>a</b><b>i</b><b>l</b><b>s</b><b>:</b>
+       <b>n</b><b>a</b><b>m</b><b>e</b>: string
+              The  role  name, corresponding to the <b>r</b><b>o</b><b>l</b><b>e</b> column in the <b>C</b><b>o</b><b>n</b><b>n</b><b>e</b><b>c</b><b>‐</b>
+              <b>t</b><b>i</b><b>o</b><b>n</b> table.
+
+       <b>p</b><b>e</b><b>r</b><b>m</b><b>i</b><b>s</b><b>s</b><b>i</b><b>o</b><b>n</b><b>s</b>: map of string-weak reference to <b>R</b><b>B</b><b>A</b><b>C</b><b>_</b><b>P</b><b>e</b><b>r</b><b>m</b><b>i</b><b>s</b><b>s</b><b>i</b><b>o</b><b>n</b> pairs
+              A mapping of table names to rows in the <b>R</b><b>B</b><b>A</b><b>C</b><b>_</b><b>P</b><b>e</b><b>r</b><b>m</b><b>i</b><b>s</b><b>s</b><b>i</b><b>o</b><b>n</b> table.
+
+<b>R</b><b>B</b><b>A</b><b>C</b><b>_</b><b>P</b><b>e</b><b>r</b><b>m</b><b>i</b><b>s</b><b>s</b><b>i</b><b>o</b><b>n</b> <b>T</b><b>A</b><b>B</b><b>L</b><b>E</b>
+       Permissions table for role-based access controls.
+
+   <b>S</b><b>u</b><b>m</b><b>m</b><b>a</b><b>r</b><b>y</b><b>:</b>
+       <b>t</b><b>a</b><b>b</b><b>l</b><b>e</b>                         string
+       <b>a</b><b>u</b><b>t</b><b>h</b><b>o</b><b>r</b><b>i</b><b>z</b><b>a</b><b>t</b><b>i</b><b>o</b><b>n</b>                 set of strings
+       <b>i</b><b>n</b><b>s</b><b>e</b><b>r</b><b>t</b><b>_</b><b>d</b><b>e</b><b>l</b><b>e</b><b>t</b><b>e</b>                 boolean
+       <b>u</b><b>p</b><b>d</b><b>a</b><b>t</b><b>e</b>                        set of strings
+
+   <b>D</b><b>e</b><b>t</b><b>a</b><b>i</b><b>l</b><b>s</b><b>:</b>
+       <b>t</b><b>a</b><b>b</b><b>l</b><b>e</b>: string
+              Name of table to which this row applies.
+
+       <b>a</b><b>u</b><b>t</b><b>h</b><b>o</b><b>r</b><b>i</b><b>z</b><b>a</b><b>t</b><b>i</b><b>o</b><b>n</b>: set of strings
+              Set of strings identifying columns and column:key  pairs  to  be
+              compared with client ID. At least one match is required in order
+              to be authorized. A zero-length string is treated as  a  special
+              value indicating all clients should be considered authorized.
+
+       <b>i</b><b>n</b><b>s</b><b>e</b><b>r</b><b>t</b><b>_</b><b>d</b><b>e</b><b>l</b><b>e</b><b>t</b><b>e</b>: boolean
+              When  "true",  row  insertions  and authorized row deletions are
+              permitted.
+
+       <b>u</b><b>p</b><b>d</b><b>a</b><b>t</b><b>e</b>: set of strings
+              Set of strings identifying columns  and  column:key  pairs  that
+              authorized clients are allowed to modify.
+
+<b>G</b><b>a</b><b>t</b><b>e</b><b>w</b><b>a</b><b>y</b><b>_</b><b>C</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b> <b>T</b><b>A</b><b>B</b><b>L</b><b>E</b>
+       Association  of <b>P</b><b>o</b><b>r</b><b>t</b><b>_</b><b>B</b><b>i</b><b>n</b><b>d</b><b>i</b><b>n</b><b>g</b> rows of <b>t</b><b>y</b><b>p</b><b>e</b> <b>c</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b><b>r</b><b>e</b><b>d</b><b>i</b><b>r</b><b>e</b><b>c</b><b>t</b> to a <b>C</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b>.
+       The traffic going out through a specific <b>c</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b><b>r</b><b>e</b><b>d</b><b>i</b><b>r</b><b>e</b><b>c</b><b>t</b> port  will  be
+       redirected to a chassis, or a set of them in high availability configu‐
+       rations.
+
+   <b>S</b><b>u</b><b>m</b><b>m</b><b>a</b><b>r</b><b>y</b><b>:</b>
+       <b>n</b><b>a</b><b>m</b><b>e</b>                          string (must be unique within table)
+       <b>c</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b>                       optional weak reference to <b>C</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b>
+       <b>p</b><b>r</b><b>i</b><b>o</b><b>r</b><b>i</b><b>t</b><b>y</b>                      integer, in range 0 to 32,767
+       <b>o</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>                       map of string-string pairs
+       <u>C</u><u>o</u><u>m</u><u>m</u><u>o</u><u>n</u> <u>C</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u><u>s</u><u>:</u>
+         <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b>                map of string-string pairs
+
+   <b>D</b><b>e</b><b>t</b><b>a</b><b>i</b><b>l</b><b>s</b><b>:</b>
+       <b>n</b><b>a</b><b>m</b><b>e</b>: string (must be unique within table)
+              Name of the <b>G</b><b>a</b><b>t</b><b>e</b><b>w</b><b>a</b><b>y</b><b>_</b><b>C</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b>.
+
+              A   suggested,   but   not   required   naming   convention   is
+              <b>$</b><b>{</b><b>p</b><b>o</b><b>r</b><b>t</b><b>_</b><b>n</b><b>a</b><b>m</b><b>e</b><b>}</b><b>_</b><b>$</b><b>{</b><b>c</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b><b>_</b><b>n</b><b>a</b><b>m</b><b>e</b><b>}</b>.
+
+       <b>c</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b>: optional weak reference to <b>C</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b>
+              The <b>C</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b> to which we send the traffic.
+
+       <b>p</b><b>r</b><b>i</b><b>o</b><b>r</b><b>i</b><b>t</b><b>y</b>: integer, in range 0 to 32,767
+              This  is  the  priority  the  specific  <b>C</b><b>h</b><b>a</b><b>s</b><b>s</b><b>i</b><b>s</b>  among all Gate‐
+              way_Chassis belonging to the same <b>P</b><b>o</b><b>r</b><b>t</b><b>_</b><b>B</b><b>i</b><b>n</b><b>d</b><b>i</b><b>n</b><b>g</b>.
+
+       <b>o</b><b>p</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>: map of string-string pairs
+              Reserved for future use.
+
+     <u>C</u><u>o</u><u>m</u><u>m</u><u>o</u><u>n</u> <u>C</u><u>o</u><u>l</u><u>u</u><u>m</u><u>n</u><u>s</u><u>:</u>
+
+       The overall purpose of these columns is described under <b>C</b><b>o</b><b>m</b><b>m</b><b>o</b><b>n</b>  <b>C</b><b>o</b><b>l</b><b>u</b><b>m</b><b>n</b><b>s</b>
        at the beginning of this document.
 
        <b>e</b><b>x</b><b>t</b><b>e</b><b>r</b><b>n</b><b>a</b><b>l</b><b>_</b><b>i</b><b>d</b><b>s</b>: map of string-string pairs
 
 
 
-Open vSwitch 2.7.90             DB Schema 1.9.0                      ovn-sb(5)
+Open vSwitch 2.8.90             DB Schema 1.15.0                     ovn-sb(5)
 </pre></body></html>

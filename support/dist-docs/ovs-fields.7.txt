@@ -19,30 +19,48 @@ INTRODUCTION
        data fields are computed, e.g. ip_frag describes whether a packet is  a
        fragment but it is not copied directly from the IP header.
 
-       Some  data  fields,  called root fields, are always present as a conse‐
-       quence of the basic networking technology in use. The  Ethernet  header
-       fields  are  root  fields  in  current versions of Open vSwitch, though
-       future versions might support other roots. (Currently, to support  LISP
-       tunnels, which do not encapsulate an Ethernet header, Open vSwitch syn‐
-       thesizes one.)
+       Data  fields that are always present as a consequence of the basic net‐
+       working technology in use are called called root fields.  Open  vSwitch
+       2.7  and earlier considered Ethernet fields to be root fields, and this
+       remains the default mode of operation for Open vSwitch bridges. When  a
+       packet  is  received  from a non-Ethernet interfaces, such as a layer-3
+       LISP tunnel, Open vSwitch 2.7 and earlier force-fit the packet to  this
+       Ethernet-centric point of view by pretending that an Ethernet header is
+       present whose Ethernet type that indicates  the  packet’s  actual  type
+       (and whose source and destination addresses are all-zero).
 
-       Other data fields are not always present. A packet contains ARP fields,
-       for  example, only when its Ethernet header indicates the Ethertype for
-       ARP, 0x0806. In this documentation, we say that a field  is  applicable
-       when it is present in a packet, and inapplicable when it is not. (These
-       are not standard terms.) We refer  to  the  conditions  that  determine
-       whether  a  field  is  applicable  as  prerequisites. Some VLAN-related
-       fields are a special case: these fields are always applicable, but have
-       a  designated  value  or  bit  that  indicates whether a VLAN header is
-       present, with the remaining values or bits indicating the VLAN header’s
-       content (if it is present).
+       Open vSwitch 2.8 and later implement the ``packet type-aware pipeline’’
+       concept introduced in OpenFlow 1.5. Such a pipeline does not  have  any
+       root  fields. Instead, a new metadata field, packet_type, indicates the
+       basic type of the packet, which can be Ethernet, IPv4, IPv6, or another
+       type.  For backward compatibility, by default Open vSwitch 2.8 imitates
+       the behavior of Open vSwitch 2.7 and earlier. Later  versions  of  Open
+       vSwitch  may  change  the  default, and in the meantime controllers can
+       turn off this legacy behavior, on  a  port-by-port  basis,  by  setting
+       options:packet_type to ptap in the Interface table. This is significant
+       only for ports that can handle non-Ethernet packets, which is currently
+       just  LISP, VXLAN-GPE, and GRE tunnel ports. See ovs-vwitchd.conf.db(5)
+       for more information.
 
-       An  inapplicable  field  does  not  have  a  value,  not even a nominal
-       ``value’’ such as all-zero-bits. In many  circumstances,  OpenFlow  and
-       Open  vSwitch  allow references only to applicable fields. For example,
-       one may match (see Matching, below) a given field  only  if  the  match
-       includes  the  field’s prerequisite, e.g. matching an ARP field is only
-       allowed if one also matches on Ethertype 0x0806.
+       Non-root data fields are not always  present.  A  packet  contains  ARP
+       fields,  for example, only when its packet type is ARP or when it is an
+       Ethernet packet whose Ethernet header indicates the Ethertype for  ARP,
+       0x0806.  In  this documentation, we say that a field is applicable when
+       it is present in a packet, and inapplicable when it is not. (These  are
+       not  standard terms.) We refer to the conditions that determine whether
+       a field is applicable as prerequisites. Some VLAN-related fields are  a
+       special  case: these fields are always applicable for Ethernet packets,
+       but have a designated value or bit that indicates whether a VLAN header
+       is  present,  with  the  remaining  values  or bits indicating the VLAN
+       header’s content (if it is present).
+
+       An inapplicable field does  not  have  a  value,  not  even  a  nominal
+       ``value’’  such  as  all-zero-bits. In many circumstances, OpenFlow and
+       Open vSwitch allow references only to applicable fields.  For  example,
+       one  may  match  (see  Matching, below) a given field only if the match
+       includes the field’s prerequisite, e.g. matching an ARP field  is  only
+       allowed  if one also matches on Ethertype 0x0806 or the packet_type for
+       ARP in a packet type-aware bridge.
 
        Sometimes a packet may contain multiple  instances  of  a  header.  For
        example,  a  packet may contain multiple VLAN or MPLS headers, and tun‐
@@ -221,6 +239,8 @@ INTRODUCTION
        notations. In some cases, Open vSwitch also  uses  shorthand  notations
        when  it  displays  matches. The following shorthands are defined, with
        their long forms shown on the right side:
+
+              eth    packet_type=(0,0) (Open vSwitch 2.8 and later)
 
               ip     eth_type=0x0800
 
@@ -524,11 +544,7 @@ INTRODUCTION
        the  first 32 bits of the body as an experimenter field whose most sig‐
        nificant byte is zero and whose remaining bytes are an Organizationally
        Unique  Identifier  (OUI)  assigned  by  the  IEEE [IEEE OUI], as shown
-       below. OpenFlow says that support for experimenter fields is  optional.
-       Open  vSwitch 2.4 and later does support them, primarily so that it can
-       support the ONFOXM_ET_* code points defined by official Open Networking
-       Foundation  extensions  to  OpenFlow 1.3 in e.g. [TCP Flags Match Field
-       Extension].
+       below.
 
             type                 experimenter
         <---------->             <---------->
@@ -538,6 +554,20 @@ INTRODUCTION
        +------+-----+--+------+ +------+-----+ +------------------+
         0xffff                    0x00
 
+
+       OpenFlow says that support for experimenter fields  is  optional.  Open
+       vSwitch  2.4  and  later  does support them, so that it can support the
+       following experimenter classes:
+
+              0x4f4e4600 (ONFOXM_ET)
+                     Used by official Open Networking Foundation extensions in
+                     OpenFlow  1.3  and  later.  e.g.  [TCP  Flags Match Field
+                     Extension].
+
+              0x005ad650 (NXOXM_NSH)
+                     Used by Open vSwitch for NSH extensions, in  the  absence
+                     of  an official ONF-assigned class. (This OUI is randomly
+                     generated.)
 
        Taken as a unit, class  (or  vendor),  field,  and  experimenter  (when
        present) uniquely identify a particular field.
@@ -616,63 +646,60 @@ INTRODUCTION
        OpenFlow 1.5 added OXMs for the  following  fields  supported  by  Open
        vSwitch:
 
+              ·      Packet type.
+
               ·      TCP flags.
 
               ·      Packet registers.
 
               ·      The output port in the OpenFlow action set.
 
-       OpenFlow  1.5  also  added OXMs for the following fields not documented
-       here and not yet implemented by Open vSwitch:
-
-              ·      Packet type.
-
 FIELDS REFERENCE
-       The following sections document the fields that Open vSwitch  supports.
-       Each  section  provides  introductory  material  on  a group of related
-       fields, followed by information on each individual field.  In  addition
-       to  field-specific  information,  each  field  begins with a table with
+       The  following sections document the fields that Open vSwitch supports.
+       Each section provides introductory  material  on  a  group  of  related
+       fields,  followed  by information on each individual field. In addition
+       to field-specific information, each field  begins  with  a  table  with
        entries for the following important properties:
 
-              Name   The field’s name, used for  parsing  and  formatting  the
-                     field,  e.g.  in  ovs-ofctl commands. For historical rea‐
+              Name   The  field’s  name,  used  for parsing and formatting the
+                     field, e.g. in ovs-ofctl commands.  For  historical  rea‐
                      sons,  some  fields  have  an  additional  name  that  is
-                     accepted  as  an  alternative in parsing. This name, when
-                     there is one, is listed as well,  e.g.  ``tun  (aka  tun‐
+                     accepted as an alternative in parsing.  This  name,  when
+                     there  is  one,  is  listed as well, e.g. ``tun (aka tun‐
                      nel_id).’’
 
-              Width  The  field’s  width,  always  a  multiple of 8 bits. Some
+              Width  The field’s width, always a  multiple  of  8  bits.  Some
                      fields don’t use all of the bits, so this may be accompa‐
-                     nied  by an explanation. For example, OpenFlow embeds the
-                     2-bit IP ECN field as as the low bits in an  8-bit  byte,
-                     and  so  its  width  is  expressed  as ``8 bits (only the
+                     nied by an explanation. For example, OpenFlow embeds  the
+                     2-bit  IP  ECN field as as the low bits in an 8-bit byte,
+                     and so its width is  expressed  as  ``8  bits  (only  the
                      least-significant 2 bits may be nonzero).’’
 
-              Format How a value for the field  is  formatted  or  parsed  by,
+              Format How  a  value  for  the  field is formatted or parsed by,
                      e.g., ovs-ofctl. Some possibilities are generic:
 
                      decimal
-                            Formats  as  a  decimal  number. On input, accepts
+                            Formats as a decimal  number.  On  input,  accepts
                             decimal numbers or hexadecimal numbers prefixed by
                             0x.
 
                      hexadecimal
                             Formats as a hexadecimal number prefixed by 0x. On
                             input, accepts decimal numbers or hexadecimal num‐
-                            bers  prefixed  by 0x. (The default for parsing is
-                            not hexadecimal: only a 0x prefix causes input  to
+                            bers prefixed by 0x. (The default for  parsing  is
+                            not  hexadecimal: only a 0x prefix causes input to
                             be treated as hexadecimal.)
 
                      Ethernet
-                            Formats  and  accepts  the common Ethernet address
+                            Formats and accepts the  common  Ethernet  address
                             format xx:xx:xx:xx:xx:xx.
 
-                     IPv4   Formats  and  accepts   the   dotted-quad   format
-                            a.b.c.d.  For bitwise matches, formats and accepts
-                            address/length  CIDR  notation  in   addition   to
+                     IPv4   Formats   and   accepts   the  dotted-quad  format
+                            a.b.c.d. For bitwise matches, formats and  accepts
+                            address/length   CIDR   notation  in  addition  to
                             address/mask.
 
-                     IPv6   Formats  and  accepts the common IPv6 address for‐
+                     IPv6   Formats and accepts the common IPv6  address  for‐
                             mats, plus CIDR notation for bitwise matches.
 
                      OpenFlow 1.0 port
@@ -681,31 +708,31 @@ FIELDS REFERENCE
                             uppercase or lowercase.
 
                      OpenFlow 1.1+ port
-                            Same syntax as OpenFlow 1.0 ports but  for  32-bit
+                            Same  syntax  as OpenFlow 1.0 ports but for 32-bit
                             OpenFlow 1.1+ port number fields.
 
-                     Other,  field-specific  formats  are explained along with
+                     Other, field-specific formats are  explained  along  with
                      their fields.
 
               Masking
-                     For most fields, this says ``arbitrary  bitwise  masks,’’
-                     meaning  that a flow may match any combination of bits in
-                     the field. Some fields instead say ``exact match  only,’’
-                     which  means  that a flow that matches on this field must
-                     match on the whole field instead of  just  certain  bits.
-                     Either  way,  this reports masking support for the latest
+                     For  most  fields, this says ``arbitrary bitwise masks,’’
+                     meaning that a flow may match any combination of bits  in
+                     the  field. Some fields instead say ``exact match only,’’
+                     which means that a flow that matches on this  field  must
+                     match  on  the  whole field instead of just certain bits.
+                     Either way, this reports masking support for  the  latest
                      version of Open vSwitch using OXM or NXM (that is, either
-                     OpenFlow  1.2+  or  OpenFlow  1.0  plus  Open vSwitch NXM
-                     extensions). In particular, OpenFlow  1.0  (without  NXM)
+                     OpenFlow 1.2+ or  OpenFlow  1.0  plus  Open  vSwitch  NXM
+                     extensions).  In  particular,  OpenFlow 1.0 (without NXM)
                      and 1.1 don’t always support masking even if Open vSwitch
-                     itself does; refer to the OpenFlow 1.0 and  OpenFlow  1.1
+                     itself  does;  refer to the OpenFlow 1.0 and OpenFlow 1.1
                      rows to learn about masking with these protocol versions.
 
               Prerequisites
                      Requirements that must be met to match on this field. For
-                     example, ip_src has IPv4 as a prerequisite, meaning  that
+                     example,  ip_src has IPv4 as a prerequisite, meaning that
                      a match must include eth_type=0x0800 to match on the IPv4
-                     source address. The following prerequisites,  with  their
+                     source  address.  The following prerequisites, with their
                      requirements, are currently in use:
 
                      none   (no requirements)
@@ -743,56 +770,56 @@ FIELDS REFERENCE
 
                      ND     ND solicit or ND advert
 
-                     The TCP, UDP, and SCTP prerequisites also have  the  spe‐
+                     The  TCP,  UDP, and SCTP prerequisites also have the spe‐
                      cial requirement that nw_frag is not being used to select
                      ``later fragments.’’ This is because only the first frag‐
-                     ment  of  a fragmented IPv4 or IPv6 datagram contains the
+                     ment of a fragmented IPv4 or IPv6 datagram  contains  the
                      TCP or UDP header.
 
-              Access Most fields are ``read/write,’’ which means  that  common
-                     OpenFlow  actions  like set_field can modify them. Fields
-                     that are ``read-only’’ cannot be modified in  these  gen‐
-                     eral-purpose  ways, although there may be other ways that
+              Access Most  fields  are ``read/write,’’ which means that common
+                     OpenFlow actions like set_field can modify  them.  Fields
+                     that  are  ``read-only’’ cannot be modified in these gen‐
+                     eral-purpose ways, although there may be other ways  that
                      actions can modify them.
 
               OpenFlow 1.0
               OpenFlow 1.1
                    These rows report the level of support that OpenFlow 1.0 or
-                   OpenFlow  1.1,  respectively, has for a field. For OpenFlow
-                   1.0, supported fields are reported as either  ``yes  (exact
-                   match  only)’’  for  fields that do not support any bitwise
-                   masking or ``yes (CIDR match only)’’ for fields  that  sup‐
-                   port  CIDR  masking.  OpenFlow  1.1 supported fields report
-                   either ``yes (exact match only)’’  or  simply  ``yes’’  for
+                   OpenFlow 1.1, respectively, has for a field.  For  OpenFlow
+                   1.0,  supported  fields are reported as either ``yes (exact
+                   match only)’’ for fields that do not  support  any  bitwise
+                   masking  or  ``yes (CIDR match only)’’ for fields that sup‐
+                   port CIDR masking. OpenFlow  1.1  supported  fields  report
+                   either  ``yes  (exact  match  only)’’ or simply ``yes’’ for
                    fields that do support arbitrary masks. These OpenFlow ver‐
                    sions supported a fixed collection of fields that cannot be
-                   extended,  so  many  more fields are reported as ``not sup‐
+                   extended, so many more fields are reported  as  ``not  sup‐
                    ported.’’
 
               OXM
-              NXM  These rows report the OXM and NXM code points  that  corre‐
+              NXM  These  rows  report the OXM and NXM code points that corre‐
                    spond to a given field. Either or both may be ``none.’’
 
                    A field that has only an OXM code point is usually one that
-                   was standardized before it was added  to  Open  vSwitch.  A
-                   field  that  has only an NXM code point is usually one that
-                   is not yet standardized. When a field has both OXM and  NXM
+                   was  standardized  before  it  was added to Open vSwitch. A
+                   field that has only an NXM code point is usually  one  that
+                   is  not yet standardized. When a field has both OXM and NXM
                    code points, it usually indicates that it was introduced as
-                   an Open vSwitch extension under the NXM  code  point,  then
-                   later  standardized  under  the OXM code point. A field can
+                   an  Open  vSwitch  extension under the NXM code point, then
+                   later standardized under the OXM code point.  A  field  can
                    have more than one OXM code point if it was standardized in
-                   OpenFlow  1.4  or  later  and additionally introduced as an
-                   official ONF extension for OpenFlow 1.3. (A field that  has
-                   neither  OXM  nor  NXM  code point is typically an obsolete
-                   field that is supported in some other  form  using  OXM  or
+                   OpenFlow 1.4 or later and  additionally  introduced  as  an
+                   official  ONF extension for OpenFlow 1.3. (A field that has
+                   neither OXM nor NXM code point  is  typically  an  obsolete
+                   field  that  is  supported  in some other form using OXM or
                    NXM.)
 
-                   Each  code  point  in  these  rows is described in the form
-                   ``NAME (number) since OpenFlow spec and Open  vSwitch  ver‐
-                   sion,’’  e.g.  ``OXM_OF_ETH_TYPE (5) since OpenFlow 1.2 and
+                   Each code point in these rows  is  described  in  the  form
+                   ``NAME  (number)  since OpenFlow spec and Open vSwitch ver‐
+                   sion,’’ e.g. ``OXM_OF_ETH_TYPE (5) since OpenFlow  1.2  and
                    Open vSwitch 1.7.’’ First, NAME, which specifies a name for
-                   the  code  point,  starts  with  a prefix that designates a
-                   class and, in some cases, a vendor, as listed in  the  fol‐
+                   the code point, starts with  a  prefix  that  designates  a
+                   class  and,  in some cases, a vendor, as listed in the fol‐
                    lowing table:
 
                    Prefix           Vendor       Class
@@ -802,13 +829,14 @@ FIELDS REFERENCE
                    OXM_OF           (none)       0x8000
                    OXM_OF_PKT_REG   (none)       0x8001
                    NXOXM_ET         0x00002320   0xffff
+                   NXOXM_NSH        0x005ad650   0xffff
                    ONFOXM_ET        0x4f4e4600   0xffff
 
-                   For  more information on OXM/NXM classes and vendors, refer
-                   back to OpenFlow 1.2 under Evolution  of  OpenFlow  Fields.
+                   For more information on OXM/NXM classes and vendors,  refer
+                   back  to  OpenFlow  1.2 under Evolution of OpenFlow Fields.
                    The number is the field number within the class and vendor.
                    The OpenFlow spec is the version of OpenFlow that standard‐
-                   ized  the  code  point.  It  is omitted for NXM code points
+                   ized the code point. It is  omitted  for  NXM  code  points
                    because they are nonstandard. The version is the version of
                    Open vSwitch that first supported the code point.
 
@@ -818,12 +846,12 @@ CONJUNCTIVE MATCH FIELDS
        ────────  ──────  ─────  ────  ────────  ────────────────
        conj_id   4       no     no    none      OVS 2.4+
 
-       An  individual  OpenFlow  flow  can  match only a single value for each
-       field. However, situations often arise where one wants to match one  of
-       a  set  of values within a field or fields. For matching a single field
-       against a set, it is straightforward  and  efficient  to  add  multiple
-       flows  to  the  flow table, one for each value in the set. For example,
-       one might use the following  flows  to  send  packets  with  IP  source
+       An individual OpenFlow flow can match only  a  single  value  for  each
+       field.  However, situations often arise where one wants to match one of
+       a set of values within a field or fields. For matching a  single  field
+       against  a  set,  it  is  straightforward and efficient to add multiple
+       flows to the flow table, one for each value in the  set.  For  example,
+       one  might  use  the  following  flows  to  send packets with IP source
        address a, b, c, or d to the OpenFlow controller:
 
              ip,ip_src=a actions=controller
@@ -832,7 +860,7 @@ CONJUNCTIVE MATCH FIELDS
              ip,ip_src=d actions=controller
 
 
-       Similarly,  these  flows send packets with IP destination address e, f,
+       Similarly, these flows send packets with IP destination address  e,  f,
        g, or h to the OpenFlow controller:
 
              ip,ip_dst=e actions=controller
@@ -841,45 +869,45 @@ CONJUNCTIVE MATCH FIELDS
              ip,ip_dst=h actions=controller
 
 
-       Installing all of the above flows in a single flow table yields a  dis‐
-       junctive  effect:  a  packet  is  sent  to  the  controller if ip_src ∈
-       {a,b,c,d} or ip_dst ∈ {e,f,g,h} (or both). (Pedantically,  if  both  of
+       Installing  all of the above flows in a single flow table yields a dis‐
+       junctive effect: a packet  is  sent  to  the  controller  if  ip_src  ∈
+       {a,b,c,d}  or  ip_dst  ∈ {e,f,g,h} (or both). (Pedantically, if both of
        the above sets of flows are present in the flow table, they should have
-       different priorities, because OpenFlow says that the results are  unde‐
-       fined  when  two  flows  with  same  priority  can  both match a single
+       different  priorities, because OpenFlow says that the results are unde‐
+       fined when two flows  with  same  priority  can  both  match  a  single
        packet.)
 
        Suppose, on the other hand, one wishes to match conjunctively, that is,
-       to  send a packet to the controller only if both ip_src ∈ {a,b,c,d} and
+       to send a packet to the controller only if both ip_src ∈ {a,b,c,d}  and
        ip_dst ∈ {e,f,g,h}. This requires 4 × 4 = 16 flows, one for each possi‐
-       ble  pairing  of  ip_src  and  ip_dst. That is acceptable for our small
-       example, but it does not gracefully extend to larger  sets  or  greater
+       ble pairing of ip_src and ip_dst. That  is  acceptable  for  our  small
+       example,  but  it  does not gracefully extend to larger sets or greater
        numbers of dimensions.
 
-       The  conjunction  action  is a solution for conjunctive matches that is
+       The conjunction action is a solution for conjunctive  matches  that  is
        built into Open vSwitch. A conjunction action ties groups of individual
        OpenFlow flows into higher-level ``conjunctive flows’’. Each group cor‐
-       responds to one dimension, and each flow within the group  matches  one
-       possible  value  for the dimension. A packet that matches one flow from
+       responds  to  one dimension, and each flow within the group matches one
+       possible value for the dimension. A packet that matches one  flow  from
        each group matches the conjunctive flow.
 
-       To implement a conjunctive flow with conjunction, assign  the  conjunc‐
-       tive  flow  a 32-bit id, which must be unique within an OpenFlow table.
-       Assign each of the n ≥ 2 dimensions a unique number from 1  to  n;  the
-       ordering  is  unimportant.  Add one flow to the OpenFlow flow table for
-       each possible value of each dimension with conjunction(id, k/n) as  the
+       To  implement  a conjunctive flow with conjunction, assign the conjunc‐
+       tive flow a 32-bit id, which must be unique within an  OpenFlow  table.
+       Assign  each  of  the n ≥ 2 dimensions a unique number from 1 to n; the
+       ordering is unimportant. Add one flow to the OpenFlow  flow  table  for
+       each  possible value of each dimension with conjunction(id, k/n) as the
        flow’s actions, where k is the number assigned to the flow’s dimension.
-       Together, these flows specify the conjunctive flow’s  match  condition.
-       When  the conjunctive match condition is met, Open vSwitch looks up one
-       more flow that specifies the conjunctive flow’s  actions  and  receives
-       its  statistics. This flow is found by setting conj_id to the specified
+       Together,  these  flows specify the conjunctive flow’s match condition.
+       When the conjunctive match condition is met, Open vSwitch looks up  one
+       more  flow  that  specifies the conjunctive flow’s actions and receives
+       its statistics. This flow is found by setting conj_id to the  specified
        id and then again searching the flow table.
 
-       The following flows provide an example. Whenever the IP source  is  one
-       of  the values in the flows that match on the IP source (dimension 1 of
+       The  following  flows provide an example. Whenever the IP source is one
+       of the values in the flows that match on the IP source (dimension 1  of
        2), and the IP destination is one of the values in the flows that match
-       on  IP destination (dimension 2 of 2), Open vSwitch searches for a flow
-       that matches conj_id against the conjunction  ID  (1234),  finding  the
+       on IP destination (dimension 2 of 2), Open vSwitch searches for a  flow
+       that  matches  conj_id  against  the conjunction ID (1234), finding the
        first flow listed below.
 
              conj_id=1234 actions=controller
@@ -895,100 +923,100 @@ CONJUNCTIVE MATCH FIELDS
 
        Many subtleties exist:
 
-              ·      In  the  example  above, every flow in a single dimension
+              ·      In the example above, every flow in  a  single  dimension
                      has the same form, that is, dimension 1 matches on ip_src
                      and dimension 2 on ip_dst, but this is not a requirement.
                      Different flows within a dimension may match on different
-                     bits  within a field (e.g. IP network prefixes of differ‐
-                     ent lengths, or TCP/UDP port ranges as bitwise  matches),
+                     bits within a field (e.g. IP network prefixes of  differ‐
+                     ent  lengths, or TCP/UDP port ranges as bitwise matches),
                      or even on entirely different fields (e.g. to match pack‐
                      ets for TCP source port 80 or TCP destination port 80).
 
-              ·      The flows within  a  dimension  can  vary  their  matches
-                     across  more  than one field, e.g. to match only specific
-                     pairs of IP source and destination addresses or  L4  port
+              ·      The  flows  within  a  dimension  can  vary their matches
+                     across more than one field, e.g. to match  only  specific
+                     pairs  of  IP source and destination addresses or L4 port
                      numbers.
 
-              ·      A  flow  may have multiple conjunction actions, with dif‐
+              ·      A flow may have multiple conjunction actions,  with  dif‐
                      ferent id values. This is useful for multiple conjunctive
-                     flows  with  overlapping  sets.  If  one conjunctive flow
-                     matches packets with both ip_src ∈  {a,b}  and  ip_dst  ∈
-                     {d,e}  and  a  second  conjunctive  flow matches ip_src ∈
+                     flows with overlapping  sets.  If  one  conjunctive  flow
+                     matches  packets  with  both  ip_src ∈ {a,b} and ip_dst ∈
+                     {d,e} and a second  conjunctive  flow  matches  ip_src  ∈
                      {b,c} and ip_dst ∈ {f,g}, for example, then the flow that
-                     matches  ip_src=b would have two conjunction actions, one
-                     for each  conjunctive  flow.  The  order  of  conjunction
+                     matches ip_src=b would have two conjunction actions,  one
+                     for  each  conjunctive  flow.  The  order  of conjunction
                      actions within a list of actions is not significant.
 
-              ·      A  flow  with  conjunction  actions may also include note
-                     actions for  annotations,  but  not  any  other  kind  of
-                     actions.  (They  would  not  be useful because they would
+              ·      A flow with conjunction actions  may  also  include  note
+                     actions  for  annotations,  but  not  any  other  kind of
+                     actions. (They would not be  useful  because  they  would
                      never be executed.)
 
-              ·      All of the flows that constitute a conjunctive flow  with
-                     a  given  id must have the same priority. (Flows with the
+              ·      All  of the flows that constitute a conjunctive flow with
+                     a given id must have the same priority. (Flows  with  the
                      same id but different priorities are currently treated as
                      different conjunctive flows, that is, currently id values
-                     need only be unique within an OpenFlow table at  a  given
+                     need  only  be unique within an OpenFlow table at a given
                      priority. This behavior isn’t guaranteed to stay the same
-                     in later releases, so please use id values unique  within
+                     in  later releases, so please use id values unique within
                      an OpenFlow table.)
 
-              ·      Conjunctive  flows must not overlap with each other, at a
+              ·      Conjunctive flows must not overlap with each other, at  a
                      given priority, that is, any given packet must be able to
-                     match  at  most one conjunctive flow at a given priority.
+                     match at most one conjunctive flow at a  given  priority.
                      Overlapping   conjunctive   flows   yield   unpredictable
                      results.
 
-              ·      Following  a  conjunctive  flow match, the search for the
-                     flow with conj_id=id is done in the same  general-purpose
-                     way  as  other  flow table searches, so one can use flows
-                     with conj_id=id to act differently depending  on  circum‐
-                     stances.  (One  exception  is  that  the  search  for the
-                     conj_id=id flow  itself  ignores  conjunctive  flows,  to
-                     avoid  recursion.)  If  the search with conj_id=id fails,
-                     Open vSwitch acts as if  the  conjunctive  flow  had  not
-                     matched  at  all,  and continues searching the flow table
+              ·      Following a conjunctive flow match, the  search  for  the
+                     flow  with conj_id=id is done in the same general-purpose
+                     way as other flow table searches, so one  can  use  flows
+                     with  conj_id=id  to act differently depending on circum‐
+                     stances. (One  exception  is  that  the  search  for  the
+                     conj_id=id  flow  itself  ignores  conjunctive  flows, to
+                     avoid recursion.) If the search  with  conj_id=id  fails,
+                     Open  vSwitch  acts  as  if  the conjunctive flow had not
+                     matched at all, and continues searching  the  flow  table
                      for other matching flows.
 
-              ·      OpenFlow prerequisite checking occurs for the  flow  with
-                     conj_id=id  in the same way as any other flow, e.g. in an
-                     OpenFlow 1.1+ context, putting a mod_nw_src  action  into
-                     the  example above would require adding an ip match, like
+              ·      OpenFlow  prerequisite  checking occurs for the flow with
+                     conj_id=id in the same way as any other flow, e.g. in  an
+                     OpenFlow  1.1+  context, putting a mod_nw_src action into
+                     the example above would require adding an ip match,  like
                      this:
 
                                conj_id=1234,ip actions=mod_nw_src:1.2.3.4,controller
 
 
-              ·      OpenFlow prerequisite checking also occurs for the  indi‐
-                     vidual  flows  that  comprise  a conjunctive match in the
+              ·      OpenFlow  prerequisite checking also occurs for the indi‐
+                     vidual flows that comprise a  conjunctive  match  in  the
                      same way as any other flow.
 
-              ·      The flows that constitute a conjunctive flow do not  have
-                     useful  statistics.  They  are never updated with byte or
-                     packet counts, and so on. (For such  a  flow,  therefore,
+              ·      The  flows that constitute a conjunctive flow do not have
+                     useful statistics. They are never updated  with  byte  or
+                     packet  counts,  and  so on. (For such a flow, therefore,
                      the idle and hard timeouts work much the same way.)
 
               ·      Sometimes there is a choice of which flows include a par‐
-                     ticular match. For example,  suppose  that  we  added  an
-                     extra  constraint  to  our  example, to match on ip_src ∈
+                     ticular  match.  For  example,  suppose  that we added an
+                     extra constraint to our example, to  match  on  ip_src  ∈
                      {a,b,c,d} and ip_dst ∈ {e,f,g,h} and tcp_dst = i. One way
-                     to  implement  this  is  to add the new constraint to the
+                     to implement this is to add the  new  constraint  to  the
                      conj_id flow, like this:
 
                                conj_id=1234,tcp,tcp_dst=i actions=mod_nw_src:1.2.3.4,controller
 
 
-                     but this is not recommended because of the  cost  of  the
-                     extra  flow  table lookup. Instead, add the constraint to
-                     the individual flows, either in one of the dimensions  or
+                     but  this  is  not recommended because of the cost of the
+                     extra flow table lookup. Instead, add the  constraint  to
+                     the  individual flows, either in one of the dimensions or
                      (slightly better) all of them.
 
               ·      A conjunctive match must have n ≥ 2 dimensions (otherwise
-                     a conjunctive  match  is  not  necessary).  Open  vSwitch
+                     a  conjunctive  match  is  not  necessary).  Open vSwitch
                      enforces this.
 
               ·      Each dimension within a conjunctive match should ordinar‐
-                     ily have more  than  one  flow.  Open  vSwitch  does  not
+                     ily  have  more  than  one  flow.  Open  vSwitch does not
                      enforce this.
 
        Conjunction ID Field
@@ -999,7 +1027,6 @@ CONJUNCTIVE MATCH FIELDS
        Masking:         not maskable
        Prerequisites:   none
        Access:          read-only
-
        OpenFlow 1.0:    not supported
        OpenFlow 1.1:    not supported
        OXM:             none
@@ -1007,24 +1034,172 @@ CONJUNCTIVE MATCH FIELDS
 
        Used for conjunctive matching. See above for more information.
 
+NETWORK SERVICE HEADER FIELDS
+   Summary:
+       Name               Bytes             Mask   RW?   Prereqs   NXM/OXM Support
+       ─────────────────  ────────────────  ─────  ────  ────────  ─────────────────────
+       nsh_flags          1                 yes    yes   NSH       OF 1.3+ and OVS 2.8+
+       nsh_mdtype         1                 no     no    NSH       OF 1.3+ and OVS 2.8+
+       nsh_np             1                 no     no    NSH       OF 1.3+ and OVS 2.8+
+       nsh_spi aka nsp    4 (low 24 bits)   no     yes   NSH       OF 1.3+ and OVS 2.8+
+       nsh_si aka nsi     1                 no     yes   NSH       OF 1.3+ and OVS 2.8+
+       nsh_c1 aka nshc1   4                 yes    yes   NSH       OF 1.3+ and OVS 2.8+
+       nsh_c2 aka nshc2   4                 yes    yes   NSH       OF 1.3+ and OVS 2.8+
+       nsh_c3 aka nshc3   4                 yes    yes   NSH       OF 1.3+ and OVS 2.8+
+       nsh_c4 aka nshc4   4                 yes    yes   NSH       OF 1.3+ and OVS 2.8+
+
+       flags field (8 bits) Field
+
+
+       Name:            nsh_flags
+       Width:           8 bits
+       Format:          decimal
+       Masking:         arbitrary bitwise masks
+       Prerequisites:   NSH
+       Access:          read/write
+       OpenFlow 1.0:    not supported
+       OpenFlow 1.1:    not supported
+       OXM:             NXOXM_NSH_FLAGS  (1)  since  OpenFlow  1.3  and   Open
+                        vSwitch 2.8
+       NXM:             none
+
+       mdtype field (8 bits) Field
+
+       Name:            nsh_mdtype
+       Width:           8 bits
+       Format:          decimal
+
+       Masking:         not maskable
+       Prerequisites:   NSH
+       Access:          read-only
+       OpenFlow 1.0:    not supported
+       OpenFlow 1.1:    not supported
+       OXM:             NXOXM_NSH_MDTYPE  (2)  since  OpenFlow  1.3  and  Open
+                        vSwitch 2.8
+       NXM:             none
+
+       np (next protocol) field (8 bits) Field
+
+       Name:            nsh_np
+       Width:           8 bits
+       Format:          decimal
+       Masking:         not maskable
+       Prerequisites:   NSH
+       Access:          read-only
+
+       OpenFlow 1.0:    not supported
+       OpenFlow 1.1:    not supported
+       OXM:             NXOXM_NSH_NP (3) since OpenFlow 1.3 and  Open  vSwitch
+                        2.8
+       NXM:             none
+
+       spi (service path identifier) field (24 bits) Field
+
+       Name:            nsh_spi (aka nsp)
+       Width:           32 bits (only the least-significant 24 bits may be nonzero)
+       Format:          hexadecimal
+       Masking:         not maskable
+       Prerequisites:   NSH
+       Access:          read/write
+       OpenFlow 1.0:    not supported
+       OpenFlow 1.1:    not supported
+       OXM:             NXOXM_NSH_SPI (4) since OpenFlow 1.3 and Open vSwitch 2.8
+
+       NXM:             none
+
+       si (service index) field (8 bits) Field
+
+       Name:            nsh_si (aka nsi)
+       Width:           8 bits
+       Format:          decimal
+       Masking:         not maskable
+       Prerequisites:   NSH
+       Access:          read/write
+       OpenFlow 1.0:    not supported
+       OpenFlow 1.1:    not supported
+       OXM:             NXOXM_NSH_SI  (5)  since OpenFlow 1.3 and Open vSwitch
+                        2.8
+       NXM:             none
+
+       c1 (Network Platform Context) field (32 bits) Field
+
+       Name:            nsh_c1 (aka nshc1)
+       Width:           32 bits
+       Format:          hexadecimal
+       Masking:         arbitrary bitwise masks
+       Prerequisites:   NSH
+       Access:          read/write
+       OpenFlow 1.0:    not supported
+       OpenFlow 1.1:    not supported
+       OXM:             NXOXM_NSH_C1 (6) since OpenFlow 1.3 and  Open  vSwitch
+                        2.8
+       NXM:             none
+
+       c2 (Network Shared Context) field (32 bits) Field
+
+       Name:            nsh_c2 (aka nshc2)
+       Width:           32 bits
+       Format:          hexadecimal
+
+       Masking:         arbitrary bitwise masks
+       Prerequisites:   NSH
+       Access:          read/write
+       OpenFlow 1.0:    not supported
+       OpenFlow 1.1:    not supported
+       OXM:             NXOXM_NSH_C2  (7)  since OpenFlow 1.3 and Open vSwitch
+                        2.8
+       NXM:             none
+
+       c3 (Service Platform Context) field (32 bits) Field
+
+       Name:            nsh_c3 (aka nshc3)
+       Width:           32 bits
+       Format:          hexadecimal
+       Masking:         arbitrary bitwise masks
+       Prerequisites:   NSH
+       Access:          read/write
+
+       OpenFlow 1.0:    not supported
+       OpenFlow 1.1:    not supported
+       OXM:             NXOXM_NSH_C3 (8) since OpenFlow 1.3 and  Open  vSwitch
+                        2.8
+       NXM:             none
+
+       c4 (Service Shared Context) field (32 bits) Field
+
+       Name:            nsh_c4 (aka nshc4)
+       Width:           32 bits
+       Format:          hexadecimal
+       Masking:         arbitrary bitwise masks
+       Prerequisites:   NSH
+       Access:          read/write
+       OpenFlow 1.0:    not supported
+       OpenFlow 1.1:    not supported
+
+
+       OXM:             NXOXM_NSH_C4  (9)  since OpenFlow 1.3 and Open vSwitch
+                        2.8
+       NXM:             none
+
 TUNNEL FIELDS
    Summary:
        Name                   Bytes            Mask   RW?   Prereqs   NXM/OXM Support
-       ─────────────────────  ───────────────  ─────  ────  ────────  ─────────────────────
 
+       ─────────────────────  ───────────────  ─────  ────  ────────  ─────────────────────
        tun_id aka tunnel_id   8                yes    yes   none      OF 1.3+ and OVS 1.1+
        tun_src                4                yes    yes   none      OVS 2.0+
        tun_dst                4                yes    yes   none      OVS 2.0+
+
        tun_ipv6_src           16               yes    yes   none      OVS 2.5+
        tun_ipv6_dst           16               yes    yes   none      OVS 2.5+
-
        tun_gbp_id             2                yes    yes   none      OVS 2.4+
        tun_gbp_flags          1                yes    yes   none      OVS 2.4+
+
        tun_metadata0          124              yes    yes   none      OVS 2.5+
        tun_metadata1          124              yes    yes   none      OVS 2.5+
        tun_metadata2          124              yes    yes   none      OVS 2.5+
-
        tun_metadata3          124              yes    yes   none      OVS 2.5+
+
        tun_metadata4          124              yes    yes   none      OVS 2.5+
        tun_metadata5          124              yes    yes   none      OVS 2.5+
        tun_metadata6          124              yes    yes   none      OVS 2.5+
@@ -1034,21 +1209,22 @@ TUNNEL FIELDS
        tun_metadata9          124              yes    yes   none      OVS 2.5+
        tun_metadata10         124              yes    yes   none      OVS 2.5+
        tun_metadata11         124              yes    yes   none      OVS 2.5+
-       tun_metadata12         124              yes    yes   none      OVS 2.5+
 
+       tun_metadata12         124              yes    yes   none      OVS 2.5+
        tun_metadata13         124              yes    yes   none      OVS 2.5+
        tun_metadata14         124              yes    yes   none      OVS 2.5+
        tun_metadata15         124              yes    yes   none      OVS 2.5+
+
        tun_metadata16         124              yes    yes   none      OVS 2.5+
        tun_metadata17         124              yes    yes   none      OVS 2.5+
-
        tun_metadata18         124              yes    yes   none      OVS 2.5+
        tun_metadata19         124              yes    yes   none      OVS 2.5+
+
        tun_metadata20         124              yes    yes   none      OVS 2.5+
        tun_metadata21         124              yes    yes   none      OVS 2.5+
        tun_metadata22         124              yes    yes   none      OVS 2.5+
-
        tun_metadata23         124              yes    yes   none      OVS 2.5+
+
        tun_metadata24         124              yes    yes   none      OVS 2.5+
        tun_metadata25         124              yes    yes   none      OVS 2.5+
        tun_metadata26         124              yes    yes   none      OVS 2.5+
@@ -1058,21 +1234,22 @@ TUNNEL FIELDS
        tun_metadata29         124              yes    yes   none      OVS 2.5+
        tun_metadata30         124              yes    yes   none      OVS 2.5+
        tun_metadata31         124              yes    yes   none      OVS 2.5+
-       tun_metadata32         124              yes    yes   none      OVS 2.5+
 
+       tun_metadata32         124              yes    yes   none      OVS 2.5+
        tun_metadata33         124              yes    yes   none      OVS 2.5+
        tun_metadata34         124              yes    yes   none      OVS 2.5+
        tun_metadata35         124              yes    yes   none      OVS 2.5+
+
        tun_metadata36         124              yes    yes   none      OVS 2.5+
        tun_metadata37         124              yes    yes   none      OVS 2.5+
-
        tun_metadata38         124              yes    yes   none      OVS 2.5+
        tun_metadata39         124              yes    yes   none      OVS 2.5+
+
        tun_metadata40         124              yes    yes   none      OVS 2.5+
        tun_metadata41         124              yes    yes   none      OVS 2.5+
        tun_metadata42         124              yes    yes   none      OVS 2.5+
-
        tun_metadata43         124              yes    yes   none      OVS 2.5+
+
        tun_metadata44         124              yes    yes   none      OVS 2.5+
        tun_metadata45         124              yes    yes   none      OVS 2.5+
        tun_metadata46         124              yes    yes   none      OVS 2.5+
@@ -1082,28 +1259,29 @@ TUNNEL FIELDS
        tun_metadata49         124              yes    yes   none      OVS 2.5+
        tun_metadata50         124              yes    yes   none      OVS 2.5+
        tun_metadata51         124              yes    yes   none      OVS 2.5+
-       tun_metadata52         124              yes    yes   none      OVS 2.5+
 
+       tun_metadata52         124              yes    yes   none      OVS 2.5+
        tun_metadata53         124              yes    yes   none      OVS 2.5+
        tun_metadata54         124              yes    yes   none      OVS 2.5+
        tun_metadata55         124              yes    yes   none      OVS 2.5+
+
        tun_metadata56         124              yes    yes   none      OVS 2.5+
        tun_metadata57         124              yes    yes   none      OVS 2.5+
-
        tun_metadata58         124              yes    yes   none      OVS 2.5+
        tun_metadata59         124              yes    yes   none      OVS 2.5+
+
        tun_metadata60         124              yes    yes   none      OVS 2.5+
        tun_metadata61         124              yes    yes   none      OVS 2.5+
        tun_metadata62         124              yes    yes   none      OVS 2.5+
-
        tun_metadata63         124              yes    yes   none      OVS 2.5+
+
        tun_flags              2 (low 1 bits)   yes    yes   none      OVS 2.5+
 
        The fields in this group relate to tunnels, which Open vSwitch supports
-       in several forms (GRE, VXLAN, and so  on).  Most  of  these  fields  do
-       appear  in  the  wire  format of a packet, so they are data fields from
-       that point of view, but they are metadata from an OpenFlow  flow  table
-       point  of view because they do not appear in packets that are forwarded
+       in  several  forms  (GRE,  VXLAN,  and  so on). Most of these fields do
+       appear in the wire format of a packet, so they  are  data  fields  from
+       that  point  of view, but they are metadata from an OpenFlow flow table
+       point of view because they do not appear in packets that are  forwarded
        to the controller or to ordinary (non-tunnel) output ports.
 
        Open vSwitch supports a spectrum of usage models for mapping tunnels to
@@ -1111,21 +1289,21 @@ TUNNEL FIELDS
 
               ``Port-based’’ tunnels
                      In this model, an OpenFlow port represents one tunnel: it
-                     matches a particular type of tunnel traffic  between  two
-                     IP  endpoints,  with a particular tunnel key (if keys are
-                     in use). In this situation, in_port suffices  to  distin‐
-                     guish  one  tunnel  from  another,  so  the tunnel header
-                     fields have little importance  for  OpenFlow  processing.
+                     matches  a  particular type of tunnel traffic between two
+                     IP endpoints, with a particular tunnel key (if  keys  are
+                     in  use).  In this situation, in_port suffices to distin‐
+                     guish one tunnel  from  another,  so  the  tunnel  header
+                     fields  have  little  importance for OpenFlow processing.
                      (They are still populated and may be used if it is conve‐
-                     nient.) The tunnel header fields play no role in  sending
-                     packets  out  such  an OpenFlow port, either, because the
+                     nient.)  The tunnel header fields play no role in sending
+                     packets out such an OpenFlow port,  either,  because  the
                      OpenFlow port itself fully specifies the tunnel headers.
 
-                     The following  Open  vSwitch  commands  create  a  bridge
-                     br-int,  add  port tap0 to the bridge as OpenFlow port 1,
-                     establish a port-based GRE tunnel between the local  host
-                     and  remote IP 192.168.1.1 using GRE key 5001 as OpenFlow
-                     port 2, and arranges to forward all traffic from tap0  to
+                     The  following  Open  vSwitch  commands  create  a bridge
+                     br-int, add port tap0 to the bridge as OpenFlow  port  1,
+                     establish  a port-based GRE tunnel between the local host
+                     and remote IP 192.168.1.1 using GRE key 5001 as  OpenFlow
+                     port  2, and arranges to forward all traffic from tap0 to
                      the tunnel and vice versa:
 
                      ovs-vsctl add-br br-int
@@ -1138,21 +1316,21 @@ TUNNEL FIELDS
 
 
               ``Flow-based’’ tunnels
-                     In  this model, one OpenFlow port represents all possible
-                     tunnels of a given type with an endpoint on  the  current
-                     host,  for  example,  all GRE tunnels. In this situation,
-                     in_port only indicates that traffic was received  on  the
-                     particular  kind  of  tunnel.  This  is  where the tunnel
+                     In this model, one OpenFlow port represents all  possible
+                     tunnels  of  a given type with an endpoint on the current
+                     host, for example, all GRE tunnels.  In  this  situation,
+                     in_port  only  indicates that traffic was received on the
+                     particular kind of  tunnel.  This  is  where  the  tunnel
                      header fields are most important: they allow the OpenFlow
-                     tables  to  discriminate  among tunnels based on their IP
-                     endpoints or keys. Tunnel header  fields  also  determine
+                     tables to discriminate among tunnels based  on  their  IP
+                     endpoints  or  keys.  Tunnel header fields also determine
                      the IP endpoints and keys of packets sent out such a tun‐
                      nel port.
 
-                     The following  Open  vSwitch  commands  create  a  bridge
-                     br-int,  add  port tap0 to the bridge as OpenFlow port 1,
+                     The  following  Open  vSwitch  commands  create  a bridge
+                     br-int, add port tap0 to the bridge as OpenFlow  port  1,
                      establish a flow-based GRE tunnel port 3, and arranges to
-                     forward  all  traffic  from tap0 to remote IP 192.168.1.1
+                     forward all traffic from tap0 to  remote  IP  192.168.1.1
                      over a GRE tunnel with key 5001 and vice versa:
 
                      ovs-vsctl add-br br-int
@@ -1166,30 +1344,30 @@ TUNNEL FIELDS
 
 
               Mixed models.
-                     One may define both flow-based and port-based tunnels  at
+                     One  may define both flow-based and port-based tunnels at
                      the same time. For example, it is valid and possibly use‐
-                     ful to create and configure both gre0 and  allgre  tunnel
+                     ful  to  create and configure both gre0 and allgre tunnel
                      ports described above.
 
-                     Traffic  is  attributed  on  ingress to the most specific
-                     matching tunnel. For example, gre0 is more specific  than
-                     allgre.  Therefore,  if both exist, then gre0 will be the
-                     ingress  port  for  any   GRE   traffic   received   from
+                     Traffic is attributed on ingress  to  the  most  specific
+                     matching  tunnel. For example, gre0 is more specific than
+                     allgre. Therefore, if both exist, then gre0 will  be  the
+                     ingress   port   for   any   GRE  traffic  received  from
                      192.168.1.1 with key 5001.
 
-                     On  egress,  traffic  may  be directed to any appropriate
-                     tunnel port. If both gre0 and allgre  are  configured  as
+                     On egress, traffic may be  directed  to  any  appropriate
+                     tunnel  port.  If  both gre0 and allgre are configured as
                      already  described,  then  the  actions  2  and  set_tun‐
-                     nel:5001,set_field:192.168.1.1->tun_dst,3 send  the  same
+                     nel:5001,set_field:192.168.1.1->tun_dst,3  send  the same
                      tunnel traffic.
 
               Intermediate models.
-                     Ports  may  be  configured  as  partially flow-based. For
-                     example, one may define an OpenFlow port that  represents
-                     tunnels  between  a pair of endpoints but leaves the flow
+                     Ports may be  configured  as  partially  flow-based.  For
+                     example,  one may define an OpenFlow port that represents
+                     tunnels between a pair of endpoints but leaves  the  flow
                      table to discriminate on the flow key.
 
-       ovs-vswitchd.conf.db(5) describes all the details of tunnel  configura‐
+       ovs-vswitchd.conf.db(5)  describes all the details of tunnel configura‐
        tion.
 
        These fields do not have any prerequisites, which means that a flow may
@@ -1200,15 +1378,15 @@ TUNNEL FIELDS
        Tunnel ID Field
 
        Name:            tun_id (aka tunnel_id)
-
        Width:           64 bits
        Format:          hexadecimal
        Masking:         arbitrary bitwise masks
        Prerequisites:   none
+
        Access:          read/write
        OpenFlow 1.0:    not supported
        OpenFlow 1.1:    not supported
-       OXM:             OXM_OF_TUNNEL_ID (38)  since  OpenFlow  1.3  and  Open
+       OXM:             OXM_OF_TUNNEL_ID  (38)  since  OpenFlow  1.3  and Open
                         vSwitch 1.10
        NXM:             NXM_NX_TUN_ID (16) since Open vSwitch 1.1
 
@@ -1225,13 +1403,13 @@ TUNNEL FIELDS
 
        When a packet is received from a tunnel, this field holds the tunnel ID
        in its least significant bits, zero-extended to fit. This field is zero
-       if the tunnel does not support an ID, or if no ID is in use for a  tun‐
-       nel  type  that has an optional ID, or if an ID of zero received, or if
+       if  the tunnel does not support an ID, or if no ID is in use for a tun‐
+       nel type that has an optional ID, or if an ID of zero received,  or  if
        the packet was not received over a tunnel.
 
-       When a packet is output to a  tunnel  port,  the  tunnel  configuration
+       When  a  packet  is  output  to a tunnel port, the tunnel configuration
        determines whether the tunnel ID is taken from this field or bound to a
-       fixed value. See the earlier description of ``port-based’’ and  ``flow-
+       fixed  value. See the earlier description of ``port-based’’ and ``flow-
        based’’ tunnels for more information.
 
        The following diagram shows the origin of this field in a typical keyed
@@ -1252,20 +1430,20 @@ TUNNEL FIELDS
        Width:           32 bits
        Format:          IPv4
        Masking:         arbitrary bitwise masks
+
        Prerequisites:   none
        Access:          read/write
        OpenFlow 1.0:    not supported
-
        OpenFlow 1.1:    not supported
        OXM:             none
        NXM:             NXM_NX_TUN_IPV4_SRC (31) since Open vSwitch 2.0
 
-       When a packet is received from a  tunnel,  this  field  is  the  source
-       address  in  the  outer IP header of the tunneled packet. This field is
+       When  a  packet  is  received  from  a tunnel, this field is the source
+       address in the outer IP header of the tunneled packet.  This  field  is
        zero if the packet was not received over a tunnel.
 
-       When a packet is output to a flow-based tunnel port, this field  influ‐
-       ences  the  IPv4 source address used to send the packet. If it is zero,
+       When  a packet is output to a flow-based tunnel port, this field influ‐
+       ences the IPv4 source address used to send the packet. If it  is  zero,
        then the kernel chooses an appropriate IP address based using the rout‐
        ing table.
 
@@ -1284,22 +1462,23 @@ TUNNEL FIELDS
        Tunnel IPv4 Destination Field
 
        Name:            tun_dst
+
        Width:           32 bits
        Format:          IPv4
        Masking:         arbitrary bitwise masks
        Prerequisites:   none
-
        Access:          read/write
        OpenFlow 1.0:    not supported
        OpenFlow 1.1:    not supported
+
        OXM:             none
        NXM:             NXM_NX_TUN_IPV4_DST (32) since Open vSwitch 2.0
 
-       When a packet is received from a tunnel, this field is the  destination
-       address  in  the  outer IP header of the tunneled packet. This field is
+       When  a packet is received from a tunnel, this field is the destination
+       address in the outer IP header of the tunneled packet.  This  field  is
        zero if the packet was not received over a tunnel.
 
-       When a packet is output to a flow-based tunnel port, this field  speci‐
+       When  a packet is output to a flow-based tunnel port, this field speci‐
        fies the destination to which the tunnel packet is sent.
 
        The following diagram shows the origin of this field in a typical keyed
@@ -1321,9 +1500,9 @@ TUNNEL FIELDS
        Format:          IPv6
        Masking:         arbitrary bitwise masks
        Prerequisites:   none
-
        Access:          read/write
        OpenFlow 1.0:    not supported
+
        OpenFlow 1.1:    not supported
        OXM:             none
        NXM:             NXM_NX_TUN_IPV6_SRC (109) since Open vSwitch 2.5
@@ -1332,7 +1511,6 @@ TUNNEL FIELDS
 
        Tunnel IPv6 Destination Field
 
-
        Name:            tun_ipv6_dst
        Width:           128 bits
        Format:          IPv6
@@ -1340,6 +1518,7 @@ TUNNEL FIELDS
        Prerequisites:   none
        Access:          read/write
        OpenFlow 1.0:    not supported
+
        OpenFlow 1.1:    not supported
        OXM:             none
        NXM:             NXM_NX_TUN_IPV6_DST (110) since Open vSwitch 2.5
@@ -1372,7 +1551,7 @@ TUNNEL FIELDS
 
 
        Open vSwitch makes GBP fields and flags available through the following
-       fields.  Only  packets  that  arrive  over  a VXLAN tunnel with the GBP
+       fields. Only packets that arrive over  a  VXLAN  tunnel  with  the  GBP
        extension enabled have these fields set. In other packets they are zero
        on receive and ignored on transmit.
 
@@ -1384,13 +1563,13 @@ TUNNEL FIELDS
        Masking:         arbitrary bitwise masks
        Prerequisites:   none
        Access:          read/write
+
        OpenFlow 1.0:    not supported
        OpenFlow 1.1:    not supported
        OXM:             none
-
        NXM:             NXM_NX_TUN_GBP_ID (38) since Open vSwitch 2.4
 
-       For  a  packet  tunneled  over  VXLAN with the Group-Based Policy (GBP)
+       For a packet tunneled over VXLAN  with  the  Group-Based  Policy  (GBP)
        extension, this field represents the GBP policy ID, as shown above.
 
        VXLAN Group-Based Policy Flags Field
@@ -1398,16 +1577,16 @@ TUNNEL FIELDS
        Name:            tun_gbp_flags
        Width:           8 bits
        Format:          hexadecimal
-
        Masking:         arbitrary bitwise masks
        Prerequisites:   none
        Access:          read/write
        OpenFlow 1.0:    not supported
+
        OpenFlow 1.1:    not supported
        OXM:             none
        NXM:             NXM_NX_TUN_GBP_FLAGS (39) since Open vSwitch 2.4
 
-       For a packet tunneled over VXLAN  with  the  Group-Based  Policy  (GBP)
+       For  a  packet  tunneled  over  VXLAN with the Group-Based Policy (GBP)
        extension, this field represents the GBP policy flags, as shown above.
 
        The field has the format shown below:
@@ -1424,24 +1603,23 @@ TUNNEL FIELDS
        draft defines the other bits’ meanings as:
 
               D (Don’t Learn)
-                     When set, this bit indicates that the egress tunnel  end‐
-                     point  must  not learn the source address of the encapsu‐
+                     When  set, this bit indicates that the egress tunnel end‐
+                     point must not learn the source address of  the  encapsu‐
                      lated frame.
 
               A (Applied)
-                     When set, indicates that the  group  policy  has  already
+                     When  set,  indicates  that  the group policy has already
                      been applied to this packet. Devices must not apply poli‐
                      cies when the A bit is set.
 
    Geneve Fields
-       These fields provide access to additional features in the  Geneve  tun‐
-       neling  protocol [Geneve]. Their names are somewhat generic in the hope
+       These  fields  provide access to additional features in the Geneve tun‐
+       neling protocol [Geneve]. Their names are somewhat generic in the  hope
        that the same fields could be reused for other protocols in the future;
-       for  example, the NSH protocol [NSH] supports TLV options whose form is
+       for example, the NSH protocol [NSH] supports TLV options whose form  is
        identical to that for Geneve options.
 
        Generic Tunnel Option 0 Field
-
 
        Name:            tun_metadata0
        Width:           992 bits (124 bytes)
@@ -1451,16 +1629,17 @@ TUNNEL FIELDS
        Access:          read/write
        OpenFlow 1.0:    not supported
        OpenFlow 1.1:    not supported
+
        OXM:             none
        NXM:             NXM_NX_TUN_METADATA0 (40) since Open vSwitch 2.5
 
-       The above information specifically covers generic tunnel option 0,  but
-       Open  vSwitch  supports  64  options,  numbered 0 through 63, whose NXM
+       The  above information specifically covers generic tunnel option 0, but
+       Open vSwitch supports 64 options, numbered  0  through  63,  whose  NXM
        field numbers are 40 through 103.
 
-       These fields provide OpenFlow access to the  generic  type-length-value
-       options  defined  by  the  Geneve tunneling protocol or other protocols
-       with options in the same TLV format as Geneve options.  Each  of  these
+       These  fields  provide OpenFlow access to the generic type-length-value
+       options defined by the Geneve tunneling  protocol  or  other  protocols
+       with  options  in  the same TLV format as Geneve options. Each of these
        options has the following wire format:
 
                header                 body
@@ -1473,22 +1652,22 @@ TUNNEL FIELDS
 
 
        Taken together, the class and type in the option format mean that there
-       are about 16 million distinct kinds of TLV options, too  many  to  give
-       individual  OXM  code  points.  Thus, Open vSwitch requires the user to
-       define the TLV options of interest, by binding up to 64 TLV options  to
-       generic  tunnel  option NXM code points. Each option may have up to 124
-       bytes in its body, the maximum allowed by the  TLV  format,  but  bound
+       are  about  16  million distinct kinds of TLV options, too many to give
+       individual OXM code points. Thus, Open vSwitch  requires  the  user  to
+       define  the TLV options of interest, by binding up to 64 TLV options to
+       generic tunnel option NXM code points. Each option may have up  to  124
+       bytes  in  its  body,  the maximum allowed by the TLV format, but bound
        options may total at most 252 bytes of body.
 
-       Open  vSwitch  extensions  to the OpenFlow protocol bind TLV options to
-       NXM code points. The ovs-ofctl(8) program offers one way to  use  these
-       extensions,  e.g.  to  configure a mapping from a TLV option with class
+       Open vSwitch extensions to the OpenFlow protocol bind  TLV  options  to
+       NXM  code  points. The ovs-ofctl(8) program offers one way to use these
+       extensions, e.g. to configure a mapping from a TLV  option  with  class
        0xffff, type 0, and a body length of 4 bytes:
 
        ovs-ofctl add-tlv-map br0 "{class=0xffff,type=0,len=4}->tun_metadata0"
 
 
-       Once a TLV option is properly bound, it can be  accessed  and  modified
+       Once  a  TLV  option is properly bound, it can be accessed and modified
        like any other field, e.g. to send packets that have value 1234 for the
        option described above to the controller:
 
@@ -1500,6 +1679,7 @@ TUNNEL FIELDS
        Tunnel Flags Field
 
        Name:            tun_flags
+
        Width:           16 bits (only the least-significant 1 bits may be nonzero)
        Format:          tunnel flags
        Masking:         arbitrary bitwise masks
@@ -1508,16 +1688,15 @@ TUNNEL FIELDS
        OpenFlow 1.0:    not supported
        OpenFlow 1.1:    not supported
        OXM:             none
-
        NXM:             NXM_NX_TUN_FLAGS (104) since Open vSwitch 2.5
 
        Flags indicating various aspects of the tunnel encapsulation.
 
-       Matches on this field are most conveniently written in  terms  of  sym‐
+       Matches  on  this  field are most conveniently written in terms of sym‐
        bolic names (given in the diagram below), each preceded by either + for
-       a flag that must be set, or - for a flag that must  be  unset,  without
-       any  other  delimiters between the flags. Flags not mentioned are wild‐
-       carded. For example, tun_flags=+oam matches only OAM  packets.  Matches
+       a  flag  that  must be set, or - for a flag that must be unset, without
+       any other delimiters between the flags. Flags not mentioned  are  wild‐
+       carded.  For  example, tun_flags=+oam matches only OAM packets. Matches
        can also be written as flags/mask, where flags and mask are 16-bit num‐
        bers in decimal or in hexadecimal prefixed by 0x.
 
@@ -1528,9 +1707,9 @@ TUNNEL FIELDS
 
        The switch may reject matches against unknown flags.
 
-       Newer  versions of Open vSwitch may introduce additional flags with new
+       Newer versions of Open vSwitch may introduce additional flags with  new
        meanings. It is therefore not recommended to use an exact match on this
-       field  since  the  behavior of these new flags is unknown and should be
+       field since the behavior of these new flags is unknown  and  should  be
        ignored.
 
        For non-tunneled packets, the value is 0.
@@ -1546,28 +1725,29 @@ METADATA FIELDS
 
        pkt_mark        4       yes    yes   none      OVS 2.0+
        actset_output   4       no     no    none      OF 1.3+ and OVS 2.4+
+       packet_type     4       no     no    none      OF 1.5+ and OVS 2.8+
 
-       These fields relate to the origin or treatment of a  packet,  but  they
+       These  fields  relate  to the origin or treatment of a packet, but they
        are not extracted from the packet data itself.
 
        Ingress Port Field
 
-       Name:            in_port
 
+       Name:            in_port
        Width:           16 bits
        Format:          OpenFlow 1.0 port
        Masking:         not maskable
-       Prerequisites:   none
 
+       Prerequisites:   none
        Access:          read/write
        OpenFlow 1.0:    yes (exact match only)
        OpenFlow 1.1:    yes (exact match only)
-       OXM:             none
 
+       OXM:             none
        NXM:             NXM_OF_IN_PORT (0) since Open vSwitch 1.1
 
-       The  OpenFlow port on which the packet being processed arrived. This is
-       a 16-bit field that holds an OpenFlow 1.0 port number. For receiving  a
+       The OpenFlow port on which the packet being processed arrived. This  is
+       a  16-bit field that holds an OpenFlow 1.0 port number. For receiving a
        packet, the only values that appear in this field are:
 
               1 through 0xfeff (65,279), inclusive.
@@ -1575,44 +1755,44 @@ METADATA FIELDS
 
               OFPP_LOCAL (0xfffe or 65,534).
                      The ``local’’ port, which in Open vSwitch is always named
-                     the same as the bridge itself. This represents a  connec‐
-                     tion  between the switch and the local TCP/IP stack. This
-                     port is where an IP address is most  commonly  configured
+                     the  same as the bridge itself. This represents a connec‐
+                     tion between the switch and the local TCP/IP stack.  This
+                     port  is  where an IP address is most commonly configured
                      on an Open vSwitch switch.
 
-                     OpenFlow  does not require a switch to have a local port,
-                     but all existing versions of  Open  vSwitch  have  always
+                     OpenFlow does not require a switch to have a local  port,
+                     but  all  existing  versions  of Open vSwitch have always
                      included a local port. Future Directions: Future versions
-                     of Open vSwitch might be  able  to  optionally  omit  the
-                     local  port,  if someone submits code to implement such a
+                     of  Open  vSwitch  might  be  able to optionally omit the
+                     local port, if someone submits code to implement  such  a
                      feature.
 
-              OFPP_NONE (OpenFlow 1.0) or OFPP_ANY (OpenFlow 1.1+) (0xffff  or
+              OFPP_NONE  (OpenFlow 1.0) or OFPP_ANY (OpenFlow 1.1+) (0xffff or
               65,535).
               OFPP_CONTROLLER (0xfffd or 65,533).
-                   When  a controller injects a packet into an OpenFlow switch
-                   with a ``packet-out’’ request, it can specify one of  these
-                   ingress  ports  to  indicate  that the packet was generated
+                   When a controller injects a packet into an OpenFlow  switch
+                   with  a ``packet-out’’ request, it can specify one of these
+                   ingress ports to indicate that  the  packet  was  generated
                    internally rather than having been received on some port.
 
-                   OpenFlow 1.0 specified OFPP_NONE for this purpose.  Despite
+                   OpenFlow  1.0 specified OFPP_NONE for this purpose. Despite
                    that,  some  controllers  used  OFPP_CONTROLLER,  and  some
-                   switches only accepted OFPP_CONTROLLER, so  OpenFlow  1.0.2
-                   required  support  for  both  ports. OpenFlow 1.1 and later
-                   were more clearly drafted to  allow  only  OFPP_CONTROLLER.
-                   For  maximum  compatibility, Open vSwitch allows both ports
+                   switches  only  accepted OFPP_CONTROLLER, so OpenFlow 1.0.2
+                   required support for both ports.  OpenFlow  1.1  and  later
+                   were  more  clearly  drafted to allow only OFPP_CONTROLLER.
+                   For maximum compatibility, Open vSwitch allows  both  ports
                    with all OpenFlow versions.
 
-       Values not mentioned above will never appear when receiving  a  packet,
+       Values  not  mentioned above will never appear when receiving a packet,
        including the following notable values:
 
               0      Zero is not a valid OpenFlow port number.
 
               OFPP_MAX (0xff00 or 65,280).
-                     This  value  has  only  been clearly specified as a valid
+                     This value has only been clearly  specified  as  a  valid
                      port number as of OpenFlow 1.3.3. Before that, its status
-                     was  unclear,  and  so  Open  vSwitch  has  never allowed
-                     OFPP_MAX to be used as a port  number,  so  packets  will
+                     was unclear,  and  so  Open  vSwitch  has  never  allowed
+                     OFPP_MAX  to  be  used  as a port number, so packets will
                      never be received on this port. (Other OpenFlow switches,
                      of course, might use it.)
 
@@ -1622,65 +1802,65 @@ METADATA FIELDS
               OFPP_NORMAL (0xfffa or 65,530)
               OFPP_FLOOD (0xfffb or 65,531)
               OFPP_ALL (0xfffc or 65,532)
-                   These port numbers are used  only  in  output  actions  and
+                   These  port  numbers  are  used  only in output actions and
                    never appear as ingress ports.
 
-                   Most  of  these  port numbers were defined in OpenFlow 1.0,
+                   Most of these port numbers were defined  in  OpenFlow  1.0,
                    but OFPP_UNSET was only introduced in OpenFlow 1.5.
 
-       Values that will never appear when receiving  a  packet  may  still  be
-       matched  against  in  the  flow table. There are still circumstances in
+       Values  that  will  never  appear  when receiving a packet may still be
+       matched against in the flow table. There  are  still  circumstances  in
        which those flows can be matched:
 
-              ·      The resubmit Open vSwitch extension action allows a  flow
+              ·      The  resubmit Open vSwitch extension action allows a flow
                      table lookup with an arbitrary ingress port.
 
-              ·      An  action  that  modifies  the  ingress  port field (see
-                     below), such as e.g. load or set_field,  followed  by  an
-                     action  or  instruction  that performs another flow table
+              ·      An action that  modifies  the  ingress  port  field  (see
+                     below),  such  as  e.g. load or set_field, followed by an
+                     action or instruction that performs  another  flow  table
                      lookup, such as resubmit or goto_table.
 
-       This field is heavily used for matching in  OpenFlow  tables,  but  for
+       This  field  is  heavily  used for matching in OpenFlow tables, but for
        packet egress, it has only very limited roles:
 
-              ·      OpenFlow  requires suppressing output actions to in_port.
-                     That is, the following two flows both  drop  all  packets
+              ·      OpenFlow requires suppressing output actions to  in_port.
+                     That  is,  the  following two flows both drop all packets
                      that arrive on port 1:
 
                      in_port=1,actions=1
                      in_port=1,actions=drop
 
 
-                     (This  behavior  is occasionally useful for flooding to a
+                     (This behavior is occasionally useful for flooding  to  a
                      subset of ports. Specifying actions=1,2,3,4, for example,
-                     outputs  to  ports  1,  2, 3, and 4, omitting the ingress
+                     outputs to ports 1, 2, 3, and  4,  omitting  the  ingress
                      port.)
 
-              ·      OpenFlow has a  special  port  OFPP_IN_PORT  (with  value
+              ·      OpenFlow  has  a  special  port  OFPP_IN_PORT (with value
                      0xfff8) that outputs to the ingress port. For example, in
-                     a switch that  has  four  ports  numbered  1  through  4,
-                     actions=1,2,3,4,in_port  outputs to ports 1, 2, 3, and 4,
+                     a  switch  that  has  four  ports  numbered  1 through 4,
+                     actions=1,2,3,4,in_port outputs to ports 1, 2, 3, and  4,
                      including the ingress port.
 
-       Because the ingress port field has so little influence on  packet  pro‐
-       cessing,  it  does not ordinarily make sense to modify the ingress port
-       field. The field is writable only to support the  occasional  use  case
-       where  the  ingress  port’s  roles  in  packet egress, described above,
-       become troublesome. For example,  actions=load:0->NXM_OF_IN_PORT[],out‐
-       put:123  will  output  to  port  123 regardless of whether it is in the
-       ingress port. If the ingress port is important, then one may  save  and
+       Because  the  ingress port field has so little influence on packet pro‐
+       cessing, it does not ordinarily make sense to modify the  ingress  port
+       field.  The  field  is writable only to support the occasional use case
+       where the ingress port’s  roles  in  packet  egress,  described  above,
+       become  troublesome. For example, actions=load:0->NXM_OF_IN_PORT[],out‐
+       put:123 will output to port 123 regardless of  whether  it  is  in  the
+       ingress  port.  If the ingress port is important, then one may save and
        restore it on the stack:
 
        actions=push:NXM_OF_IN_PORT[],load:0->NXM_OF_IN_PORT[],output:123,pop:NXM_OF_IN_PORT[]
 
 
-       or,  in  Open  vSwitch  2.7  or later, use the clone action to save and
+       or, in Open vSwitch 2.7 or later, use the  clone  action  to  save  and
        restore it:
 
        actions=clone(load:0->NXM_OF_IN_PORT[],output:123)
 
 
-       The ability to modify the ingress port is an Open vSwitch extension  to
+       The  ability to modify the ingress port is an Open vSwitch extension to
        OpenFlow.
 
        OXM Ingress Port Field
@@ -1699,23 +1879,23 @@ METADATA FIELDS
        NXM:             none
 
        OpenFlow 1.1 and later use a 32-bit port number, so this field supplies
-       a  32-bit  view  of  the ingress port. Current versions of Open vSwitch
+       a 32-bit view of the ingress port. Current  versions  of  Open  vSwitch
        support only a 16-bit range of ports:
 
-              ·      OpenFlow 1.0 ports 0x0000 to 0xfeff,  inclusive,  map  to
+              ·      OpenFlow  1.0  ports  0x0000 to 0xfeff, inclusive, map to
                      OpenFlow 1.1 port numbers with the same values.
 
-              ·      OpenFlow  1.0  ports  0xff00 to 0xffff, inclusive, map to
+              ·      OpenFlow 1.0 ports 0xff00 to 0xffff,  inclusive,  map  to
                      OpenFlow 1.1 port numbers 0xffffff00 to 0xffffffff.
 
-              ·      OpenFlow 1.1  ports  0x0000ff00  to  0xfffffeff  are  not
+              ·      OpenFlow  1.1  ports  0x0000ff00  to  0xfffffeff  are not
                      mapped and not supported.
 
-       in_port  and  in_port_oxm are two views of the same information, so all
-       of the comments on in_port apply to in_port_oxm too. Modifying  in_port
+       in_port and in_port_oxm are two views of the same information,  so  all
+       of  the comments on in_port apply to in_port_oxm too. Modifying in_port
        changes in_port_oxm, and vice versa.
 
-       Setting  in_port_oxm  to an unsupported value yields unspecified behav‐
+       Setting in_port_oxm to an unsupported value yields  unspecified  behav‐
        ior.
 
        Output Queue Field
@@ -1733,75 +1913,75 @@ METADATA FIELDS
        NXM:             none
 
        Future Directions: Open vSwitch implements the output queue as a field,
-       but  does  not currently expose it through OXM or NXM for matching pur‐
-       poses. If this turns out to be a useful feature,  it  could  be  imple‐
-       mented  in  future versions. Only the set_queue, enqueue, and pop_queue
+       but does not currently expose it through OXM or NXM for  matching  pur‐
+       poses.  If  this  turns  out to be a useful feature, it could be imple‐
+       mented in future versions. Only the set_queue, enqueue,  and  pop_queue
        actions currently influence the output queue.
 
        This field influences how packets in the flow will be queued, for qual‐
-       ity  of  service (QoS) purposes, when they egress the switch. Its range
+       ity of service (QoS) purposes, when they egress the switch.  Its  range
        of meaningful values, and their meanings, varies greatly from one Open‐
-       Flow  implementation  to  another. Even within a single implementation,
+       Flow implementation to another. Even within  a  single  implementation,
        there is no guarantee that all OpenFlow ports have the same queues con‐
-       figured  or that all OpenFlow ports in an implementation can be config‐
+       figured or that all OpenFlow ports in an implementation can be  config‐
        ured the same way queue-wise.
 
        Configuring queues on OpenFlow is not well standardized. On Linux, Open
-       vSwitch  supports  queue  configuration via OVSDB, specifically the QoS
-       and Queue tables (see ovs-vswitchd.conf.db(5) for  details).  Ports  of
-       Open  vSwitch  to  other  platforms  might  require queue configuration
-       through some separate protocol (such as a CLI).  Even  on  Linux,  Open
-       vSwitch  exposes  only  a  fraction  of  the  kernel’s queuing features
-       through OVSDB, so advanced or unusual uses might require use  of  sepa‐
-       rate  utilities  (e.g.  tc).  OpenFlow switches other than Open vSwitch
-       might use OF-CONFIG or  any  of  the  configuration  methods  mentioned
-       above.  Finally,  some  OpenFlow switches have a fixed number of fixed-
-       function queues (e.g. eight queues with  strictly  defined  priorities)
+       vSwitch supports queue configuration via OVSDB,  specifically  the  QoS
+       and  Queue  tables  (see ovs-vswitchd.conf.db(5) for details). Ports of
+       Open vSwitch to  other  platforms  might  require  queue  configuration
+       through  some  separate  protocol  (such as a CLI). Even on Linux, Open
+       vSwitch exposes only  a  fraction  of  the  kernel’s  queuing  features
+       through  OVSDB,  so advanced or unusual uses might require use of sepa‐
+       rate utilities (e.g. tc). OpenFlow switches  other  than  Open  vSwitch
+       might  use  OF-CONFIG  or  any  of  the configuration methods mentioned
+       above. Finally, some OpenFlow switches have a fixed  number  of  fixed-
+       function  queues  (e.g.  eight queues with strictly defined priorities)
        and others do not support any control over queuing.
 
        The only output queue that all OpenFlow implementations must support is
        zero, to identify a default queue, whose properties are implementation-
        defined. Outputting a packet to a queue that does not exist on the out‐
-       put port yields unpredictable behavior:  among  the  possibilities  are
-       that  the  packet  might  be dropped or transmitted with a very high or
+       put  port  yields  unpredictable  behavior: among the possibilities are
+       that the packet might be dropped or transmitted with  a  very  high  or
        very low priority.
 
-       OpenFlow 1.0 only allowed output queues to be specified as part  of  an
+       OpenFlow  1.0  only allowed output queues to be specified as part of an
        enqueue action that specified both a queue and an output port. That is,
-       OpenFlow 1.0 treats the queue as an argument to an  action,  not  as  a
+       OpenFlow  1.0  treats  the  queue as an argument to an action, not as a
        field.
 
        To increase flexibility, OpenFlow 1.1 added an action to set the output
        queue. This model was carried forward, without change, through OpenFlow
        1.5.
 
-       Open  vSwitch implements the native queuing model of each OpenFlow ver‐
-       sion it supports. Open vSwitch also includes an extension  for  setting
+       Open vSwitch implements the native queuing model of each OpenFlow  ver‐
+       sion  it  supports. Open vSwitch also includes an extension for setting
        the output queue as an action in OpenFlow 1.0.
 
-       When  a  packet  ingresses into an OpenFlow switch, the output queue is
-       ordinarily set to  0,  indicating  the  default  queue.  However,  Open
-       vSwitch  supports  various  ways  to forward a packet from one OpenFlow
-       switch to another within a single host. In these  cases,  Open  vSwitch
+       When a packet ingresses into an OpenFlow switch, the  output  queue  is
+       ordinarily  set  to  0,  indicating  the  default  queue. However, Open
+       vSwitch supports various ways to forward a  packet  from  one  OpenFlow
+       switch  to  another  within a single host. In these cases, Open vSwitch
        maintains the output queue across the forwarding step. For example:
 
-              ·      A  hop  across an Open vSwitch ``patch port’’ (which does
+              ·      A hop across an Open vSwitch ``patch port’’  (which  does
                      not actually involve queuing) preserves the output queue.
 
-              ·      When a flow sets the output  queue  then  outputs  to  an
-                     OpenFlow  tunnel  port,  the  encapsulation preserves the
-                     output queue. If  the  kernel  TCP/IP  stack  routes  the
-                     encapsulated  packet  directly  to  a physical interface,
-                     then that output honors the output queue.  Alternatively,
-                     if  the  kernel routes the encapsulated packet to another
+              ·      When  a  flow  sets  the  output queue then outputs to an
+                     OpenFlow tunnel port,  the  encapsulation  preserves  the
+                     output  queue.  If  the  kernel  TCP/IP  stack routes the
+                     encapsulated packet directly  to  a  physical  interface,
+                     then  that output honors the output queue. Alternatively,
+                     if the kernel routes the encapsulated packet  to  another
                      Open vSwitch bridge, then the output queue set previously
                      becomes the initial output queue on ingress to the second
-                     bridge and will thus be used for further  output  actions
+                     bridge  and  will thus be used for further output actions
                      (unless overridden by a new ``set queue’’ action).
 
-                     (This  description  reflects the current behavior of Open
-                     vSwitch on Linux. This behavior relies on details of  the
-                     Linux  TCP/IP  stack. It could be difficult to make ports
+                     (This description reflects the current behavior  of  Open
+                     vSwitch  on Linux. This behavior relies on details of the
+                     Linux TCP/IP stack. It could be difficult to  make  ports
                      to other operating systems behave the same way.)
 
        Packet Mark Field
@@ -1817,34 +1997,34 @@ METADATA FIELDS
        OXM:             none
        NXM:             NXM_NX_PKT_MARK (33) since Open vSwitch 2.0
 
-       Packet mark comes to Open vSwitch from the Linux kernel, in  which  the
-       sk_buff  data structure that represents a packet contains a 32-bit mem‐
-       ber named skb_mark. The value of skb_mark  propagates  along  with  the
+       Packet  mark  comes to Open vSwitch from the Linux kernel, in which the
+       sk_buff data structure that represents a packet contains a 32-bit  mem‐
+       ber  named  skb_mark.  The  value of skb_mark propagates along with the
        packet it accompanies wherever the packet goes in the kernel. It has no
-       predefined semantics but various kernel-user  interfaces  can  set  and
-       match  on  it,  which  makes it suitable for ``marking’’ packets at one
-       point in their handling and then acting on the mark later.  With  ipta‐
-       bles,  for  example, one can mark some traffic specially at ingress and
-       then handle that traffic differently at  egress  based  on  the  marked
+       predefined  semantics  but  various  kernel-user interfaces can set and
+       match on it, which makes it suitable for  ``marking’’  packets  at  one
+       point  in  their handling and then acting on the mark later. With ipta‐
+       bles, for example, one can mark some traffic specially at  ingress  and
+       then  handle  that  traffic  differently  at egress based on the marked
        value.
 
-       Packet  mark  is an attempt at a generalization of the skb_mark concept
-       beyond Linux, at least through more generic naming. Like  skb_priority,
-       packet  mark  is  preserved  across  forwarding steps within a machine.
-       Unlike skb_priority, packet mark has no direct effect  on  packet  for‐
+       Packet mark is an attempt at a generalization of the  skb_mark  concept
+       beyond  Linux, at least through more generic naming. Like skb_priority,
+       packet mark is preserved across  forwarding  steps  within  a  machine.
+       Unlike  skb_priority,  packet  mark has no direct effect on packet for‐
        warding: the value set in packet mark does not matter unless some later
-       OpenFlow table or switch matches on packet mark, or unless  the  packet
-       passes  through some other kernel subsystem that has been configured to
-       interpret packet mark in specific ways, e.g. through iptables  configu‐
+       OpenFlow  table  or switch matches on packet mark, or unless the packet
+       passes through some other kernel subsystem that has been configured  to
+       interpret  packet mark in specific ways, e.g. through iptables configu‐
        ration mentioned above.
 
        Preserving packet mark across kernel forwarding steps relies heavily on
-       kernel support, which ports to  non-Linux  operating  systems  may  not
-       have.  Regardless  of  operating  system support, Open vSwitch supports
+       kernel  support,  which  ports  to  non-Linux operating systems may not
+       have. Regardless of operating system  support,  Open  vSwitch  supports
        packet mark within a single bridge and across patch ports.
 
-       The value of packet mark when a packet ingresses into  the  first  Open
-       vSwich  bridge  is typically zero, but it could be nonzero if its value
+       The  value  of  packet mark when a packet ingresses into the first Open
+       vSwich bridge is typically zero, but it could be nonzero if  its  value
        was previously set by some kernel subsystem.
 
        Action Set Output Port Field
@@ -1858,36 +2038,126 @@ METADATA FIELDS
        OpenFlow 1.0:    not supported
        OpenFlow 1.1:    not supported
 
-       OXM:             ONFOXM_ET_ACTSET_OUTPUT (43) since  OpenFlow  1.3  and
+       OXM:             ONFOXM_ET_ACTSET_OUTPUT  (43)  since  OpenFlow 1.3 and
                         Open  vSwitch  2.4;  OXM_OF_ACTSET_OUTPUT  (43)  since
                         OpenFlow 1.5 and Open vSwitch 2.4
        NXM:             none
 
-       Holds the output port currently in the OpenFlow action set  (i.e.  from
-       an  output  action within a write_actions instruction). Its value is an
+       Holds  the  output port currently in the OpenFlow action set (i.e. from
+       an output action within a write_actions instruction). Its value  is  an
        OpenFlow port number. If there is no output port in the OpenFlow action
-       set,  or  if  the output port will be ignored (e.g. because there is an
-       output group in the OpenFlow  action  set),  then  the  value  will  be
+       set, or if the output port will be ignored (e.g. because  there  is  an
+       output  group  in  the  OpenFlow  action  set),  then the value will be
        OFPP_UNSET.
 
-       Open  vSwitch  allows any table to match this field. OpenFlow, however,
+       Open vSwitch allows any table to match this field.  OpenFlow,  however,
        only requires this field to be matchable from within an OpenFlow egress
        table (a feature that Open vSwitch does not yet implement).
+
+       Packet Type Field
+
+       Name:            packet_type
+       Width:           32 bits
+       Format:          packet type
+       Masking:         not maskable
+       Prerequisites:   none
+       Access:          read-only
+       OpenFlow 1.0:    not supported
+
+       OpenFlow 1.1:    not supported
+       OXM:             OXM_OF_PACKET_TYPE (44) since OpenFlow  1.5  and  Open
+                        vSwitch 2.8
+       NXM:             none
+
+       The type of the packet in the format specified in OpenFlow 1.5:
+
+        Packet type
+        <--------->
+        16    16
+       +---+-------+
+       |ns |ns_type| ...
+       +---+-------+
+
+
+       The  upper 16 bits, ns, are a namespace. The meaning of ns_type depends
+       on the namespace. The packet type field is specified and  displayed  in
+       the format (ns,ns_type).
+
+       Open  vSwitch  currently supports the following classes of packet types
+       for matching:
+
+              (0,0)  Ethernet.
+
+              (1,ethertype)
+                     The specified ethertype. Open vSwitch can forward packets
+                     with  any ethertype, but it can only match on and process
+                     data fields for the following supported packet types:
+
+                     (1,0x800)
+                            IPv4
+
+                     (1,0x806)
+                            ARP
+
+                     (1,0x86dd)
+                            IPv6
+
+                     (1,0x8847)
+                            MPLS
+
+                     (1,0x8848)
+                            MPLS multicast
+
+                     (1,0x8035)
+                            RARP
+
+                     (1,0x894f)
+                            NSH
+
+       Consider the  distinction  between  a  packet  with  packet_type=(0,0),
+       dl_type=0x800 and one with packet_type=(1,0x800). The former is an Eth‐
+       ernet frame that contains an IPv4 packet, like this:
+
+          Ethernet            IPv4
+        <----------->   <--------------->
+        48  48   16           8   32  32
+       +---+---+-----+ +---+-----+---+---+
+       |dst|src|type | |...|proto|src|dst| ...
+       +---+---+-----+ +---+-----+---+---+
+                0x800
+
+
+       The latter is an IPv4 packet not encapsulated inside any  outer  frame,
+       like this:
+
+              IPv4
+        <--------------->
+              8   32  32
+       +---+-----+---+---+
+       |...|proto|src|dst| ...
+       +---+-----+---+---+
+
+
+       Matching  on  packet_type  is  a pre-requisite for matching on any data
+       field, but for backward compatibility, when a match on a data field  is
+       present  without  a  packet_type  match,  Open vSwitch acts as though a
+       match on (0,0) (Ethernet)  had  been  supplied.  Similarly,  when  Open
+       vSwitch  sends  flow match information to a controller, e.g. in a reply
+       to a request to dump the flow table, Open  vSwitch  omits  a  match  on
+       packet type (0,0) if it would be implied by a data field match.
 
 CONNECTION TRACKING FIELDS
    Summary:
        Name          Bytes   Mask   RW?   Prereqs   NXM/OXM Support
-
        ────────────  ──────  ─────  ────  ────────  ────────────────
        ct_state      4       yes    no    none      OVS 2.5+
        ct_zone       2       no     no    none      OVS 2.5+
        ct_mark       4       yes    yes   none      OVS 2.5+
-
        ct_label      16      yes    yes   none      OVS 2.5+
        ct_nw_src     4       yes    no    CT        OVS 2.8+
        ct_nw_dst     4       yes    no    CT        OVS 2.8+
-       ct_ipv6_src   16      yes    no    CT        OVS 2.8+
 
+       ct_ipv6_src   16      yes    no    CT        OVS 2.8+
        ct_ipv6_dst   16      yes    no    CT        OVS 2.8+
        ct_nw_proto   1       no     no    CT        OVS 2.8+
        ct_tp_src     2       yes    no    CT        OVS 2.8+
@@ -1927,15 +2197,14 @@ CONNECTION TRACKING FIELDS
 
        Name:            ct_state
        Width:           32 bits
-
        Format:          ct state
        Masking:         arbitrary bitwise masks
        Prerequisites:   none
        Access:          read-only
-
        OpenFlow 1.0:    not supported
        OpenFlow 1.1:    not supported
        OXM:             none
+
        NXM:             NXM_NX_CT_STATE (105) since Open vSwitch 2.5
 
        This  field holds several flags that can be used to determine the state
@@ -2057,7 +2326,6 @@ CONNECTION TRACKING FIELDS
        Width:           32 bits
        Format:          hexadecimal
        Masking:         arbitrary bitwise masks
-
        Prerequisites:   none
        Access:          read/write
        OpenFlow 1.0:    not supported
@@ -2115,9 +2383,9 @@ CONNECTION TRACKING FIELDS
        Prerequisites:   CT
        Access:          read-only
        OpenFlow 1.0:    not supported
+
        OpenFlow 1.1:    not supported
        OXM:             none
-
        NXM:             NXM_NX_CT_NW_SRC (120) since Open vSwitch 2.8
 
        Matches IPv4 conntrack original direction tuple source address. See the
@@ -2129,9 +2397,9 @@ CONNECTION TRACKING FIELDS
        Name:            ct_nw_dst
        Width:           32 bits
        Format:          IPv4
-
        Masking:         arbitrary bitwise masks
        Prerequisites:   CT
+
        Access:          read-only
        OpenFlow 1.0:    not supported
        OpenFlow 1.1:    not supported
@@ -2147,13 +2415,13 @@ CONNECTION TRACKING FIELDS
        Name:            ct_ipv6_src
        Width:           128 bits
        Format:          IPv6
+
        Masking:         arbitrary bitwise masks
        Prerequisites:   CT
        Access:          read-only
        OpenFlow 1.0:    not supported
        OpenFlow 1.1:    not supported
        OXM:             none
-
        NXM:             NXM_NX_CT_IPV6_SRC (122) since Open vSwitch 2.8
 
        Matches IPv6 conntrack original direction tuple source address. See the
@@ -2163,9 +2431,9 @@ CONNECTION TRACKING FIELDS
        Connection Tracking Original Direction IPv6 Destination Address Field
 
        Name:            ct_ipv6_dst
+
        Width:           128 bits
        Format:          IPv6
-
        Masking:         arbitrary bitwise masks
        Prerequisites:   CT
        Access:          read-only
@@ -2189,7 +2457,6 @@ CONNECTION TRACKING FIELDS
        OpenFlow 1.0:    not supported
        OpenFlow 1.1:    not supported
        OXM:             none
-
        NXM:             NXM_NX_CT_NW_PROTO (119) since Open vSwitch 2.8
 
        Matches  conntrack  original direction tuple IP protocol type, which is
@@ -2212,6 +2479,7 @@ CONNECTION TRACKING FIELDS
        OpenFlow 1.0:    not supported
        OpenFlow 1.1:    not supported
        OXM:             none
+
        NXM:             NXM_NX_CT_TP_SRC (124) since Open vSwitch 2.8
 
        Bitwise match on  the  conntrack  original  direction  tuple  transport
@@ -2225,9 +2493,9 @@ CONNECTION TRACKING FIELDS
        Field
 
        Name:            ct_tp_dst
-
        Width:           16 bits
        Format:          decimal
+
        Masking:         arbitrary bitwise masks
        Prerequisites:   CT
        Access:          read-only
@@ -2247,32 +2515,27 @@ CONNECTION TRACKING FIELDS
 REGISTER FIELDS
    Summary:
        Name       Bytes   Mask   RW?   Prereqs   NXM/OXM Support
-
        ─────────  ──────  ─────  ────  ────────  ─────────────────────
        metadata   8       yes    yes   none      OF 1.2+ and OVS 1.8+
        reg0       4       yes    yes   none      OVS 1.1+
        reg1       4       yes    yes   none      OVS 1.1+
-
        reg2       4       yes    yes   none      OVS 1.1+
        reg3       4       yes    yes   none      OVS 1.1+
        reg4       4       yes    yes   none      OVS 1.3+
        reg5       4       yes    yes   none      OVS 1.7+
-
        reg6       4       yes    yes   none      OVS 1.7+
        reg7       4       yes    yes   none      OVS 1.7+
+
        reg8       4       yes    yes   none      OVS 2.6+
        reg9       4       yes    yes   none      OVS 2.6+
-
        reg10      4       yes    yes   none      OVS 2.6+
        reg11      4       yes    yes   none      OVS 2.6+
        reg12      4       yes    yes   none      OVS 2.6+
        reg13      4       yes    yes   none      OVS 2.6+
-
        reg14      4       yes    yes   none      OVS 2.6+
        reg15      4       yes    yes   none      OVS 2.6+
        xreg0      8       yes    yes   none      OF 1.3+ and OVS 2.4+
        xreg1      8       yes    yes   none      OF 1.3+ and OVS 2.4+
-
        xreg2      8       yes    yes   none      OF 1.3+ and OVS 2.4+
        xreg3      8       yes    yes   none      OF 1.3+ and OVS 2.4+
        xreg4      8       yes    yes   none      OF 1.3+ and OVS 2.4+
@@ -2282,7 +2545,6 @@ REGISTER FIELDS
        xreg7      8       yes    yes   none      OF 1.3+ and OVS 2.4+
        xxreg0     16      yes    yes   none      OVS 2.6+
        xxreg1     16      yes    yes   none      OVS 2.6+
-
        xxreg2     16      yes    yes   none      OVS 2.6+
        xxreg3     16      yes    yes   none      OVS 2.6+
 
@@ -2297,12 +2559,10 @@ REGISTER FIELDS
        Name:            metadata
        Width:           64 bits
        Format:          hexadecimal
-
        Masking:         arbitrary bitwise masks
        Prerequisites:   none
        Access:          read/write
        OpenFlow 1.0:    not supported
-
        OpenFlow 1.1:    yes
        OXM:             OXM_OF_METADATA  (2)  since  OpenFlow  1.2  and   Open
                         vSwitch 1.8
@@ -2325,14 +2585,13 @@ REGISTER FIELDS
        Register 0 Field
 
        Name:            reg0
+
        Width:           32 bits
        Format:          hexadecimal
-
        Masking:         arbitrary bitwise masks
        Prerequisites:   none
        Access:          read/write
        OpenFlow 1.0:    not supported
-
        OpenFlow 1.1:    not supported
        OXM:             none
        NXM:             NXM_NX_REG0 (0) since Open vSwitch 1.1
@@ -2347,12 +2606,10 @@ REGISTER FIELDS
        Name:            xreg0
        Width:           64 bits
        Format:          hexadecimal
-
        Masking:         arbitrary bitwise masks
        Prerequisites:   none
        Access:          read/write
        OpenFlow 1.0:    not supported
-
        OpenFlow 1.1:    not supported
        OXM:             OXM_OF_PKT_REG0  (0)  since  OpenFlow  1.3  and   Open
                         vSwitch 2.4
@@ -2382,14 +2639,13 @@ REGISTER FIELDS
        Name:            xxreg0
        Width:           128 bits
        Format:          hexadecimal
-
        Masking:         arbitrary bitwise masks
        Prerequisites:   none
        Access:          read/write
        OpenFlow 1.0:    not supported
-
        OpenFlow 1.1:    not supported
        OXM:             none
+
        NXM:             NXM_NX_XXREG0 (111) since Open vSwitch 2.6
 
        This is the first of the double-extended registers  introduce  in  Open
@@ -2400,12 +2656,12 @@ REGISTER FIELDS
 
 LAYER 2 (ETHERNET) FIELDS
    Summary:
-       Name                   Bytes   Mask   RW?   Prereqs   NXM/OXM Support
+       Name                   Bytes   Mask   RW?   Prereqs    NXM/OXM Support
+       ─────────────────────  ──────  ─────  ────  ─────────  ─────────────────────
+       eth_src aka dl_src     6       yes    yes   Ethernet   OF 1.2+ and OVS 1.1+
 
-       ─────────────────────  ──────  ─────  ────  ────────  ─────────────────────
-       eth_src aka dl_src     6       yes    yes   none      OF 1.2+ and OVS 1.1+
-       eth_dst aka dl_dst     6       yes    yes   none      OF 1.2+ and OVS 1.1+
-       eth_type aka dl_type   2       no     no    none      OF 1.2+ and OVS 1.1+
+       eth_dst aka dl_dst     6       yes    yes   Ethernet   OF 1.2+ and OVS 1.1+
+       eth_type aka dl_type   2       no     no    Ethernet   OF 1.2+ and OVS 1.1+
 
        Ethernet is the only layer-2 protocol that Open  vSwitch  supports.  As
        with  most software, Open vSwitch and OpenFlow regard an Ethernet frame
@@ -2416,16 +2672,14 @@ LAYER 2 (ETHERNET) FIELDS
        Ethernet Source Field
 
        Name:            eth_src (aka dl_src)
-
        Width:           48 bits
+
        Format:          Ethernet
        Masking:         arbitrary bitwise masks
-       Prerequisites:   none
-
+       Prerequisites:   Ethernet
        Access:          read/write
        OpenFlow 1.0:    yes (exact match only)
        OpenFlow 1.1:    yes
-
 
        OXM:             OXM_OF_ETH_SRC (4) since OpenFlow 1.2 and Open vSwitch
                         1.7
@@ -2446,15 +2700,15 @@ LAYER 2 (ETHERNET) FIELDS
        Name:            eth_dst (aka dl_dst)
        Width:           48 bits
        Format:          Ethernet
-
        Masking:         arbitrary bitwise masks
-       Prerequisites:   none
+
+       Prerequisites:   Ethernet
        Access:          read/write
        OpenFlow 1.0:    yes (exact match only)
-
        OpenFlow 1.1:    yes
        OXM:             OXM_OF_ETH_DST (3) since OpenFlow 1.2 and Open vSwitch
                         1.7
+
        NXM:             NXM_OF_ETH_DST (1) since Open vSwitch 1.1
 
        The Ethernet destination address:
@@ -2493,15 +2747,14 @@ LAYER 2 (ETHERNET) FIELDS
        Name:            eth_type (aka dl_type)
        Width:           16 bits
        Format:          hexadecimal
-       Masking:         not maskable
 
-       Prerequisites:   none
+       Masking:         not maskable
+       Prerequisites:   Ethernet
        Access:          read-only
        OpenFlow 1.0:    yes (exact match only)
        OpenFlow 1.1:    yes (exact match only)
        OXM:             OXM_OF_ETH_TYPE   (5)  since  OpenFlow  1.2  and  Open
                         vSwitch 1.7
-
        NXM:             NXM_OF_ETH_TYPE (3) since Open vSwitch 1.1
 
        The most commonly seen Ethernet frames today use a format called ``Eth‐
@@ -2570,14 +2823,13 @@ LAYER 2 (ETHERNET) FIELDS
 VLAN FIELDS
    Summary:
        Name          Bytes             Mask   RW?   Prereqs    NXM/OXM Support
-
        ────────────  ────────────────  ─────  ────  ─────────  ─────────────────────
-       dl_vlan       2 (low 12 bits)   no     yes   none
-       dl_vlan_pcp   1 (low 3 bits)    no     yes   none
+       dl_vlan       2 (low 12 bits)   no     yes   Ethernet
+       dl_vlan_pcp   1 (low 3 bits)    no     yes   Ethernet
 
-       vlan_vid      2 (low 12 bits)   yes    yes   none       OF 1.2+ and OVS 1.7+
+       vlan_vid      2 (low 12 bits)   yes    yes   Ethernet   OF 1.2+ and OVS 1.7+
        vlan_pcp      1 (low 3 bits)    no     yes   VLAN VID   OF 1.2+ and OVS 1.7+
-       vlan_tci      2                 yes    yes   none       OVS 1.1+
+       vlan_tci      2                 yes    yes   Ethernet   OVS 1.1+
 
        The  802.1Q  VLAN  header causes more trouble than any other 4 bytes in
        networking. OpenFlow 1.0, 1.1, and 1.2+ all  treat  VLANs  differently.
@@ -2699,9 +2951,8 @@ VLAN FIELDS
        Width:           16 bits (only the least-significant 12 bits may be nonzero)
        Format:          decimal
        Masking:         arbitrary bitwise masks
-       Prerequisites:   none
+       Prerequisites:   Ethernet
        Access:          read/write
-
        OpenFlow 1.0:    yes (exact match only)
        OpenFlow 1.1:    yes (exact match only)
        OXM:             OXM_OF_VLAN_VID (6) since OpenFlow 1.2 and Open vSwitch 1.7
@@ -2749,15 +3000,13 @@ VLAN FIELDS
 
        Name:            vlan_pcp
        Width:           8 bits (only the least-significant 3 bits may be nonzero)
-       Format:          decimal
 
+       Format:          decimal
        Masking:         not maskable
        Prerequisites:   VLAN VID
        Access:          read/write
        OpenFlow 1.0:    yes (exact match only)
        OpenFlow 1.1:    yes (exact match only)
-
-
        OXM:             OXM_OF_VLAN_PCP (7) since OpenFlow 1.2 and  Open  vSwitch
                         1.7
        NXM:             none
@@ -2790,10 +3039,10 @@ VLAN FIELDS
        Width:           16 bits
        Format:          hexadecimal
        Masking:         arbitrary bitwise masks
-       Prerequisites:   none
+       Prerequisites:   Ethernet
        Access:          read/write
-
        OpenFlow 1.0:    yes (exact match only)
+
        OpenFlow 1.1:    yes (exact match only)
        OXM:             none
        NXM:             NXM_OF_VLAN_TCI (4) since Open vSwitch 1.1
@@ -2851,13 +3100,13 @@ VLAN FIELDS
 
        Criteria   OpenFlow 1.0   OpenFlow 1.1   OpenFlow 1.2+         NXM
        ─────────  ─────────────  ─────────────  ──────────────  ──────────
-
             [1]    ????/1,??/?    ????/1,??/?    0000/0000,--   0000/0000
             [2]    ffff/0,??/?    ffff/0,??/?    0000/ffff,--   0000/ffff
             [3]    0xxx/0,??/1    0xxx/0,??/1    1xxx/ffff,--   1xxx/1fff
             [4]    ????/1,0y/0    fffe/0,0y/0    1000/1000,0y   z000/f000
             [5]    0xxx/0,0y/0    0xxx/0,0y/0    1xxx/ffff,0y   zxxx/ffff
             [6]         (none)      (none)      1001/1001,--    1001/1001
+
             [7]         (none)      (none)         (none)       3000/3000
             [8]         (none)      (none)         (none)       0000/0fff
             [9]         (none)      (none)         (none)       0000/f000
@@ -2946,14 +3195,13 @@ VLAN FIELDS
               [10]   Matches packets with no 802.1Q header or with  an  802.1Q
                      header  with  both  VID  and PCP of 0. Only possible with
                      NXM.
+
 LAYER 2.5: MPLS FIELDS
    Summary:
        Name         Bytes             Mask   RW?   Prereqs   NXM/OXM Support
-
        ───────────  ────────────────  ─────  ────  ────────  ──────────────────────
        mpls_label   4 (low 20 bits)   no     yes   MPLS      OF 1.2+ and OVS 1.11+
        mpls_tc      1 (low 3 bits)    no     yes   MPLS      OF 1.2+ and OVS 1.11+
-
        mpls_bos     1 (low 1 bits)    no     no    MPLS      OF 1.3+ and OVS 1.11+
        mpls_ttl     1                 no     yes   MPLS      OVS 2.6+
 
@@ -3059,15 +3307,12 @@ LAYER 2.5: MPLS FIELDS
 
        Name:            mpls_label
        Width:           32 bits (only the least-significant 20 bits may be nonzero)
-
        Format:          decimal
        Masking:         not maskable
        Prerequisites:   MPLS
        Access:          read/write
        OpenFlow 1.0:    not supported
        OpenFlow 1.1:    yes (exact match only)
-
-
        OXM:             OXM_OF_MPLS_LABEL  (34) since OpenFlow 1.2 and Open vSwitch
                         1.11
        NXM:             none
@@ -3098,8 +3343,6 @@ LAYER 2.5: MPLS FIELDS
        Access:          read/write
        OpenFlow 1.0:    not supported
        OpenFlow 1.1:    yes (exact match only)
-
-
        OXM:             OXM_OF_MPLS_TC (35) since OpenFlow 1.2 and  Open  vSwitch
                         1.11
        NXM:             none
@@ -3129,9 +3372,9 @@ LAYER 2.5: MPLS FIELDS
        Width:           8 bits (only the least-significant 1 bits may be nonzero)
        Format:          decimal
        Masking:         not maskable
+
        Prerequisites:   MPLS
        Access:          read-only
-
        OpenFlow 1.0:    not supported
        OpenFlow 1.1:    not supported
        OXM:             OXM_OF_MPLS_BOS  (36) since OpenFlow 1.3 and Open vSwitch
@@ -3171,7 +3414,6 @@ LAYER 2.5: MPLS FIELDS
        Width:           8 bits
        Format:          decimal
        Masking:         not maskable
-
        Prerequisites:   MPLS
        Access:          read/write
        OpenFlow 1.0:    not supported
@@ -3188,6 +3430,7 @@ LAYER 2.5: MPLS FIELDS
        |      TTL      |
        +---------------+
 
+
 LAYER 3: IPV4 AND IPV6 FIELDS
    Summary:
        Name                    Bytes             Mask   RW?   Prereqs     NXM/OXM Support
@@ -3195,15 +3438,14 @@ LAYER 3: IPV4 AND IPV6 FIELDS
        ──────────────────────  ────────────────  ─────  ────  ──────────  ─────────────────────
        ip_src aka nw_src       4                 yes    yes   IPv4        OF 1.2+ and OVS 1.1+
        ip_dst aka nw_dst       4                 yes    yes   IPv4        OF 1.2+ and OVS 1.1+
-
        ipv6_src                16                yes    yes   IPv6        OF 1.2+ and OVS 1.1+
+
        ipv6_dst                16                yes    yes   IPv6        OF 1.2+ and OVS 1.1+
        ipv6_label              4 (low 20 bits)   yes    yes   IPv6        OF 1.2+ and OVS 1.4+
-
        nw_proto aka ip_proto   1                 no     no    IPv4/IPv6   OF 1.2+ and OVS 1.1+
        nw_ttl                  1                 no     yes   IPv4/IPv6   OVS 1.4+
-       ip_frag                 1 (low 2 bits)    yes    no    IPv4/IPv6   OVS 1.3+
 
+       ip_frag                 1 (low 2 bits)    yes    no    IPv4/IPv6   OVS 1.3+
        nw_tos                  1                 no     yes   IPv4/IPv6   OVS 1.1+
        ip_dscp                 1 (low 6 bits)    no     yes   IPv4/IPv6   OF 1.2+ and OVS 1.7+
        nw_ecn aka ip_ecn       1 (low 2 bits)    no     yes   IPv4/IPv6   OF 1.2+ and OVS 1.4+
@@ -3215,11 +3457,10 @@ LAYER 3: IPV4 AND IPV6 FIELDS
        IPv4 Source Address Field
 
        Name:            ip_src (aka nw_src)
-
        Width:           32 bits
        Format:          IPv4
-       Masking:         arbitrary bitwise masks
 
+       Masking:         arbitrary bitwise masks
        Prerequisites:   IPv4
        Access:          read/write
        OpenFlow 1.0:    yes (CIDR match only)
@@ -3227,7 +3468,6 @@ LAYER 3: IPV4 AND IPV6 FIELDS
        OpenFlow 1.1:    yes
        OXM:             OXM_OF_IPV4_SRC  (11)  since  OpenFlow  1.2  and  Open
                         vSwitch 1.7
-
        NXM:             NXM_OF_IP_SRC (7) since Open vSwitch 1.1
 
        The source address from the IPv4 header:
@@ -3247,11 +3487,10 @@ LAYER 3: IPV4 AND IPV6 FIELDS
        IPv4 Destination Address Field
 
        Name:            ip_dst (aka nw_dst)
-
        Width:           32 bits
        Format:          IPv4
-       Masking:         arbitrary bitwise masks
 
+       Masking:         arbitrary bitwise masks
        Prerequisites:   IPv4
        Access:          read/write
        OpenFlow 1.0:    yes (CIDR match only)
@@ -3259,7 +3498,6 @@ LAYER 3: IPV4 AND IPV6 FIELDS
        OpenFlow 1.1:    yes
        OXM:             OXM_OF_IPV4_DST  (12)  since  OpenFlow  1.2  and  Open
                         vSwitch 1.7
-
        NXM:             NXM_OF_IP_DST (8) since Open vSwitch 1.1
 
        The destination address from the IPv4 header:
@@ -3283,19 +3521,18 @@ LAYER 3: IPV4 AND IPV6 FIELDS
        IPv6 Source Address Field
 
        Name:            ipv6_src
-
        Width:           128 bits
        Format:          IPv6
-       Masking:         arbitrary bitwise masks
 
+       Masking:         arbitrary bitwise masks
        Prerequisites:   IPv6
        Access:          read/write
        OpenFlow 1.0:    not supported
-
        OpenFlow 1.1:    not supported
+
+
        OXM:             OXM_OF_IPV6_SRC  (26)  since  OpenFlow  1.2  and  Open
                         vSwitch 1.1
-
        NXM:             NXM_NX_IPV6_SRC (19) since Open vSwitch 1.1
 
        The source address from the IPv6 header:
@@ -3314,20 +3551,18 @@ LAYER 3: IPV4 AND IPV6 FIELDS
 
        IPv6 Destination Address Field
 
-       Name:            ipv6_dst
 
+       Name:            ipv6_dst
        Width:           128 bits
        Format:          IPv6
        Masking:         arbitrary bitwise masks
-
        Prerequisites:   IPv6
        Access:          read/write
-       OpenFlow 1.0:    not supported
 
+       OpenFlow 1.0:    not supported
        OpenFlow 1.1:    not supported
        OXM:             OXM_OF_IPV6_DST  (27)  since  OpenFlow  1.2  and  Open
                         vSwitch 1.1
-
        NXM:             NXM_NX_IPV6_DST (20) since Open vSwitch 1.1
 
        The destination address from the IPv6 header:
@@ -3347,19 +3582,16 @@ LAYER 3: IPV4 AND IPV6 FIELDS
        IPv6 Flow Label Field
 
        Name:            ipv6_label
-
        Width:           32 bits (only the least-significant 20 bits may be nonzero)
        Format:          hexadecimal
        Masking:         arbitrary bitwise masks
-
        Prerequisites:   IPv6
+
        Access:          read/write
        OpenFlow 1.0:    not supported
-
        OpenFlow 1.1:    not supported
        OXM:             OXM_OF_IPV6_FLABEL (28) since OpenFlow 1.2 and Open vSwitch
                         1.7
-
        NXM:             NXM_NX_IPV6_LABEL (27) since Open vSwitch 1.4
 
        The  least  significant 20 bits hold the flow label field from the IPv6
@@ -3384,13 +3616,14 @@ LAYER 3: IPV4 AND IPV6 FIELDS
 
        Name:            nw_proto (aka ip_proto)
        Width:           8 bits
+
        Format:          decimal
        Masking:         not maskable
-
        Prerequisites:   IPv4/IPv6
        Access:          read-only
        OpenFlow 1.0:    yes (exact match only)
        OpenFlow 1.1:    yes (exact match only)
+
 
        OXM:             OXM_OF_IP_PROTO  (10)  since  OpenFlow  1.2  and  Open
                         vSwitch 1.7
@@ -3406,12 +3639,11 @@ LAYER 3: IPV4 AND IPV6 FIELDS
 
        IPv4/v6 TTL/Hop Limit Field
 
-
        Name:            nw_ttl
+
        Width:           8 bits
        Format:          decimal
        Masking:         not maskable
-
        Prerequisites:   IPv4/IPv6
        Access:          read/write
        OpenFlow 1.0:    not supported
@@ -3431,12 +3663,11 @@ LAYER 3: IPV4 AND IPV6 FIELDS
        Width:           8 bits (only the least-significant 2 bits may be nonzero)
        Format:          frag
        Masking:         arbitrary bitwise masks
-
        Prerequisites:   IPv4/IPv6
+
        Access:          read-only
        OpenFlow 1.0:    not supported
        OpenFlow 1.1:    not supported
-
        OXM:             none
        NXM:             NXM_NX_IP_FRAG (26) since Open vSwitch 1.3
 
@@ -3524,14 +3755,13 @@ LAYER 3: IPV4 AND IPV6 FIELDS
        IPv4/v6 DSCP (Bits 2-7) Field
 
        Name:            nw_tos
-
        Width:           8 bits
        Format:          decimal
        Masking:         not maskable
        Prerequisites:   IPv4/IPv6
        Access:          read/write
-       OpenFlow 1.0:    yes (exact match only)
 
+       OpenFlow 1.0:    yes (exact match only)
        OpenFlow 1.1:    yes (exact match only)
        OXM:             none
        NXM:             NXM_OF_IP_TOS (5) since Open vSwitch 1.1
@@ -3552,14 +3782,12 @@ LAYER 3: IPV4 AND IPV6 FIELDS
        Name:            ip_dscp
        Width:           8 bits (only the least-significant 6 bits may be nonzero)
        Format:          decimal
-
        Masking:         not maskable
        Prerequisites:   IPv4/IPv6
+
        Access:          read/write
        OpenFlow 1.0:    yes (exact match only)
        OpenFlow 1.1:    yes (exact match only)
-
-
        OXM:             OXM_OF_IP_DSCP (8) since OpenFlow 1.2  and  Open  vSwitch
                         1.7
        NXM:             none
@@ -3587,8 +3815,8 @@ LAYER 3: IPV4 AND IPV6 FIELDS
        Access:          read/write
        OpenFlow 1.0:    not supported
        OpenFlow 1.1:    yes (exact match only)
-
        OXM:             OXM_OF_IP_ECN (9) since OpenFlow 1.2 and Open vSwitch 1.7
+
        NXM:             NXM_NX_IP_ECN (28) since Open vSwitch 1.4
 
        This field is the TOS byte with the DSCP bits cleared to 0:
@@ -3605,11 +3833,12 @@ LAYER 3: IPV4 AND IPV6 FIELDS
 LAYER 3: ARP FIELDS
    Summary:
        Name      Bytes   Mask   RW?   Prereqs   NXM/OXM Support
-       ────────  ──────  ─────  ────  ────────  ─────────────────────
 
+       ────────  ──────  ─────  ────  ────────  ─────────────────────
        arp_op    2       no     yes   ARP       OF 1.2+ and OVS 1.1+
        arp_spa   4       yes    yes   ARP       OF 1.2+ and OVS 1.1+
        arp_tpa   4       yes    yes   ARP       OF 1.2+ and OVS 1.1+
+
        arp_sha   6       yes    yes   ARP       OF 1.2+ and OVS 1.1+
        arp_tha   6       yes    yes   ARP       OF 1.2+ and OVS 1.1+
 
@@ -3636,19 +3865,18 @@ LAYER 3: ARP FIELDS
 
        ARP Opcode Field
 
-
        Name:            arp_op
        Width:           16 bits
        Format:          decimal
+
        Masking:         not maskable
        Prerequisites:   ARP
-
        Access:          read/write
        OpenFlow 1.0:    yes (exact match only)
+
        OpenFlow 1.1:    yes (exact match only)
        OXM:             OXM_OF_ARP_OP (21) since OpenFlow 1.2 and Open vSwitch
                         1.7
-
        NXM:             NXM_OF_ARP_OP (15) since Open vSwitch 1.1
 
        Even  though  this is a 16-bit field, Open vSwitch does not support ARP
@@ -3665,8 +3893,8 @@ LAYER 3: ARP FIELDS
        Prerequisites:   ARP
        Access:          read/write
        OpenFlow 1.0:    yes (CIDR match only)
-       OpenFlow 1.1:    yes
 
+       OpenFlow 1.1:    yes
        OXM:             OXM_OF_ARP_SPA   (22)  since  OpenFlow  1.2  and  Open
                         vSwitch 1.7
        NXM:             NXM_OF_ARP_SPA (16) since Open vSwitch 1.1
@@ -3675,11 +3903,12 @@ LAYER 3: ARP FIELDS
 
        Name:            arp_tpa
        Width:           32 bits
+
        Format:          IPv4
        Masking:         arbitrary bitwise masks
        Prerequisites:   ARP
-
        Access:          read/write
+
        OpenFlow 1.0:    yes (CIDR match only)
        OpenFlow 1.1:    yes
        OXM:             OXM_OF_ARP_TPA  (23)  since  OpenFlow  1.2  and   Open
@@ -3689,16 +3918,17 @@ LAYER 3: ARP FIELDS
 
        ARP Source Ethernet Address Field
 
-       Name:            arp_sha
 
+       Name:            arp_sha
        Width:           48 bits
        Format:          Ethernet
        Masking:         arbitrary bitwise masks
+
        Prerequisites:   ARP
        Access:          read/write
-
        OpenFlow 1.0:    not supported
        OpenFlow 1.1:    not supported
+
        OXM:             OXM_OF_ARP_SHA   (24)  since  OpenFlow  1.2  and  Open
                         vSwitch 1.7
        NXM:             NXM_NX_ARP_SHA (17) since Open vSwitch 1.1
@@ -3713,8 +3943,8 @@ LAYER 3: ARP FIELDS
        Prerequisites:   ARP
        Access:          read/write
        OpenFlow 1.0:    not supported
-       OpenFlow 1.1:    not supported
 
+       OpenFlow 1.1:    not supported
        OXM:             OXM_OF_ARP_THA  (25)  since  OpenFlow  1.2  and   Open
                         vSwitch 1.7
        NXM:             NXM_NX_ARP_THA (18) since Open vSwitch 1.1
@@ -4206,4 +4436,4 @@ AUTHORS
 
 
 
-Open vSwitch                        2.7.90                       ovs-fields(7)
+Open vSwitch                        2.8.90                       ovs-fields(7)
