@@ -87,8 +87,8 @@ are HTML now, since that is the output of the wordpress importer. Pages that
 require advanced styling (e.g. the homepage) should be in html too.
 
 Currently all the pages use a directory URL (e.g.
-http://openvswitch.org/support/) The page is stored in a file called index.html
-(or index.markdown)
+https://www.openvswitch.org/support/) The page is stored in a file
+called index.html (or index.markdown)
 
 Each page has a yaml preamble that contains the title, the layout that we want,
 and some other information extracted by wordpress that it might be worth
@@ -137,10 +137,11 @@ keeping.
 
 3) /pipermail/
 
-   `http://openvswitch.org/pipermail` is the mailman archive. If we use github
-   hosting, openvswitch.org will be a CNAME for `openvswitch.github.io` (or
-   something similar). Since we do not have control over
-   `openvswitch.github.io` we cannot redirect `/pipermail/*` to something else.
+   `https://www.openvswitch.org/pipermail` is the mailman archive. If
+   we use github hosting, openvswitch.org will be a CNAME for
+   `openvswitch.github.io` (or something similar). Since we do not
+   have control over `openvswitch.github.io` we cannot redirect
+   `/pipermail/*` to something else.
 
 4) google analytics
 
