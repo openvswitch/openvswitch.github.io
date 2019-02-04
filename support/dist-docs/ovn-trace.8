@@ -1,6 +1,6 @@
 '\" p
 .\" -*- nroff -*-
-.TH "ovn-trace" 8 "ovn-trace" "Open vSwitch 2\[char46]8\[char46]90" "Open vSwitch Manual"
+.TH "ovn-trace" 8 "ovn-trace" "Open vSwitch 2\[char46]10\[char46]90" "Open vSwitch Manual"
 .fp 5 L CR              \\" Make fixed-width font available as \\fL.
 .de TQ
 .  br
@@ -172,8 +172,10 @@ This action distinguishes between gateway routers and distributed routers\[char4
 \fBct_snat(\fIip\fB)\fR
 Forks the pipeline\[char46] In one fork, sets \fBip4\[char46]dst\fR (or \fBip4\[char46]src\fR) to \fIip\fR and \fBct\[char46]dnat\fR (or \fBct\[char46]snat\fR) to 1 and advances to the next table as if \fBnext;\fR were executed\[char46] In the other fork, the pipeline continues without change after the \fBct_dnat\fR (or \fBct_snat\fR) action\[char46]
 .TP
-\fBct_lb\fR
-Not yet implemented; currently implemented as a no-op\[char46]
+\fBct_lb;\fR
+.TQ .5in
+\fBct_lb(\fIip\fB\fR[\fB:\fIport\fB\fR]\[char46]\[char46]\[char46]\fB);\fR
+Forks the pipeline\[char46] In one fork, sets \fBip4\[char46]dst\fR (or \fBip6\[char46]dst\fR) to one of the load-balancer addresses and the destination port to its associated port, if any, and sets \fBct\[char46]dnat\fR to 1\[char46] With one or more arguments, gives preference to the address specified on \fB\-\-lb\-dst\fR, if any; without arguments, uses the address and port specified on \fB\-\-lb\-dst\fR\[char46] In the other fork, the pipeline continues without change after the \fBct_lb\fR action\[char46]
 .TP
 \fBct_commit\fR
 .TQ .5in
@@ -210,7 +212,7 @@ These options control the form and level of detail in \fBovn\-trace\fR output\[c
 Selects all three forms of output\[char46]
 .TP
 \fB\-\-ovs\fR[\fB=\fR\fIremote\fR]
-Makes \fBovn\-trace\fR attempt to obtain and display the OpenFlow flows that correspond to each OVN logical flow\[char46] To do so, \fBovn\-trace\fR connects to \fIremote\fR (by default, \fBunix:/usr/local/var/run/openvswitch/br\-int\[char46]mgmt\fR) over OpenFlow and retrieves the flows\[char46] If \fIremote\fR is specified, it must be an active OpenFlow connection method described in \fBovs\-ofctl\fR(8)\[char46]
+Makes \fBovn\-trace\fR attempt to obtain and display the OpenFlow flows that correspond to each OVN logical flow\[char46] To do so, \fBovn\-trace\fR connects to \fIremote\fR (by default, \fBunix:/var/run/openvswitch/br\-int\[char46]mgmt\fR) over OpenFlow and retrieves the flows\[char46] If \fIremote\fR is specified, it must be an active OpenFlow connection method described in \fBovsdb\fR(7)\[char46]
 .IP
 To make the best use of the output, it is important to understand the relationship between logical flows and OpenFlow flows\[char46] \fBovn\-architecture\fR(7), under \fBArchitectural Physical Life
 Cycle of a Packet\fR, describes this relationship\[char46] Keep in mind the following points:
@@ -264,6 +266,9 @@ A packet might pass through the connection tracker twice in one trip through OVN
 .IP
 When \fB\-\-ct\fR is unspecified, or when there are fewer \fB\-\-ct\fR options than \fBct_next\fR actions, the \fIflags\fR default to \fBtrk,est\fR\[char46]
 .TP
+\fB\-\-lb\-dst=\fR\fIip\fR[\fB:\fIport\fB\fR]
+Sets the IP from VIP pool to use as destination of the packet\[char46] \fB\-\-lb\-dst\fR is not available in daemon mode\[char46]
+.TP
 \fB\-\-friendly\-names\fR
 .TQ .5in
 \fB\-\-no\-friendly\-names\fR
@@ -271,7 +276,7 @@ When cloud management systems such as OpenStack are layered on top of OVN, they 
 .SS "Daemon Options"
 .TP
 \fB\-\-pidfile\fR[\fB=\fR\fIpidfile\fR]
-Causes a file (by default, \fB\fIprogram\fB\[char46]pid\fR) to be created indicating the PID of the running process\[char46] If the \fIpidfile\fR argument is not specified, or if it does not begin with \fB/\fR, then it is created in \fB/usr/local/var/run/openvswitch\fR\[char46]
+Causes a file (by default, \fB\fIprogram\fB\[char46]pid\fR) to be created indicating the PID of the running process\[char46] If the \fIpidfile\fR argument is not specified, or if it does not begin with \fB/\fR, then it is created in \fB/var/run/openvswitch\fR\[char46]
 .IP
 If \fB\-\-pidfile\fR is not specified, no pidfile is created\[char46]
 .TP
@@ -301,7 +306,7 @@ By default this daemon will try to self-confine itself to work with files under 
 \fB\-\-user=\fR\fIuser\fR\fB:\fR\fIgroup\fR
 Causes this program to run as a different user specified in \fIuser\fR\fB:\fR\fIgroup\fR, thus dropping most of the root privileges\[char46] Short forms \fIuser\fR and \fB:\fR\fIgroup\fR are also allowed, with current user or group assumed, respectively\[char46] Only daemons started by the root user accepts this argument\[char46]
 .IP
-On Linux, daemons will be granted \fBCAP_IPC_LOCK\fR and \fBCAP_NET_BIND_SERVICES\fR before dropping root privileges\[char46] Daemons that interact with a datapath, such as \fBovs\-vswitchd\fR, will be granted two additional capabilities, namely \fBCAP_NET_ADMIN\fR and \fBCAP_NET_RAW\fR\[char46] The capability change will apply even if the new user is root\[char46]
+On Linux, daemons will be granted \fBCAP_IPC_LOCK\fR and \fBCAP_NET_BIND_SERVICES\fR before dropping root privileges\[char46] Daemons that interact with a datapath, such as \fBovs\-vswitchd\fR, will be granted three additional capabilities, namely \fBCAP_NET_ADMIN\fR, \fBCAP_NET_BROADCAST\fR and \fBCAP_NET_RAW\fR\[char46] The capability change will apply even if the new user is root\[char46]
 .IP
 On Windows, this option is not currently supported\[char46] For security reasons, specifying this option will cause the daemon process not to start\[char46]
 .SS "Logging Options"
@@ -343,7 +348,7 @@ Sets the log pattern for \fIdestination\fR to \fIpattern\fR\[char46] Refer to \f
 Sets the RFC5424 facility of the log message\[char46] \fIfacility\fR can be one of \fBkern\fR, \fBuser\fR, \fBmail\fR, \fBdaemon\fR, \fBauth\fR, \fBsyslog\fR, \fBlpr\fR, \fBnews\fR, \fBuucp\fR, \fBclock\fR, \fBftp\fR, \fBntp\fR, \fBaudit\fR, \fBalert\fR, \fBclock2\fR, \fBlocal0\fR, \fBlocal1\fR, \fBlocal2\fR, \fBlocal3\fR, \fBlocal4\fR, \fBlocal5\fR, \fBlocal6\fR or \fBlocal7\fR\[char46] If this option is not specified, \fBdaemon\fR is used as the default for the local system syslog and \fBlocal0\fR is used while sending a message to the target provided via the \fB\-\-syslog\-target\fR option\[char46]
 .TP
 \fB\-\-log\-file\fR[\fB=\fR\fIfile\fR]
-Enables logging to a file\[char46] If \fIfile\fR is specified, then it is used as the exact name for the log file\[char46] The default log file name used if \fIfile\fR is omitted is \fB/usr/local/var/log/openvswitch/\fIprogram\fB\[char46]log\fR\[char46]
+Enables logging to a file\[char46] If \fIfile\fR is specified, then it is used as the exact name for the log file\[char46] The default log file name used if \fIfile\fR is omitted is \fB/var/log/openvswitch/\fIprogram\fB\[char46]log\fR\[char46]
 .TP
 \fB\-\-syslog\-target=\fR\fIhost\fR\fB:\fR\fIport\fR
 Send syslog messages to UDP \fIport\fR on \fIhost\fR, in addition to the system syslog\[char46] The \fIhost\fR must be a numerical IP address, not a hostname\[char46]
@@ -352,12 +357,16 @@ Send syslog messages to UDP \fIport\fR on \fIhost\fR, in addition to the system 
 Specify \fImethod\fR as how syslog messages should be sent to syslog daemon\[char46] The following forms are supported:
 .RS
 .IP \(bu
-\fBlibc\fR, to use the libc \fBsyslog()\fR function\[char46] This is the default behavior\[char46] Downside of using this options is that libc adds fixed prefix to every message before it is actually sent to the syslog daemon over \fB/dev/log\fR UNIX domain socket\[char46]
+\fBlibc\fR, to use the libc \fBsyslog()\fR function\[char46] Downside of using this options is that libc adds fixed prefix to every message before it is actually sent to the syslog daemon over \fB/dev/log\fR UNIX domain socket\[char46]
 .IP \(bu
 \fBunix:\fIfile\fB\fR, to use a UNIX domain socket directly\[char46] It is possible to specify arbitrary message format with this option\[char46] However, \fBrsyslogd 8\[char46]9\fR and older versions use hard coded parser function anyway that limits UNIX domain socket use\[char46] If you want to use arbitrary message format with older \fBrsyslogd\fR versions, then use UDP socket to localhost IP address instead\[char46]
 .IP \(bu
 \fBudp:\fIip\fB:\fIport\fB\fR, to use a UDP socket\[char46] With this method it is possible to use arbitrary message format also with older \fBrsyslogd\fR\[char46] When sending syslog messages over UDP socket extra precaution needs to be taken into account, for example, syslog daemon needs to be configured to listen on the specified UDP port, accidental iptables rules could be interfering with local syslog traffic and there are some security considerations that apply to UDP sockets, but do not apply to UNIX domain sockets\[char46]
+.IP \(bu
+\fBnull\fR, to discard all messages logged to syslog\[char46]
 .RE
+.IP
+The default is taken from the \fBOVS_SYSLOG_METHOD\fR environment variable; if it is unset, the default is \fBlibc\fR\[char46]
 .SS "PKI Options"
 .PP
 .PP
@@ -387,7 +396,7 @@ Disables verification of certificates presented by SSL peers\[char46] This intro
 .SS "Other Options"
 .TP
 \fB\-\-db\fR \fIdatabase\fR
-The OVSDB database remote to contact\[char46] If the \fBOVN_SB_DB\fR environment variable is set, its value is used as the default\[char46] Otherwise, the default is \fBunix:/usr/local/var/run/openvswitch/db\[char46]sock\fR, but this default is unlikely to be useful outside of single-machine OVN test environments\[char46]
+The OVSDB database remote to contact\[char46] If the \fBOVN_SB_DB\fR environment variable is set, its value is used as the default\[char46] Otherwise, the default is \fBunix:/var/run/openvswitch/db\[char46]sock\fR, but this default is unlikely to be useful outside of single-machine OVN test environments\[char46]
 .RS
 .TP
 \fB\-h\fR

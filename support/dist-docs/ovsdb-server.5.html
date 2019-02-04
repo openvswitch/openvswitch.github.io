@@ -1,0 +1,122 @@
+<html><head><meta charset="UTF-8"></head><body><pre>
+ovsdb-server(5)               Open vSwitch Manual              ovsdb-server(5)
+
+
+
+<b>N</b><b>A</b><b>M</b><b>E</b>
+       ovsdb-server - _Server database schema
+
+       Every  <b>o</b><b>v</b><b>s</b><b>d</b><b>b</b><b>-</b><b>s</b><b>e</b><b>r</b><b>v</b><b>e</b><b>r</b>  (version 2.9 or later) always hosts an instance of
+       this schema, which holds information on the status and configuration of
+       the  server  itself. This database is read-only. This manpage describes
+       the schema for this database.
+
+<b>T</b><b>A</b><b>B</b><b>L</b><b>E</b> <b>S</b><b>U</b><b>M</b><b>M</b><b>A</b><b>R</b><b>Y</b>
+       The following list summarizes the purpose of each of the tables in  the
+       <b>_</b><b>S</b><b>e</b><b>r</b><b>v</b><b>e</b><b>r</b>  database.   Each  table is described in more detail on a later
+       page.
+
+       Table     Purpose
+       <b>D</b><b>a</b><b>t</b><b>a</b><b>b</b><b>a</b><b>s</b><b>e</b>  Databases.
+
+<b>D</b><b>a</b><b>t</b><b>a</b><b>b</b><b>a</b><b>s</b><b>e</b> <b>T</b><b>A</b><b>B</b><b>L</b><b>E</b>
+       This table describes the databases hosted by the database server,  with
+       one row per database. As its database configuration and status changes,
+       the server automatically and immediately updates the table to match.
+
+       The OVSDB protocol specified in RFC 7047 does not provide a way for  an
+       OVSDB  client  to  find  out about some kinds of configuration changes,
+       such as about databases added or removed while a client is connected to
+       the  server, or databases changing between read/write and read-only due
+       to a transition between active and backup roles. This table provides  a
+       solution:  clients  can  monitor the table’s contents to find out about
+       important changes.
+
+       Traditionally, <b>o</b><b>v</b><b>s</b><b>d</b><b>b</b><b>-</b><b>s</b><b>e</b><b>r</b><b>v</b><b>e</b><b>r</b> disconnects all of its clients when a  sig‐
+       nificant configuration change occurs, because this prompts a well-writ‐
+       ten client to reassess what is available from the server when it recon‐
+       nects.  Because  this  table provides an alternative and more efficient
+       way to find out about  those  changes,  OVS  2.9  also  introduces  the
+       <b>s</b><b>e</b><b>t</b><b>_</b><b>d</b><b>b</b><b>_</b><b>c</b><b>h</b><b>a</b><b>n</b><b>g</b><b>e</b><b>_</b><b>a</b><b>w</b><b>a</b><b>r</b><b>e</b>   RPC,  documented  in  <b>o</b><b>v</b><b>s</b><b>d</b><b>b</b><b>-</b><b>s</b><b>e</b><b>r</b><b>v</b><b>e</b><b>r</b>(7),  to  allow
+       clients to suppress this disconnection behavior.
+
+       When a database is removed from the server, in addition to <b>D</b><b>a</b><b>t</b><b>a</b><b>b</b><b>a</b><b>s</b><b>e</b> ta‐
+       ble  updates,  the  server sends <b>c</b><b>a</b><b>n</b><b>c</b><b>e</b><b>l</b><b>e</b><b>d</b> messages, as described in RFC
+       7047 section 4.1.4, in reply to outstanding transactions  for  the  re‐
+       moved database. The server also cancels any outstanding monitoring ini‐
+       tiated by <b>m</b><b>o</b><b>n</b><b>i</b><b>t</b><b>o</b><b>r</b> or <b>m</b><b>o</b><b>n</b><b>i</b><b>t</b><b>o</b><b>r</b><b>_</b><b>c</b><b>o</b><b>n</b><b>d</b> requested on  the  removed  database,
+       sending  the  <b>m</b><b>o</b><b>n</b><b>i</b><b>t</b><b>o</b><b>r</b><b>_</b><b>c</b><b>a</b><b>n</b><b>c</b><b>e</b><b>l</b><b>e</b><b>d</b>  RPC  described in <b>o</b><b>v</b><b>s</b><b>d</b><b>b</b><b>-</b><b>s</b><b>e</b><b>r</b><b>v</b><b>e</b><b>r</b>(7). Only
+       clients that disable  disconnection  with  <b>s</b><b>e</b><b>t</b><b>_</b><b>d</b><b>b</b><b>_</b><b>c</b><b>h</b><b>a</b><b>n</b><b>g</b><b>e</b><b>_</b><b>a</b><b>w</b><b>a</b><b>r</b><b>e</b>  receive
+       these messages.
+
+       Clients  can use the <b>_</b><b>u</b><b>u</b><b>i</b><b>d</b> column in this table as a generation number.
+       The server generates a fresh <b>_</b><b>u</b><b>u</b><b>i</b><b>d</b> every time it adds  a  database,  so
+       that  removing  and  then re-adding a database to the server causes its
+       row <b>_</b><b>u</b><b>u</b><b>i</b><b>d</b> to change.
+
+   <b>S</b><b>u</b><b>m</b><b>m</b><b>a</b><b>r</b><b>y</b><b>:</b>
+       <b>n</b><b>a</b><b>m</b><b>e</b>                          string
+       <b>m</b><b>o</b><b>d</b><b>e</b><b>l</b>                         string, either <b>c</b><b>l</b><b>u</b><b>s</b><b>t</b><b>e</b><b>r</b><b>e</b><b>d</b> or <b>s</b><b>t</b><b>a</b><b>n</b><b>d</b><b>a</b><b>l</b><b>o</b><b>n</b><b>e</b>
+       <b>s</b><b>c</b><b>h</b><b>e</b><b>m</b><b>a</b>                        optional string
+       <u>C</u><u>l</u><u>u</u><u>s</u><u>t</u><u>e</u><u>r</u><u>e</u><u>d</u> <u>D</u><u>a</u><u>t</u><u>a</u><u>b</u><u>a</u><u>s</u><u>e</u><u>s</u><u>:</u>
+         <b>c</b><b>o</b><b>n</b><b>n</b><b>e</b><b>c</b><b>t</b><b>e</b><b>d</b>                   boolean
+         <b>l</b><b>e</b><b>a</b><b>d</b><b>e</b><b>r</b>                      boolean
+         <b>c</b><b>i</b><b>d</b>                         optional uuid
+         <b>s</b><b>i</b><b>d</b>                         optional uuid
+         <b>i</b><b>n</b><b>d</b><b>e</b><b>x</b>                       optional integer
+
+   <b>D</b><b>e</b><b>t</b><b>a</b><b>i</b><b>l</b><b>s</b><b>:</b>
+       <b>n</b><b>a</b><b>m</b><b>e</b>: string
+              The database’s name, as specified in its schema.
+
+       <b>m</b><b>o</b><b>d</b><b>e</b><b>l</b>: string, either <b>c</b><b>l</b><b>u</b><b>s</b><b>t</b><b>e</b><b>r</b><b>e</b><b>d</b> or <b>s</b><b>t</b><b>a</b><b>n</b><b>d</b><b>a</b><b>l</b><b>o</b><b>n</b><b>e</b>
+              The storage model: <b>s</b><b>t</b><b>a</b><b>n</b><b>d</b><b>a</b><b>l</b><b>o</b><b>n</b><b>e</b> for a standalone or  active-backup
+              database, <b>c</b><b>l</b><b>u</b><b>s</b><b>t</b><b>e</b><b>r</b><b>e</b><b>d</b> for a clustered database.
+
+       <b>s</b><b>c</b><b>h</b><b>e</b><b>m</b><b>a</b>: optional string
+              The  database  schema,  as a JSON string. In the case of a clus‐
+              tered database, this is empty  until  it  finishes  joining  its
+              cluster.
+
+     <u>C</u><u>l</u><u>u</u><u>s</u><u>t</u><u>e</u><u>r</u><u>e</u><u>d</u> <u>D</u><u>a</u><u>t</u><u>a</u><u>b</u><u>a</u><u>s</u><u>e</u><u>s</u><u>:</u>
+
+       These  columns are most interesting and in some cases only relevant for
+       clustered databases, that is, those where the  <b>m</b><b>o</b><b>d</b><b>e</b><b>l</b>  column  is  <b>c</b><b>l</b><b>u</b><b>s</b><b>‐</b>
+       <b>t</b><b>e</b><b>r</b><b>e</b><b>d</b>.
+
+       <b>c</b><b>o</b><b>n</b><b>n</b><b>e</b><b>c</b><b>t</b><b>e</b><b>d</b>: boolean
+              True  if  the database is connected to its storage. A standalone
+              or active-backup database is always connected. A clustered data‐
+              base is connected if the server is in contact with a majority of
+              its cluster. An unconnected database cannot be modified and  its
+              data might be unavailable or stale.
+
+       <b>l</b><b>e</b><b>a</b><b>d</b><b>e</b><b>r</b>: boolean
+              True  if the database is the leader in its cluster. For a stand‐
+              alone or active-backup database, this is always true.
+
+       <b>c</b><b>i</b><b>d</b>: optional uuid
+              The cluster ID for this database, which is the same for  all  of
+              the  servers that host this particular clustered database. For a
+              standalone or active-backup database, this is empty.
+
+       <b>s</b><b>i</b><b>d</b>: optional uuid
+              The server ID for this database, different for each server  that
+              hosts  a particular clustered database. A server that hosts more
+              than one clustered database will have a different  <b>s</b><b>i</b><b>d</b>  in  each
+              one. For a standalone or active-backup database, this is empty.
+
+       <b>i</b><b>n</b><b>d</b><b>e</b><b>x</b>: optional integer
+              For  a  clustered database, the index of the log entry currently
+              exposed to clients. For a given server, this increases monotoni‐
+              cally.  When  a  client switches from one server to another in a
+              cluster, it can ensure that it never sees an older  snapshot  of
+              data  by  avoiding servers that have <b>i</b><b>n</b><b>d</b><b>e</b><b>x</b> less than the largest
+              value they have already observed.
+
+              For a standalone or active-backup database, this is empty.
+
+
+
+Open vSwitch 2.10.90            DB Schema 1.1.0                ovsdb-server(5)
+</pre></body></html>

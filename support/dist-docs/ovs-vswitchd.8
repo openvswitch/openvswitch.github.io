@@ -1,10 +1,195 @@
 .\" -*- nroff -*-
+.\" -*- nroff -*-
+.\" ovs.tmac
+.\"
+.\" Open vSwitch troff macro library
+.
+.
+.\" Continuation line for .IP.
 .de IQ
 .  br
 .  ns
 .  IP "\\$1"
 ..
-.TH ovs\-vswitchd 8 "2.8.90" "Open vSwitch" "Open vSwitch Manual"
+.
+.\" Introduces a sub-subsection
+.de ST
+.  PP
+.  RS -0.15in
+.  I "\\$1"
+.  RE
+..
+.
+.\" The content between the lines below is from an-ext.tmac in groff
+.\" 1.21, with some modifications.
+.\" ----------------------------------------------------------------------
+.\" an-ext.tmac
+.\"
+.\" Written by Eric S. Raymond <esr@thyrsus.com>
+.\"            Werner Lemberg <wl@gnu.org>
+.\"
+.\" Version 2007-Feb-02
+.\"
+.\" Copyright (C) 2007, 2009, 2011 Free Software Foundation, Inc.
+.\" You may freely use, modify and/or distribute this file.
+.\"
+.\"
+.\" The code below provides extension macros for the `man' macro package.
+.\" Care has been taken to make the code portable; groff extensions are
+.\" properly hidden so that all troff implementations can use it without
+.\" changes.
+.\"
+.\" With groff, this file is sourced by the `man' macro package itself.
+.\" Man page authors who are concerned about portability might add the
+.\" used macros directly to the prologue of the man page(s).
+.
+.
+.\" Convention: Auxiliary macros and registers start with `m' followed
+.\"             by an uppercase letter or digit.
+.
+.
+.\" Declare start of command synopsis.  Sets up hanging indentation.
+.de SY
+.  ie !\\n(mS \{\
+.    nh
+.    nr mS 1
+.    nr mA \\n(.j
+.    ad l
+.    nr mI \\n(.i
+.  \}
+.  el \{\
+.    br
+.    ns
+.  \}
+.
+.  HP \w'\fB\\$1\fP\ 'u
+.  B "\\$1"
+..
+.
+.
+.\" End of command synopsis.  Restores adjustment.
+.de YS
+.  in \\n(mIu
+.  ad \\n(mA
+.  hy \\n(HY
+.  nr mS 0
+..
+.
+.
+.\" Declare optional option.
+.de OP
+.  ie \\n(.$-1 \
+.    RI "[\fB\\$1\fP" "\ \\$2" "]"
+.  el \
+.    RB "[" "\\$1" "]"
+..
+.
+.
+.\" Start URL.
+.de UR
+.  ds m1 \\$1\"
+.  nh
+.  if \\n(mH \{\
+.    \" Start diversion in a new environment.
+.    do ev URL-div
+.    do di URL-div
+.  \}
+..
+.
+.
+.\" End URL.
+.de UE
+.  ie \\n(mH \{\
+.    br
+.    di
+.    ev
+.
+.    \" Has there been one or more input lines for the link text?
+.    ie \\n(dn \{\
+.      do HTML-NS "<a href=""\\*(m1"">"
+.      \" Yes, strip off final newline of diversion and emit it.
+.      do chop URL-div
+.      do URL-div
+\c
+.      do HTML-NS </a>
+.    \}
+.    el \
+.      do HTML-NS "<a href=""\\*(m1"">\\*(m1</a>"
+\&\\$*\"
+.  \}
+.  el \
+\\*(la\\*(m1\\*(ra\\$*\"
+.
+.  hy \\n(HY
+..
+.
+.
+.\" Start email address.
+.de MT
+.  ds m1 \\$1\"
+.  nh
+.  if \\n(mH \{\
+.    \" Start diversion in a new environment.
+.    do ev URL-div
+.    do di URL-div
+.  \}
+..
+.
+.
+.\" End email address.
+.de ME
+.  ie \\n(mH \{\
+.    br
+.    di
+.    ev
+.
+.    \" Has there been one or more input lines for the link text?
+.    ie \\n(dn \{\
+.      do HTML-NS "<a href=""mailto:\\*(m1"">"
+.      \" Yes, strip off final newline of diversion and emit it.
+.      do chop URL-div
+.      do URL-div
+\c
+.      do HTML-NS </a>
+.    \}
+.    el \
+.      do HTML-NS "<a href=""mailto:\\*(m1"">\\*(m1</a>"
+\&\\$*\"
+.  \}
+.  el \
+\\*(la\\*(m1\\*(ra\\$*\"
+.
+.  hy \\n(HY
+..
+.
+.
+.\" Continuation line for .TP header.
+.de TQ
+.  br
+.  ns
+.  TP \\$1\" no doublequotes around argument!
+..
+.
+.
+.\" Start example.
+.de EX
+.  nr mE \\n(.f
+.  nf
+.  nh
+.  ft CW
+..
+.
+.
+.\" End example.
+.de EE
+.  ft \\n(mE
+.  fi
+.  hy \\n(HY
+..
+.
+.\" EOF
+.\" ----------------------------------------------------------------------
+.TH ovs\-vswitchd 8 "2.10.90" "Open vSwitch" "Open vSwitch Manual"
 .\" This program's name:
 .ds PN ovs\-vswitchd
 .
@@ -19,44 +204,9 @@ A daemon that manages and controls any number of Open vSwitch switches
 on the local machine.
 .PP
 The \fIdatabase\fR argument specifies how \fBovs\-vswitchd\fR connects
-to \fBovsdb\-server\fR.  The default is \fBunix:/usr/local/var/run/openvswitch/db.sock\fR.
-The following forms are accepted:
-.IP "\fBssl:\fIip\fB:\fIport\fR"
-.IQ "\fBtcp:\fIip\fB:\fIport\fR"
-The given SSL or plain TCP \fIport\fR on the host at the given
-\fIip\fR, which must be expressed as an IP address (not a DNS name) in
-IPv4 or IPv6 address format.  If \fIip\fR is an IPv6 address, then
-wrap \fIip\fR with square brackets, e.g.: \fBssl:[::1]:6640\fR.  On
-Linux, use \fB%\fIdevice\fR to designate a scope for IPv6 link-level
-addresses, e.g. \fBssl:[fe80::1234%eth0]:6653\fR.  For \fBssl\fR, the
-\fB\-\-private\-key\fR, \fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR
-options are mandatory.
-.
-.IP "\fBunix:\fIfile\fR"
-On POSIX, connect to the Unix domain server socket named \fIfile\fR.
-.IP
-On Windows, connect to a local named pipe that is represented by a file
-created in the path \fIfile\fR to mimic the behavior of a Unix domain
-socket.
-.IP "\fBpssl:\fIport\fR[\fB:\fIip\fR]"
-.IQ "\fBptcp:\fIport\fR[\fB:\fIip\fR]"
-Listen on the given SSL or TCP \fIport\fR for a connection.  By
-default, connections are not bound to a particular local IP address
-and it listens only on IPv4 (but not IPv6) addresses, but specifying
-\fIip\fR limits connections to those from the given \fIip\fR, either
-IPv4 or IPv6 address.  If \fIip\fR is an IPv6 address, then wrap
-\fIip\fR with square brackets, e.g.: \fBpssl:6640:[::1]\fR.  On Linux,
-use \fB%\fIdevice\fR to designate a scope for IPv6 link-level
-addresses, e.g. \fBpssl:6653:[fe80::1234%eth0]\fR.  For \fBpssl\fR,
-the \fB\-\-private\-key\fR, \fB\-\-certificate\fR, and
-\fB\-\-ca\-cert\fR options are mandatory.
-.
-.IP "\fBpunix:\fIfile\fR"
-On POSIX, listen on the Unix domain server socket named \fIfile\fR for a
-connection.
-.IP
-On Windows, listen on a local named pipe.  A file is created in the
-path \fIfile\fR to mimic the behavior of a Unix domain socket.
+to \fBovsdb\-server\fR.  \fIdatabase\fR may be an OVSDB active or
+passive connection method, as described in \fBovsdb\fR(7).  The
+default is \fBunix:/var/run/openvswitch/db.sock\fR.
 .PP
 \fBovs\-vswitchd\fR retrieves its configuration from \fIdatabase\fR at
 startup.  It sets up Open vSwitch datapaths and then operates
@@ -94,11 +244,12 @@ Only a single instance of \fBovs\-vswitchd\fR is intended to run at a time.
 A single \fBovs\-vswitchd\fR can manage any number of switch instances, up
 to the maximum number of supported Open vSwitch datapaths.
 .PP
-\fBovs\-vswitchd\fR does all the necessary management of Open vSwitch datapaths
-itself.  Thus, external tools, such \fBovs\-dpctl\fR(8), are not needed for
-managing datapaths in conjunction with \fBovs\-vswitchd\fR, and their use
-to modify datapaths when \fBovs\-vswitchd\fR is running can interfere with
-its operation.  (\fBovs\-dpctl\fR may still be useful for diagnostics.)
+\fBovs\-vswitchd\fR does all the necessary management of Open vSwitch
+datapaths itself.  Thus, \fBovs\-dpctl\fR(8) (and its userspace
+datapath counterparts accessible via \fBovs\-appctl
+dpctl/\fIcommand\fR) are not needed with \fBovs\-vswitchd\fR and should
+not be used because they can interfere with its operation.  These
+tools are still useful for diagnostics.
 .PP
 An Open vSwitch datapath kernel module must be loaded for \fBovs\-vswitchd\fR
 to be useful.  Refer to the documentation for instructions on how to build and
@@ -133,7 +284,7 @@ Causes a file (by default, \fB\*(PN.pid\fR) to be created indicating
 the PID of the running process.  If the \fIpidfile\fR argument is not
 specified, or
 if it does not begin with \fB/\fR, then it is created in
-\fB/usr/local/var/run/openvswitch\fR.
+\fB/var/run/openvswitch\fR.
 .IP
 If \fB\-\-pidfile\fR is not specified, no pidfile is created.
 .
@@ -203,9 +354,9 @@ started by the root user accepts this argument.
 .IP
 On Linux, daemons will be granted CAP_IPC_LOCK and CAP_NET_BIND_SERVICES
 before dropping root privileges. Daemons that interact with a datapath,
-such as \fBovs\-vswitchd\fR, will be granted two additional capabilities, namely
-CAP_NET_ADMIN and CAP_NET_RAW. The capability change will apply even if
-new user is "root".
+such as \fBovs\-vswitchd\fR, will be granted three additional capabilities,
+namely CAP_NET_ADMIN, CAP_NET_BROADCAST and CAP_NET_RAW.  The capability
+change will apply even if the new user is root.
 .IP
 On Windows, this option is not currently supported. For security reasons,
 specifying this option will cause the daemon process not to start.
@@ -223,11 +374,6 @@ services manager if the service dies or exits for unexpected reasons.
 .IP
 When \fB\-\-service\fR is not specified, this option has no effect.
 .SS "Public Key Infrastructure Options"
-.de IQ
-.  br
-.  ns
-.  IP "\\$1"
-..
 .IP "\fB\-p\fR \fIprivkey.pem\fR"
 .IQ "\fB\-\-private\-key=\fIprivkey.pem\fR"
 Specifies a PEM file containing the private key used as \fB\*(PN\fR's
@@ -273,12 +419,20 @@ the server to send the CA certificate.
 .IP
 This option is mutually exclusive with \fB\-C\fR and
 \fB\-\-ca\-cert\fR.
+.IP "\fB\-\-peer\-ca\-cert=\fIpeer-cacert.pem\fR"
+Specifies a PEM file that contains one or more additional certificates
+to send to SSL peers.  \fIpeer-cacert.pem\fR should be the CA
+certificate used to sign \fB\*(PN\fR's own certificate, that is, the
+certificate specified on \fB\-c\fR or \fB\-\-certificate\fR.  If
+\fB\*(PN\fR's certificate is self-signed, then \fB\-\-certificate\fR
+and \fB\-\-peer\-ca\-cert\fR should specify the same file.
+.IP
+This option is not useful in normal operation, because the SSL peer
+must already have the CA certificate for the peer to have any
+confidence in \fB\*(PN\fR's identity.  However, this offers a way for
+a new installation to bootstrap the CA certificate on its first SSL
+connection.
 .SS "Logging Options"
-.de IQ
-.  br
-.  ns
-.  IP "\\$1"
-..
 .IP "\fB\-v\fR[\fIspec\fR]
 .IQ "\fB\-\-verbose=\fR[\fIspec\fR]
 .
@@ -347,7 +501,7 @@ a message to the target provided via the \fB\-\-syslog\-target\fR option.
 \fB\-\-log\-file\fR[\fB=\fIfile\fR]
 Enables logging to a file.  If \fIfile\fR is specified, then it is
 used as the exact name for the log file.  The default log file name
-used if \fIfile\fR is omitted is \fB/usr/local/var/log/openvswitch/\*(PN.log\fR.
+used if \fIfile\fR is omitted is \fB/var/log/openvswitch/\*(PN.log\fR.
 .
 .IP "\fB\-\-syslog\-target=\fIhost\fB:\fIport\fR"
 Send syslog messages to UDP \fIport\fR on \fIhost\fR, in addition to
@@ -359,7 +513,7 @@ Specify \fImethod\fR how syslog messages should be sent to syslog daemon.
 Following forms are supported:
 .RS
 .IP \(bu
-\fBlibc\fR, use libc \fBsyslog()\fR function.  This is the default behavior.
+\fBlibc\fR, use libc \fBsyslog()\fR function.
 Downside of using this options is that libc adds fixed prefix to every
 message before it is actually sent to the syslog daemon over \fB/dev/log\fR
 UNIX domain socket.
@@ -379,15 +533,20 @@ to listen on the specified UDP port, accidental iptables rules could be
 interfering with local syslog traffic and there are some security
 considerations that apply to UDP sockets, but do not apply to UNIX domain
 sockets.
+.IP \(bu
+\fBnull\fR, discards all messages logged to syslog.
 .RE
+.IP
+The default is taken from the \fBOVS_SYSLOG_METHOD\fR environment
+variable; if it is unset, the default is \fBlibc\fR.
 .SS "Other Options"
 .IP "\fB\-\-unixctl=\fIsocket\fR"
 Sets the name of the control socket on which \fB\*(PN\fR listens for
 runtime management commands (see \fBRUNTIME MANAGEMENT COMMANDS\fR,
 below).  If \fIsocket\fR does not begin with \fB/\fR, it is
-interpreted as relative to \fB/usr/local/var/run/openvswitch\fR.  If \fB\-\-unixctl\fR is
+interpreted as relative to \fB/var/run/openvswitch\fR.  If \fB\-\-unixctl\fR is
 not used at all, the default socket is
-\fB/usr/local/var/run/openvswitch/\*(PN.\fIpid\fB.ctl\fR, where \fIpid\fR is \fB\*(PN\fR's
+\fB/var/run/openvswitch/\*(PN.\fIpid\fB.ctl\fR, where \fIpid\fR is \fB\*(PN\fR's
 process ID.
 .IP
 On Windows a local named pipe is used to listen for runtime management
@@ -398,11 +557,6 @@ directory.  The file exists just to mimic the behavior of a Unix domain socket.
 .IP
 Specifying \fBnone\fR for \fIsocket\fR disables the control socket
 feature.
-.de IQ
-.  br
-.  ns
-.  IP "\\$1"
-..
 .IP "\fB\-h\fR"
 .IQ "\fB\-\-help\fR"
 Prints a brief help message to the console.
@@ -473,6 +627,11 @@ if no \fIbridge\fR is given.
 Lists each MAC address/VLAN pair learned by the specified \fIbridge\fR,
 along with the port on which it was learned and the age of the entry,
 in seconds.
+.IP "\fBfdb/stats-clear\fR [\fIbridge\fR]"
+Clear \fIbridge\fR MAC address learning table statistics, or all
+statistics if no \fIbridge\fR is given.
+.IP "\fBfdb/stats-show\fR \fIbridge\fR"
+Show MAC address learning table statistics for the specified \fIbridge\fR.
 .IP "\fBmdb/flush\fR [\fIbridge\fR]"
 Flushes \fIbridge\fR multicast snooping table, or all snooping tables
 if no \fIbridge\fR is given.
@@ -549,6 +708,12 @@ whether it is attached or detached, port id and priority, actor
 information, and partner information.  If \fIport\fR is not specified,
 then displays detailed information about all interfaces with CFM
 enabled.
+.
+.IP "\fBlacp/stats-show\fR [\fIport\fR]"
+Lists various stats about LACP PDUs (number of RX/TX PDUs, bad PDUs received)
+and slave state (number of time slave's state expired/defaulted and carrier
+status changed) for the given \fIport\fR.  If \fIport\fR is not specified,
+then displays stats of all interfaces with LACP enabled.
 .SS "DPCTL DATAPATH DEBUGGING COMMANDS"
 The primary way to configure \fBovs\-vswitchd\fR is through the Open
 vSwitch database, e.g. using \fBovs\-vsctl\fR(8).  These commands
@@ -563,6 +728,9 @@ type).
 .de DO
 \\$2 \\$1 \\$3
 ..
+Do not use commands to add or remove or modify datapaths if
+\fBovs\-vswitchd\fR is running because this interferes with
+\fBovs\-vswitchd\fR's own datapath management.
 .TP
 \*(DX\fBadd\-dp \fIdp\fR [\fInetdev\fR[\fB,\fIoption\fR]...]
 Creates datapath \fIdp\fR, with a local port also named \fIdp\fR.
@@ -654,8 +822,10 @@ The following commands are primarily useful for debugging Open
 vSwitch.  The flow table entries (both matches and actions) that they
 work with are not OpenFlow flow entries.  Instead, they are different
 and considerably simpler flows maintained by the Open vSwitch kernel
-module.  Use \fBovs\-ofctl\fR(8), instead, to work with OpenFlow flow
-entries.
+module.  Do not use commands to add or remove or modify datapath flows
+if \fBovs\-vswitchd\fR is running because it interferes with
+\fBovs\-vswitchd\fR's own datapath flow management.  Use
+\fBovs\-ofctl\fR(8), instead, to work with OpenFlow flow entries.
 .
 .PP
 The \fIdp\fR argument to each of these commands is optional when
@@ -678,10 +848,16 @@ The \fIfilter\fR is also useful to match wildcarded fields in the datapath
 flow. As an example, \fBfilter='tcp,tp_src=100'\fR will match the
 datapath flow containing '\fBtcp(src=80/0xff00,dst=8080/0xff)\fR'.
 .IP
-If \fBtype=\fItype\fR is specified, only displays flows of a specific type.
-\fItype\fR can be \fBoffloaded\fR to display only offloaded rules or \fBOVS\fR
-to display only non-offloaded rules.
-By default both offloaded and non-offloaded rules are displayed.
+If \fBtype=\fItype\fR is specified, only displays flows of the specified types.
+\fItype\fR is a comma separated list, which can contain any of the following:
+.
+   \fBovs\fR - displays flows handled in the ovs dp
+   \fBtc\fR - displays flows handled in the tc dp
+   \fBoffloaded\fR - displays flows offloaded to the HW
+   \fBnon-offloaded\fR - displays flows not offloaded to the HW
+   \fBall\fR - displays all the types of flows
+.IP
+By default all the types of flows are displayed.
 .
 .IP "\*(DX\fBadd\-flow\fR [\fIdp\fR] \fIflow actions\fR"
 .TP
@@ -756,9 +932,9 @@ Fetches the flow from \fIdp\fR's flow table with unique identifier \fIufid\fR.
 .
 .IP "\*(DX\fBdel\-flows\fR [\fIdp\fR]"
 Deletes all flow entries from datapath \fIdp\fR's flow table.
-.SS "CONNECTION TRACKING TABLE DEBUGGING COMMANDS"
-The following commands are primarily useful for debugging the connection
-tracking entries in the datapath.
+.SS "CONNECTION TRACKING TABLE COMMANDS"
+The following commands are useful for debugging and configuring
+the connection tracking table in the datapath.
 .
 .PP
 The \fIdp\fR argument to each of these commands is optional when
@@ -777,56 +953,322 @@ do not apply specifically to one datapath.
 .DO "[\fB\-m\fR | \fB\-\-more\fR] [\fB\-s\fR | \fB\-\-statistics\fR]" "\*(DX\fBdump\-conntrack\fR" "[\fIdp\fR] [\fBzone=\fIzone\fR]"
 Prints to the console all the connection entries in the tracker used by
 \fIdp\fR.  If \fBzone=\fIzone\fR is specified, only shows the connections
-in \fBzone\fR.  With \fB\-\-more\fR, some implementation specific details
+in \fIzone\fR.  With \fB\-\-more\fR, some implementation specific details
 are included. With \fB\-\-statistics\fR timeouts and timestamps are
 added to the output.
 .
 .TP
-\*(DX\fBflush\-conntrack\fR [\fIdp\fR] [\fBzone=\fIzone\fR]
-Flushes all the connection entries in the tracker used by \fIdp\fR.
-If \fBzone=\fIzone\fR is specified, only flushes the connections in
-\fBzone\fR.
+\*(DX\fBflush\-conntrack\fR [\fIdp\fR] [\fBzone=\fIzone\fR] [\fIct-tuple\fR]
+Flushes the connection entries in the tracker used by \fIdp\fR based on
+\fIzone\fR and connection tracking tuple \fIct-tuple\fR.
+If \fIct-tuple\fR is not provided, flushes all the connection entries.
+If \fBzone\fR=\fIzone\fR is specified, only flushes the connections in
+\fIzone\fR.
+.IP
+If \fIct-tuple\fR is provided, flushes the connection entry specified by
+\fIct-tuple\fR in \fIzone\fR. The zone defaults to 0 if it is not provided.
+The userspace connection tracker requires flushing with the original pre-NATed
+tuple and a warning log will be otherwise generated.
+An example of an IPv4 ICMP \fIct-tuple\fR:
+.IP
+"ct_nw_src=10.1.1.1,ct_nw_dst=10.1.1.2,ct_nw_proto=1,icmp_type=8,icmp_code=0,icmp_id=10"
+.IP
+An example of an IPv6 TCP \fIct-tuple\fR:
+.IP
+"ct_ipv6_src=fc00::1,ct_ipv6_dst=fc00::2,ct_nw_proto=6,ct_tp_src=1,ct_tp_dst=2"
 .
 .TP
-\*(DX\fBct\-stats\-show\fR [\fIdp\fR] [\fBzone=\fIzone\fR] [\fBverbose\fR]
+.DO "[\fB\-m\fR | \fB\-\-more\fR]" "\*(DX\fBct\-stats\-show\fR [\fIdp\fR] [\fBzone=\fIzone\fR]"
 Displays the number of connections grouped by protocol used by \fIdp\fR.
 If \fBzone=\fIzone\fR is specified, numbers refer to the connections in
-\fBzone\fR. The \fBverbose\fR option allows to group by connection state
-for each protocol.
+\fIzone\fR.  With \fB\-\-more\fR, groups by connection state for each
+protocol.
 .
 .TP
-\*(DX\fBct\-bkts\fR [\fIdp\fR] [\fBgt=\fIThreshold\fR]
-For each ConnTracker bucket, displays the number of connections used
+\*(DX\fBct\-bkts\fR [\fIdp\fR] [\fBgt=\fIthreshold\fR]
+For each conntrack bucket, displays the number of connections used
 by \fIdp\fR.
-If \fBgt=\fIThreshold\fR is specified, bucket numbers are displayed when
-the number of connections in a bucket is greater than \fIThreshold\fR.
+If \fBgt=\fIthreshold\fR is specified, bucket numbers are displayed when
+the number of connections in a bucket is greater than \fIthreshold\fR.
+.
+.TP
+\*(DX\fBct\-set\-maxconns\fR [\fIdp\fR] \fImaxconns\fR
+Sets the maximum limit of connection tracker entries to \fImaxconns\fR
+on \fIdp\fR.  This can be used to reduce the processing load on the
+system due to connection tracking or simply limiting connection
+tracking.  If the number of connections is already over the new maximum
+limit request then the new maximum limit will be enforced when the
+number of connections decreases to that limit, which normally happens
+due to connection expiry.  Only supported for userspace datapath.
+.
+.TP
+\*(DX\fBct\-get\-maxconns\fR [\fIdp\fR]
+Prints the maximum limit of connection tracker entries on \fIdp\fR.
+Only supported for userspace datapath.
+.
+.TP
+\*(DX\fBct\-get\-nconns\fR [\fIdp\fR]
+Prints the current number of connection tracker entries on \fIdp\fR.
+Only supported for userspace datapath.
+.
+.TP
+\*(DX\fBct\-set\-limits\fR [\fIdp\fR] [\fBdefault=\fIdefault_limit\fR] [\fBzone=\fIzone\fR,\fBlimit=\fIlimit\fR]...
+Sets the maximum allowed number of connections in a connection tracking
+zone.  A specific \fIzone\fR may be set to \fIlimit\fR, and multiple zones
+may be specified with a comma-separated list.  If a per-zone limit for a
+particular zone is not specified in the datapath, it defaults to the
+default per-zone limit.  A default zone may be specified with the
+\fBdefault=\fIdefault_limit\fR argument.   Initially, the default
+per-zone limit is unlimited.  An unlimited number of entries may be set
+with \fB0\fR limit.  Only supported for Linux kernel datapath.
+.
+.TP
+\*(DX\fBct\-del\-limits\fR [\fIdp\fR] \fBzone=\fIzone[,zone]\fR...
+Deletes the connection tracking limit for \fIzone\fR.  Multiple zones may
+be specified with a comma-separated list.  Only supported for Linux
+kernel datapath.
+.
+.TP
+\*(DX\fBct\-get\-limits\fR [\fIdp\fR] [\fBzone=\fIzone\fR[\fB,\fIzone\fR]...]
+Retrieves the maximum allowed number of connections and current
+counts per-zone.  If \fIzone\fR is given, only the specified zone(s) are
+printed.  If no zones are specified, all the zone limits and counts are
+provided.  The command always displays the default zone limit.  Only
+supported for Linux kernel datapath.
 .
 .SS "DPIF-NETDEV COMMANDS"
 These commands are used to expose internal information (mostly statistics)
-about the ``dpif-netdev'' userspace datapath. If there is only one datapath
+about the "dpif-netdev" userspace datapath. If there is only one datapath
 (as is often the case, unless \fBdpctl/\fR commands are used), the \fIdp\fR
-argument can be omitted.
-.IP "\fBdpif-netdev/pmd-stats-show\fR [\fIdp\fR]"
-Shows performance statistics for each pmd thread of the datapath \fIdp\fR.
-The special thread ``main'' sums up the statistics of every non pmd thread.
-The sum of ``emc hits'', ``masked hits'' and ``miss'' is the number of
-packets received by the datapath.  Cycles are counted using the TSC or similar
-facilities (when available on the platform).  To reset these counters use
-\fBdpif-netdev/pmd-stats-clear\fR. The duration of one cycle depends on the
-measuring infrastructure. ``idle cycles'' refers to cycles spent polling
-devices but not receiving any packets. ``processing cycles'' refers to cycles
-spent polling devices and successfully receiving packets, plus the cycles
-spent processing said packets.
+argument can be omitted. By default the commands present data for all pmd
+threads in the datapath. By specifying the "-pmd Core" option one can filter
+the output for a single pmd in the datapath.
+.
+.IP "\fBdpif-netdev/pmd-stats-show\fR [\fB-pmd\fR \fIcore\fR] [\fIdp\fR]"
+Shows performance statistics for one or all pmd threads of the datapath
+\fIdp\fR. The special thread "main" sums up the statistics of every non pmd
+thread.
+
+The sum of "emc hits", "smc hits", "megaflow hits" and "miss" is the number of
+packet lookups performed by the datapath. Beware that a recirculated packet
+experiences one additional lookup per recirculation, so there may be
+more lookups than forwarded packets in the datapath.
+
+Cycles are counted using the TSC or similar facilities (when available on
+the platform). The duration of one cycle depends on the processing platform.
+
+"idle cycles" refers to cycles spent in PMD iterations not forwarding any
+any packets. "processing cycles" refers to cycles spent in PMD iterations
+forwarding at least one packet, including the cost for polling, processing and
+transmitting said packets.
+
+To reset these counters use \fBdpif-netdev/pmd-stats-clear\fR.
+.
 .IP "\fBdpif-netdev/pmd-stats-clear\fR [\fIdp\fR]"
 Resets to zero the per pmd thread performance numbers shown by the
-\fBdpif-netdev/pmd-stats-show\fR command.  It will NOT reset datapath or
-bridge statistics, only the values shown by the above command.
-.IP "\fBdpif-netdev/pmd-rxq-show\fR [\fIdp\fR]"
-For each pmd thread of the datapath \fIdp\fR shows list of queue-ids with
-port names, which this thread polls.
+\fBdpif-netdev/pmd-stats-show\fR and \fBdpif-netdev/pmd-perf-show\fR commands.
+It will NOT reset datapath or bridge statistics, only the values shown by
+the above commands.
+.
+.IP "\fBdpif-netdev/pmd-perf-show\fR [\fB-nh\fR] [\fB-it\fR \fIiter_len\fR] \
+[\fB-ms\fR \fIms_len\fR] [\fB-pmd\fR \fIcore\fR] [\fIdp\fR]"
+Shows detailed performance metrics for one or all pmds threads of the
+user space datapath.
+
+The collection of detailed statistics can be controlled by a new
+configuration parameter "other_config:pmd-perf-metrics". By default it
+is disabled. The run-time overhead, when enabled, is in the order of 1%.
+
+.RS
+.IP
+.PD .4v
+.IP \(em
+used cycles
+.IP \(em
+forwared packets
+.IP \(em
+number of rx batches
+.IP \(em
+packets/rx batch
+.IP \(em
+max. vhostuser queue fill level
+.IP \(em
+number of upcalls
+.IP \(em
+cycles spent in upcalls
+.PD
+.RE
+.IP
+This raw recorded data is used threefold:
+
+.RS
+.IP
+.PD .4v
+.IP 1.
+In histograms for each of the following metrics:
+.RS
+.IP \(em
+cycles/iteration (logarithmic)
+.IP \(em
+packets/iteration (logarithmic)
+.IP \(em
+cycles/packet
+.IP \(em
+packets/batch
+.IP \(em
+max. vhostuser qlen (logarithmic)
+.IP \(em
+upcalls
+.IP \(em
+cycles/upcall (logarithmic)
+The histograms bins are divided linear or logarithmic.
+.RE
+.IP 2.
+A cyclic history of the above metrics for 1024 iterations
+.IP 3.
+A cyclic history of the cummulative/average values per millisecond wall
+clock for the last 1024 milliseconds:
+.RS
+.IP \(em
+number of iterations
+.IP \(em
+avg. cycles/iteration
+.IP \(em
+packets (Kpps)
+.IP \(em
+avg. packets/batch
+.IP \(em
+avg. max vhost qlen
+.IP \(em
+upcalls
+.IP \(em
+avg. cycles/upcall
+.RE
+.PD
+.RE
+.IP
+.
+The command options are:
+.RS
+.IP "\fB-nh\fR"
+Suppress the histograms
+.IP "\fB-it\fR \fIiter_len\fR"
+Display the last iter_len iteration stats
+.IP "\fB-ms\fR \fIms_len\fR"
+Display the last ms_len millisecond stats
+.RE
+.IP
+The output always contains the following global PMD statistics:
+.RS
+.IP
+.EX
+Time: 15:24:55.270
+Measurement duration: 1.008 s
+
+pmd thread numa_id 0 core_id 1:
+
+  Iterations:              572817  (1.76 us/it)
+  - Used TSC cycles:   2419034712  ( 99.9 % of total cycles)
+  - idle iterations:       486808  ( 15.9 % of used cycles)
+  - busy iterations:        86009  ( 84.1 % of used cycles)
+  Rx packets:             2399607  (2381 Kpps, 848 cycles/pkt)
+  Datapath passes:        3599415  (1.50 passes/pkt)
+  - EMC hits:              336472  (  9.3 %)
+  - SMC hits:                   0  ( 0.0 %)
+  - Megaflow hits:        3262943  ( 90.7 %, 1.00 subtbl lookups/hit)
+  - Upcalls:                    0  (  0.0 %, 0.0 us/upcall)
+  - Lost upcalls:               0  (  0.0 %)
+  Tx packets:             2399607  (2381 Kpps)
+  Tx batches:              171400  (14.00 pkts/batch)
+.EE
+.RE
+.IP
+Here "Rx packets" actually reflects the number of packets forwarded by the
+datapath. "Datapath passes" matches the number of packet lookups as
+reported by the \fBdpif-netdev/pmd-stats-show\fR command.
+
+To reset the counters and start a new measurement use
+\fBdpif-netdev/pmd-stats-clear\fR.
+.
+.IP "\fBdpif-netdev/pmd-perf-log-set\fR \fBon\fR|\fBoff\fR \
+[\fB-b\fR \fIbefore\fR] [\fB-a\fR \fIafter\fR] [\fB-e\fR|\fB-ne\fR] \
+[\fB-us\fR \fIusec\fR] [\fB-q\fR \fIqlen\fR]"
+.
+The userspace "netdev" datapath is able to supervise the PMD performance
+metrics and detect iterations with suspicious statistics according to the
+following criteria:
+.RS
+.IP \(em
+The iteration lasts longer than \fIusec\fR microseconds (default 250).
+This can be used to capture events where a PMD is blocked or interrupted for
+such a period of time that there is a risk for dropped packets on any of its Rx
+queues.
+.IP \(em
+The max vhost qlen exceeds a threshold \fIqlen\fR (default 128). This can be
+used to infer virtio queue overruns and dropped packets inside a VM, which are
+not visible in OVS otherwise.
+.RE
+.IP
+Such suspicious iterations can be logged together with their iteration
+statistics in the \fBovs-vswitchd.log\fR to be able to correlate them to
+packet drop or other events outside OVS.
+
+The above command enables (\fBon\fR) or disables (\fBoff\fR) supervision and
+logging at run-time and can be used to adjust the above thresholds for
+detecting suspicious iterations. By default supervision and logging is
+disabled.
+
+The command options are:
+.RS
+.IP "\fB-b\fR \fIbefore\fR"
+The number of iterations before the suspicious iteration to be logged
+(default 5).
+.IP "\fB-a\fR \fIafter\fR"
+The number of iterations after the suspicious iteration to be logged
+(default 5).
+.IP "\fB-e\fR"
+Extend logging interval if another suspicious iteration is detected
+before logging occurs.
+.IP "\fB-ne\fR"
+Do not extend logging interval if another suspicious iteration is detected
+before logging occurs (default).
+.IP "\fB-q\fR \fIqlen\fR"
+Suspicious vhost queue fill level threshold. Increase this to 512 if the Qemu
+supports 1024 virtio queue length (default 128).
+.IP "\fB-us\fR \fIusec\fR"
+Change the duration threshold for a suspicious iteration (default 250 us).
+.RE
+
+Note: Logging of suspicious iterations itself consumes a considerable amount
+of processing cycles of a PMD which may be visible in the iteration history.
+In the worst case this can lead OVS to detect another suspicious iteration
+caused by logging.
+
+If more than 100 iterations around a suspicious iteration have been logged
+once, OVS falls back to the safe default values (-b 5 -a 5 -ne) to avoid
+that logging itself continuously causes logging of further suspicious
+iterations.
+.
+.IP "\fBdpif-netdev/pmd-rxq-show\fR [\fB-pmd\fR \fIcore\fR] [\fIdp\fR]"
+For one or all pmd threads of the datapath \fIdp\fR show the list of queue-ids
+with port names, which this thread polls.
+.
 .IP "\fBdpif-netdev/pmd-rxq-rebalance\fR [\fIdp\fR]"
 Reassigns rxqs to pmds in the datapath \fIdp\fR based on their current usage.
-.
+.SS "NETDEV-DPDK COMMANDS"
+These commands manage DPDK related ports (\fBtype=\fR\fIdpdk*\fR).
+.IP "\fBnetdev-dpdk/set-admin-state\fR [\fIinterface\fR] \fBup\fR | \fBdown\fR"
+Change the admin state for DPDK \fIinterface\fR to \fBup\fR or \fBdown\fR.
+If \fIinterface\fR is not specified, then it applies to all DPDK ports.
+.IP "\fBnetdev-dpdk/detach\fR \fIpci-address\fR"
+Detaches device with corresponding \fIpci-address\fR from DPDK.  This command
+can be used to detach device if it wasn't detached automatically after port
+deletion. Refer to the documentation for details and instructions.
+.IP "\fBnetdev-dpdk/get-mempool-info\fR [\fIinterface\fR]"
+Prints the debug information about memory pool used by DPDK \fIinterface\fR.
+If called without arguments, information of all the available mempools will
+be printed. For additional mempool statistics enable
+\fBCONFIG_RTE_LIBRTE_MEMPOOL_DEBUG\fR while building DPDK.
 .SS "DATAPATH DEBUGGING COMMANDS"
 These commands query and modify datapaths.  They are are similar to
 \fBovs\-dpctl\fR(8) commands.  \fBdpif/show\fR has the additional
@@ -869,10 +1311,10 @@ These commands manage the core OpenFlow switch implementation (called
 Lists the names of the running ofproto instances.  These are the names
 that may be used on \fBofproto/trace\fR.
 .
-.IP "\fBofproto/trace\fR [\fIdpname\fR] \fIodp_flow\fR [\fIOPTIONS\fR] [\fB\-generate \fR| \fIpacket\fR]"
-.IQ "\fBofproto/trace\fR \fIbridge\fR \fIbr_flow\fR [\fIOPTIONS\fR] [\fB\-generate \fR| \fIpacket\fR]"
-.IQ "\fBofproto/trace\-packet\-out\fR [\fB\-consistent\fR] [\fIdpname\fR] \fIodp_flow\fR [\fIOPTIONS\fR] [\fB\-generate \fR| \fIpacket\fR] \fIactions\fR"
-.IQ "\fBofproto/trace\-packet\-out\fR [\fB\-consistent\fR] \fIbridge\fR \fIbr_flow\fR [\fIOPTIONS\fR] [\fB\-generate \fR| \fIpacket\fR] \fIactions\fR"
+.IP "\fBofproto/trace\fR [\fIoptions\fR] [\fIdpname\fR] \fIodp_flow\fR [\fIpacket\fR]
+.IQ "\fBofproto/trace\fR [\fIoptions\fR] \fIbridge\fR \fIbr_flow\fR [\fIpacket\fR]]
+.IQ "\fBofproto/trace\-packet\-out\fR [\fIoptions\fR] [\fIdpname\fR] \fIodp_flow\fR [\fIpacket\fR] \fIactions\fR"
+.IQ "\fBofproto/trace\-packet\-out\fR [\fIoptions\fR \fIbridge\fR \fIbr_flow\fR  [\fIpacket\fR] \fIactions\fR"
 Traces the path of an imaginary packet through \fIswitch\fR and
 reports the path that it took.  The initial treatment of the packet
 varies based on the command:
@@ -912,7 +1354,26 @@ wildcards.)  \fIbridge\fR names of the bridge through which
 .
 .IP
 .RS
-\fBofproto/trace\fR supports the following options:
+These commands support the following options:
+.IP \fB\-\-generate\fR
+Generate a packet from the flow (see below for more information).
+.
+.IP "\fB\-\-l7 \fIpayload\fR"
+.IQ "\fB\-\-l7\-len \fIlength\fR"
+Accepted only with \fB\-\-generate\fR (see below for more
+information).
+.
+.IP \fB\-\-consistent\fR
+Accepted by \fBofproto\-trace\-packet\-out\fR only.  With this option,
+the command rejects \fIactions\fR that are inconsistent with the
+specified packet.  (An example of an inconsistency is attempting to
+strip the VLAN tag from a packet that does not have a VLAN tag.)  Open
+vSwitch ignores most forms of inconsistency in OpenFlow 1.0 and
+rejects inconsistencies in later versions of OpenFlow.  The option is
+necessary because the command does not ordinarily imply a particular
+OpenFlow version.  One exception is that, when \fIactions\fR includes
+an action that only OpenFlow 1.1 and later supports (such as
+\fBpush_vlan\fR), \fB\-\-consistent\fR is automatically enabled.
 .
 .IP "--ct-next \fIflags\fR"
 When the traced flow triggers conntrack actions, \fBofproto/trace\fR
@@ -987,15 +1448,20 @@ If you wish to include a packet as part of a trace operation, there
 are two ways to do it:
 .
 .RS
-.IP \fB\-generate\fR
+.IP \fB\-\-generate\fR
 This option, added to one of the ways to specify a flow already
 described, causes Open vSwitch to internally generate a packet with
 the flow described and then to use that packet.  If your goal is to
-execute side effects, then \fB\-generate\fR is the easiest way to do
-it, but \fB\-generate\fR is not a good way to fill in incomplete
+execute side effects, then \fB\-\-generate\fR is the easiest way to do
+it, but \fB\-\-generate\fR is not a good way to fill in incomplete
 information, because it generates packets based on only the flow
 information, which means that the packets really do not have any more
 information than the flow.
+.IP
+By default, for protocols that allow arbitrary L7 payloads, the
+generated packet has 64 bytes of payload.  Use \fB\-\-l7\-len\fR to
+change the payload length, or \fB\-\-l7\fR to specify the exact
+contents of the payload.
 .
 .IP \fIpacket\fR
 This form supplies an explicit \fIpacket\fR as a sequence of hex
@@ -1032,18 +1498,6 @@ The in_port value is kernel datapath port number for the first format
 and OpenFlow port number for the second format. The numbering of these
 two types of port usually differs and there is no relationship.
 .
-.IP
-\fBofproto\-trace\-packet\-out\fR accepts an additional
-\fB\-consistent\fR option.  With this option specified, the command
-rejects \fIactions\fR that are inconsistent with the specified packet.
-(An example of an inconsistency is attempting to strip the VLAN tag
-from a packet that does not have a VLAN tag.)  Open vSwitch ignores
-most forms of inconsistency in OpenFlow 1.0 and rejects
-inconsistencies in later versions of OpenFlow.  The option is
-necessary because the command does not ordinarily imply a particular
-OpenFlow version.  One exception is that, when \fIactions\fR includes
-an action that only OpenFlow 1.1 and later supports (such as
-\fBpush_vlan\fR), \fB\-consistent\fR is automatically enabled.
 .
 .IP "Usage examples:"
 .RS 4
@@ -1080,11 +1534,6 @@ ofproto/trace br in_port=1,arp,arp_op=2
 .fi
 .RE
 .RE
-.de IQ
-.  br
-.  ns
-.  IP "\\$1"
-..
 .SS "VLOG COMMANDS"
 These commands manage \fB\*(PN\fR's logging settings.
 .IP "\fBvlog/set\fR [\fIspec\fR]"
@@ -1248,7 +1697,10 @@ replies for a switch defined time greater than 1s, it may send an
 ofp_error_msg with OFPET_BUNDLE_FAILED type and OFPBFC_TIMEOUT code.
 .
 .PP
-Open vSwitch implements idle bundle lifetime of 10 seconds.
+Open vSwitch implements default idle bundle lifetime of 10 seconds.
+(This is configurable via \fBother-config:bundle-idle-timeout\fR in
+the \fBOpen_vSwitch\fR table. See \fBovs-vswitchd.conf.db\fR(5)
+for details.)
 .
 .SH "LIMITS"
 .

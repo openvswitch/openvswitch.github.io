@@ -29,6 +29,15 @@ COMMANDS
        demote_ovnsb
        status_ovnnb
        status_ovnsb
+       start_ovsdb
+       start_nb_ovsdb
+       start_sb_ovsdb
+       stop_ovsdb
+       stop_nb_ovsdb
+       stop_sb_ovsdb
+       restart_ovsdb
+       run_nb_ovsdb
+       run_sb_ovsdb
 
 OPTIONS
        --ovn-northd-priority=NICE
@@ -38,6 +47,10 @@ OPTIONS
        --ovn-controller-priority=NICE
 
        --ovn-controller-wrapper=WRAPPER
+
+       --ovn-user=USER:GROUP
+
+       --ovs-user=USER:GROUP
 
        -h | --help
 
@@ -77,6 +90,35 @@ ADDRESS AND PORT OPTIONS
 
        --db-sb-sync-from-proto=PROTO
 
+        --ovn-northd-nb-db=PROTO:IP ADDRESS: PORT..
+
+        --ovn-northd-sb-db=PROTO:IP ADDRESS: PORT..
+
+ CLUSTERING OPTIONS
+       --db-nb-cluster-local-addr=IP ADDRESS
+
+       --db-nb-cluster-local-port=PORT NUMBER
+
+       --db-nb-cluster-local-proto=PROTO (tcp/ssl)
+
+       --db-nb-cluster-remote-addr=IP ADDRESS
+
+       --db-nb-cluster-remote-port=PORT NUMBER
+
+       --db-nb-cluster-remote-proto=PROTO (tcp/ssl)
+
+       --db-sb-cluster-local-addr=IP ADDRESS
+
+       --db-sb-cluster-local-port=PORT NUMBER
+
+       --db-sb-cluster-local-proto=PROTO (tcp/ssl)
+
+       --db-sb-cluster-remote-addr=IP ADDRESS
+
+       --db-sb-cluster-remote-port=PORT NUMBER
+
+       --db-sb-cluster-remote-proto=PROTO (tcp/ssl)
+
 CONFIGURATION FILES
        Following  are  the optional configuration files. If present, it should
        be located in the etc dir
@@ -99,6 +141,19 @@ CONFIGURATION FILES
        ters to be passed to ovn-northd.
 
        --ovnnb-db=tcp:x.x.x.x:6641 --ovnsb-db=tcp:x.x.x.x:6642
+
+ RUNNING OVN DB SERVERS WITHOUT DETACHING
+       # ovn-ctl run_nb_ovsdb
+
+       This command runs the OVN nb ovsdb-server without  passing  the  detach
+       option,  making it to block until ovsdb-server exits. This command will
+       be useful for starting the OVN nb ovsdb-server in a container.
+
+       # ovn-ctl run_sb_ovsdb
+
+       This command runs the OVN sb ovsdb-server without  passing  the  detach
+       option,  making it to block until ovsdb-server exits. This command will
+       be useful for starting the OVN sb ovsdb-server in a container.
 
 EXAMPLE USAGE
    Run ovn-controller on a host already running OVS
@@ -125,6 +180,49 @@ EXAMPLE USAGE
        #  ovn-ctl  --db-sb-sync-from-addr=x.x.x.x  --db-sb-sync-from-port=6642
        demote_ovnsb
 
+   Creating a clustered db on 3 nodes with IPs x.x.x.x, y.y.y.y and z.z.z.z
+     Starting OVN ovsdb servers and ovn-northd on the node with IP x.x.x.x
+
+         #  ovn-ctl  --db-nb-addr=x.x.x.x   --db-nb-create-insecure-remote=yes
+       --db-sb-addr=x.x.x.x  --db-sb-create-insecure-remote=yes  --db-nb-clus‐
+       ter-local-addr=x.x.x.x               --db-sb-cluster-local-addr=x.x.x.x
+       --ovn-northd-nb-db=tcp:x.x.x.x:6641,tcp:y.y.y.y:6641,tcp:z.z.z.z:6641
+       --ovn-northd-sb-db=tcp:x.x.x.x:6642,tcp:y.y.y.y:6642,tcp:z.z.z.z:6642
+       start_northd
+
+     Starting OVN ovsdb-servers and ovn-northd on the node with IP y.y.y.y and
+     joining the cluster started at x.x.x.x
+
+         #  ovn-ctl  --db-nb-addr=y.y.y.y   --db-nb-create-insecure-remote=yes
+       --db-sb-addr=y.y.y.y  --db-sb-create-insecure-remote=yes  --db-nb-clus‐
+       ter-local-addr=y.y.y.y --db-sb-cluster-local-addr=y.y.y.y --db-nb-clus‐
+       ter-remote-addr=x.x.x.x             --db-sb-cluster-remote-addr=x.x.x.x
+       --ovn-northd-nb-db=tcp:x.x.x.x:6641,tcp:y.y.y.y:6641,tcp:z.z.z.z:6641
+       --ovn-northd-sb-db=tcp:x.x.x.x:6642,tcp:y.y.y.y:6642,tcp:z.z.z.z:6642
+       start_northd
+
+     Starting OVN ovsdb-servers and ovn-northd on the node with IP z.z.z.z and
+     joining the cluster started at x.x.x.x
+
+          #  ovn-ctl  --db-nb-addr=z.z.z.z  --db-nb-create-insecure-remote=yes
+       --db-nb-cluster-local-addr=z.z.z.z  --db-sb-addr=z.z.z.z   --db-sb-cre‐
+       ate-insecure-remote=yes              --db-sb-cluster-local-addr=z.z.z.z
+       --db-nb-cluster-remote-addr=x.x.x.x --db-sb-cluster-remote-addr=x.x.x.x
+       --ovn-northd-nb-db=tcp:x.x.x.x:6641,tcp:y.y.y.y:6641,tcp:z.z.z.z:6641
+       --ovn-northd-sb-db=tcp:x.x.x.x:6642,tcp:y.y.y.y:6642,tcp:z.z.z.z:6642
+       start_northd
+
+   Passing  ssl keys when starting OVN dbs will supercede the default ssl val‐
+       ues in db
+     Starting standalone ovn db server passing SSL certificates
+
+          #   ovn-ctl   --ovn-nb-db-ssl-key=/etc/openvswitch/ovnnb-privkey.pem
+       --ovn-nb-db-ssl-cert=/etc/openvswitch/ovnnb-cert.pem
+       --ovn-nb-db-ssl-ca-cert=/etc/openvswitch/cacert.pem
+       --ovn-sb-db-ssl-key=/etc/openvswitch/ovnsb-privkey.pem
+       --ovn-sb-db-ssl-cert=/etc/openvswitch/ovnsb-cert.pem
+       --ovn-sb-db-ssl-ca-cert=/etc/openvswitch/cacert.pem start_northd
 
 
-Open vSwitch 2.7.90                 ovn-ctl                         ovn-ctl(8)
+
+Open vSwitch 2.10.90                ovn-ctl                         ovn-ctl(8)

@@ -1,6 +1,6 @@
 '\" p
 .\" -*- nroff -*-
-.TH "ovn-controller-vtep" 8 "ovn-controller-vtep" "Open vSwitch 2\[char46]7\[char46]90" "Open vSwitch Manual"
+.TH "ovn-controller-vtep" 8 "ovn-controller-vtep" "Open vSwitch 2\[char46]10\[char46]90" "Open vSwitch Manual"
 .fp 5 L CR              \\" Make fixed-width font available as \\fL.
 .de TQ
 .  br
@@ -25,19 +25,63 @@ ovn-controller-vtep \- Open Virtual Network local controller for vtep enabled ph
 .PP
 .PP
 \fBovn\-controller\-vtep\fR is the local controller daemon in OVN, the Open Virtual Network, for VTEP enabled physical switches\[char46] It connects up to the OVN Southbound database (see \fBovn\-sb\fR(5)) over the OVSDB protocol, and down to the VTEP database (see \fBvtep\fR(5)) over the OVSDB protocol\[char46]
+.SS "PKI Options"
+.PP
+.PP
+PKI configuration is required in order to use SSL for the connections to the VTEP and Southbound databases\[char46]
+.RS
+.TP
+\fB\-p\fR \fIprivkey\[char46]pem\fR
+.TQ .5in
+\fB\-\-private\-key=\fR\fIprivkey\[char46]pem\fR
+Specifies a PEM file containing the private key used as identity for outgoing SSL connections\[char46]
+.TP
+\fB\-c\fR \fIcert\[char46]pem\fR
+.TQ .5in
+\fB\-\-certificate=\fR\fIcert\[char46]pem\fR
+Specifies a PEM file containing a certificate that certifies the private key specified on \fB\-p\fR or \fB\-\-private\-key\fR to be trustworthy\[char46] The certificate must be signed by the certificate authority (CA) that the peer in SSL connections will use to verify it\[char46]
+.TP
+\fB\-C\fR \fIcacert\[char46]pem\fR
+.TQ .5in
+\fB\-\-ca\-cert=\fR\fIcacert\[char46]pem\fR
+Specifies a PEM file containing the CA certificate for verifying certificates presented to this program by SSL peers\[char46] (This may be the same certificate that SSL peers use to verify the certificate specified on \fB\-c\fR or \fB\-\-certificate\fR, or it may be a different one, depending on the PKI design in use\[char46])
+.TP
+\fB\-C none\fR
+.TQ .5in
+\fB\-\-ca\-cert=none\fR
+Disables verification of certificates presented by SSL peers\[char46] This introduces a security risk, because it means that certificates cannot be verified to be those of known trusted hosts\[char46]
+.RE
+.RS
+.TP
+\fB\-\-bootstrap\-ca\-cert=\fR\fIcacert\[char46]pem\fR
+When \fIcacert\[char46]pem\fR exists, this option has the same effect as \fB\-C\fR or \fB\-\-ca\-cert\fR\[char46] If it does not exist, then the executable will attempt to obtain the CA certificate from the SSL peer on its first SSL connection and save it to the named PEM file\[char46] If it is successful, it will immediately drop the connection and reconnect, and from then on all SSL connections must be authenticated by a certificate signed by the CA certificate thus obtained\[char46]
+.IP
+This option exposes the SSL connection to a man-in-the-middle attack obtaining the initial CA certificate, but it may be useful for bootstrapping\[char46]
+.IP
+This option is only useful if the SSL peer sends its CA certificate as part of the SSL certificate chain\[char46] The SSL protocol does not require the server to send the CA certificate\[char46]
+.IP
+This option is mutually exclusive with \fB\-C\fR and \fB\-\-ca\-cert\fR\[char46]
+.RE
+.RS
+.TP
+\fB\-\-peer\-ca\-cert=\fR\fIpeer-cacert\[char46]pem\fR
+Specifies a PEM file that contains one or more additional certificates to send to SSL peers\[char46] \fIpeer-cacert\[char46]pem\fR should be the CA certificate used to sign the program\(cqs own certificate, that is, the certificate specified on \fB\-c\fR or \fB\-\-certificate\fR\[char46] If the program\(cqs certificate is self-signed, then \fB\-\-certificate\fR and \fB\-\-peer\-ca\-cert\fR should specify the same file\[char46]
+.IP
+This option is not useful in normal operation, because the SSL peer must already have the CA certificate for the peer to have any confidence in the program\(cqs identity\[char46] However, this offers a way for a new installation to bootstrap the CA certificate on its first SSL connection\[char46]
+.RE
 .SH "CONFIGURATION"
 .PP
 .PP
 \fBovn\-controller\-vtep\fR retrieves its configuration information from both the ovnsb and the vtep database\[char46] If the database locations are not given from command line, the default is the \fBdb\[char46]sock\fR in local OVSDB\(cqs \(cqrun\(cq directory\[char46] The datapath location must take one of the following forms:
 .RS
 .IP \(bu
-\fBssl:\fIip\fB:\fIport\fB\fR
+\fBssl:\fIhost\fB:\fIport\fB\fR
 .IP
-The specified SSL \fIport\fR on the host at the given \fIip\fR, which must be expressed as an IP address (not a DNS name) in IPv4 or IPv6 address format\[char46] If \fIip\fR is an IPv6 address, then wrap \fIip\fR with square brackets, e\[char46]g\[char46]: \fBssl:[::1]:6640\fR\[char46] The \fB\-\-private\-key\fR, \fB\-\-certificate\fR and either of \fB\-\-ca\-cert\fR or \fB\-\-bootstrap\-ca\-cert\fR options are mandatory when this form is used\[char46]
+The specified SSL \fIport\fR on the give \fIhost\fR, which can either be a DNS name (if built with unbound library) or an IP address (IPv4 or IPv6)\[char46] If \fIhost\fR is an IPv6 address, then wrap \fIhost\fR with square brackets, e\[char46]g\[char46]: \fBssl:[::1]:6640\fR\[char46] The \fB\-\-private\-key\fR, \fB\-\-certificate\fR and either of \fB\-\-ca\-cert\fR or \fB\-\-bootstrap\-ca\-cert\fR options are mandatory when this form is used\[char46]
 .IP \(bu
-\fBtcp:\fIip\fB:\fIport\fB\fR
+\fBtcp:\fIhost\fB:\fIport\fB\fR
 .IP
-Connect to the given TCP \fIport\fR on \fIip\fR, where \fIip\fR can be IPv4 or IPv6 address\[char46] If \fIip\fR is an IPv6 address, then wrap \fIip\fR with square brackets, e\[char46]g\[char46]: \fBtcp:[::1]:6640\fR\[char46]
+Connect to the given TCP \fIport\fR on \fIhost\fR, where \fIhost\fR can be a DNS name (if built with unbound library) or IP address (IPv4 or IPv6)\[char46] If \fIhost\fR is an IPv6 address, then wrap \fIhost\fR with square brackets, e\[char46]g\[char46]: \fBtcp:[::1]:6640\fR\[char46]
 .IP \(bu
 \fBunix:\fIfile\fB\fR
 .IP

@@ -1,0 +1,2022 @@
+<html><head><meta charset="UTF-8"></head><body><pre>
+ovs-actions(7)                Open vSwitch Manual               ovs-actions(7)
+
+
+
+<b>N</b><b>A</b><b>M</b><b>E</b>
+       ovs-actions  -  OpenFlow actions and instructions with Open vSwitch ex‐
+       tensions
+
+<b>I</b><b>N</b><b>T</b><b>R</b><b>O</b><b>D</b><b>U</b><b>C</b><b>T</b><b>I</b><b>O</b><b>N</b>
+       This document aims to comprehensively document all of the OpenFlow  ac‐
+       tions  and  instructions,  both standard and non-standard, supported by
+       Open vSwitch, regardless of origin. The document  includes  information
+       of  interest  to Open vSwitch users, such as the semantics of each sup‐
+       ported action and the syntax used by Open vSwitch tools, and to  devel‐
+       opers  seeking  to  build controllers and switches compatible with Open
+       vSwitch, such as the wire format for each supported message.
+
+   <b>A</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>
+       In this document, we define an <u>a</u><u>c</u><u>t</u><u>i</u><u>o</u><u>n</u> as an OpenFlow action, which is a
+       kind  of  command  that specifies what to do with a packet. Actions are
+       used in OpenFlow flows to describe what to do when the flow  matches  a
+       packet,  and  in  a  few  other places in OpenFlow. Each version of the
+       OpenFlow specification defines standard actions, and beyond  that  many
+       OpenFlow  switches, including Open vSwitch, implement extensions to the
+       standard.
+
+       OpenFlow groups actions in two ways: as an <u>a</u><u>c</u><u>t</u><u>i</u><u>o</u><u>n</u>  <u>l</u><u>i</u><u>s</u><u>t</u>  or  an  <u>a</u><u>c</u><u>t</u><u>i</u><u>o</u><u>n</u>
+       <u>s</u><u>e</u><u>t</u>, described below.
+
+     <u>A</u><u>c</u><u>t</u><u>i</u><u>o</u><u>n</u> <u>L</u><u>i</u><u>s</u><u>t</u><u>s</u>
+
+       An <u>a</u><u>c</u><u>t</u><u>i</u><u>o</u><u>n</u> <u>l</u><u>i</u><u>s</u><u>t</u>, a concept present in every version of OpenFlow, is sim‐
+       ply an ordered sequence of actions. The OpenFlow specifications require
+       a  switch  to execute actions within an action list in the order speci‐
+       fied, and to refuse to execute an action list entirely if it cannot im‐
+       plement the actions in that order [OpenFlow 1.0, section 3.3], with one
+       exception: when an action list outputs multiple packets, the switch may
+       output  the packets in an order different from that specified. Usually,
+       this exception is not important, especially in the common case when the
+       packets are output to different ports.
+
+     <u>A</u><u>c</u><u>t</u><u>i</u><u>o</u><u>n</u> <u>S</u><u>e</u><u>t</u><u>s</u>
+
+       OpenFlow  1.1 introduced the concept of an <u>a</u><u>c</u><u>t</u><u>i</u><u>o</u><u>n</u> <u>s</u><u>e</u><u>t</u>. An action set is
+       also a sequence of actions, but the switch  reorders  the  actions  and
+       drops  duplicates according to rules specified in the OpenFlow specifi‐
+       cations. Because of these semantics,  some  standard  OpenFlow  actions
+       cannot  usefully  be  included in an action set. For some, but not all,
+       Open vSwitch extension actions, Open vSwitch defines its own action set
+       semantics and ordering.
+
+       The  OpenFlow pipeline has an action set associated with it as a packet
+       is processed. After pipeline  processing  is  otherwise  complete,  the
+       switch executes the actions in the action set.
+
+       Open  vSwitch  applies actions in an action set in the following order:
+       Except as noted otherwise below, the action set only executes at most a
+       single  action  of  each type, and when more than one action of a given
+       type is present, the one added to the set later  replaces  the  earlier
+       action:
+
+              1.  <b>s</b><b>t</b><b>r</b><b>i</b><b>p</b><b>_</b><b>v</b><b>l</b><b>a</b><b>n</b>
+
+              2.  <b>p</b><b>o</b><b>p</b><b>_</b><b>m</b><b>p</b><b>l</b><b>s</b>
+
+              3.  <b>d</b><b>e</b><b>c</b><b>a</b><b>p</b>
+
+              4.  <b>e</b><b>n</b><b>c</b><b>a</b><b>p</b>
+
+              5.  <b>p</b><b>u</b><b>s</b><b>h</b><b>_</b><b>m</b><b>p</b><b>l</b><b>s</b>
+
+              6.  <b>p</b><b>u</b><b>s</b><b>h</b><b>_</b><b>v</b><b>l</b><b>a</b><b>n</b>
+
+              7.  <b>d</b><b>e</b><b>c</b><b>_</b><b>t</b><b>t</b><b>l</b>
+
+              8.  <b>d</b><b>e</b><b>c</b><b>_</b><b>m</b><b>p</b><b>l</b><b>s</b><b>_</b><b>t</b><b>t</b><b>l</b>
+
+              9.  <b>d</b><b>e</b><b>c</b><b>_</b><b>n</b><b>s</b><b>h</b><b>_</b><b>t</b><b>t</b><b>l</b>
+
+              10. All of the following actions are executed in the order added
+                  to the action set, with cumulative  effect.  That  is,  when
+                  multiple  actions modify the same part of a field, the later
+                  modification takes effect, and when  they  modify  different
+                  parts  of a field (or different fields), then both modifica‐
+                  tions are applied:
+
+                  •      <b>l</b><b>o</b><b>a</b><b>d</b>
+
+                  •      <b>m</b><b>o</b><b>v</b><b>e</b>
+
+                  •      <b>m</b><b>o</b><b>d</b><b>_</b><b>d</b><b>l</b><b>_</b><b>d</b><b>s</b><b>t</b>
+
+                  •      <b>m</b><b>o</b><b>d</b><b>_</b><b>d</b><b>l</b><b>_</b><b>s</b><b>r</b><b>c</b>
+
+                  •      <b>m</b><b>o</b><b>d</b><b>_</b><b>n</b><b>w</b><b>_</b><b>d</b><b>s</b><b>t</b>
+
+                  •      <b>m</b><b>o</b><b>d</b><b>_</b><b>n</b><b>w</b><b>_</b><b>s</b><b>r</b><b>c</b>
+
+                  •      <b>m</b><b>o</b><b>d</b><b>_</b><b>n</b><b>w</b><b>_</b><b>t</b><b>o</b><b>s</b>
+
+                  •      <b>m</b><b>o</b><b>d</b><b>_</b><b>n</b><b>w</b><b>_</b><b>e</b><b>c</b><b>n</b>
+
+                  •      <b>m</b><b>o</b><b>d</b><b>_</b><b>n</b><b>w</b><b>_</b><b>t</b><b>t</b><b>l</b>
+
+                  •      <b>m</b><b>o</b><b>d</b><b>_</b><b>t</b><b>p</b><b>_</b><b>d</b><b>s</b><b>t</b>
+
+                  •      <b>m</b><b>o</b><b>d</b><b>_</b><b>t</b><b>p</b><b>_</b><b>s</b><b>r</b><b>c</b>
+
+                  •      <b>m</b><b>o</b><b>d</b><b>_</b><b>v</b><b>l</b><b>a</b><b>n</b><b>_</b><b>p</b><b>c</b><b>p</b>
+
+                  •      <b>m</b><b>o</b><b>d</b><b>_</b><b>v</b><b>l</b><b>a</b><b>n</b><b>_</b><b>v</b><b>i</b><b>d</b>
+
+                  •      <b>s</b><b>e</b><b>t</b><b>_</b><b>f</b><b>i</b><b>e</b><b>l</b><b>d</b>
+
+                  •      <b>s</b><b>e</b><b>t</b><b>_</b><b>t</b><b>u</b><b>n</b><b>n</b><b>e</b><b>l</b>
+
+                  •      <b>s</b><b>e</b><b>t</b><b>_</b><b>t</b><b>u</b><b>n</b><b>n</b><b>e</b><b>l</b><b>6</b><b>4</b>
+
+              11. <b>s</b><b>e</b><b>t</b><b>_</b><b>q</b><b>u</b><b>e</b><b>u</b><b>e</b>
+
+              12. <b>g</b><b>r</b><b>o</b><b>u</b><b>p</b>, <b>o</b><b>u</b><b>t</b><b>p</b><b>u</b><b>t</b>, <b>r</b><b>e</b><b>s</b><b>u</b><b>b</b><b>m</b><b>i</b><b>t</b>, <b>c</b><b>t</b><b>_</b><b>c</b><b>l</b><b>e</b><b>a</b><b>r</b>, or <b>c</b><b>t</b>. If more  than  one
+                  of  these  actions  is present, then the one listed earliest
+                  above is executed and the others are ignored, regardless  of
+                  the  order  in  which they were added to the action set. (If
+                  none of these actions is present, the action set has no real
+                  effect, because the modified packet is not sent anywhere and
+                  thus the modifications are not visible.)
+
+       An action set may only contain the actions listed above.
+
+   <b>E</b><b>r</b><b>r</b><b>o</b><b>r</b> <b>H</b><b>a</b><b>n</b><b>d</b><b>l</b><b>i</b><b>n</b><b>g</b>
+       Packet processing can encounter a variety of errors:
+
+              Bridge not found
+                     Open vSwitch supports an extension to the standard  Open‐
+                     Flow  <b>c</b><b>o</b><b>n</b><b>t</b><b>r</b><b>o</b><b>l</b><b>l</b><b>e</b><b>r</b>  action called a ``continuation,’’ which
+                     allows the controller to interrupt and later  resume  the
+                     processing  of a packet through the switch pipeline. This
+                     error occurs when such a packet’s  processing  cannot  be
+                     resumed,  e.g.  because the bridge processing it has been
+                     destroyed. Open vSwitch reports this error  to  the  con‐
+                     troller as Open vSwitch extension error <b>N</b><b>X</b><b>R</b><b>_</b><b>S</b><b>T</b><b>A</b><b>L</b><b>E</b>.
+
+                     This error prevents packet processing entirely.
+
+              Recursion too deep
+                     While  processing a given packet, Open vSwitch limits the
+                     flow table recursion depth to 64, to ensure  that  packet
+                     processing  uses  a  finite amount of time and space. Ac‐
+                     tions that count against the recursion limit include  <b>r</b><b>e</b><b>‐</b>
+                     <b>s</b><b>u</b><b>b</b><b>m</b><b>i</b><b>t</b> from a given OpenFlow table to the same or an ear‐
+                     lier table, <b>g</b><b>r</b><b>o</b><b>u</b><b>p</b>, and <b>o</b><b>u</b><b>t</b><b>p</b><b>u</b><b>t</b> to patch ports.
+
+                     A <b>r</b><b>e</b><b>s</b><b>u</b><b>b</b><b>m</b><b>i</b><b>t</b> from one table to a  later  one  (or,  equiva‐
+                     lently.  a <b>g</b><b>o</b><b>t</b><b>o</b><b>_</b><b>t</b><b>a</b><b>b</b><b>l</b><b>e</b> instruction) does not count against
+                     the depth limit because resubmits to  strictly  monotoni‐
+                     cally  increasing tables will eventually terminate. Open‐
+                     Flow tables are most commonly  traversed  in  numerically
+                     increasing order, so this limit has little effect on con‐
+                     ventionally designed OpenFlow pipelines.
+
+                     This error terminates  packet  processing.  Any  previous
+                     side effects (e.g. output actions) are retained.
+
+                     Usually  this  error indicates a loop or other bug in the
+                     OpenFlow flow tables. To assist debugging, when this  er‐
+                     ror  occurs,  Open vSwitch 2.10 and later logs a trace of
+                     the packet execution, as if by <b>o</b><b>v</b><b>s</b><b>-</b><b>a</b><b>p</b><b>p</b><b>c</b><b>t</b><b>l</b>  <b>o</b><b>f</b><b>p</b><b>r</b><b>o</b><b>t</b><b>o</b><b>/</b><b>t</b><b>r</b><b>a</b><b>c</b><b>e</b>,
+                     rate-limited to one per minute to reduce the log volume.
+
+              Too many resubmits
+                     Open  vSwitch limits the total number of <b>r</b><b>e</b><b>s</b><b>u</b><b>b</b><b>m</b><b>i</b><b>t</b> actions
+                     that a given packet can execute to 4,096. For  this  pur‐
+                     pose,  <b>g</b><b>o</b><b>t</b><b>o</b><b>_</b><b>t</b><b>a</b><b>b</b><b>l</b><b>e</b>  instructions  and  output to the <b>t</b><b>a</b><b>b</b><b>l</b><b>e</b>
+                     port are treated like <b>r</b><b>e</b><b>s</b><b>u</b><b>b</b><b>m</b><b>i</b><b>t</b>. This limits the amount of
+                     time to process a single packet.
+
+                     Unlike  the limit on recursion depth, the limit on resub‐
+                     mits counts all resubmits, regardless of direction.
+
+                     This error has the same effect, including logging, as ex‐
+                     ceeding the recursion depth limit.
+
+              Stack too deep
+                     Open  vSwitch limits the amount of data that the <b>p</b><b>u</b><b>s</b><b>h</b> ac‐
+                     tion can put onto the stack at one time to 64 kB of data.
+
+                     This error terminates  packet  processing.  Any  previous
+                     side effects (e.g. output actions) are retained.
+
+              No recirculation context
+              Recirculation conflict
+                   These  errors  indicate internal errors inside Open vSwitch
+                   and should generally not occur. If you notice recurring log
+                   messages about these errors, please report a bug.
+
+              Too many MPLS labels
+                   Open  vSwitch  can  process packets with any number of MPLS
+                   labels, but its ability to push and pop MPLS labels is lim‐
+                   ited,  currently  to 3 labels. Attempting to push more than
+                   the supported number of labels onto a packet, or to pop any
+                   number of labels from a packet with more than the supported
+                   number, raises this error.
+
+                   This error terminates packet processing, retaining any pre‐
+                   vious  side  effects (e.g. output actions). When this error
+                   arises within the execution of a group bucket, it only ter‐
+                   minates  that  bucket’s  execution,  not  packet processing
+                   overall.
+
+              Invalid tunnel metadata
+                   Open vSwitch raises this error when it processes  a  Geneve
+                   packet  that  has  TLV  options  with an invalid form, e.g.
+                   where the length in a TLV would extend past the end of  the
+                   options.
+
+                   This error prevents packet processing entirely.
+
+              Unsupported packet type
+                   When  a  <b>e</b><b>n</b><b>c</b><b>a</b><b>p</b>  action  encapsulates a packet, Open vSwitch
+                   raises this error if it does not support the combination of
+                   the new encapsulation with the current packet. <b>e</b><b>n</b><b>c</b><b>a</b><b>p</b><b>(</b><b>e</b><b>t</b><b>h</b><b>e</b><b>r</b><b>‐</b>
+                   <b>n</b><b>e</b><b>t</b><b>)</b> raises this error if the current packet is not  an  L3
+                   packet,  and  <b>e</b><b>n</b><b>c</b><b>a</b><b>p</b><b>(</b><b>n</b><b>s</b><b>h</b><b>)</b>  raises  this error if the current
+                   packet is not Ethernet, IPv4, IPv6, or NSH.
+
+                   When a <b>d</b><b>e</b><b>c</b><b>a</b><b>p</b> action decapsulates  a  packet,  Open  vSwitch
+                   raises  this error if it does not support the type of inner
+                   packet. <b>d</b><b>e</b><b>c</b><b>a</b><b>p</b> of an Ethernet header raises this error if  a
+                   VLAN  header  is present, <b>d</b><b>e</b><b>c</b><b>a</b><b>p</b> of a NSH packet raises this
+                   error if the NSH inner packet is not Ethernet, IPv4,  IPv6,
+                   or  NSH, and <b>d</b><b>e</b><b>c</b><b>a</b><b>p</b> of other types of packets is unsupported
+                   and also raises this error.
+
+                   This error terminates packet processing, retaining any pre‐
+                   vious  side  effects (e.g. output actions). When this error
+                   arises within the execution of a group bucket, it only ter‐
+                   minates  that  bucket’s  execution,  not  packet processing
+                   overall.
+
+   <b>I</b><b>n</b><b>c</b><b>o</b><b>n</b><b>s</b><b>i</b><b>s</b><b>t</b><b>e</b><b>n</b><b>c</b><b>i</b><b>e</b><b>s</b>
+       OpenFlow 1.0 allows any action to be part of any  flow,  regardless  of
+       the  flow’s  match.  Some  combinations  do  not  make  sense,  e.g. an
+       <b>s</b><b>e</b><b>t</b><b>_</b><b>n</b><b>w</b><b>_</b><b>t</b><b>o</b><b>s</b> action in a flow that matches only ARP packets or <b>s</b><b>t</b><b>r</b><b>i</b><b>p</b><b>_</b><b>v</b><b>l</b><b>a</b><b>n</b>
+       in  a  flow  that matches packets without VLAN tags. Other combinations
+       have varying results depending on the kind of packet that the flow pro‐
+       cesses,  e.g.  a  <b>s</b><b>e</b><b>t</b><b>_</b><b>n</b><b>w</b><b>_</b><b>s</b><b>r</b><b>c</b>  action  in  a flow that does not match on
+       Ethertype will be treated as a  no-op  when  it  processes  a  non-IPv4
+       packet.  Nevertheless  OVS  allows all of the above in conformance with
+       OpenFlow 1.0, that is, the following will succeed:
+
+       <b>$</b> <b>o</b><b>v</b><b>s</b><b>-</b><b>o</b><b>f</b><b>c</b><b>t</b><b>l</b> <b>-</b><b>O</b> <b>O</b><b>p</b><b>e</b><b>n</b><b>F</b><b>l</b><b>o</b><b>w</b><b>1</b><b>0</b> <b>a</b><b>d</b><b>d</b><b>-</b><b>f</b><b>l</b><b>o</b><b>w</b> <b>b</b><b>r</b><b>0</b> <b>a</b><b>r</b><b>p</b><b>,</b><b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b><b>=</b><b>m</b><b>o</b><b>d</b><b>_</b><b>n</b><b>w</b><b>_</b><b>t</b><b>o</b><b>s</b><b>:</b><b>1</b><b>2</b>
+       <b>$</b> <b>o</b><b>v</b><b>s</b><b>-</b><b>o</b><b>f</b><b>c</b><b>t</b><b>l</b> <b>-</b><b>O</b> <b>O</b><b>p</b><b>e</b><b>n</b><b>F</b><b>l</b><b>o</b><b>w</b><b>1</b><b>0</b> <b>a</b><b>d</b><b>d</b><b>-</b><b>f</b><b>l</b><b>o</b><b>w</b> <b>b</b><b>r</b><b>0</b> <b>d</b><b>l</b><b>_</b><b>v</b><b>l</b><b>a</b><b>n</b><b>=</b><b>0</b><b>x</b><b>f</b><b>f</b><b>f</b><b>f</b><b>,</b><b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b><b>=</b><b>s</b><b>t</b><b>r</b><b>i</b><b>p</b><b>_</b><b>v</b><b>l</b><b>a</b><b>n</b>
+       <b>$</b> <b>o</b><b>v</b><b>s</b><b>-</b><b>o</b><b>f</b><b>c</b><b>t</b><b>l</b> <b>-</b><b>O</b> <b>O</b><b>p</b><b>e</b><b>n</b><b>F</b><b>l</b><b>o</b><b>w</b><b>1</b><b>0</b> <b>a</b><b>d</b><b>d</b><b>-</b><b>f</b><b>l</b><b>o</b><b>w</b> <b>b</b><b>r</b><b>0</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b><b>=</b><b>m</b><b>o</b><b>d</b><b>_</b><b>n</b><b>w</b><b>_</b><b>s</b><b>r</b><b>c</b><b>:</b><b>1</b><b>.</b><b>2</b><b>.</b><b>3</b><b>.</b><b>4</b>
+
+
+       Open vSwitch calls these kinds of combinations <u>i</u><u>n</u><u>c</u><u>o</u><u>n</u><u>s</u><u>i</u><u>s</u><u>t</u><u>e</u><u>n</u><u>c</u><u>i</u><u>e</u><u>s</u>  between
+       match  and  actions. OpenFlow 1.1 and later forbid inconsistencies, and
+       disallow the examples described above by preventing such flows from be‐
+       ing  added. All of the above, for example, will fail with an error mes‐
+       sage if one replaces <b>O</b><b>p</b><b>e</b><b>n</b><b>F</b><b>l</b><b>o</b><b>w</b><b>1</b><b>0</b> by <b>O</b><b>p</b><b>e</b><b>n</b><b>F</b><b>l</b><b>o</b><b>w</b><b>1</b><b>1</b>.
+
+       OpenFlow 1.1 and later cannot detect and disallow all  inconsistencies.
+       For example, the <b>w</b><b>r</b><b>i</b><b>t</b><b>e</b><b>_</b><b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b> instruction arbitrarily delays execution
+       of the actions inside it, which can even  be  canceled  with  <b>c</b><b>l</b><b>e</b><b>a</b><b>r</b><b>_</b><b>a</b><b>c</b><b>‐</b>
+       <b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>,  so  that there is no way to ensure that its actions are consis‐
+       tent with the packet at the  time  they  execute.  Thus,  actions  with
+       <b>w</b><b>r</b><b>i</b><b>t</b><b>e</b><b>_</b><b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>  and  some other contexts are exempt from consistency re‐
+       quirements.
+
+       When OVS executes an action inconsistent with the packet, it treats  it
+       as a no-op.
+
+   <b>I</b><b>n</b><b>t</b><b>e</b><b>r</b><b>-</b><b>V</b><b>e</b><b>r</b><b>s</b><b>i</b><b>o</b><b>n</b> <b>C</b><b>o</b><b>m</b><b>p</b><b>a</b><b>t</b><b>i</b><b>b</b><b>i</b><b>l</b><b>i</b><b>t</b><b>y</b>
+       Open  vSwitch  supports  multiple OpenFlow versions simultaneously on a
+       single switch. When actions are added with  one  OpenFlow  version  and
+       then  retrieved  with  another, Open vSwitch does its best to translate
+       between them.
+
+       Inter-version compatibility issues can still arise when different  con‐
+       nections use different OpenFlow versions. Backward compatibility is the
+       most obvious case. Suppose, for example, that an OpenFlow  1.1  session
+       adds  a  flow with a <b>p</b><b>u</b><b>s</b><b>h</b><b>_</b><b>v</b><b>l</b><b>a</b><b>n</b> action, for which there is no equivalent
+       in OpenFlow 1.0. If an OpenFlow 1.0 session retrieves this  flow,  Open
+       vSwitch must somehow represent the action.
+
+       Forward compatibility can also be an issue, because later OpenFlow ver‐
+       sions sometimes remove functionality. The best example is  the  <b>e</b><b>n</b><b>q</b><b>u</b><b>e</b><b>u</b><b>e</b>
+       action from OpenFlow 1.0, which OpenFlow 1.1 removed.
+
+       In  practice,  Open vSwitch uses a variety of strategies for inter-ver‐
+       sion compatibility:
+
+              •      Most standard OpenFlow actions, such as  <b>o</b><b>u</b><b>t</b><b>p</b><b>u</b><b>t</b>  actions,
+                     translate without compatibility issues.
+
+              •      Open  vSwitch  supports  its  extension  actions in every
+                     OpenFlow version, so they do not pose inter-version  com‐
+                     patibility problems.
+
+              •      Open  vSwitch  sometimes adds extension actions to ensure
+                     backward or forward compatibility. For example, for back‐
+                     ward  compatibility  with the <b>g</b><b>r</b><b>o</b><b>u</b><b>p</b> action added in Open‐
+                     Flow 1.1, Open vSwitch includes an OpenFlow 1.0 extension
+                     <b>g</b><b>r</b><b>o</b><b>u</b><b>p</b> action.
+
+       Perfect  inter-version  compatibility  is not possible, so best results
+       require OpenFlow connections to use a consistent version. One  may  en‐
+       force use of a particular version by setting the <b>p</b><b>r</b><b>o</b><b>t</b><b>o</b><b>c</b><b>o</b><b>l</b><b>s</b> column for a
+       bridge, e.g. to force <b>b</b><b>r</b><b>0</b> to use only OpenFlow 1.3:
+
+           <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>c</b><b>t</b><b>l</b> <b>s</b><b>e</b><b>t</b> <b>b</b><b>r</b><b>i</b><b>d</b><b>g</b><b>e</b> <b>b</b><b>r</b><b>0</b> <b>p</b><b>r</b><b>o</b><b>t</b><b>o</b><b>c</b><b>o</b><b>l</b><b>s</b><b>=</b><b>O</b><b>p</b><b>e</b><b>n</b><b>F</b><b>l</b><b>o</b><b>w</b><b>1</b><b>3</b>
+
+
+   <b>F</b><b>i</b><b>e</b><b>l</b><b>d</b> <b>S</b><b>p</b><b>e</b><b>c</b><b>i</b><b>f</b><b>i</b><b>c</b><b>a</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>
+       Many Open vSwitch actions refer to fields. In such  cases,  fields  may
+       usually  be  referred to by their common names, such as <b>e</b><b>t</b><b>h</b><b>_</b><b>d</b><b>s</b><b>t</b> for the
+       Ethernet destination field, or by their full OXM or NXM names, such  as
+       <b>N</b><b>X</b><b>M</b><b>_</b><b>O</b><b>F</b><b>_</b><b>E</b><b>T</b><b>H</b><b>_</b><b>D</b><b>S</b><b>T</b>  or <b>O</b><b>X</b><b>M</b><b>_</b><b>O</b><b>F</b><b>_</b><b>E</b><b>T</b><b>H</b><b>_</b><b>D</b><b>S</b><b>T</b>. Before Open vSwitch 2.7, only OXM or
+       NXM field names were accepted.
+
+       Many actions that act on fields can also act  on  <u>s</u><u>u</u><u>b</u><u>f</u><u>i</u><u>e</u><u>l</u><u>d</u><u>s</u>,  that  is,
+       parts of fields, written as <u>f</u><u>i</u><u>e</u><u>l</u><u>d</u><b>[</b><u>s</u><u>t</u><u>a</u><u>r</u><u>t</u><b>.</b><b>.</b><u>e</u><u>n</u><u>d</u><b>]</b>, where <u>s</u><u>t</u><u>a</u><u>r</u><u>t</u> is the first
+       bit and <u>e</u><u>n</u><u>d</u> is the last bit to use in <u>f</u><u>i</u><u>e</u><u>l</u><u>d</u>, e.g. <b>v</b><b>l</b><b>a</b><b>n</b><b>_</b><b>t</b><b>c</b><b>i</b><b>[</b><b>1</b><b>3</b><b>.</b><b>.</b><b>1</b><b>5</b><b>]</b>  for
+       the  VLAN  PCP. A single-bit subfield may also be written as <u>f</u><u>i</u><u>e</u><u>l</u><u>d</u><b>[</b><u>o</u><u>f</u><u>f</u><u>‐</u>
+       <u>s</u><u>e</u><u>t</u><b>]</b>, e.g. <b>v</b><b>l</b><b>a</b><b>n</b><b>_</b><b>t</b><b>c</b><b>i</b><b>[</b><b>1</b><b>3</b><b>]</b> for the least-significant bit of the VLAN  PCP.
+       Empty  brackets  may  be  used to explicitly designate an entire field,
+       e.g. <b>v</b><b>l</b><b>a</b><b>n</b><b>_</b><b>t</b><b>c</b><b>i</b><b>[</b><b>]</b> for the entire 16-bit  VLAN  TCI  header.  Before  Open
+       vSwitch 2.7, brackets were required in field specifications.
+
+       See <b>o</b><b>v</b><b>s</b><b>-</b><b>f</b><b>i</b><b>e</b><b>l</b><b>d</b><b>s</b>(7) for a list of fields and their names.
+
+   <b>P</b><b>o</b><b>r</b><b>t</b> <b>S</b><b>p</b><b>e</b><b>c</b><b>i</b><b>f</b><b>i</b><b>c</b><b>a</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>
+       Many  Open  vSwitch actions refer to OpenFlow ports. In such cases, the
+       port may be specified as a numeric  port  number  in  the  range  0  to
+       65,535,  although Open vSwitch only assigns port numbers in the range 1
+       through 62,279 to ports. OpenFlow 1.1 and later use  32-bit  port  num‐
+       bers,  but  Open vSwitch never assigns a port number that requires more
+       than 16 bits.
+
+       In most contexts, the name of a port may also be used. (The most  obvi‐
+       ous  context  where a port name may not be used is in an <b>o</b><b>v</b><b>s</b><b>-</b><b>o</b><b>f</b><b>c</b><b>t</b><b>l</b> com‐
+       mand along with the <b>-</b><b>-</b><b>n</b><b>o</b><b>-</b><b>n</b><b>a</b><b>m</b><b>e</b><b>s</b> option.) When  a  port’s  name  contains
+       punctuation  or  could be ambiguous with other actions, the name may be
+       enclosed in double quotes, with JSON-like string escapes supported (see
+       [RFC 8259]).
+
+       Open  vSwitch  also supports the following standard OpenFlow port names
+       (even in contexts where port names are not  otherwise  supported).  The
+       corresponding  OpenFlow  1.0 and 1.1+ port numbers are listed alongside
+       them but should not be used in flow syntax:
+
+              •      <b>i</b><b>n</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b> (65528 or 0xfff8; 0xfffffff8)
+
+              •      <b>t</b><b>a</b><b>b</b><b>l</b><b>e</b> (65529 or 0xfff9; 0xfffffff9)
+
+              •      <b>n</b><b>o</b><b>r</b><b>m</b><b>a</b><b>l</b> (65530 or 0xfffa; 0xfffffffa)
+
+              •      <b>f</b><b>l</b><b>o</b><b>o</b><b>d</b> (65531 or 0xfffb; 0xfffffffb)
+
+              •      <b>a</b><b>l</b><b>l</b> (65532 or 0xfffc; 0xfffffffc)
+
+              •      <b>c</b><b>o</b><b>n</b><b>t</b><b>r</b><b>o</b><b>l</b><b>l</b><b>e</b><b>r</b> (65533 or 0xfffd; 0xfffffffd)
+
+              •      <b>l</b><b>o</b><b>c</b><b>a</b><b>l</b> (65534 or 0xfffe; 0xfffffffe)
+
+              •      <b>a</b><b>n</b><b>y</b> or <b>n</b><b>o</b><b>n</b><b>e</b> (65535 or 0xffff; 0xffffffff)
+
+              •      <b>u</b><b>n</b><b>s</b><b>e</b><b>t</b> (not in OpenFlow 1.0; 0xfffffff7)
+
+<b>O</b><b>U</b><b>T</b><b>P</b><b>U</b><b>T</b> <b>A</b><b>C</b><b>T</b><b>I</b><b>O</b><b>N</b><b>S</b>
+       These actions send a packet to a  physical  port  or  a  controller.  A
+       packet  that  never encounters an output action on its trip through the
+       Open vSwitch pipeline is effectively dropped. Because actions are  exe‐
+       cuted  in  order,  a  packet modification action that is not eventually
+       followed by an output action will not have an  externally  visible  ef‐
+       fect.
+
+   <b>T</b><b>h</b><b>e</b> <b>o</b><b>u</b><b>t</b><b>p</b><b>u</b><b>t</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <u>p</u><u>o</u><u>r</u><u>t</u>
+              <b>o</b><b>u</b><b>t</b><b>p</b><b>u</b><b>t</b><b>:</b><u>p</u><u>o</u><u>r</u><u>t</u>
+              <b>o</b><b>u</b><b>t</b><b>p</b><b>u</b><b>t</b><b>:</b><u>f</u><u>i</u><u>e</u><u>l</u><u>d</u>
+              <b>o</b><b>u</b><b>t</b><b>p</b><b>u</b><b>t</b><b>(</b><b>p</b><b>o</b><b>r</b><b>t</b><b>=</b><u>p</u><u>o</u><u>r</u><u>t</u><b>,</b> <b>m</b><b>a</b><b>x</b><b>_</b><b>l</b><b>e</b><b>n</b><b>=</b><u>n</u><u>b</u><u>y</u><u>t</u><u>e</u><u>s</u><b>)</b>
+
+       Outputs the packet to an OpenFlow port most commonly specified as <u>p</u><u>o</u><u>r</u><u>t</u>.
+       Alternatively, the output port may be read from <u>f</u><u>i</u><u>e</u><u>l</u><u>d</u>, a field or  sub‐
+       field in the syntax described under ``Field Specifications’’ above. Ei‐
+       ther way, if the port is the packet’s input port,  the  packet  is  not
+       output.
+
+       The port may be one of the following standard OpenFlow ports:
+
+              <b>l</b><b>o</b><b>c</b><b>a</b><b>l</b>  Outputs the packet on the ``local port’’ that corresponds
+                     to the network device that  has  the  same  name  as  the
+                     bridge, unless the packet was received on the local port.
+                     OpenFlow switch implementations are not required to  have
+                     a local port, but Open vSwitch bridges always do.
+
+              <b>i</b><b>n</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b>
+                     Outputs  the packet on the port on which it was received.
+                     This is the only standard way to output the packet to the
+                     input port (but see ``Output to the Input port’’, below).
+
+       The  port  may  also be one of the following additional OpenFlow ports,
+       unless <b>m</b><b>a</b><b>x</b><b>_</b><b>l</b><b>e</b><b>n</b> is specified:
+
+              <b>n</b><b>o</b><b>r</b><b>m</b><b>a</b><b>l</b> Subjects the packet to the device’s normal L2/L3 process‐
+                     ing.  This  action  is  not  implemented  by all OpenFlow
+                     switches, and each switch implements it differently.
+
+              <b>f</b><b>l</b><b>o</b><b>o</b><b>d</b>  Outputs the packet on all switch physical  ports,  except
+                     the  port on which it was received and any ports on which
+                     flooding is disabled. Flooding can be disabled  automati‐
+                     cally on a port by Open vSwitch when IEEE 802.1D spanning
+                     tree (STP) or rapid spanning tree (RSTP) is  enabled,  or
+                     by  a  controller using an OpenFlow <b>O</b><b>F</b><b>P</b><b>T</b><b>_</b><b>M</b><b>O</b><b>D</b><b>_</b><b>P</b><b>O</b><b>R</b><b>T</b> request
+                     to set the port’s <b>O</b><b>F</b><b>P</b><b>P</b><b>C</b><b>_</b><b>N</b><b>O</b><b>_</b><b>F</b><b>L</b><b>O</b><b>O</b><b>D</b> flag (<b>o</b><b>v</b><b>s</b><b>-</b><b>o</b><b>f</b><b>c</b><b>t</b><b>l</b> <b>m</b><b>o</b><b>d</b><b>-</b><b>p</b><b>o</b><b>r</b><b>t</b>
+                     provides a command-line interface to set this flag).
+
+              <b>a</b><b>l</b><b>l</b>    Outputs  the  packet  on all switch physical ports except
+                     the port on which it was received.
+
+              <b>c</b><b>o</b><b>n</b><b>t</b><b>r</b><b>o</b><b>l</b><b>l</b><b>e</b><b>r</b>
+                     Sends and its metadata the packet  to  an  OpenFlow  con‐
+                     troller   or  controllers  encapsulated  in  an  OpenFlow
+                     ``packet-in’’ message. The  separate  <b>c</b><b>o</b><b>n</b><b>t</b><b>r</b><b>o</b><b>l</b><b>l</b><b>e</b><b>r</b>  action,
+                     described  below,  provides  more options for output to a
+                     controller.
+
+       Open vSwitch rejects output to other standard OpenFlow ports, including
+       <b>n</b><b>o</b><b>n</b><b>e</b>,  <b>u</b><b>n</b><b>s</b><b>e</b><b>t</b>,  and  port  numbers  reserved  for future use as standard
+       ports, with the error <b>O</b><b>F</b><b>P</b><b>B</b><b>A</b><b>C</b><b>_</b><b>B</b><b>A</b><b>D</b><b>_</b><b>O</b><b>U</b><b>T</b><b>_</b><b>P</b><b>O</b><b>R</b><b>T</b>.
+
+       With <u>m</u><u>a</u><u>x</u><b>_</b><u>l</u><u>e</u><u>n</u>, the packet is truncated to at most  <u>n</u><u>b</u><u>y</u><u>t</u><u>e</u><u>s</u>  bytes  before
+       being  output.  In  this case, the output port may not be a patch port.
+       Truncation is just for the single output action, so that later  actions
+       in  the OpenFlow pipeline work with the complete packet. The truncation
+       feature is meant for use in monitoring applications, e.g. for mirroring
+       packets to a collector.
+
+       When an <b>o</b><b>u</b><b>t</b><b>p</b><b>u</b><b>t</b> action specifies the number of a port that does not cur‐
+       rently exist (and is not in the range for standard ports), the OpenFlow
+       specification allows but does not require OVS to reject the action. All
+       versions of Open vSwitch treat such an action as a  no-op.  If  a  port
+       with  the  number  is created later, then the action will be honored at
+       that point. (OpenFlow requires OVS to reject output to  a  port  number
+       that  will never be valid, with <b>O</b><b>F</b><b>P</b><b>B</b><b>A</b><b>C</b><b>_</b><b>B</b><b>A</b><b>D</b><b>_</b><b>O</b><b>U</b><b>T</b><b>_</b><b>P</b><b>O</b><b>R</b><b>T</b>, but this situation
+       does not arise when OVS is a software switch, since the user can add or
+       renumber ports at any time.)
+
+       A controller can suppress output to a port by setting its <b>O</b><b>F</b><b>P</b><b>P</b><b>C</b><b>_</b><b>N</b><b>O</b><b>_</b><b>F</b><b>O</b><b>R</b><b>‐</b>
+       <b>W</b><b>A</b><b>R</b><b>D</b> flag using an OpenFlow <b>O</b><b>F</b><b>P</b><b>T</b><b>_</b><b>M</b><b>O</b><b>D</b><b>_</b><b>P</b><b>O</b><b>R</b><b>T</b> request  (<b>o</b><b>v</b><b>s</b><b>-</b><b>o</b><b>f</b><b>c</b><b>t</b><b>l</b>  <b>m</b><b>o</b><b>d</b><b>-</b><b>p</b><b>o</b><b>r</b><b>t</b>
+       provides  a  command-line  interface  to set this flag). When output is
+       disabled, <b>o</b><b>u</b><b>t</b><b>p</b><b>u</b><b>t</b> actions (and other actions that output  to  the  port)
+       are allowed but have no effect.
+
+       Open  vSwitch  allows  output  to  a port that does not exist, although
+       OpenFlow allows switches to reject such actions.
+
+     <u>O</u><u>u</u><u>t</u><u>p</u><u>u</u><u>t</u> <u>t</u><u>o</u> <u>t</u><u>h</u><u>e</u> <u>I</u><u>n</u><u>p</u><u>u</u><u>t</u> <u>P</u><u>o</u><u>r</u><u>t</u>
+
+       OpenFlow requires a switch to ignore attempts to send a packet out  its
+       ingress  port  in the most straightforward way. For example, <b>o</b><b>u</b><b>t</b><b>p</b><b>u</b><b>t</b><b>:</b><b>2</b><b>3</b><b>4</b>
+       has no effect if the packet has ingress port 234. The rationale is that
+       dropping  these  packets makes it harder to loop the network. Sometimes
+       this behavior can even be convenient, e.g. it is often the desired  be‐
+       havior  in  a  flow that forwards a packet to several ports (``floods’’
+       the packet).
+
+       Sometimes one really needs to  send  a  packet  out  its  ingress  port
+       (``hairpin’’).  In  this  case,  use  <b>i</b><b>n</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b>  to explicitly output the
+       packet to its input port, e.g.:
+
+               <b>$</b> <b>o</b><b>v</b><b>s</b><b>-</b><b>o</b><b>f</b><b>c</b><b>t</b><b>l</b> <b>a</b><b>d</b><b>d</b><b>-</b><b>f</b><b>l</b><b>o</b><b>w</b> <b>b</b><b>r</b><b>0</b> <b>i</b><b>n</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b><b>=</b><b>2</b><b>,</b><b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b><b>=</b><b>i</b><b>n</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b>
+
+
+       This also works in some circumstances where the flow doesn’t  match  on
+       the  input  port.  For  example,  if you know that your switch has five
+       ports numbered 2 through 6, then the following will send every received
+       packet out every port, even its ingress port:
+
+               <b>$</b> <b>o</b><b>v</b><b>s</b><b>-</b><b>o</b><b>f</b><b>c</b><b>t</b><b>l</b> <b>a</b><b>d</b><b>d</b><b>-</b><b>f</b><b>l</b><b>o</b><b>w</b> <b>b</b><b>r</b><b>0</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b><b>=</b><b>2</b><b>,</b><b>3</b><b>,</b><b>4</b><b>,</b><b>5</b><b>,</b><b>6</b><b>,</b><b>i</b><b>n</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b>
+
+
+       or, equivalently:
+
+               <b>$</b> <b>o</b><b>v</b><b>s</b><b>-</b><b>o</b><b>f</b><b>c</b><b>t</b><b>l</b> <b>a</b><b>d</b><b>d</b><b>-</b><b>f</b><b>l</b><b>o</b><b>w</b> <b>b</b><b>r</b><b>0</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b><b>=</b><b>a</b><b>l</b><b>l</b><b>,</b><b>i</b><b>n</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b>
+
+
+       Sometimes,  in complicated flow tables with multiple levels of <b>r</b><b>e</b><b>s</b><b>u</b><b>b</b><b>m</b><b>i</b><b>t</b>
+       actions, a flow needs to output to a particular port that  may  or  may
+       not  be the ingress port. It’s difficult to take advantage of output to
+       <b>i</b><b>n</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b> in this situation. To help, Open vSwitch provides, as an  Open‐
+       Flow extension, the ability to modify the <b>i</b><b>n</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b> field. Whatever value
+       is currently in the <b>i</b><b>n</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b> field is both the port to which output will
+       be dropped and the destination for <b>i</b><b>n</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b>. This means that the follow‐
+       ing adds flows that reliably output to port 2 or to ports 2 through  6,
+       respectively:
+
+               <b>$</b> <b>o</b><b>v</b><b>s</b><b>-</b><b>o</b><b>f</b><b>c</b><b>t</b><b>l</b> <b>a</b><b>d</b><b>d</b><b>-</b><b>f</b><b>l</b><b>o</b><b>w</b> <b>b</b><b>r</b><b>0</b> <b>"</b><b>i</b><b>n</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b><b>=</b><b>2</b><b>,</b><b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b><b>=</b><b>l</b><b>o</b><b>a</b><b>d</b><b>:</b><b>0</b><b>-</b>>gt;>gt;<b>i</b><b>n</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b><b>,</b><b>2</b><b>"</b>
+               <b>$</b> <b>o</b><b>v</b><b>s</b><b>-</b><b>o</b><b>f</b><b>c</b><b>t</b><b>l</b> <b>a</b><b>d</b><b>d</b><b>-</b><b>f</b><b>l</b><b>o</b><b>w</b> <b>b</b><b>r</b><b>0</b> <b>"</b><b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b><b>=</b><b>l</b><b>o</b><b>a</b><b>d</b><b>:</b><b>0</b><b>-</b>>gt;>gt;<b>i</b><b>n</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b><b>,</b><b>2</b><b>,</b><b>3</b><b>,</b><b>4</b><b>,</b><b>5</b><b>,</b><b>6</b><b>"</b>
+
+
+       If <b>i</b><b>n</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b> is important for matching or other reasons, one may save and
+       restore it on the stack:
+
+               <b>$</b> <b>o</b><b>v</b><b>s</b><b>-</b><b>o</b><b>f</b><b>c</b><b>t</b><b>l</b> <b>a</b><b>d</b><b>d</b><b>-</b><b>f</b><b>l</b><b>o</b><b>w</b> <b>b</b><b>r</b><b>0</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b><b>=</b><b>"</b><b>p</b><b>u</b><b>s</b><b>h</b><b>:</b><b>i</b><b>n</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b><b>,</b><b>\</b>
+               <b>l</b><b>o</b><b>a</b><b>d</b><b>:</b><b>0</b><b>-</b>>gt;>gt;<b>i</b><b>n</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b><b>,</b><b>\</b>
+               <b>2</b><b>,</b><b>3</b><b>,</b><b>4</b><b>,</b><b>5</b><b>,</b><b>6</b><b>,</b><b>\</b>
+               <b>p</b><b>o</b><b>p</b><b>:</b><b>i</b><b>n</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b><b>"</b>
+
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       All versions of OpenFlow and Open vSwitch support <b>o</b><b>u</b><b>t</b><b>p</b><b>u</b><b>t</b> to  a  literal
+       <u>p</u><u>o</u><u>r</u><u>t</u>.  Output to a register is an OpenFlow extension introduced in Open
+       vSwitch 1.3. Output with truncation is an OpenFlow extension introduced
+       in Open vSwitch 2.6.
+
+   <b>T</b><b>h</b><b>e</b> <b>c</b><b>o</b><b>n</b><b>t</b><b>r</b><b>o</b><b>l</b><b>l</b><b>e</b><b>r</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>c</b><b>o</b><b>n</b><b>t</b><b>r</b><b>o</b><b>l</b><b>l</b><b>e</b><b>r</b>
+              <b>c</b><b>o</b><b>n</b><b>t</b><b>r</b><b>o</b><b>l</b><b>l</b><b>e</b><b>r</b><b>:</b><u>m</u><u>a</u><u>x</u><b>_</b><u>l</u><u>e</u><u>n</u>
+              <b>c</b><b>o</b><b>n</b><b>t</b><b>r</b><b>o</b><b>l</b><b>l</b><b>e</b><b>r</b><b>(</b><u>k</u><u>e</u><u>y</u>[<b>=</b><u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>]<b>,</b> ...<b>)</b>
+
+       Sends  the  packet  and  its metadata to an OpenFlow controller or con‐
+       trollers encapsulated in an OpenFlow ``packet-in’’  message.  The  sup‐
+       ported options are:
+
+              <b>m</b><b>a</b><b>x</b><b>_</b><b>l</b><b>e</b><b>n</b><b>=</b><u>m</u><u>a</u><u>x</u><b>_</b><u>l</u><u>e</u><u>n</u>
+                     Limit  to  <u>m</u><u>a</u><u>x</u><b>_</b><u>l</u><u>e</u><u>n</u>  the  number of bytes of the packet to
+                     send in the ``packet-in.’’ A <u>m</u><u>a</u><u>x</u><b>_</b><u>l</u><u>e</u><u>n</u> of 0 prevents any of
+                     the  packet  from  being sent (thus, only metadata is in‐
+                     cluded). By default, the entire packet is  sent,  equiva‐
+                     lent to a <u>m</u><u>a</u><u>x</u><b>_</b><u>l</u><u>e</u><u>n</u> of 65535.
+
+              <b>r</b><b>e</b><b>a</b><b>s</b><b>o</b><b>n</b><b>=</b><u>r</u><u>e</u><u>a</u><u>s</u><u>o</u><u>n</u>
+                     Specify  <u>r</u><u>e</u><u>a</u><u>s</u><u>o</u><u>n</u>  as the reason for sending the message in
+                     the ``packet-in.’’ The supported  reasons  are  <b>n</b><b>o</b><b>_</b><b>m</b><b>a</b><b>t</b><b>c</b><b>h</b>,
+                     <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>,  <b>i</b><b>n</b><b>v</b><b>a</b><b>l</b><b>i</b><b>d</b><b>_</b><b>t</b><b>t</b><b>l</b>,  <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>_</b><b>s</b><b>e</b><b>t</b>, <b>g</b><b>r</b><b>o</b><b>u</b><b>p</b>, and <b>p</b><b>a</b><b>c</b><b>k</b><b>e</b><b>t</b><b>_</b><b>o</b><b>u</b><b>t</b>.
+                     The default reason is <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>.
+
+              <b>i</b><b>d</b><b>=</b><u>c</u><u>o</u><u>n</u><u>t</u><u>r</u><u>o</u><u>l</u><u>l</u><u>e</u><u>r</u><b>_</b><u>i</u><u>d</u>
+                     Specify <u>c</u><u>o</u><u>n</u><u>t</u><u>r</u><u>o</u><u>l</u><u>l</u><u>e</u><u>r</u><u>-</u><u>i</u><u>d</u>, a 16-bit integer, as  the  connec‐
+                     tion  ID  of  the  OpenFlow  controller or controllers to
+                     which the ``packet-in’’ message should be sent.  The  de‐
+                     fault is zero. Zero is also the default connection ID for
+                     each controller connection, and a given  controller  con‐
+                     nection  will  only  have  a nonzero connection ID if its
+                     controller uses the  <b>N</b><b>X</b><b>T</b><b>_</b><b>S</b><b>E</b><b>T</b><b>_</b><b>C</b><b>O</b><b>N</b><b>T</b><b>R</b><b>O</b><b>L</b><b>L</b><b>E</b><b>R</b><b>_</b><b>I</b><b>D</b>  Open  vSwitch
+                     extension to OpenFlow.
+
+              <b>u</b><b>s</b><b>e</b><b>r</b><b>d</b><b>a</b><b>t</b><b>a</b><b>=</b><u>h</u><u>h</u>...
+                     Supplies  the bytes represented as hex digits <u>h</u><u>h</u> as addi‐
+                     tional data to the controller in the  ``packet-in’’  mes‐
+                     sage. Pairs of hex digits may be separated by periods for
+                     readability.
+
+              <b>p</b><b>a</b><b>u</b><b>s</b><b>e</b>  Causes the switch to freeze  the  packet’s  trip  through
+                     Open  vSwitch  flow tables and serializes that state into
+                     the packet-in message as  a  ``continuation,’’  an  addi‐
+                     tional  property  in the <b>N</b><b>X</b><b>T</b><b>_</b><b>P</b><b>A</b><b>C</b><b>K</b><b>E</b><b>T</b><b>_</b><b>I</b><b>N</b><b>2</b> message. The con‐
+                     troller can later  send  the  continuation  back  to  the
+                     switch  in  an <b>N</b><b>X</b><b>T</b><b>_</b><b>R</b><b>E</b><b>S</b><b>U</b><b>M</b><b>E</b> message, which will restart the
+                     packet’s traversal from the point  where  it  was  inter‐
+                     rupted.  This permits an OpenFlow controller to interpose
+                     on a packet midway through processing in Open vSwitch.
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       All versions of OpenFlow and Open vSwitch support <b>c</b><b>o</b><b>n</b><b>t</b><b>r</b><b>o</b><b>l</b><b>l</b><b>e</b><b>r</b> action and
+       its  <b>m</b><b>a</b><b>x</b><b>_</b><b>l</b><b>e</b><b>n</b>  option.  The  <b>u</b><b>s</b><b>e</b><b>r</b><b>d</b><b>a</b><b>t</b><b>a</b> and <b>p</b><b>a</b><b>u</b><b>s</b><b>e</b> options require the Open
+       vSwitch <b>N</b><b>X</b><b>A</b><b>S</b><b>T</b><b>_</b><b>C</b><b>O</b><b>N</b><b>T</b><b>R</b><b>O</b><b>L</b><b>L</b><b>E</b><b>R</b><b>2</b> extension action added in Open  vSwitch  2.6.
+       In  the absence of these options, the <u>r</u><u>e</u><u>a</u><u>s</u><u>o</u><u>n</u> (other than <b>r</b><b>e</b><b>a</b><b>s</b><b>o</b><b>n</b><b>=</b><b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>)
+       and <u>c</u><u>o</u><u>n</u><u>t</u><u>r</u><u>o</u><u>l</u><u>l</u><u>e</u><u>r</u><b>_</b><u>i</u><u>d</u> (option than  <b>c</b><b>o</b><b>n</b><b>t</b><b>r</b><b>o</b><b>l</b><b>l</b><b>e</b><b>r</b><b>_</b><b>i</b><b>d</b><b>=</b><b>0</b>)  options  require  the
+       Open  vSwitch  <b>N</b><b>X</b><b>A</b><b>S</b><b>T</b><b>_</b><b>C</b><b>O</b><b>N</b><b>T</b><b>R</b><b>O</b><b>L</b><b>L</b><b>E</b><b>R</b>  extension action added in Open vSwitch
+       1.6.
+
+   <b>T</b><b>h</b><b>e</b> <b>e</b><b>n</b><b>q</b><b>u</b><b>e</b><b>u</b><b>e</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>e</b><b>n</b><b>q</b><b>u</b><b>e</b><b>u</b><b>e</b><b>(</b><u>p</u><u>o</u><u>r</u><u>t</u><b>,</b><u>q</u><u>u</u><u>e</u><u>u</u><u>e</u><b>)</b>
+              <b>e</b><b>n</b><b>q</b><b>u</b><b>e</b><b>u</b><b>e</b><b>:</b><u>p</u><u>o</u><u>r</u><u>t</u><b>:</b><u>q</u><u>u</u><u>e</u><u>u</u><u>e</u>
+
+       Enqueues the packet on the specified <u>q</u><u>u</u><u>e</u><u>u</u><u>e</u> within port <u>p</u><u>o</u><u>r</u><u>t</u>.
+
+       <u>p</u><u>o</u><u>r</u><u>t</u> must be an OpenFlow port number or name as described under  ``Port
+       Specifications’’  above.  <u>p</u><u>o</u><u>r</u><u>t</u>  may  be  <b>i</b><b>n</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b> or <b>l</b><b>o</b><b>c</b><b>a</b><b>l</b> but the other
+       standard OpenFlow ports are not allowed.
+
+       <u>q</u><u>u</u><u>e</u><u>u</u><u>e</u> must be a a number between 0 and 4294967294 (0xfffffffe),  inclu‐
+       sive.  The  number  of actually supported queues depends on the switch.
+       Some OpenFlow implementations do not support queuing at  all.  In  Open
+       vSwitch,  the  supported queues vary depending on the operating system,
+       datapath, and hardware in use. Use the <b>Q</b><b>o</b><b>S</b> and <b>Q</b><b>u</b><b>e</b><b>u</b><b>e</b> tables in the Open
+       vSwitch database to configure queuing on individual OpenFlow ports (see
+       <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>d</b><b>.</b><b>c</b><b>o</b><b>n</b><b>f</b><b>.</b><b>d</b><b>b</b>(5) for more information).
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       Only OpenFlow 1.0 supports <b>e</b><b>n</b><b>q</b><b>u</b><b>e</b><b>u</b><b>e</b>. OpenFlow 1.1  added  the  <b>s</b><b>e</b><b>t</b><b>_</b><b>q</b><b>u</b><b>e</b><b>u</b><b>e</b>
+       action to use in its place along with <b>o</b><b>u</b><b>t</b><b>p</b><b>u</b><b>t</b>.
+
+       Open vSwitch translates <b>e</b><b>n</b><b>q</b><b>u</b><b>e</b><b>u</b><b>e</b> to a sequence of three actions in Open‐
+       Flow 1.1 or later: <b>s</b><b>e</b><b>t</b><b>_</b><b>q</b><b>u</b><b>e</b><b>u</b><b>e</b><b>:</b><u>q</u><u>u</u><u>e</u><u>u</u><u>e</u><b>,</b>  <b>o</b><b>u</b><b>t</b><b>p</b><b>u</b><b>t</b><b>:</b><u>p</u><u>o</u><u>r</u><u>t</u><b>,</b>  <b>p</b><b>o</b><b>p</b><b>_</b><b>q</b><b>u</b><b>e</b><b>u</b><b>e</b>.  This  is
+       equivalent in behavior as long as the flow table does not otherwise use
+       <b>s</b><b>e</b><b>t</b><b>_</b><b>q</b><b>u</b><b>e</b><b>u</b><b>e</b>, but it relies on the <b>p</b><b>o</b><b>p</b><b>_</b><b>q</b><b>u</b><b>e</b><b>u</b><b>e</b> Open  vSwitch  extension  ac‐
+       tion.
+
+   <b>T</b><b>h</b><b>e</b> <b>b</b><b>u</b><b>n</b><b>d</b><b>l</b><b>e</b> <b>a</b><b>n</b><b>d</b> <b>b</b><b>u</b><b>n</b><b>d</b><b>l</b><b>e</b><b>_</b><b>l</b><b>o</b><b>a</b><b>d</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>b</b><b>u</b><b>n</b><b>d</b><b>l</b><b>e</b><b>(</b><u>f</u><u>i</u><u>e</u><u>l</u><u>d</u><u>s</u><b>,</b> <u>b</u><u>a</u><u>s</u><u>i</u><u>s</u><b>,</b> <u>a</u><u>l</u><u>g</u><u>o</u><u>r</u><u>i</u><u>t</u><u>h</u><u>m</u><b>,</b> ofport<b>,</b> <b>s</b><b>l</b><b>a</b><b>v</b><b>e</b><b>s</b><b>:</b><u>p</u><u>o</u><u>r</u><u>t</u>...<b>)</b>
+              <b>b</b><b>u</b><b>n</b><b>d</b><b>l</b><b>e</b><b>_</b><b>l</b><b>o</b><b>a</b><b>d</b><b>(</b><u>f</u><u>i</u><u>e</u><u>l</u><u>d</u><u>s</u><b>,</b>     <u>b</u><u>a</u><u>s</u><u>i</u><u>s</u><b>,</b>     <u>a</u><u>l</u><u>g</u><u>o</u><u>r</u><u>i</u><u>t</u><u>h</u><u>m</u><b>,</b>    ofport<b>,</b>    <u>d</u><u>s</u><u>t</u><b>,</b>
+              <b>s</b><b>l</b><b>a</b><b>v</b><b>e</b><b>s</b><b>:</b><u>p</u><u>o</u><u>r</u><u>t</u>...<b>)</b>
+
+       These actions choose a port (``slave’’) from a comma-separated OpenFlow
+       <u>p</u><u>o</u><u>r</u><u>t</u> list. After selecting the port, <b>b</b><b>u</b><b>n</b><b>d</b><b>l</b><b>e</b> outputs to it, whereas <b>b</b><b>u</b><b>n</b><b>‐</b>
+       <b>d</b><b>l</b><b>e</b><b>_</b><b>l</b><b>o</b><b>a</b><b>d</b> writes its port number to <u>d</u><u>s</u><u>t</u>, which must be a field  or  sub‐
+       field in the syntax described under ``Field Specifications’’ above.
+
+       These  actions hash a set of <u>f</u><u>i</u><u>e</u><u>l</u><u>d</u><u>s</u> using <u>b</u><u>a</u><u>s</u><u>i</u><u>s</u> as a universal hash pa‐
+       rameter, then apply the bundle link selection  <u>a</u><u>l</u><u>g</u><u>o</u><u>r</u><u>i</u><u>t</u><u>h</u><u>m</u>  to  choose  a
+       <u>p</u><u>o</u><u>r</u><u>t</u>.
+
+       <u>f</u><u>i</u><u>e</u><u>l</u><u>d</u><u>s</u> must be one of the following. For the options with ``symmetric’’
+       in the name, reversing source and destination addresses yields the same
+       hash:
+
+              <b>e</b><b>t</b><b>h</b><b>_</b><b>s</b><b>r</b><b>c</b>
+                     Ethernet source address.
+
+              <b>n</b><b>w</b><b>_</b><b>s</b><b>r</b><b>c</b> IPv4 or IPv6 source address.
+
+              <b>n</b><b>w</b><b>_</b><b>d</b><b>s</b><b>t</b> IPv4 or IPv6 destination address.
+
+              <b>s</b><b>y</b><b>m</b><b>m</b><b>e</b><b>t</b><b>r</b><b>i</b><b>c</b><b>_</b><b>l</b><b>4</b>
+                     Ethernet  source  and destination, Ethernet type, VLAN ID
+                     or IDs (if any), IPv4 or IPv6 source and destination,  IP
+                     protocol,  TCP  or SCTP (but not UDP) source and destina‐
+                     tion.
+
+              <b>s</b><b>y</b><b>m</b><b>m</b><b>e</b><b>t</b><b>r</b><b>i</b><b>c</b><b>_</b><b>l</b><b>3</b><b>l</b><b>4</b>
+                     IPv4 or IPv6 source and destination, IP protocol, TCP  or
+                     SCTP (but not UDP) source and destination.
+
+              <b>s</b><b>y</b><b>m</b><b>m</b><b>e</b><b>t</b><b>r</b><b>i</b><b>c</b><b>_</b><b>l</b><b>3</b><b>l</b><b>4</b><b>+</b><b>u</b><b>d</b><b>p</b>
+                     Like <b>s</b><b>y</b><b>m</b><b>m</b><b>e</b><b>t</b><b>r</b><b>i</b><b>c</b><b>_</b><b>l</b><b>3</b><b>l</b><b>4</b> but include UDP ports.
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       Open  vSwitch 1.2 introduced the <b>b</b><b>u</b><b>n</b><b>d</b><b>l</b><b>e</b> and <b>b</b><b>u</b><b>n</b><b>d</b><b>l</b><b>e</b><b>_</b><b>l</b><b>o</b><b>a</b><b>d</b> OpenFlow exten‐
+       sion actions.
+
+   <b>T</b><b>h</b><b>e</b> <b>g</b><b>r</b><b>o</b><b>u</b><b>p</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>g</b><b>r</b><b>o</b><b>u</b><b>p</b><b>:</b><u>g</u><u>r</u><u>o</u><u>u</u><u>p</u>
+
+       Outputs the packet to the OpenFlow group <u>g</u><u>r</u><u>o</u><u>u</u><u>p</u>, which must be a  number
+       in the range 0 to 4294967040 (0xffffff00). The group must exist or Open
+       vSwitch will refuse to add the flow. When  a  group  is  deleted,  Open
+       vSwitch also deletes all of the flows that output to it.
+
+       Groups  contain action sets, whose semantics are described above in the
+       section ``Action Sets’’. The semantics of action sets can be surprising
+       to  users  who  expect action list semantics, since action sets reorder
+       and sometimes ignore actions.
+
+       A <b>g</b><b>r</b><b>o</b><b>u</b><b>p</b> action usually executes the action set or sets in one  or  more
+       group buckets. Open vSwitch saves the packet and metadata before it ex‐
+       ecutes each bucket, and then restores it afterward. Thus, when a  group
+       executes  more than one bucket, this means that each bucket executes on
+       the same packet and metadata. Moreover, regardless  of  the  number  of
+       buckets executed, the packet and metadata are the same before and after
+       executing the group.
+
+       Sometimes saving and restoring the packet and metadata can be  undesir‐
+       able.  In these situations, workarounds are possible. For example, con‐
+       sider a pipeline design in which a <b>s</b><b>e</b><b>l</b><b>e</b><b>c</b><b>t</b> group bucket is  to  communi‐
+       cate  to  a later stage of processing a value based on which bucket was
+       selected. An obvious design would be for the bucket to communicate  the
+       value via <b>s</b><b>e</b><b>t</b><b>_</b><b>f</b><b>i</b><b>e</b><b>l</b><b>d</b> on a register. This does not work because registers
+       are part of the metadata that <b>g</b><b>r</b><b>o</b><b>u</b><b>p</b> saves and restores. A  design  that
+       would  work  would  be for the bucket to recursively invoke the rest of
+       the pipeline with <b>r</b><b>e</b><b>s</b><b>u</b><b>b</b><b>m</b><b>i</b><b>t</b> rather than to attempt to return it. Another
+       possibility is for the bucket to use <b>p</b><b>u</b><b>s</b><b>h</b> to put the value on the stack
+       for the caller to <b>p</b><b>o</b><b>p</b> off, since <b>g</b><b>r</b><b>o</b><b>u</b><b>p</b> preserves only packet  data  and
+       metadata, not the stack.
+
+       An  <b>e</b><b>x</b><b>i</b><b>t</b> action within a group bucket terminates only execution of that
+       bucket, not other buckets or the overall pipeline.
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       OpenFlow 1.1 introduced <b>g</b><b>r</b><b>o</b><b>u</b><b>p</b>. Open vSwitch 2.6 and later also supports
+       <b>g</b><b>r</b><b>o</b><b>u</b><b>p</b> as an extension to OpenFlow 1.0.
+
+<b>E</b><b>N</b><b>C</b><b>A</b><b>P</b><b>S</b><b>U</b><b>L</b><b>A</b><b>T</b><b>I</b><b>O</b><b>N</b> <b>A</b><b>N</b><b>D</b> <b>D</b><b>E</b><b>C</b><b>A</b><b>P</b><b>S</b><b>U</b><b>L</b><b>A</b><b>T</b><b>I</b><b>O</b><b>N</b> <b>A</b><b>C</b><b>T</b><b>I</b><b>O</b><b>N</b><b>S</b>
+   <b>T</b><b>h</b><b>e</b> <b>s</b><b>t</b><b>r</b><b>i</b><b>p</b><b>_</b><b>v</b><b>l</b><b>a</b><b>n</b> <b>a</b><b>n</b><b>d</b> <b>p</b><b>o</b><b>p</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>s</b><b>t</b><b>r</b><b>i</b><b>p</b><b>_</b><b>v</b><b>l</b><b>a</b><b>n</b>
+              <b>p</b><b>o</b><b>p</b><b>_</b><b>v</b><b>l</b><b>a</b><b>n</b>
+
+       Removes the outermost VLAN tag, if any, from the packet.
+
+       The two names for this action are synonyms with no semantic difference.
+       The OpenFlow 1.0 specification uses the name <b>s</b><b>t</b><b>r</b><b>i</b><b>p</b><b>_</b><b>v</b><b>l</b><b>a</b><b>n</b> and later  ver‐
+       sions use <b>p</b><b>o</b><b>p</b><b>_</b><b>v</b><b>l</b><b>a</b><b>n</b>, but OVS accepts either name regardless of version.
+
+       In OpenFlow 1.1 and later, consistency rules allow <b>s</b><b>t</b><b>r</b><b>i</b><b>p</b><b>_</b><b>v</b><b>l</b><b>a</b><b>n</b> only in a
+       flow that matches only packets with a VLAN tag (or following an  action
+       that  pushes  a  VLAN tag, such as <b>p</b><b>u</b><b>s</b><b>h</b><b>_</b><b>v</b><b>l</b><b>a</b><b>n</b>). See ``Inconsistencies’’,
+       above, for more information.
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       All versions of OpenFlow and Open vSwitch support this action.
+
+   <b>T</b><b>h</b><b>e</b> <b>p</b><b>u</b><b>s</b><b>h</b><b>_</b><b>v</b><b>l</b><b>a</b><b>n</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>p</b><b>u</b><b>s</b><b>h</b><b>_</b><b>v</b><b>l</b><b>a</b><b>n</b><b>:</b><u>e</u><u>t</u><u>h</u><u>e</u><u>r</u><u>t</u><u>y</u><u>p</u><u>e</u>
+
+       Pushes a new outermost VLAN onto the packet. Uses TPID <u>e</u><u>t</u><u>h</u><u>e</u><u>r</u><u>t</u><u>y</u><u>p</u><u>e</u>, which
+       must be <b>0</b><b>x</b><b>8</b><b>1</b><b>0</b><b>0</b> for an 802.1Q C-tag or <b>0</b><b>x</b><b>8</b><b>8</b><b>a</b><b>8</b> for a 802.1ad S-tag.
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       OpenFlow  1.1  and  later  supports this action. Open vSwitch 2.8 added
+       support for multiple VLAN tags (with a limit of 2) and 802.1ad S-tags.
+
+   <b>T</b><b>h</b><b>e</b> <b>p</b><b>u</b><b>s</b><b>h</b><b>_</b><b>m</b><b>p</b><b>l</b><b>s</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>p</b><b>u</b><b>s</b><b>h</b><b>_</b><b>m</b><b>p</b><b>l</b><b>s</b><b>:</b><u>e</u><u>t</u><u>h</u><u>e</u><u>r</u><u>t</u><u>y</u><u>p</u><u>e</u>
+
+       Pushes a new outermost MPLS label stack entry (LSE) onto the packet and
+       changes  the  packet’s  Ethertype  to  <u>e</u><u>t</u><u>h</u><u>e</u><u>r</u><u>t</u><u>y</u><u>p</u><u>e</u>,  which must be either
+       <b>B</b><b>0</b><b>x</b><b>8</b><b>8</b><b>4</b><b>7</b> or <b>0</b><b>x</b><b>8</b><b>8</b><b>4</b><b>8</b>.
+
+       If the packet did not already contain any MPLS labels, initializes  the
+       new LSE as:
+
+              Label  2, if the packet contains IPv6, 0 otherwise.
+
+              TC     The  low  3  bits of the packet’s DSCP value, or 0 if the
+                     packet is not IP.
+
+              TTL    Copied from the IP TTL, or 64 if the packet is not IP.
+
+       If the packet did already contain an MPLS label,  initializes  the  new
+       outermost label as a copy of the existing outermost label.
+
+       OVS currently supports at most 3 MPLS labels.
+
+       This action applies only to Ethernet packets.
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       Open  vSwitch  1.11 introduced support for MPLS. OpenFlow 1.1 and later
+       support <b>p</b><b>u</b><b>s</b><b>h</b><b>_</b><b>m</b><b>p</b><b>l</b><b>s</b>. Open vSwitch implements <b>p</b><b>u</b><b>s</b><b>h</b><b>_</b><b>m</b><b>p</b><b>l</b><b>s</b> as an extension to
+       OpenFlow 1.0.
+
+   <b>T</b><b>h</b><b>e</b> <b>p</b><b>o</b><b>p</b><b>_</b><b>m</b><b>p</b><b>l</b><b>s</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>p</b><b>o</b><b>p</b><b>_</b><b>m</b><b>p</b><b>l</b><b>s</b><b>:</b><u>e</u><u>t</u><u>h</u><u>e</u><u>r</u><u>t</u><u>y</u><u>p</u><u>e</u>
+
+       Strips  the  outermost  MPLS label stack entry and changes the packet’s
+       Ethertype to <u>e</u><u>t</u><u>h</u><u>e</u><u>r</u><u>t</u><u>y</u><u>p</u><u>e</u>.
+
+       This action applies only to Ethernet packets with at least one MPLS la‐
+       bel.  If there is more than one MPLS label, then <u>e</u><u>t</u><u>h</u><u>e</u><u>r</u><u>t</u><u>y</u><u>p</u><u>e</u> should be an
+       MPLS Ethertype (<b>B</b><b>0</b><b>x</b><b>8</b><b>8</b><b>4</b><b>7</b> or <b>0</b><b>x</b><b>8</b><b>8</b><b>4</b><b>8</b>).
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       Open vSwitch 1.11 introduced support for MPLS. OpenFlow 1.1  and  later
+       support  <b>p</b><b>o</b><b>p</b><b>_</b><b>m</b><b>p</b><b>l</b><b>s</b>.  Open vSwitch implements <b>p</b><b>o</b><b>p</b><b>_</b><b>m</b><b>p</b><b>l</b><b>s</b> as an extension to
+       OpenFlow 1.0.
+
+   <b>T</b><b>h</b><b>e</b> <b>e</b><b>n</b><b>c</b><b>a</b><b>p</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>e</b><b>n</b><b>c</b><b>a</b><b>p</b><b>(</b><b>n</b><b>s</b><b>h</b><b>(</b>[<b>m</b><b>d</b><b>_</b><b>t</b><b>y</b><b>p</b><b>e</b><b>=</b><u>m</u><u>d</u><b>_</b><u>t</u><u>y</u><u>p</u><u>e</u>]<b>,</b> [<b>t</b><b>l</b><b>v</b><b>(</b><u>c</u><u>l</u><u>a</u><u>s</u><u>s</u><b>,</b><u>t</u><u>y</u><u>p</u><u>e</u><b>,</b><u>v</u><u>a</u><u>l</u><u>u</u><u>e</u><b>)</b>]...<b>)</b><b>)</b>
+              <b>e</b><b>n</b><b>c</b><b>a</b><b>p</b><b>(</b><b>e</b><b>t</b><b>h</b><b>e</b><b>r</b><b>n</b><b>e</b><b>t</b><b>)</b>
+
+       The <b>e</b><b>n</b><b>c</b><b>a</b><b>p</b> action encapsulates a packet with a specified header. It  has
+       variants for different kinds of encapsulation.
+
+       The  <b>e</b><b>n</b><b>c</b><b>a</b><b>p</b><b>(</b><b>n</b><b>s</b><b>h</b><b>(</b>...<b>)</b><b>)</b>  variant  encapsulates an Ethernet frame with NSH.
+       The <u>m</u><u>d</u><b>_</b><u>t</u><u>y</u><u>p</u><u>e</u> may be <b>1</b> or <b>2</b> for metadata type 1 or 2,  defaulting  to  1.
+       For metadata type 2, TLVs may be specified with <u>c</u><u>l</u><u>a</u><u>s</u><u>s</u> as a 16-bit hexa‐
+       decimal integer beginning with <b>0</b><b>x</b>, <u>t</u><u>y</u><u>p</u><u>e</u> as an  8-bit  decimal  integer,
+       and  <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u> a sequence of pairs of hex digits beginning with <b>0</b><b>x</b>. For ex‐
+       ample:
+
+              <b>e</b><b>n</b><b>c</b><b>a</b><b>p</b><b>(</b><b>n</b><b>s</b><b>h</b><b>(</b><b>m</b><b>d</b><b>_</b><b>t</b><b>y</b><b>p</b><b>e</b><b>=</b><b>1</b><b>)</b><b>)</b>
+                     Encapsulates the packet with an NSH header with  metadata
+                     type 1.
+
+              <b>e</b><b>n</b><b>c</b><b>a</b><b>p</b><b>(</b><b>n</b><b>s</b><b>h</b><b>(</b><b>m</b><b>d</b><b>_</b><b>t</b><b>y</b><b>p</b><b>e</b><b>=</b><b>2</b><b>,</b><b>t</b><b>l</b><b>v</b><b>(</b><b>0</b><b>x</b><b>1</b><b>0</b><b>0</b><b>0</b><b>,</b><b>1</b><b>0</b><b>,</b><b>0</b><b>x</b><b>1</b><b>2</b><b>3</b><b>4</b><b>5</b><b>6</b><b>7</b><b>8</b><b>)</b><b>)</b><b>)</b>
+                     Encapsulates  the packet with an NSH header, NSH metadata
+                     type 2, and an NSH TLV with class 0x1000,  type  10,  and
+                     the 4-byte value 0x12345678.
+
+       The <b>e</b><b>n</b><b>c</b><b>a</b><b>p</b><b>(</b><b>e</b><b>t</b><b>h</b><b>e</b><b>r</b><b>n</b><b>e</b><b>t</b><b>)</b> variant encapsulate a bare L3 packet in an Ethernet
+       frame. The Ethernet type is initialized to the L3 packet’s  type,  e.g.
+       0x0800  if  the  L3 packet is IPv4. The Ethernet source and destination
+       are initially zeroed.
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       This action is an Open vSwitch extension to OpenFlow 1.3 and later, in‐
+       troduced in Open vSwitch 2.8.
+
+   <b>T</b><b>h</b><b>e</b> <b>d</b><b>e</b><b>c</b><b>a</b><b>p</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>d</b><b>e</b><b>c</b><b>a</b><b>p</b>
+
+       Removes an outermost encapsulation from the packet:
+
+              •      If the packet is an Ethernet packet, removes the Ethernet
+                     header, which changes the packet into a bare  L3  packet.
+                     If the packet has VLAN tags, raises an unsupported packet
+                     type error (see ``Error Handling’’, above).
+
+              •      Otherwise, if the packet is an NSH  packet,  removes  the
+                     NSH header, revealing the inner packet. Open vSwitch sup‐
+                     ports Ethernet, IPv4, IPv6, and NSH inner  packet  types.
+                     Other types raise unsupported packet type errors.
+
+              •      Otherwise, raises an unsupported packet type error.
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       This action is an Open vSwitch extension to OpenFlow 1.3 and later, in‐
+       troduced in Open vSwitch 2.8.
+
+<b>F</b><b>I</b><b>E</b><b>L</b><b>D</b> <b>M</b><b>O</b><b>D</b><b>I</b><b>F</b><b>I</b><b>C</b><b>A</b><b>T</b><b>I</b><b>O</b><b>N</b> <b>A</b><b>C</b><b>T</b><b>I</b><b>O</b><b>N</b><b>S</b>
+       These actions modify packet data and metadata fields.
+
+   <b>T</b><b>h</b><b>e</b> <b>s</b><b>e</b><b>t</b><b>_</b><b>f</b><b>i</b><b>e</b><b>l</b><b>d</b> <b>a</b><b>n</b><b>d</b> <b>l</b><b>o</b><b>a</b><b>d</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>s</b><b>e</b><b>t</b><b>_</b><b>f</b><b>i</b><b>e</b><b>l</b><b>d</b><b>:</b><u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>[<b>/</b><u>m</u><u>a</u><u>s</u><u>k</u>]<b>-</b>>gt;>gt;<u>d</u><u>s</u><u>t</u>
+              <b>l</b><b>o</b><b>a</b><b>d</b><b>:</b><u>v</u><u>a</u><u>l</u><u>u</u><u>e</u><b>-</b>>gt;>gt;<u>d</u><u>s</u><u>t</u>
+
+       These actions loads a literal value into a field or part  of  a  field.
+       The <b>s</b><b>e</b><b>t</b><b>_</b><b>f</b><b>i</b><b>e</b><b>l</b><b>d</b> action takes <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u> in the customary syntax for field <u>d</u><u>s</u><u>t</u>,
+       e.g. <b>0</b><b>0</b><b>:</b><b>1</b><b>1</b><b>:</b><b>2</b><b>2</b><b>:</b><b>3</b><b>3</b><b>:</b><b>4</b><b>4</b><b>:</b><b>5</b><b>5</b> for an Ethernet address, and <u>d</u><u>s</u><u>t</u> as the  field’s
+       name. The optional <u>m</u><u>a</u><u>s</u><u>k</u> allows part of a field to be set.
+
+       The <b>l</b><b>o</b><b>a</b><b>d</b> action takes <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u> as an integer value (in decimal or prefixed
+       by <b>0</b><b>x</b> for hexadecimal) and <u>d</u><u>s</u><u>t</u> as a field or subfield in the syntax de‐
+       scribed under ``Field Specifications’’ above.
+
+       The following all set the Ethernet source address to 00:11:22:33:44:55:
+
+              •      <b>s</b><b>e</b><b>t</b><b>_</b><b>f</b><b>i</b><b>e</b><b>l</b><b>d</b><b>:</b><b>0</b><b>0</b><b>:</b><b>1</b><b>1</b><b>:</b><b>2</b><b>2</b><b>:</b><b>3</b><b>3</b><b>:</b><b>4</b><b>4</b><b>:</b><b>5</b><b>5</b><b>-</b>>gt;>gt;<b>e</b><b>t</b><b>h</b><b>_</b><b>s</b><b>r</b><b>c</b>
+
+              •      <b>l</b><b>o</b><b>a</b><b>d</b><b>:</b><b>0</b><b>x</b><b>0</b><b>0</b><b>1</b><b>1</b><b>2</b><b>2</b><b>3</b><b>3</b><b>4</b><b>4</b><b>5</b><b>5</b><b>-</b>>gt;>gt;<b>e</b><b>t</b><b>h</b><b>_</b><b>s</b><b>r</b><b>c</b>
+
+              •      <b>l</b><b>o</b><b>a</b><b>d</b><b>:</b><b>0</b><b>x</b><b>0</b><b>0</b><b>1</b><b>1</b><b>2</b><b>2</b><b>3</b><b>3</b><b>4</b><b>4</b><b>5</b><b>5</b><b>-</b>>gt;>gt;<b>O</b><b>X</b><b>M</b><b>_</b><b>O</b><b>F</b><b>_</b><b>E</b><b>T</b><b>H</b><b>_</b><b>S</b><b>R</b><b>C</b><b>[</b><b>]</b>
+
+       The following all set the multicast bit in the Ethernet destination ad‐
+       dress:
+
+              •      <b>s</b><b>e</b><b>t</b><b>_</b><b>f</b><b>i</b><b>e</b><b>l</b><b>d</b><b>:</b><b>0</b><b>1</b><b>:</b><b>0</b><b>0</b><b>:</b><b>0</b><b>0</b><b>:</b><b>0</b><b>0</b><b>:</b><b>0</b><b>0</b><b>:</b><b>0</b><b>0</b><b>/</b><b>0</b><b>1</b><b>:</b><b>0</b><b>0</b><b>:</b><b>0</b><b>0</b><b>:</b><b>0</b><b>0</b><b>:</b><b>0</b><b>0</b><b>:</b><b>0</b><b>0</b><b>-</b>>gt;>gt;<b>e</b><b>t</b><b>h</b><b>_</b><b>d</b><b>s</b><b>t</b>
+
+              •      <b>l</b><b>o</b><b>a</b><b>d</b><b>:</b><b>1</b><b>-</b>>gt;>gt;<b>e</b><b>t</b><b>h</b><b>_</b><b>d</b><b>s</b><b>t</b><b>[</b><b>4</b><b>0</b><b>]</b>
+
+       Open vSwitch prohibits a <b>s</b><b>e</b><b>t</b><b>_</b><b>f</b><b>i</b><b>e</b><b>l</b><b>d</b> or <b>l</b><b>o</b><b>a</b><b>d</b>  action  whose  <u>d</u><u>s</u><u>t</u>  is  not
+       guaranteed  to  be part of the packet; for example, <b>s</b><b>e</b><b>t</b><b>_</b><b>f</b><b>i</b><b>e</b><b>l</b><b>d</b> of <b>n</b><b>w</b><b>_</b><b>d</b><b>s</b><b>t</b>
+       is only allowed in a flow that matches on Ethernet type 0x800. In  some
+       cases,  such  as  in an action set, Open vSwitch can’t statically check
+       that <u>d</u><u>s</u><u>t</u> is part of the packet, and in that case if it is not then Open
+       vSwitch treats the action as a no-op.
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       Open  vSwitch  1.1 introduced <b>N</b><b>X</b><b>A</b><b>S</b><b>T</b><b>_</b><b>R</b><b>E</b><b>G</b><b>_</b><b>L</b><b>O</b><b>A</b><b>D</b> as a extension to OpenFlow
+       1.0 and used <b>l</b><b>o</b><b>a</b><b>d</b> to express it. Later, OpenFlow 1.2 introduced a stan‐
+       dard  <b>O</b><b>F</b><b>P</b><b>A</b><b>T</b><b>_</b><b>S</b><b>E</b><b>T</b><b>_</b><b>F</b><b>I</b><b>E</b><b>L</b><b>D</b>  action  that  was  restricted  to loading entire
+       fields, so Open vSwitch added the form <b>s</b><b>e</b><b>t</b><b>_</b><b>f</b><b>i</b><b>e</b><b>l</b><b>d</b> with this restriction.
+       OpenFlow 1.5 extended <b>O</b><b>F</b><b>P</b><b>A</b><b>T</b><b>_</b><b>S</b><b>E</b><b>T</b><b>_</b><b>F</b><b>I</b><b>E</b><b>L</b><b>D</b> to the point that it became a su‐
+       perset of <b>N</b><b>X</b><b>A</b><b>S</b><b>T</b><b>_</b><b>R</b><b>E</b><b>G</b><b>_</b><b>L</b><b>O</b><b>A</b><b>D</b>. Open vSwitch translates either syntax as nec‐
+       essary  for  the  OpenFlow version in use: in OpenFlow 1.0 and 1.1, <b>N</b><b>X</b><b>‐</b>
+       <b>A</b><b>S</b><b>T</b><b>_</b><b>R</b><b>E</b><b>G</b><b>_</b><b>L</b><b>O</b><b>A</b><b>D</b>; in OpenFlow 1.2, 1.3, and 1.4, <b>N</b><b>X</b><b>A</b><b>S</b><b>T</b><b>_</b><b>R</b><b>E</b><b>G</b><b>_</b><b>L</b><b>O</b><b>A</b><b>D</b> for <b>l</b><b>o</b><b>a</b><b>d</b> or
+       for loading a subfield, <b>O</b><b>F</b><b>P</b><b>A</b><b>T</b><b>_</b><b>S</b><b>E</b><b>T</b><b>_</b><b>F</b><b>I</b><b>E</b><b>L</b><b>D</b> otherwise; and OpenFlow 1.5 and
+       later, <b>O</b><b>F</b><b>P</b><b>A</b><b>T</b><b>_</b><b>S</b><b>E</b><b>T</b><b>_</b><b>F</b><b>I</b><b>E</b><b>L</b><b>D</b>.
+
+   <b>T</b><b>h</b><b>e</b> <b>m</b><b>o</b><b>v</b><b>e</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>m</b><b>o</b><b>v</b><b>e</b><b>:</b><u>s</u><u>r</u><u>c</u><b>-</b>>gt;>gt;<u>d</u><u>s</u><u>t</u>
+
+       Copies the named bits from field or subfield <u>s</u><u>r</u><u>c</u> to field  or  subfield
+       <u>d</u><u>s</u><u>t</u>. <u>s</u><u>r</u><u>c</u> and <u>d</u><u>s</u><u>t</u> should fields or subfields in the syntax described un‐
+       der ``Field Specifications’’ above. The two fields  or  subfields  must
+       have the same width.
+
+       Examples:
+
+              •      <b>m</b><b>o</b><b>v</b><b>e</b><b>:</b><b>r</b><b>e</b><b>g</b><b>0</b><b>[</b><b>0</b><b>.</b><b>.</b><b>5</b><b>]</b><b>-</b>>gt;>gt;<b>r</b><b>e</b><b>g</b><b>1</b><b>[</b><b>2</b><b>6</b><b>.</b><b>.</b><b>3</b><b>1</b><b>]</b>  copies  the  six bits num‐
+                     bered 0 through 5 in register 0 into bits 26  through  31
+                     of register 1.
+
+              •      <b>m</b><b>o</b><b>v</b><b>e</b><b>:</b><b>r</b><b>e</b><b>g</b><b>0</b><b>[</b><b>0</b><b>.</b><b>.</b><b>1</b><b>5</b><b>]</b><b>-</b>>gt;>gt;<b>v</b><b>l</b><b>a</b><b>n</b><b>_</b><b>t</b><b>c</b><b>i</b>  copies  the least significant
+                     16 bits of register 0 into the VLAN TCI field.
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       In OpenFlow 1.0 through 1.4, <b>m</b><b>o</b><b>v</b><b>e</b> ordinarily uses an Open  vSwitch  ex‐
+       tension  to OpenFlow. In OpenFlow 1.5, <b>m</b><b>o</b><b>v</b><b>e</b> uses the OpenFlow 1.5 stan‐
+       dard <b>O</b><b>F</b><b>P</b><b>A</b><b>T</b><b>_</b><b>C</b><b>O</b><b>P</b><b>Y</b><b>_</b><b>F</b><b>I</b><b>E</b><b>L</b><b>D</b> action. The ONF has  also  made  <b>O</b><b>F</b><b>P</b><b>A</b><b>T</b><b>_</b><b>C</b><b>O</b><b>P</b><b>Y</b><b>_</b><b>F</b><b>I</b><b>E</b><b>L</b><b>D</b>
+       available  as  an extension to OpenFlow 1.3. Open vSwitch 2.4 and later
+       understands this extension and uses it if a controller uses it, but for
+       backward  compatibility  with older versions of Open vSwitch, <b>o</b><b>v</b><b>s</b><b>-</b><b>o</b><b>f</b><b>c</b><b>t</b><b>l</b>
+       does not use it.
+
+   <b>T</b><b>h</b><b>e</b> <b>m</b><b>o</b><b>d</b><b>_</b><b>d</b><b>l</b><b>_</b><b>s</b><b>r</b><b>c</b> <b>a</b><b>n</b><b>d</b> <b>m</b><b>o</b><b>d</b><b>_</b><b>d</b><b>l</b><b>_</b><b>d</b><b>s</b><b>t</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>m</b><b>o</b><b>d</b><b>_</b><b>d</b><b>l</b><b>_</b><b>s</b><b>r</b><b>c</b><b>:</b><u>m</u><u>a</u><u>c</u>
+              <b>m</b><b>o</b><b>d</b><b>_</b><b>d</b><b>l</b><b>_</b><b>d</b><b>s</b><b>t</b><b>:</b><u>m</u><u>a</u><u>c</u>
+
+       Sets the Ethernet source or destination address, respectively, to  <u>m</u><u>a</u><u>c</u>,
+       which should be expressed in the form <u>x</u><u>x</u><b>:</b><u>x</u><u>x</u><b>:</b><u>x</u><u>x</u><b>:</b><u>x</u><u>x</u><b>:</b><u>x</u><u>x</u><b>:</b><u>x</u><u>x</u>.
+
+       For  L3-only packets, that is, those that lack an Ethernet header, this
+       action has no effect.
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       OpenFlow 1.0 and 1.1 have specialized actions for these purposes. Open‐
+       Flow 1.2 and later do not, so Open vSwitch translates them to appropri‐
+       ate <b>O</b><b>F</b><b>P</b><b>A</b><b>T</b><b>_</b><b>S</b><b>E</b><b>T</b><b>_</b><b>F</b><b>I</b><b>E</b><b>L</b><b>D</b> actions for those versions,
+
+   <b>T</b><b>h</b><b>e</b> <b>m</b><b>o</b><b>d</b><b>_</b><b>n</b><b>w</b><b>_</b><b>s</b><b>r</b><b>c</b> <b>a</b><b>n</b><b>d</b> <b>m</b><b>o</b><b>d</b><b>_</b><b>n</b><b>w</b><b>_</b><b>d</b><b>s</b><b>t</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>m</b><b>o</b><b>d</b><b>_</b><b>n</b><b>w</b><b>_</b><b>s</b><b>r</b><b>c</b><b>:</b><u>i</u><u>p</u>
+              <b>m</b><b>o</b><b>d</b><b>_</b><b>n</b><b>w</b><b>_</b><b>d</b><b>s</b><b>t</b><b>:</b><u>i</u><u>p</u>
+
+       Sets the IPv4 source or destination address, respectively, to <u>i</u><u>p</u>, which
+       should be expressed in the form <u>w</u><b>.</b><u>x</u><b>.</b><u>y</u><b>.</b><u>z</u>.
+
+       In  OpenFlow  1.1 and later, consistency rules allow these actions only
+       in a flow that matches only packets that contain  an  IPv4  header  (or
+       following  an  action  that adds an IPv4 header, e.g. <b>p</b><b>o</b><b>p</b><b>_</b><b>m</b><b>p</b><b>l</b><b>s</b><b>:</b><b>0</b><b>x</b><b>0</b><b>8</b><b>0</b><b>0</b>).
+       See ``Inconsistencies’’, above, for more information.
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       OpenFlow 1.0 and 1.1 have specialized actions for these purposes. Open‐
+       Flow 1.2 and later do not, so Open vSwitch translates them to appropri‐
+       ate <b>O</b><b>F</b><b>P</b><b>A</b><b>T</b><b>_</b><b>S</b><b>E</b><b>T</b><b>_</b><b>F</b><b>I</b><b>E</b><b>L</b><b>D</b> actions for those versions,
+
+   <b>T</b><b>h</b><b>e</b> <b>m</b><b>o</b><b>d</b><b>_</b><b>n</b><b>w</b><b>_</b><b>t</b><b>o</b><b>s</b> <b>a</b><b>n</b><b>d</b> <b>m</b><b>o</b><b>d</b><b>_</b><b>n</b><b>w</b><b>_</b><b>e</b><b>c</b><b>n</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>m</b><b>o</b><b>d</b><b>_</b><b>n</b><b>w</b><b>_</b><b>t</b><b>o</b><b>s</b><b>:</b><u>t</u><u>o</u><u>s</u>
+              <b>m</b><b>o</b><b>d</b><b>_</b><b>n</b><b>w</b><b>_</b><b>e</b><b>c</b><b>n</b><b>:</b><u>e</u><u>c</u><u>n</u>
+
+       The <b>m</b><b>o</b><b>d</b><b>_</b><b>n</b><b>w</b><b>_</b><b>t</b><b>o</b><b>s</b> action sets the DSCP bits in the IPv4 ToS/DSCP  or  IPv6
+       traffic class field to <u>t</u><u>o</u><u>s</u>, which must be a multiple of 4 between 0 and
+       255. This action does not modify the two least significant bits of  the
+       ToS field (the ECN bits).
+
+       The <b>m</b><b>o</b><b>d</b><b>_</b><b>n</b><b>w</b><b>_</b><b>e</b><b>c</b><b>n</b> action sets the ECN bits in the IPv4 ToS or IPv6 traffic
+       class field to <b>e</b><b>c</b><b>n</b>, which must be a value between 0 and  3,  inclusive.
+       This  action does not modify the six most significant bits of the field
+       (the DSCP bits).
+
+       In OpenFlow 1.1 and later, consistency rules allow these  actions  only
+       in a flow that matches only packets that contain an IPv4 or IPv6 header
+       (or following an action that adds such a  header).  See  ``Inconsisten‐
+       cies’’, above, for more information.
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       OpenFlow  1.0  has a <b>m</b><b>o</b><b>d</b><b>_</b><b>n</b><b>w</b><b>_</b><b>t</b><b>o</b><b>s</b> action but not <b>m</b><b>o</b><b>d</b><b>_</b><b>n</b><b>w</b><b>_</b><b>e</b><b>c</b><b>n</b>. Open vSwitch
+       implements the latter  in  OpenFlow  1.0  as  an  extension  using  <b>N</b><b>X</b><b>‐</b>
+       <b>A</b><b>S</b><b>T</b><b>_</b><b>R</b><b>E</b><b>G</b><b>_</b><b>L</b><b>O</b><b>A</b><b>D</b>.  OpenFlow 1.1 has specialized actions for these purposes.
+       OpenFlow 1.2 and later do not, so Open vSwitch translates them  to  ap‐
+       propriate <b>O</b><b>F</b><b>P</b><b>A</b><b>T</b><b>_</b><b>S</b><b>E</b><b>T</b><b>_</b><b>F</b><b>I</b><b>E</b><b>L</b><b>D</b> actions for those versions,
+
+   <b>T</b><b>h</b><b>e</b> <b>m</b><b>o</b><b>d</b><b>_</b><b>t</b><b>p</b><b>_</b><b>s</b><b>r</b><b>c</b> <b>a</b><b>n</b><b>d</b> <b>m</b><b>o</b><b>d</b><b>_</b><b>t</b><b>p</b><b>_</b><b>d</b><b>s</b><b>t</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>m</b><b>o</b><b>d</b><b>_</b><b>t</b><b>p</b><b>_</b><b>s</b><b>r</b><b>c</b><b>:</b><u>p</u><u>o</u><u>r</u><u>t</u>
+              <b>m</b><b>o</b><b>d</b><b>_</b><b>t</b><b>p</b><b>_</b><b>d</b><b>s</b><b>t</b><b>:</b><u>p</u><u>o</u><u>r</u><u>t</u>
+
+       Sets  the  TCP or UDP or SCTP source or destination port, respectively,
+       to <u>p</u><u>o</u><u>r</u><u>t</u>. Both IPv4 and IPv6 are supported.
+
+       In OpenFlow 1.1 and later, consistency rules allow these  actions  only
+       in  a  flow that matches only packets that contain a TCP or UDP or SCTP
+       header. See ``Inconsistencies’’, above, for more information.
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       OpenFlow 1.0 and 1.1 have specialized actions for these purposes. Open‐
+       Flow 1.2 and later do not, so Open vSwitch translates them to appropri‐
+       ate <b>O</b><b>F</b><b>P</b><b>A</b><b>T</b><b>_</b><b>S</b><b>E</b><b>T</b><b>_</b><b>F</b><b>I</b><b>E</b><b>L</b><b>D</b> actions for those versions,
+
+   <b>T</b><b>h</b><b>e</b> <b>d</b><b>e</b><b>c</b><b>_</b><b>t</b><b>t</b><b>l</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>d</b><b>e</b><b>c</b><b>_</b><b>t</b><b>t</b><b>l</b>
+              <b>d</b><b>e</b><b>c</b><b>_</b><b>t</b><b>t</b><b>l</b><b>(</b><u>i</u><u>d</u><u>1</u><b>,</b> [<u>i</u><u>d</u><u>2</u>]...<b>)</b>
+
+       Decrement TTL of IPv4 packet or hop limit of IPv6 packet. If the TTL or
+       hop limit is initially 0 or 1, no decrement occurs, as packets reaching
+       TTL zero must be rejected. Instead, Open vSwitch sends a  ``packet-in’’
+       message  with reason code <b>O</b><b>F</b><b>P</b><b>R</b><b>_</b><b>I</b><b>N</b><b>V</b><b>A</b><b>L</b><b>I</b><b>D</b><b>_</b><b>T</b><b>T</b><b>L</b> to each connected controller
+       that has enabled receiving such messages, and stops processing the cur‐
+       rent  set  of  actions.  (However,  if  the  current set of actions was
+       reached through <b>r</b><b>e</b><b>s</b><b>u</b><b>b</b><b>m</b><b>i</b><b>t</b>, the remaining actions in outer levels  resume
+       processing.)
+
+       As  an  Open  vSwitch  extension  to OpenFlow, this action supports the
+       ability to specify a list of controller IDs.  Open  vSwitch  will  only
+       send the message to controllers with the given ID or IDs. Specifying no
+       list is equivalent to specifying a single controller ID of zero.
+
+       Sets the TCP or UDP or SCTP source or destination  port,  respectively,
+       to <u>p</u><u>o</u><u>r</u><u>t</u>. Both IPv4 and IPv6 are supported.
+
+       In  OpenFlow  1.1 and later, consistency rules allow these actions only
+       in a flow that matches only  packets  that  contain  an  IPv4  or  IPv6
+       header. See ``Inconsistencies’’, above, for more information.
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       All versions of OpenFlow and Open vSwitch support this action.
+
+   <b>T</b><b>h</b><b>e</b> <b>s</b><b>e</b><b>t</b><b>_</b><b>m</b><b>p</b><b>l</b><b>s</b><b>_</b><b>l</b><b>a</b><b>b</b><b>e</b><b>l</b><b>,</b> <b>s</b><b>e</b><b>t</b><b>_</b><b>m</b><b>p</b><b>l</b><b>s</b><b>_</b><b>t</b><b>c</b><b>,</b> <b>a</b><b>n</b><b>d</b> <b>s</b><b>e</b><b>t</b><b>_</b><b>m</b><b>p</b><b>l</b><b>s</b><b>_</b><b>t</b><b>t</b><b>l</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>s</b><b>e</b><b>t</b><b>_</b><b>m</b><b>p</b><b>l</b><b>s</b><b>_</b><b>l</b><b>a</b><b>b</b><b>e</b><b>l</b><b>:</b><u>l</u><u>a</u><u>b</u><u>e</u><u>l</u>
+              <b>s</b><b>e</b><b>t</b><b>_</b><b>m</b><b>p</b><b>l</b><b>s</b><b>_</b><b>t</b><b>c</b><b>:</b><u>t</u><u>c</u>
+              <b>s</b><b>e</b><b>t</b><b>_</b><b>m</b><b>p</b><b>l</b><b>s</b><b>_</b><b>t</b><b>t</b><b>l</b><b>:</b><u>t</u><u>t</u><u>l</u>
+
+       The <b>s</b><b>e</b><b>t</b><b>_</b><b>m</b><b>p</b><b>l</b><b>s</b><b>_</b><b>l</b><b>a</b><b>b</b><b>e</b><b>l</b> action sets the label of the packet’s outer MPLS la‐
+       bel stack entry. <u>l</u><u>a</u><u>b</u><u>e</u><u>l</u> should be a 20-bit value that is decimal by  de‐
+       fault; use a <b>0</b><b>x</b> prefix to specify the value in hexadecimal.
+
+       The  <b>s</b><b>e</b><b>t</b><b>_</b><b>m</b><b>p</b><b>l</b><b>s</b><b>_</b><b>t</b><b>c</b>  action  sets  the traffic class of the packet’s outer
+       MPLS label stack entry. <u>t</u><u>c</u> should be in the range 0 to 7, inclusive.
+
+       The <b>s</b><b>e</b><b>t</b><b>_</b><b>m</b><b>p</b><b>l</b><b>s</b><b>_</b><b>t</b><b>t</b><b>l</b> action sets the TTL of the packet’s outer  MPLS  label
+       stack entry. <u>t</u><u>t</u><u>l</u> should be in the range 0 to 255 inclusive.
+
+       In  OpenFlow  1.1 and later, consistency rules allow these actions only
+       in a flow that matches only packets that contain an MPLS label (or fol‐
+       lowing  an  action that adds an MPLS label, e.g. <b>p</b><b>u</b><b>s</b><b>h</b><b>_</b><b>m</b><b>p</b><b>l</b><b>s</b><b>:</b><b>0</b><b>x</b><b>8</b><b>8</b><b>4</b><b>7</b>). See
+       ``Inconsistencies’’, above, for more information.
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       OpenFlow 1.0 does not support MPLS, but Open vSwitch  implements  these
+       actions  as  extensions. OpenFlow 1.1 has specialized actions for these
+       purposes. OpenFlow 1.2 and later do not,  so  Open  vSwitch  translates
+       them to appropriate <b>O</b><b>F</b><b>P</b><b>A</b><b>T</b><b>_</b><b>S</b><b>E</b><b>T</b><b>_</b><b>F</b><b>I</b><b>E</b><b>L</b><b>D</b> actions for those versions,
+
+   <b>T</b><b>h</b><b>e</b> <b>d</b><b>e</b><b>c</b><b>_</b><b>m</b><b>p</b><b>l</b><b>s</b><b>_</b><b>t</b><b>t</b><b>l</b> <b>a</b><b>n</b><b>d</b> <b>d</b><b>e</b><b>c</b><b>_</b><b>n</b><b>s</b><b>h</b><b>_</b><b>t</b><b>t</b><b>l</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>d</b><b>e</b><b>c</b><b>_</b><b>m</b><b>p</b><b>l</b><b>s</b><b>_</b><b>t</b><b>t</b><b>l</b>
+              <b>d</b><b>e</b><b>c</b><b>_</b><b>n</b><b>s</b><b>h</b><b>_</b><b>t</b><b>t</b><b>l</b>
+
+       These  actions decrement the TTL of the packet’s outer MPLS label stack
+       entry or its NSH header, respectively. If the TTL is initially 0 or  1,
+       no  decrement  occurs. Instead, Open vSwitch sends a ``packet-in’’ mes‐
+       sage with reason code <b>B</b><b>O</b><b>F</b><b>P</b><b>R</b><b>_</b><b>I</b><b>N</b><b>V</b><b>A</b><b>L</b><b>I</b><b>D</b><b>_</b><b>T</b><b>T</b><b>L</b> to OpenFlow controllers with ID
+       0,  if it has enabled receiving them. Processing the current set of ac‐
+       tions then stops. (However, if the current set of actions  was  reached
+       through <b>r</b><b>e</b><b>s</b><b>u</b><b>b</b><b>m</b><b>i</b><b>t</b>, remaining actions in outer levels resume processing.)
+
+       In OpenFlow 1.1 and later, consistency rules allow this actions only in
+       a flow that matches only packets that contain an MPLS label or  an  NSH
+       header, respectively. See ``Inconsistencies’’, above, for more informa‐
+       tion.
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       Open vSwitch 1.11 introduced support for MPLS. OpenFlow 1.1  and  later
+       support <b>d</b><b>e</b><b>c</b><b>_</b><b>m</b><b>p</b><b>l</b><b>s</b><b>_</b><b>t</b><b>t</b><b>l</b>. Open vSwitch implements <b>d</b><b>e</b><b>c</b><b>_</b><b>m</b><b>p</b><b>l</b><b>s</b><b>_</b><b>t</b><b>t</b><b>l</b> as an exten‐
+       sion to OpenFlow 1.0.
+
+       Open vSwitch 2.8 introduced support for NSH,  although  the  NSH  draft
+       changed  after  release so that only Open vSwitch 2.9 and later conform
+       to the final protocol specification. The  <b>d</b><b>e</b><b>c</b><b>_</b><b>n</b><b>s</b><b>h</b><b>_</b><b>t</b><b>t</b><b>l</b>  action  and  NSH
+       support  in  general  is an Open vSwitch extension not supported by any
+       version of OpenFlow.
+
+<b>M</b><b>E</b><b>T</b><b>A</b><b>D</b><b>A</b><b>T</b><b>A</b> <b>A</b><b>C</b><b>T</b><b>I</b><b>O</b><b>N</b><b>S</b>
+   <b>T</b><b>h</b><b>e</b> <b>s</b><b>e</b><b>t</b><b>_</b><b>t</b><b>u</b><b>n</b><b>n</b><b>e</b><b>l</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>s</b><b>e</b><b>t</b><b>_</b><b>t</b><b>u</b><b>n</b><b>n</b><b>e</b><b>l</b><b>:</b><u>i</u><u>d</u>
+              <b>s</b><b>e</b><b>t</b><b>_</b><b>t</b><b>u</b><b>n</b><b>n</b><b>e</b><b>l</b><b>6</b><b>4</b><b>:</b><u>i</u><u>d</u>
+
+       Many kinds of tunnels support a tunnel ID, e.g. VXLAN and Geneve have a
+       24-bit  VNI,  and  GRE has an optional 32-bit key. This action sets the
+       value used for tunnel ID in such tunneled packets, although whether  it
+       is  used for a particular tunnel depends on the tunnel’s configuration.
+       See the tunnel ID documentation in <b>o</b><b>v</b><b>s</b><b>-</b><b>f</b><b>i</b><b>e</b><b>l</b><b>d</b><b>s</b>(7) for more information.
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       These actions are OpenFlow extensions.  <b>s</b><b>e</b><b>t</b><b>_</b><b>t</b><b>u</b><b>n</b><b>n</b><b>e</b><b>l</b>  was  introduced  in
+       Open  vSwitch 1.0. <b>s</b><b>e</b><b>t</b><b>_</b><b>t</b><b>u</b><b>n</b><b>n</b><b>e</b><b>l</b><b>6</b><b>4</b>, which is needed if <u>i</u><u>d</u> is wider than 32
+       bits, was added in Open vSwitch 1.1. Both actions always set the entire
+       tunnel ID field.
+
+       Open vSwitch supports these actions in all versions of OpenFlow, but in
+       OpenFlow 1.2 and later it translates them to an  appropriate  standard‐
+       ized <b>O</b><b>F</b><b>P</b><b>A</b><b>T</b><b>_</b><b>S</b><b>E</b><b>T</b><b>_</b><b>F</b><b>I</b><b>E</b><b>L</b><b>D</b> action.
+
+   <b>T</b><b>h</b><b>e</b> <b>s</b><b>e</b><b>t</b><b>_</b><b>q</b><b>u</b><b>e</b><b>u</b><b>e</b> <b>a</b><b>n</b><b>d</b> <b>p</b><b>o</b><b>p</b><b>_</b><b>q</b><b>u</b><b>e</b><b>u</b><b>e</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>s</b><b>e</b><b>t</b><b>_</b><b>q</b><b>u</b><b>e</b><b>u</b><b>e</b><b>:</b><u>q</u><u>u</u><u>e</u><u>u</u><u>e</u>
+              <b>p</b><b>o</b><b>p</b><b>_</b><b>q</b><b>u</b><b>e</b><b>u</b><b>e</b>
+
+       The <b>s</b><b>e</b><b>t</b><b>_</b><b>q</b><b>u</b><b>e</b><b>u</b><b>e</b> action sets the queue ID to be used for subsequent output
+       actions to <u>q</u><u>u</u><u>e</u><u>u</u><u>e</u>, which must be a 32-bit integer. The range of meaning‐
+       ful  values of <u>q</u><u>u</u><u>e</u><u>u</u><u>e</u>, and their meanings, varies greatly from one Open‐
+       Flow implementation to another. Even within  a  single  implementation,
+       there is no guarantee that all OpenFlow ports have the same queues con‐
+       figured or that all OpenFlow ports in an implementation can be  config‐
+       ured  the same way queue-wise. For more information, see the documenta‐
+       tion for the output queue field in <b>o</b><b>v</b><b>s</b><b>-</b><b>f</b><b>i</b><b>e</b><b>l</b><b>d</b><b>s</b>(7).
+
+       The <b>p</b><b>o</b><b>p</b><b>_</b><b>q</b><b>u</b><b>e</b><b>u</b><b>e</b> restores the output queue to the  default  that  was  set
+       when the packet entered the switch (generally 0).
+
+       Four billion queues ought to be enough for anyone: ⟨https://
+       mailman.stanford.edu/pipermail/openflow-spec/2009-August/000394.html⟩
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       OpenFlow 1.1 introduced the <b>s</b><b>e</b><b>t</b><b>_</b><b>q</b><b>u</b><b>e</b><b>u</b><b>e</b> action. Open  vSwitch  also  sup‐
+       ports it as an extension in OpenFlow 1.0.
+
+       The <b>p</b><b>o</b><b>p</b><b>_</b><b>q</b><b>u</b><b>e</b><b>u</b><b>e</b> action is an Open vSwitch extension.
+
+<b>F</b><b>I</b><b>R</b><b>E</b><b>W</b><b>A</b><b>L</b><b>L</b><b>I</b><b>N</b><b>G</b> <b>A</b><b>C</b><b>T</b><b>I</b><b>O</b><b>N</b><b>S</b>
+       Open  vSwitch  is often used to implement a firewall. The preferred way
+       to implement a firewall is ``connection tracking,’’ that  is,  to  keep
+       track of the connection state of individual TCP sessions. The <b>c</b><b>t</b> action
+       described in this section, added in Open vSwitch 2.5,  implements  con‐
+       nection tracking. For new deployments, it is the recommended way to im‐
+       plement firewalling with Open vSwitch.
+
+       Before <b>c</b><b>t</b> was added, Open vSwitch did not  have  built-in  support  for
+       connection  tracking. Instead, Open vSwitch supported the <b>l</b><b>e</b><b>a</b><b>r</b><b>n</b> action,
+       which allows a received packet to add a flow to an OpenFlow flow table.
+       This  could  be used to implement a primitive form of connection track‐
+       ing: packets passing through the firewall in one direction could create
+       flows  that  allowed  response packets back through the firewall in the
+       other direction. The additional <b>f</b><b>i</b><b>n</b><b>_</b><b>t</b><b>i</b><b>m</b><b>e</b><b>o</b><b>u</b><b>t</b> action allowed the  learned
+       flows to expire quickly after TCP session termination.
+
+   <b>T</b><b>h</b><b>e</b> <b>c</b><b>t</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>c</b><b>t</b><b>(</b><u>a</u><u>r</u><u>g</u><u>u</u><u>m</u><u>e</u><u>n</u><u>t</u>]...<b>)</b>
+              <b>c</b><b>t</b><b>(</b><b>c</b><b>o</b><b>m</b><b>m</b><b>i</b><b>t</b>[<b>,</b> <u>a</u><u>r</u><u>g</u><u>u</u><u>m</u><u>e</u><u>n</u><u>t</u>]...<b>)</b>
+
+       The  action has two modes of operation, distinguished by whether <b>c</b><b>o</b><b>m</b><b>m</b><b>i</b><b>t</b>
+       is present. The following arguments may be present in either mode:
+
+              <b>z</b><b>o</b><b>n</b><b>e</b><b>=</b><u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>
+                     A zone is a 16-bit id that isolates connections into sep‐
+                     arate  domains, allowing overlapping network addresses in
+                     different zones. If a zone is not provided, then the  de‐
+                     fault is 0. The <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u> may be specified either as a 16-bit
+                     integer literal or a field or subfield in the syntax  de‐
+                     scribed under ``Field Specifications’’ above.
+
+       Without  <b>c</b><b>o</b><b>m</b><b>m</b><b>i</b><b>t</b>,  this  action  sends the packet through the connection
+       tracker. The connection tracker keeps track of the state of TCP connec‐
+       tions  for packets passed through it. For each packet through a connec‐
+       tion, it checks that it satisfies TCP invariants and signals  the  con‐
+       nection state to later actions using the <b>c</b><b>t</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>e</b> metadata field, which
+       is documented in <b>o</b><b>v</b><b>s</b><b>-</b><b>f</b><b>i</b><b>e</b><b>l</b><b>d</b><b>s</b>(7).
+
+       In this form, <b>c</b><b>t</b> forks the OpenFlow pipeline:
+
+              •      In one fork, <b>c</b><b>t</b>  passes  the  packet  to  the  connection
+                     tracker.  Afterward,  it  reinjects  the  packet into the
+                     OpenFlow pipeline with  the  connection  tracking  fields
+                     initialized.  The <b>c</b><b>t</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>e</b> field is initialized with con‐
+                     nection state and <b>c</b><b>t</b><b>_</b><b>z</b><b>o</b><b>n</b><b>e</b> to the connection tracking zone
+                     specified  on the <b>z</b><b>o</b><b>n</b><b>e</b> argument. If the connection is one
+                     that is already tracked, <b>c</b><b>t</b><b>_</b><b>m</b><b>a</b><b>r</b><b>k</b> and <b>c</b><b>t</b><b>_</b><b>l</b><b>a</b><b>b</b><b>e</b><b>l</b> to its  ex‐
+                     isting  mark  and label, respectively; otherwise they are
+                     zeroed. In addition, <b>c</b><b>t</b><b>_</b><b>n</b><b>w</b><b>_</b><b>p</b><b>r</b><b>o</b><b>t</b><b>o</b>,  <b>c</b><b>t</b><b>_</b><b>n</b><b>w</b><b>_</b><b>s</b><b>r</b><b>c</b>,  <b>c</b><b>t</b><b>_</b><b>n</b><b>w</b><b>_</b><b>d</b><b>s</b><b>t</b>,
+                     <b>c</b><b>t</b><b>_</b><b>i</b><b>p</b><b>v</b><b>6</b><b>_</b><b>s</b><b>r</b><b>c</b>,  <b>c</b><b>t</b><b>_</b><b>i</b><b>p</b><b>v</b><b>6</b><b>_</b><b>d</b><b>s</b><b>t</b>,  <b>c</b><b>t</b><b>_</b><b>t</b><b>p</b><b>_</b><b>s</b><b>r</b><b>c</b>,  and <b>c</b><b>t</b><b>_</b><b>t</b><b>p</b><b>_</b><b>d</b><b>s</b><b>t</b> are
+                     initialized appropriately for the original direction con‐
+                     nection.  See the <b>r</b><b>e</b><b>s</b><b>u</b><b>b</b><b>m</b><b>i</b><b>t</b> action for a way to search the
+                     flow table with the connection tracking  original  direc‐
+                     tion  fields  swapped with the packet 5-tuple fields. See
+                     <b>o</b><b>v</b><b>s</b><b>-</b><b>f</b><b>i</b><b>e</b><b>l</b><b>d</b><b>s</b>(7) for  details  on  the  connection  tracking
+                     fields.
+
+              •      In  the  other  fork, the original instance of the packet
+                     continues independent processing following the <b>c</b><b>t</b> action.
+                     The <b>c</b><b>t</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>e</b> field and other connection tracking metadata
+                     are cleared.
+
+       Without <b>c</b><b>o</b><b>m</b><b>m</b><b>i</b><b>t</b>, the <b>c</b><b>t</b> action accepts the following arguments:
+
+              <b>t</b><b>a</b><b>b</b><b>l</b><b>e</b><b>=</b><u>t</u><u>a</u><u>b</u><u>l</u><u>e</u>
+                     Sets the OpenFlow table where the packet  is  reinjected.
+                     The  <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u>  must be a number between 0 and 254 inclusive,
+                     or a table’s name. If <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> is not  specified,  then  the
+                     packet is not reinjected.
+
+              <b>n</b><b>a</b><b>t</b>
+              <b>n</b><b>a</b><b>t</b><b>(</b><u>t</u><u>y</u><u>p</u><u>e</u><b>=</b><u>a</u><u>d</u><u>d</u><u>r</u><u>s</u>[<b>:</b><u>p</u><u>o</u><u>r</u><u>t</u><u>s</u>][<b>,</b><u>f</u><u>l</u><u>a</u><u>g</u>]...<b>)</b>
+                   Specify address and port translation for the connection be‐
+                   ing tracked. The <u>t</u><u>y</u><u>p</u><u>e</u> must be <b>s</b><b>r</b><b>c</b>, for source  address/port
+                   translation  (SNAT),  or  <b>d</b><b>s</b><b>t</b>, for destination address/port
+                   translation (DNAT). Setting up address  translation  for  a
+                   new connection takes effect only if the connection is later
+                   committed with <b>c</b><b>t</b><b>(</b><b>c</b><b>o</b><b>m</b><b>m</b><b>i</b><b>t</b>...<b>)</b>.
+
+                   The <b>s</b><b>r</b><b>c</b> and <b>d</b><b>s</b><b>t</b> options take the following arguments:
+
+                   <u>a</u><u>d</u><u>d</u><u>r</u><u>s</u>  The IP address <u>a</u><u>d</u><u>d</u><u>r</u> or range <u>a</u><u>d</u><u>d</u><u>r</u><u>1</u><b>-</b><u>a</u><u>d</u><u>d</u><u>r</u><u>2</u> from  which
+                          the  translated  address should be selected. If only
+                          one address is given, then that address will  always
+                          be  selected, otherwise the address selection can be
+                          informed by the  optional  persistent  flag  as  de‐
+                          scribed  below. Either IPv4 or IPv6 addresses can be
+                          provided, but both addresses must  be  of  the  same
+                          type, and the datapath behavior is undefined in case
+                          of providing IPv4 address range for an IPv6  packet,
+                          or  IPv6  address range for an IPv4 packet. IPv6 ad‐
+                          dresses must be bracketed with <b>[</b> and  <b>]</b>  if  a  port
+                          range is also given.
+
+                   <u>p</u><u>o</u><u>r</u><u>t</u><u>s</u>  The  L4  <u>p</u><u>o</u><u>r</u><u>t</u>  or  range  <u>p</u><u>o</u><u>r</u><u>t</u><u>1</u><b>-</b><u>p</u><u>o</u><u>r</u><u>t</u><u>2</u> from which the
+                          translated port should be selected.  In  case  of  a
+                          mapping  conflict  the datapath may choose any other
+                          non-conflicting port number instead,  even  when  no
+                          port  range  is specified. The port number selection
+                          can be informed by  the  optional  <b>r</b><b>a</b><b>n</b><b>d</b><b>o</b><b>m</b>  and  <b>h</b><b>a</b><b>s</b><b>h</b>
+                          flags described below.
+
+                   The optional flags are:
+
+                   <b>r</b><b>a</b><b>n</b><b>d</b><b>o</b><b>m</b> The  selection  of  the  port  from  the given range
+                          should be done using a  fresh  random  number.  This
+                          flag is mutually exclusive with <b>h</b><b>a</b><b>s</b><b>h</b>.
+
+                   <b>h</b><b>a</b><b>s</b><b>h</b>   The  selection  of  the  port  from  the given range
+                          should be done using a datapath specific hash of the
+                          packet’s IP addresses and the other, non-mapped port
+                          number. This flag is mutually exclusive with <b>r</b><b>a</b><b>n</b><b>d</b><b>o</b><b>m</b>.
+
+                   <b>p</b><b>e</b><b>r</b><b>s</b><b>i</b><b>s</b><b>t</b><b>e</b><b>n</b><b>t</b>
+                          The selection of the IP address from the given range
+                          should  be done so that the same mapping can be pro‐
+                          vided after the system restarts.
+
+                   If <b>a</b><b>l</b><b>g</b> is specified for the committing <b>c</b><b>t</b> action that  also
+                   includes <b>n</b><b>a</b><b>t</b> with a <b>s</b><b>r</b><b>c</b> or <b>d</b><b>s</b><b>t</b> attribute, then the datapath
+                   tries to set up the helper to be NAT-aware. This  function‐
+                   ality  is datapath specific and may not be supported by all
+                   datapaths.
+
+                   A ``bare’’ <b>n</b><b>a</b><b>t</b> argument with no options will only translate
+                   the  packet  being  processed in the way the connection has
+                   been set up with an earlier, committed <b>c</b><b>t</b> action. A <b>n</b><b>a</b><b>t</b> ac‐
+                   tion with <b>s</b><b>r</b><b>c</b> or <b>d</b><b>s</b><b>t</b>, when applied to a packet belonging to
+                   an established (rather than new)  connection,  will  behave
+                   the same as a bare <b>n</b><b>a</b><b>t</b>.
+
+                   Open vSwitch 2.6 introduced <b>n</b><b>a</b><b>t</b>. Linux 4.6 was the earliest
+                   upstream kernel that implemented <b>c</b><b>t</b> support for <b>n</b><b>a</b><b>t</b>.
+
+       With <b>c</b><b>o</b><b>m</b><b>m</b><b>i</b><b>t</b>, the connection tracker commits the connection to the  con‐
+       nection  tracking  module. The <b>c</b><b>o</b><b>m</b><b>m</b><b>i</b><b>t</b> flag should only be used from the
+       pipeline within the first fork of <b>c</b><b>t</b> without <b>c</b><b>o</b><b>m</b><b>m</b><b>i</b><b>t</b>. Information  about
+       the connection is stored beyond the lifetime of the packet in the pipe‐
+       line. Some <b>c</b><b>t</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>e</b> flags are only available for committed connections.
+
+       The following options are available only with <b>c</b><b>o</b><b>m</b><b>m</b><b>i</b><b>t</b>:
+
+              <b>f</b><b>o</b><b>r</b><b>c</b><b>e</b>  A committed connection always has the  directionality  of
+                     the  packet that caused the connection to be committed in
+                     the first place. This is the  ``original  direction’’  of
+                     the connection, and the opposite direction is the ``reply
+                     direction’’. If a connection is already committed, but it
+                     is  in  the wrong direction, <b>f</b><b>o</b><b>r</b><b>c</b><b>e</b> effectively terminates
+                     the existing connection and starts a new one in the  cur‐
+                     rent  direction.  This flag has no effect if the original
+                     direction of the connection is already the same  as  that
+                     of the current packet.
+
+              <b>e</b><b>x</b><b>e</b><b>c</b><b>(</b><u>a</u><u>c</u><u>t</u><u>i</u><u>o</u><u>n</u>...<b>)</b>
+                     Perform  each  <u>a</u><u>c</u><u>t</u><u>i</u><u>o</u><u>n</u>  within  the  context of connection
+                     tracking. Only actions which modify the <b>c</b><b>t</b><b>_</b><b>m</b><b>a</b><b>r</b><b>k</b> or <b>c</b><b>t</b><b>_</b><b>l</b><b>a</b><b>‐</b>
+                     <b>b</b><b>e</b><b>l</b>  fields  are  accepted  within <b>e</b><b>x</b><b>e</b><b>c</b> action, and these
+                     fields may only be modified with this option.  For  exam‐
+                     ple:
+
+                     <b>s</b><b>e</b><b>t</b><b>_</b><b>f</b><b>i</b><b>e</b><b>l</b><b>d</b><b>:</b><u>v</u><u>a</u><u>l</u><u>u</u><u>e</u><b>[</b><b>/</b><u>m</u><u>a</u><u>s</u><u>k</u><b>]</b><b>-</b>>gt;>gt;<b>c</b><b>t</b><b>_</b><b>m</b><b>a</b><b>r</b><b>k</b>
+                            Store a 32-bit metadata value with the connection.
+                            Subsequent lookups for packets in this  connection
+                            will  populate  <b>c</b><b>t</b><b>_</b><b>m</b><b>a</b><b>r</b><b>k</b> when the packet is sent to
+                            the connection tracker with the table specified.
+
+                     <b>s</b><b>e</b><b>t</b><b>_</b><b>f</b><b>i</b><b>e</b><b>l</b><b>d</b><b>:</b><u>v</u><u>a</u><u>l</u><u>u</u><u>e</u><b>[</b><b>/</b><u>m</u><u>a</u><u>s</u><u>k</u><b>]</b><b>-</b>>gt;>gt;<b>c</b><b>t</b><b>_</b><b>l</b><b>a</b><b>b</b><b>e</b><b>l</b>
+                            Store a 128-bit metadata value  with  the  connec‐
+                            tion.  Subsequent lookups for packets in this con‐
+                            nection will populate <b>c</b><b>t</b><b>_</b><b>l</b><b>a</b><b>b</b><b>e</b><b>l</b> when the packet  is
+                            sent  to  the  connection  tracker  with the table
+                            specified.
+
+              <b>a</b><b>l</b><b>g</b><b>=</b><u>a</u><u>l</u><u>g</u>
+                     Specify application layer gateway <u>a</u><u>l</u><u>g</u> to  track  specific
+                     connection  types.  If subsequent related connections are
+                     sent through the <b>c</b><b>t</b> action, then  the  <b>r</b><b>e</b><b>l</b>  flag  in  the
+                     <b>c</b><b>t</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>e</b> field will be set. Supported types include:
+
+                     <b>f</b><b>t</b><b>p</b>    Look  for  negotiation  of  FTP  data connections.
+                            Specify this option for FTP control connections to
+                            detect  related  data connections and populate the
+                            <b>r</b><b>e</b><b>l</b> flag for the data connections.
+
+                     <b>t</b><b>f</b><b>t</b><b>p</b>   Look for negotiation  of  TFTP  data  connections.
+                            Specify  this  option for TFTP control connections
+                            to detect related data  connections  and  populate
+                            the <b>r</b><b>e</b><b>l</b> flag for the data connections.
+
+                     Related connections inherit <b>c</b><b>t</b><b>_</b><b>m</b><b>a</b><b>r</b><b>k</b> from that stored with
+                     the original connection (i.e. the connection  created  by
+                     <b>c</b><b>t</b><b>(</b><b>a</b><b>l</b><b>g</b><b>=</b>...<b>)</b>).
+
+       With  the  Linux datapath, global sysctl options affect <b>c</b><b>t</b> behavior. In
+       particular, if <b>n</b><b>e</b><b>t</b><b>.</b><b>n</b><b>e</b><b>t</b><b>f</b><b>i</b><b>l</b><b>t</b><b>e</b><b>r</b><b>.</b><b>n</b><b>f</b><b>_</b><b>c</b><b>o</b><b>n</b><b>n</b><b>t</b><b>r</b><b>a</b><b>c</b><b>k</b><b>_</b><b>h</b><b>e</b><b>l</b><b>p</b><b>e</b><b>r</b> is enabled,  which  it
+       is  by  default until Linux 4.7, then application layer gateway helpers
+       may be executed even if <b>a</b><b>l</b><b>g</b> is not specified. For security reasons, the
+       netfilter  team  recommends  users disable this option. For further de‐
+       tails, please see ⟨http://www.netfilter.org/news.html#2012-04-03⟩ .
+
+       The <b>c</b><b>t</b> action may be used as a primitive to  construct  stateful  fire‐
+       walls by selectively committing some traffic, then matching <b>c</b><b>t</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>e</b> to
+       allow established connections while denying new connections.  The  fol‐
+       lowing  flows  provide an example of how to implement a simple firewall
+       that allows new connections from port 1 to port 2, and only allows  es‐
+       tablished connections to send traffic from port 2 to port 1:
+
+       <b>t</b><b>a</b><b>b</b><b>l</b><b>e</b><b>=</b><b>0</b><b>,</b><b>p</b><b>r</b><b>i</b><b>o</b><b>r</b><b>i</b><b>t</b><b>y</b><b>=</b><b>1</b><b>,</b><b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>=</b><b>d</b><b>r</b><b>o</b><b>p</b>
+       <b>t</b><b>a</b><b>b</b><b>l</b><b>e</b><b>=</b><b>0</b><b>,</b><b>p</b><b>r</b><b>i</b><b>o</b><b>r</b><b>i</b><b>t</b><b>y</b><b>=</b><b>1</b><b>0</b><b>,</b><b>a</b><b>r</b><b>p</b><b>,</b><b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>=</b><b>n</b><b>o</b><b>r</b><b>m</b><b>a</b><b>l</b>
+       <b>t</b><b>a</b><b>b</b><b>l</b><b>e</b><b>=</b><b>0</b><b>,</b><b>p</b><b>r</b><b>i</b><b>o</b><b>r</b><b>i</b><b>t</b><b>y</b><b>=</b><b>1</b><b>0</b><b>0</b><b>,</b><b>i</b><b>p</b><b>,</b><b>c</b><b>t</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>e</b><b>=</b><b>-</b><b>t</b><b>r</b><b>k</b><b>,</b><b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>=</b><b>c</b><b>t</b><b>(</b><b>t</b><b>a</b><b>b</b><b>l</b><b>e</b><b>=</b><b>1</b><b>)</b>
+       <b>t</b><b>a</b><b>b</b><b>l</b><b>e</b><b>=</b><b>1</b><b>,</b><b>i</b><b>n</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b><b>=</b><b>1</b><b>,</b><b>i</b><b>p</b><b>,</b><b>c</b><b>t</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>e</b><b>=</b><b>+</b><b>t</b><b>r</b><b>k</b><b>+</b><b>n</b><b>e</b><b>w</b><b>,</b><b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>=</b><b>c</b><b>t</b><b>(</b><b>c</b><b>o</b><b>m</b><b>m</b><b>i</b><b>t</b><b>)</b><b>,</b><b>2</b>
+       <b>t</b><b>a</b><b>b</b><b>l</b><b>e</b><b>=</b><b>1</b><b>,</b><b>i</b><b>n</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b><b>=</b><b>1</b><b>,</b><b>i</b><b>p</b><b>,</b><b>c</b><b>t</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>e</b><b>=</b><b>+</b><b>t</b><b>r</b><b>k</b><b>+</b><b>e</b><b>s</b><b>t</b><b>,</b><b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>=</b><b>2</b>
+       <b>t</b><b>a</b><b>b</b><b>l</b><b>e</b><b>=</b><b>1</b><b>,</b><b>i</b><b>n</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b><b>=</b><b>2</b><b>,</b><b>i</b><b>p</b><b>,</b><b>c</b><b>t</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>e</b><b>=</b><b>+</b><b>t</b><b>r</b><b>k</b><b>+</b><b>n</b><b>e</b><b>w</b><b>,</b><b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>=</b><b>d</b><b>r</b><b>o</b><b>p</b>
+       <b>t</b><b>a</b><b>b</b><b>l</b><b>e</b><b>=</b><b>1</b><b>,</b><b>i</b><b>n</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b><b>=</b><b>2</b><b>,</b><b>i</b><b>p</b><b>,</b><b>c</b><b>t</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>e</b><b>=</b><b>+</b><b>t</b><b>r</b><b>k</b><b>+</b><b>e</b><b>s</b><b>t</b><b>,</b><b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>=</b><b>1</b>
+
+
+       If  <b>c</b><b>t</b> is executed on IPv4 (or IPv6) fragments, then the message is im‐
+       plicitly reassembled before sending to the connection tracker  and  re‐
+       fragmented upon output, to the original maximum received fragment size.
+       Reassembly occurs within the context of the zone, meaning that IP frag‐
+       ments  in different zones are not assembled together. Pipeline process‐
+       ing for the initial fragments is halted. When the final fragment is re‐
+       ceived,  the message is assembled and pipeline processing continues for
+       that flow. Packet ordering is not guaranteed by IP protocols, so it  is
+       not possible to determine which IP fragment will cause message reassem‐
+       bly (and therefore  continue  pipeline  processing).  As  such,  it  is
+       strongly  recommended  that multiple flows should not execute <b>c</b><b>t</b> to re‐
+       assemble fragments from the same IP message.
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       The <b>c</b><b>t</b> action was introduced in Open vSwitch 2.5. Some of its  features
+       were introduced later, noted individually above.
+
+   <b>T</b><b>h</b><b>e</b> <b>c</b><b>t</b><b>_</b><b>c</b><b>l</b><b>e</b><b>a</b><b>r</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>c</b><b>t</b><b>_</b><b>c</b><b>l</b><b>e</b><b>a</b><b>r</b>
+
+       Clears  connection  tracking  state  from  the  flow, zeroing <b>c</b><b>t</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>e</b>,
+       <b>c</b><b>t</b><b>_</b><b>z</b><b>o</b><b>n</b><b>e</b>, <b>c</b><b>t</b><b>_</b><b>m</b><b>a</b><b>r</b><b>k</b>, and <b>c</b><b>t</b><b>_</b><b>l</b><b>a</b><b>b</b><b>e</b><b>l</b>.
+
+       This action was introduced in Open vSwitch 2.6.90.
+
+   <b>T</b><b>h</b><b>e</b> <b>l</b><b>e</b><b>a</b><b>r</b><b>n</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>l</b><b>e</b><b>a</b><b>r</b><b>n</b><b>(</b><u>a</u><u>r</u><u>g</u><u>u</u><u>m</u><u>e</u><u>n</u><u>t</u>...<b>)</b>
+
+       The <b>l</b><b>e</b><b>a</b><b>r</b><b>n</b> action adds or modifies a flow in an OpenFlow table,  similar
+       to  <b>o</b><b>v</b><b>s</b><b>-</b><b>o</b><b>f</b><b>c</b><b>t</b><b>l</b>  <b>-</b><b>-</b><b>s</b><b>t</b><b>r</b><b>i</b><b>c</b><b>t</b>  <b>m</b><b>o</b><b>d</b><b>-</b><b>f</b><b>l</b><b>o</b><b>w</b><b>s</b>.  The  arguments  specify  the match
+       fields, actions, and other properties of the flow to be added or  modi‐
+       fied.
+
+       Match  fields  for  the new flow are specified as follows. At least one
+       match field should ordinarily be specified:
+
+              <u>f</u><u>i</u><u>e</u><u>l</u><u>d</u><b>=</b><u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>
+                     Specifies that <u>f</u><u>i</u><u>e</u><u>l</u><u>d</u>, in the new  flow,  must  match  the
+                     literal  <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>,  e.g. <b>d</b><b>l</b><b>_</b><b>t</b><b>y</b><b>p</b><b>e</b><b>=</b><b>0</b><b>x</b><b>8</b><b>0</b><b>0</b>. Shorthand match syn‐
+                     tax, such as <b>i</b><b>p</b> in place of <b>d</b><b>l</b><b>_</b><b>t</b><b>y</b><b>p</b><b>e</b><b>=</b><b>0</b><b>x</b><b>8</b><b>0</b><b>0</b>,  is  not  sup‐
+                     ported.
+
+              <u>f</u><u>i</u><u>e</u><u>l</u><u>d</u><b>=</b><u>s</u><u>r</u><u>c</u>
+                     Specifies that <u>f</u><u>i</u><u>e</u><u>l</u><u>d</u> in the new flow must match <u>s</u><u>r</u><u>c</u> taken
+                     from the packet currently being processed.  For  example,
+                     <b>u</b><b>d</b><b>p</b><b>_</b><b>d</b><b>s</b><b>t</b><b>=</b><b>u</b><b>d</b><b>p</b><b>_</b><b>s</b><b>r</b><b>c</b>, applied to a UDP packet with source port
+                     53, creates a flow which matches  <b>u</b><b>d</b><b>p</b><b>_</b><b>d</b><b>s</b><b>t</b><b>=</b><b>5</b><b>3</b>.  <u>f</u><u>i</u><u>e</u><u>l</u><u>d</u>  and
+                     <u>s</u><u>r</u><u>c</u> must have the same width.
+
+              <u>f</u><u>i</u><u>e</u><u>l</u><u>d</u>  Shorthand  for  the  previous form when <u>f</u><u>i</u><u>e</u><u>l</u><u>d</u> and <u>s</u><u>r</u><u>c</u> are
+                     the same. For example, <b>u</b><b>d</b><b>p</b><b>_</b><b>d</b><b>s</b><b>t</b>, applied to a  UDP  packet
+                     with  destination  port  53, creates a flow which matches
+                     <b>u</b><b>d</b><b>p</b><b>_</b><b>d</b><b>s</b><b>t</b><b>=</b><b>5</b><b>3</b>.
+
+       The <u>f</u><u>i</u><u>e</u><u>l</u><u>d</u> and <u>s</u><u>r</u><u>c</u> arguments above should be fields or subfields in  the
+       syntax described under ``Field Specifications’’ above.
+
+       Match  field  specifications must honor prerequisites for both the flow
+       with the <b>l</b><b>e</b><b>a</b><b>r</b><b>n</b> and the new flow that it creates. Consider the following
+       complete flow, in the syntax accepted by <b>o</b><b>v</b><b>s</b><b>-</b><b>o</b><b>f</b><b>c</b><b>t</b><b>l</b>. If the flow’s match
+       on <b>u</b><b>d</b><b>p</b> were omitted, then the flow would not satisfy the  prerequisites
+       for  the  <b>l</b><b>e</b><b>a</b><b>r</b><b>n</b>  action’s  use of <b>u</b><b>d</b><b>p</b><b>_</b><b>s</b><b>r</b><b>c</b>. If <b>d</b><b>l</b><b>_</b><b>t</b><b>y</b><b>p</b><b>e</b><b>=</b><b>0</b><b>x</b><b>8</b><b>0</b><b>0</b> or <b>n</b><b>w</b><b>_</b><b>p</b><b>r</b><b>o</b><b>t</b><b>o</b>
+       were omitted from <b>l</b><b>e</b><b>a</b><b>r</b><b>n</b>, then the new flow would not satisfy  the  pre‐
+       requisite  for  its match on <b>u</b><b>d</b><b>p</b><b>_</b><b>d</b><b>s</b><b>t</b>. For more information on prerequi‐
+       sites, please refer to <b>o</b><b>v</b><b>s</b><b>-</b><b>f</b><b>i</b><b>e</b><b>l</b><b>d</b><b>s</b>(7):
+
+               <b>u</b><b>d</b><b>p</b><b>,</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b><b>=</b><b>l</b><b>e</b><b>a</b><b>r</b><b>n</b><b>(</b><b>d</b><b>l</b><b>_</b><b>t</b><b>y</b><b>p</b><b>e</b><b>=</b><b>0</b><b>x</b><b>8</b><b>0</b><b>0</b><b>,</b> <b>n</b><b>w</b><b>_</b><b>p</b><b>r</b><b>o</b><b>t</b><b>o</b><b>=</b><b>1</b><b>7</b><b>,</b> <b>u</b><b>d</b><b>p</b><b>_</b><b>d</b><b>s</b><b>t</b><b>=</b><b>u</b><b>d</b><b>p</b><b>_</b><b>s</b><b>r</b><b>c</b><b>)</b>
+
+
+       Actions for the new flow are specified as follows. At least one  action
+       should ordinarily be specified:
+
+              <b>l</b><b>o</b><b>a</b><b>d</b><b>:</b><u>v</u><u>a</u><u>l</u><u>u</u><u>e</u><b>-</b>>gt;>gt;<u>d</u><u>s</u><u>t</u>
+                     Adds a <b>l</b><b>o</b><b>a</b><b>d</b> action to the new flow that loads the literal
+                     <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u> into <u>d</u><u>s</u><u>t</u>. The syntax is the same as the <b>l</b><b>o</b><b>a</b><b>d</b> action
+                     explained in the ``Header Modification’’ section.
+
+              <b>l</b><b>o</b><b>a</b><b>d</b><b>:</b><u>s</u><u>r</u><u>c</u><b>-</b>>gt;>gt;<u>d</u><u>s</u><u>t</u>
+                     Adds  a  <b>l</b><b>o</b><b>a</b><b>d</b>  action  to  the new flow that loads <u>s</u><u>r</u><u>c</u>, a
+                     field or subfield from the packet being  processed,  into
+                     <u>d</u><u>s</u><u>t</u>.
+
+              <b>o</b><b>u</b><b>t</b><b>p</b><b>u</b><b>t</b><b>:</b><u>f</u><u>i</u><u>e</u><u>l</u><u>d</u>
+                     Adds an <b>o</b><b>u</b><b>t</b><b>p</b><b>u</b><b>t</b> action to the new flow’s actions that out‐
+                     puts to the OpenFlow port taken from <u>f</u><u>i</u><u>e</u><u>l</u><u>d</u>, which must be
+                     a field as described above.
+
+              <b>f</b><b>i</b><b>n</b><b>_</b><b>i</b><b>d</b><b>l</b><b>e</b><b>_</b><b>t</b><b>i</b><b>m</b><b>e</b><b>o</b><b>u</b><b>t</b><b>=</b><u>s</u><u>e</u><u>c</u><u>o</u><u>n</u><u>d</u><u>s</u>
+              <b>f</b><b>i</b><b>n</b><b>_</b><b>h</b><b>a</b><b>r</b><b>d</b><b>_</b><b>t</b><b>i</b><b>m</b><b>e</b><b>o</b><b>u</b><b>t</b><b>=</b><u>s</u><u>e</u><u>c</u><u>o</u><u>n</u><u>d</u><u>s</u>
+                   Adds  a  <b>f</b><b>i</b><b>n</b><b>_</b><b>t</b><b>i</b><b>m</b><b>e</b><b>o</b><b>u</b><b>t</b> action with the specified arguments to
+                   the new flow.  This  feature  was  added  in  Open  vSwitch
+                   1.5.90.
+
+       The following additional arguments are optional:
+
+              <b>i</b><b>d</b><b>l</b><b>e</b><b>_</b><b>t</b><b>i</b><b>m</b><b>e</b><b>o</b><b>u</b><b>t</b><b>=</b><u>s</u><u>e</u><u>c</u><u>o</u><u>n</u><u>d</u><u>s</u>
+              <b>h</b><b>a</b><b>r</b><b>d</b><b>_</b><b>t</b><b>i</b><b>m</b><b>e</b><b>o</b><b>u</b><b>t</b><b>=</b><u>s</u><u>e</u><u>c</u><u>o</u><u>n</u><u>d</u><u>s</u>
+              <b>p</b><b>r</b><b>i</b><b>o</b><b>r</b><b>i</b><b>t</b><b>y</b><b>=</b><u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>
+              <b>c</b><b>o</b><b>o</b><b>k</b><b>i</b><b>e</b><b>=</b><u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>
+              <b>s</b><b>e</b><b>n</b><b>d</b><b>_</b><b>f</b><b>l</b><b>o</b><b>w</b><b>_</b><b>r</b><b>e</b><b>m</b>
+                   These  arguments have the same meaning as in the usual flow
+                   syntax documented in <b>o</b><b>v</b><b>s</b><b>-</b><b>o</b><b>f</b><b>c</b><b>t</b><b>l</b>(8).
+
+              <b>t</b><b>a</b><b>b</b><b>l</b><b>e</b><b>=</b><u>t</u><u>a</u><u>b</u><u>l</u><u>e</u>
+                   The table in which the new flow should be inserted. Specify
+                   a decimal number between 0 and 254 inclusive or the name of
+                   a table. The default, if table is unspecified, is  table  1
+                   (not 0).
+
+              <b>d</b><b>e</b><b>l</b><b>e</b><b>t</b><b>e</b><b>_</b><b>l</b><b>e</b><b>a</b><b>r</b><b>n</b><b>e</b><b>d</b>
+                   When  this  flag  is specified, deleting the flow that con‐
+                   tains the <b>l</b><b>e</b><b>a</b><b>r</b><b>n</b> action will also delete the  flows  created
+                   by  <b>l</b><b>e</b><b>a</b><b>r</b><b>n</b>.  Specifically,  when  the last <b>l</b><b>e</b><b>a</b><b>r</b><b>n</b> action with
+                   this flag and particular <b>t</b><b>a</b><b>b</b><b>l</b><b>e</b> and  <b>c</b><b>o</b><b>o</b><b>k</b><b>i</b><b>e</b>  values  is  re‐
+                   moved, the switch deletes all of the flows in the specified
+                   table with the specified cookie.
+
+                   This flag was added in Open vSwitch 2.4.
+
+              <b>l</b><b>i</b><b>m</b><b>i</b><b>t</b><b>=</b><u>n</u><u>u</u><u>m</u><u>b</u><u>e</u><u>r</u>
+                   If the number of flows in the new  flow’s  table  with  the
+                   same  cookie  exceeds <b>n</b><b>u</b><b>m</b><b>b</b><b>e</b><b>r</b>, the action will not add a new
+                   flow. By default, or with <b>l</b><b>i</b><b>m</b><b>i</b><b>t</b><b>=</b><b>0</b>, there is no limit.
+
+                   This flag was added in Open vSwitch 2.8.
+
+              <b>r</b><b>e</b><b>s</b><b>u</b><b>l</b><b>t</b><b>_</b><b>d</b><b>s</b><b>t</b><b>=</b><u>f</u><u>i</u><u>e</u><u>l</u><u>d</u><b>[</b><u>b</u><u>i</u><u>t</u><b>]</b>
+                   If learn fails (because the number of flows exceeds <b>l</b><b>i</b><b>m</b><b>i</b><b>t</b>),
+                   the  action  sets <u>f</u><u>i</u><u>e</u><u>l</u><u>d</u><b>[</b><u>b</u><u>i</u><u>t</u><b>]</b> to 0, otherwise it will be set
+                   to 1. <b>f</b><b>i</b><b>e</b><b>l</b><b>d</b><b>[</b><b>b</b><b>i</b><b>t</b><b>]</b> must be a single bit.
+
+                   This flag was added in Open vSwitch 2.8.
+
+       By itself, the <b>l</b><b>e</b><b>a</b><b>r</b><b>n</b> action can only put two kinds of actions into  the
+       flows  that  it  creates:  <b>l</b><b>o</b><b>a</b><b>d</b> and <b>o</b><b>u</b><b>t</b><b>p</b><b>u</b><b>t</b> actions. If <b>l</b><b>e</b><b>a</b><b>r</b><b>n</b> is used in
+       isolation, these are severe limits.
+
+       However, <b>l</b><b>e</b><b>a</b><b>r</b><b>n</b> is not meant to be used in isolation. It is a  primitive
+       meant  to  be  used together with other Open vSwitch features to accom‐
+       plish a task. Its existing  features  are  enough  to  accomplish  most
+       tasks.
+
+       Here is an outline of a typical pipeline structure that allows for ver‐
+       satile behavior using <b>l</b><b>e</b><b>a</b><b>r</b><b>n</b>:
+
+              •      Flows in table <u>A</u> contain a <b>l</b><b>e</b><b>a</b><b>r</b><b>n</b> action,  that  populates
+                     flows in table <u>L</u>, that use a <b>l</b><b>o</b><b>a</b><b>d</b> action to populate reg‐
+                     ister <u>R</u> with information about what was learned.
+
+              •      Flows in table <u>B</u> contain two sequential resubmit actions:
+                     one to table <u>L</u> and another one to table <u>B</u>+1.
+
+              •      Flows  in  table  <u>B</u>+1 match on register <u>R</u> and act differ‐
+                     ently depending on what the flows in table <u>L</u> loaded  into
+                     it.
+
+       This  approach  can be used to implement many <b>l</b><b>e</b><b>a</b><b>r</b><b>n</b>-based features. For
+       example:
+
+              •      Resubmit to a table selected based  on  learned  informa‐
+                     tion, e.g. see ⟨https://mail.openvswitch.org/pipermail/
+                     ovs-discuss/2016-June/021694.html⟩ .
+
+              •      MAC learning in the middle of a pipeline, as described in
+                     the  ``Open  vSwitch  Advanced Features Tutorial’’ in the
+                     OVS documentation.
+
+              •      TCP state based firewalling, by learning outgoing connec‐
+                     tions  based on SYN packets and matching them up with in‐
+                     coming packets. (This is usually better implemented using
+                     the <b>c</b><b>t</b> action.)
+
+              •      At  least  some  of the features described in T. A. Hoff,
+                     ``Extending Open vSwitch to Facilitate Creation of State‐
+                     ful SDN Applications’’.
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       The <b>l</b><b>e</b><b>a</b><b>r</b><b>n</b> action is an Open vSwitch extension to OpenFlow added in Open
+       vSwitch 1.3. Some features of <b>l</b><b>e</b><b>a</b><b>r</b><b>n</b> were added in  later  versions,  as
+       noted individually above.
+
+   <b>T</b><b>h</b><b>e</b> <b>f</b><b>i</b><b>n</b><b>_</b><b>t</b><b>i</b><b>m</b><b>e</b><b>o</b><b>u</b><b>t</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>f</b><b>i</b><b>n</b><b>_</b><b>t</b><b>i</b><b>m</b><b>e</b><b>o</b><b>u</b><b>t</b><b>(</b><u>k</u><u>e</u><u>y</u><b>=</b><u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>...<b>)</b>
+
+       This  action  changes the idle timeout or hard timeout, or both, of the
+       OpenFlow flow that contains it, when the flow matches a TCP packet with
+       the FIN or RST flag. When such a packet is observed, the action reduces
+       the rule’s timeouts to those specified on the action. If the rule’s ex‐
+       isting  timeout  is already shorter than the one that the action speci‐
+       fies, then that timeout is unaffected.
+
+       The timeouts are specified as key-value pairs:
+
+              <b>i</b><b>d</b><b>l</b><b>e</b><b>_</b><b>t</b><b>i</b><b>m</b><b>e</b><b>o</b><b>u</b><b>t</b><b>=</b><u>s</u><u>e</u><u>c</u><u>o</u><u>n</u><u>d</u><u>s</u>
+                     Causes the flow to expire after the given number of  sec‐
+                     onds of inactivity.
+
+              <b>h</b><b>a</b><b>r</b><b>d</b><b>_</b><b>t</b><b>i</b><b>m</b><b>e</b><b>o</b><b>u</b><b>t</b><b>=</b><u>s</u><u>e</u><u>c</u><u>o</u><u>n</u><u>d</u><u>s</u>
+                     Causes  the flow to expire after the given number of <u>s</u><u>e</u><u>c</u><u>‐</u>
+                     <u>o</u><u>n</u><u>d</u><u>s</u>, regardless of  activity.  (<u>s</u><u>e</u><u>c</u><u>o</u><u>n</u><u>d</u><u>s</u>  specifies  time
+                     since  the  flow’s creation, not since the receipt of the
+                     FIN or RST.)
+
+       This action is normally added to a learned flow by the <b>l</b><b>e</b><b>a</b><b>r</b><b>n</b> action. It
+       is unlikely to be useful otherwise.
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       This Open vSwitch extension action was added in Open vSwitch 1.5.90.
+
+<b>P</b><b>R</b><b>O</b><b>G</b><b>R</b><b>A</b><b>M</b><b>M</b><b>I</b><b>N</b><b>G</b> <b>A</b><b>N</b><b>D</b> <b>C</b><b>O</b><b>N</b><b>T</b><b>R</b><b>O</b><b>L</b> <b>F</b><b>L</b><b>O</b><b>W</b> <b>A</b><b>C</b><b>T</b><b>I</b><b>O</b><b>N</b><b>S</b>
+   <b>T</b><b>h</b><b>e</b> <b>r</b><b>e</b><b>s</b><b>u</b><b>b</b><b>m</b><b>i</b><b>t</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>r</b><b>e</b><b>s</b><b>u</b><b>b</b><b>m</b><b>i</b><b>t</b><b>:</b><u>p</u><u>o</u><u>r</u><u>t</u>
+              <b>r</b><b>e</b><b>s</b><b>u</b><b>b</b><b>m</b><b>i</b><b>t</b><b>(</b>[<u>p</u><u>o</u><u>r</u><u>t</u>]<b>,</b>[<u>t</u><u>a</u><u>b</u><u>l</u><u>e</u>][<b>,</b><b>c</b><b>t</b>]<b>)</b>
+
+       Searches  an  OpenFlow  flow table for a matching flow and executes the
+       actions found, if any, before continuing to the following action in the
+       current flow entry. Arguments can customize the search:
+
+              •      If <u>p</u><u>o</u><u>r</u><u>t</u> is given as an OpenFlow port number or name, then
+                     it specifies a value to use for the input  port  metadata
+                     field  as  part of the search, in place of the input port
+                     currently in the flow.  Specifying  <b>i</b><b>n</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b>  as  <u>p</u><u>o</u><u>r</u><u>t</u>  is
+                     equivalent to omitting it.
+
+              •      If  <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u>  is  given as an integer between 0 and 254 or a
+                     table name, it specifies the OpenFlow table to search. If
+                     it  is  not specified, the table from the current flow is
+                     used.
+
+              •      If <b>c</b><b>t</b> is specified, then the search is done  with  packet
+                     5-tuple  fields  swapped with the corresponding conntrack
+                     original direction tuple fields.  See  the  documentation
+                     for  <b>c</b><b>t</b>  above,  for  more  information  about connection
+                     tracking, or <b>o</b><b>v</b><b>s</b><b>-</b><b>f</b><b>i</b><b>e</b><b>l</b><b>d</b><b>s</b>(7) for details about the  connec‐
+                     tion tracking fields.
+
+                     This flag requires a valid connection tracking state as a
+                     match prerequisite in  the  flow  where  this  action  is
+                     placed.  Examples  of  valid  connection  tracking  state
+                     matches     include     <b>c</b><b>t</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>e</b><b>=</b><b>+</b><b>n</b><b>e</b><b>w</b>,     <b>c</b><b>t</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>e</b><b>=</b><b>+</b><b>e</b><b>s</b><b>t</b>,
+                     <b>c</b><b>t</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>e</b><b>=</b><b>+</b><b>r</b><b>e</b><b>l</b>, and <b>c</b><b>t</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>e</b><b>=</b><b>+</b><b>t</b><b>r</b><b>k</b><b>-</b><b>i</b><b>n</b><b>v</b>.
+
+       The  changes,  if any, to the input port and connection tracking fields
+       are just for searching the flow table. The changes are not  visible  to
+       actions or to later flow table lookups.
+
+       The  most common use of <b>r</b><b>e</b><b>s</b><b>u</b><b>b</b><b>m</b><b>i</b><b>t</b> is to visit another flow table without
+       <u>p</u><u>o</u><u>r</u><u>t</u> or <b>c</b><b>t</b>, like this: <b>r</b><b>e</b><b>s</b><b>u</b><b>b</b><b>m</b><b>i</b><b>t</b><b>(</b><b>,</b><u>t</u><u>a</u><u>b</u><u>l</u><u>e</u><b>)</b>.
+
+       Recursive <b>r</b><b>e</b><b>s</b><b>u</b><b>b</b><b>m</b><b>i</b><b>t</b> actions are permitted.
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       The <b>r</b><b>e</b><b>s</b><b>u</b><b>b</b><b>m</b><b>i</b><b>t</b> action is an Open vSwitch extension. However, the <b>g</b><b>o</b><b>t</b><b>o</b><b>_</b><b>t</b><b>a</b><b>‐</b>
+       <b>b</b><b>l</b><b>e</b>  instruction  in  OpenFlow 1.1 and later can be viewed as a kind of
+       restricted <b>r</b><b>e</b><b>s</b><b>u</b><b>b</b><b>m</b><b>i</b><b>t</b>.
+
+       Open vSwitch 1.2.90 added <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u>. Open vSwitch 2.7 added <b>c</b><b>t</b>.
+
+       Open vSwitch imposes a limit on <b>r</b><b>e</b><b>s</b><b>u</b><b>b</b><b>m</b><b>i</b><b>t</b> recursion  that  varies  among
+       version:
+
+              •      Open vSwitch 1.0.1 and earlier did not support recursion.
+
+              •      Open  vSwitch 1.0.2 and 1.0.3 limited recursion to 8 lev‐
+                     els.
+
+              •      Open vSwitch 1.1 and 1.2 limited recursion to 16 levels.
+
+              •      Open vSwitch 1.2 through 1.8 limited recursion to 32 lev‐
+                     els.
+
+              •      Open vSwitch 1.9 through 2.0 limited recursion to 64 lev‐
+                     els.
+
+              •      Open vSwitch 2.1 through 2.5 limited recursion to 64 lev‐
+                     els  and impose a total limit of 4,096 resubmits per flow
+                     translation (earlier versions did not  impose  any  total
+                     limit).
+
+              •      Open  vSwitch  2.6  and  later imposes the same limits as
+                     2.5, with one exception: resubmit from table <u>x</u> to any ta‐
+                     ble  <u>y</u>  >gt;  <u>x</u>  does  not count against the recursion depth
+                     limit.
+
+   <b>T</b><b>h</b><b>e</b> <b>c</b><b>l</b><b>o</b><b>n</b><b>e</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>c</b><b>l</b><b>o</b><b>n</b><b>e</b><b>(</b><u>a</u><u>c</u><u>t</u><u>i</u><u>o</u><u>n</u><b>.</b><b>.</b><b>.</b><b>)</b>
+
+       Executes each nested <u>a</u><u>c</u><u>t</u><u>i</u><u>o</u><u>n</u>, saving much of  the  packet  and  pipeline
+       state  beforehand  and  then  restoring it afterward. The state that is
+       saved and restored includes all flow data and metadata (including,  for
+       example,  <b>i</b><b>n</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b> and <b>c</b><b>t</b><b>_</b><b>s</b><b>t</b><b>a</b><b>t</b><b>e</b>), the stack accessed by <b>p</b><b>u</b><b>s</b><b>h</b> and <b>p</b><b>o</b><b>p</b> ac‐
+       tions, and the OpenFlow action set.
+
+       This action was added in Open vSwitch 2.6.90.
+
+   <b>T</b><b>h</b><b>e</b> <b>p</b><b>u</b><b>s</b><b>h</b> <b>a</b><b>n</b><b>d</b> <b>p</b><b>o</b><b>p</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>p</b><b>u</b><b>s</b><b>h</b><b>:</b><u>s</u><u>r</u><u>c</u>
+              <b>p</b><b>o</b><b>p</b><b>:</b><u>d</u><u>s</u><u>t</u>
+
+       The <b>p</b><b>u</b><b>s</b><b>h</b> action pushes <u>s</u><u>r</u><u>c</u> on a general-purpose stack. The  <b>p</b><b>o</b><b>p</b>  action
+       pops  an  entry off the stack into <u>d</u><u>s</u><u>t</u>. <u>s</u><u>r</u><u>c</u> and <u>d</u><u>s</u><u>t</u> should be fields or
+       subfields in the syntax described under ``Field Specifications’’ above.
+
+       Controllers can use the stack for saving and restoring data or metadata
+       around <b>r</b><b>e</b><b>s</b><b>u</b><b>b</b><b>m</b><b>i</b><b>t</b> actions, for swapping or rearranging data and metadata,
+       or for other purposes. Any data or metadata field, or part of one,  may
+       be pushed, and any modifiable field or subfield may be popped.
+
+       The  number  of  bits  pushed in a stack entry do not have to match the
+       number of bits later popped from that entry. If more  bits  are  popped
+       from  an  entry  than were pushed, then the entry is conceptually left-
+       padded with 0-bits as needed. If fewer bits  are  popped  than  pushed,
+       then bits are conceptually trimmed from the left side of the entry.
+
+       The  stack’s  size  is limited. The limit is intended to be high enough
+       that ``normal’’ use will not pose problems. Stack overflow or underflow
+       is  an  error that stops action execution (see ``Stack too deep’’ under
+       ``Error Handling’’, above).
+
+       Examples:
+
+              •      <b>p</b><b>u</b><b>s</b><b>h</b><b>:</b><b>r</b><b>e</b><b>g</b><b>2</b><b>[</b><b>0</b><b>.</b><b>.</b><b>5</b><b>]</b> or <b>p</b><b>u</b><b>s</b><b>h</b><b>:</b><b>N</b><b>X</b><b>M</b><b>_</b><b>N</b><b>X</b><b>_</b><b>R</b><b>E</b><b>G</b><b>2</b><b>[</b><b>0</b><b>.</b><b>.</b><b>5</b><b>]</b> pushes  on  the
+                     stack the 6 bits in register 2 bits 0 through 5.
+
+              •      <b>p</b><b>o</b><b>p</b><b>:</b><b>r</b><b>e</b><b>g</b><b>2</b><b>[</b><b>0</b><b>.</b><b>.</b><b>5</b><b>]</b>  or  <b>p</b><b>o</b><b>p</b><b>:</b><b>N</b><b>X</b><b>M</b><b>_</b><b>N</b><b>X</b><b>_</b><b>R</b><b>E</b><b>G</b><b>2</b><b>[</b><b>0</b><b>.</b><b>.</b><b>5</b><b>]</b>  pops the value
+                     from top of the stack and copy bits 0 through 5  of  that
+                     value into bits 0 through 5 of register 2.
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       Open vSwitch 1.2 introduced <b>p</b><b>u</b><b>s</b><b>h</b> and <b>p</b><b>o</b><b>p</b> as OpenFlow extension actions.
+
+   <b>T</b><b>h</b><b>e</b> <b>e</b><b>x</b><b>i</b><b>t</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>e</b><b>x</b><b>i</b><b>t</b>
+
+       This  action  causes Open vSwitch to immediately halt execution of fur‐
+       ther actions. Actions which have already been executed are  unaffected.
+       Any  further  actions, including those which may be in other tables, or
+       different levels of the <b>r</b><b>e</b><b>s</b><b>u</b><b>b</b><b>m</b><b>i</b><b>t</b> call stack, are ignored.  However,  an
+       <b>e</b><b>x</b><b>i</b><b>t</b>  action  within  a  group bucket terminates only execution of that
+       bucket, not other buckets or the overall pipeline. Actions in  the  ac‐
+       tion  set are still executed (specify <b>c</b><b>l</b><b>e</b><b>a</b><b>r</b><b>_</b><b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b> before <b>e</b><b>x</b><b>i</b><b>t</b> to dis‐
+       card them).
+
+   <b>T</b><b>h</b><b>e</b> <b>m</b><b>u</b><b>l</b><b>t</b><b>i</b><b>p</b><b>a</b><b>t</b><b>h</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>m</b><b>u</b><b>l</b><b>t</b><b>i</b><b>p</b><b>a</b><b>t</b><b>h</b><b>(</b><u>f</u><u>i</u><u>e</u><u>l</u><u>d</u><u>s</u><b>,</b> <u>b</u><u>a</u><u>s</u><u>i</u><u>s</u><b>,</b> <u>a</u><u>l</u><u>g</u><u>o</u><u>r</u><u>i</u><u>t</u><u>h</u><u>m</u><b>,</b> <u>n</u><b>_</b><u>l</u><u>i</u><u>n</u><u>k</u><u>s</u><b>,</b> <u>a</u><u>r</u><u>g</u><b>,</b> <u>d</u><u>s</u><u>t</u><b>)</b>
+
+       Hashes <u>f</u><u>i</u><u>e</u><u>l</u><u>d</u><u>s</u> using <u>b</u><u>a</u><u>s</u><u>i</u><u>s</u> as a universal hash parameter, then  the  ap‐
+       plies multipath link selection <u>a</u><u>l</u><u>g</u><u>o</u><u>r</u><u>i</u><u>t</u><u>h</u><u>m</u> (with parameter <u>a</u><u>r</u><u>g</u>) to choose
+       one of <u>n</u><b>_</b><u>l</u><u>i</u><u>n</u><u>k</u><u>s</u> output links numbered 0 through  <u>n</u><b>_</b><u>l</u><u>i</u><u>n</u><u>k</u><u>s</u>  minus  1,  and
+       stores the link into <u>d</u><u>s</u><u>t</u>, which must be a field or subfield in the syn‐
+       tax described under ``Field Specifications’’ above.
+
+       The <b>b</b><b>u</b><b>n</b><b>d</b><b>l</b><b>e</b> or <b>b</b><b>u</b><b>n</b><b>d</b><b>l</b><b>e</b><b>_</b><b>l</b><b>o</b><b>a</b><b>d</b> actions are usually easier to use than <b>m</b><b>u</b><b>l</b><b>t</b><b>i</b><b>‐</b>
+       <b>p</b><b>a</b><b>t</b><b>h</b>.
+
+       <u>f</u><u>i</u><u>e</u><u>l</u><u>d</u><u>s</u> must be one of the following:
+
+              <b>e</b><b>t</b><b>h</b><b>_</b><b>s</b><b>r</b><b>c</b>
+                     Hashes Ethernet source address only.
+
+              <b>s</b><b>y</b><b>m</b><b>m</b><b>e</b><b>t</b><b>r</b><b>i</b><b>c</b><b>_</b><b>l</b><b>4</b>
+                     Hashes  Ethernet  source, destination, and type, VLAN ID,
+                     IPv4/IPv6 source, destination, and protocol, and  TCP  or
+                     SCTP  (but  not  UDP) ports. The hash is computed so that
+                     pairs of corresponding flows in each  direction  hash  to
+                     the  same  value,  in environments where L2 paths are the
+                     same in each direction. UDP ports are not included in the
+                     hash to support protocols such as VXLAN that use asymmet‐
+                     ric ports in each direction.
+
+              <b>s</b><b>y</b><b>m</b><b>m</b><b>e</b><b>t</b><b>r</b><b>i</b><b>c</b><b>_</b><b>l</b><b>3</b><b>l</b><b>4</b>
+                     Hashes IPv4/IPv6 source, destination, and  protocol,  and
+                     TCP  or SCTP (but not UDP) ports. Like <b>s</b><b>y</b><b>m</b><b>m</b><b>e</b><b>t</b><b>r</b><b>i</b><b>c</b><b>_</b><b>l</b><b>4</b>, this
+                     is a symmetric hash, but by excluding L2  headers  it  is
+                     more  effective  in environments with asymmetric L2 paths
+                     (e.g. paths involving VRRP IP addresses on a router). Not
+                     an  effective hash function for protocols other than IPv4
+                     and IPv6, which hash to a constant zero.
+
+              <b>s</b><b>y</b><b>m</b><b>m</b><b>e</b><b>t</b><b>r</b><b>i</b><b>c</b><b>_</b><b>l</b><b>3</b><b>l</b><b>4</b><b>+</b><b>u</b><b>d</b><b>p</b>
+                     Like <b>s</b><b>y</b><b>m</b><b>m</b><b>e</b><b>t</b><b>r</b><b>i</b><b>c</b><b>_</b><b>l</b><b>3</b><b>l</b><b>4</b><b>+</b><b>u</b><b>d</b><b>p</b>, but UDP ports  are  included  in
+                     the  hash.  This is a more effective hash when asymmetric
+                     UDP protocols such as VXLAN are not a consideration.
+
+              <b>s</b><b>y</b><b>m</b><b>m</b><b>e</b><b>t</b><b>r</b><b>i</b><b>c</b><b>_</b><b>l</b><b>3</b>
+                     Hashes network source address and network destination ad‐
+                     dress.
+
+              <b>n</b><b>w</b><b>_</b><b>s</b><b>r</b><b>c</b> Hashes network source address only.
+
+              <b>n</b><b>w</b><b>_</b><b>d</b><b>s</b><b>t</b> Hashes network destination address only.
+
+       The  <u>a</u><u>l</u><u>g</u><u>o</u><u>r</u><u>i</u><u>t</u><u>h</u><u>m</u> used to compute the final result <u>l</u><u>i</u><u>n</u><u>k</u> must be one of the
+       following:
+
+              <b>m</b><b>o</b><b>d</b><b>u</b><b>l</b><b>o</b><b>_</b><b>n</b>
+                     Computes <u>l</u><u>i</u><u>n</u><u>k</u> = hash(<u>f</u><u>l</u><u>o</u><u>w</u>) % <u>n</u><b>_</b><u>l</u><u>i</u><u>n</u><u>k</u><u>s</u>.
+
+                     This algorithm redistributes  all  traffic  when  <u>n</u><b>_</b><u>l</u><u>i</u><u>n</u><u>k</u><u>s</u>
+                     changes. It has <u>O</u><u>(</u><u>1</u><u>)</u> performance.
+
+                     Use 65535 for <u>m</u><u>a</u><u>x</u><b>_</b><u>l</u><u>i</u><u>n</u><u>k</u> to get a raw hash value.
+
+                     This algorithm is specified by RFC 2992.
+
+              <b>h</b><b>a</b><b>s</b><b>h</b><b>_</b><b>t</b><b>h</b><b>r</b><b>e</b><b>s</b><b>h</b><b>o</b><b>l</b><b>d</b>
+                     Computes <u>l</u><u>i</u><u>n</u><u>k</u> = hash(<u>f</u><u>l</u><u>o</u><u>w</u>) / (<b>M</b><b>A</b><b>X</b><b>_</b><b>H</b><b>A</b><b>S</b><b>H</b> / <u>n</u><b>_</b><u>l</u><u>i</u><u>n</u><u>k</u><u>s</u>).
+
+                     Redistributes between one-quarter and one-half of traffic
+                     when n_links changes. It has <u>O</u><u>(</u><u>1</u><u>)</u> performance.
+
+                     This algorithm is specified by RFC 2992.
+
+              <b>h</b><b>r</b><b>w</b> (Highest Random Weight)
+                     Computes the following:
+
+                     <b>f</b><b>o</b><b>r</b> <u>i</u> in [0,<u>n</u><b>_</b><u>l</u><u>i</u><u>n</u><u>k</u><u>s</u>]:
+                         <u>w</u><u>e</u><u>i</u><u>g</u><u>h</u><u>t</u><u>s</u>[<u>i</u>] = hash(<u>f</u><u>l</u><u>o</u><u>w</u>, <u>i</u>)
+                     <u>l</u><u>i</u><u>n</u><u>k</u> = { <u>i</u> such that <u>w</u><u>e</u><u>i</u><u>g</u><u>h</u><u>t</u><u>s</u>[<u>i</u>] >gt;= <u>w</u><u>e</u><u>i</u><u>g</u><u>h</u><u>t</u><u>s</u>[<u>j</u>] for all <u>j</u> != <u>i</u> }
+
+
+                     Redistributes 1/<u>n</u><b>_</b><u>l</u><u>i</u><u>n</u><u>k</u><u>s</u> of traffic when <u>n</u><b>_</b><u>l</u><u>i</u><u>n</u><u>k</u><u>s</u>  changes.
+                     It has <u>O</u><u>(</u><u>n</u><b>_</b><u>l</u><u>i</u><u>n</u><u>k</u><u>s</u><u>)</u> performance. If <u>n</u><b>_</b><u>l</u><u>i</u><u>n</u><u>k</u><u>s</u> is greater than
+                     a threshold (currently 64, but subject to  change),  Open
+                     vSwitch will substitute another algorithm automatically.
+
+                     This algorithm is specified by RFC 2992.
+
+              <b>i</b><b>t</b><b>e</b><b>r</b><b>_</b><b>h</b><b>a</b><b>s</b><b>h</b> (Iterative Hash)
+                     Computes the following:
+
+                     <u>i</u> = 0
+                     <b>r</b><b>e</b><b>p</b><b>e</b><b>a</b><b>t</b><b>:</b>
+                         <u>i</u> = <u>i</u> + 1
+                         <u>l</u><u>i</u><u>n</u><u>k</u> = hash(<u>f</u><u>l</u><u>o</u><u>w</u>, <u>i</u>) % <u>a</u><u>r</u><u>g</u>
+                     <b>w</b><b>h</b><b>i</b><b>l</b><b>e</b> <u>l</u><u>i</u><u>n</u><u>k</u> >gt; <u>m</u><u>a</u><u>x</u><b>_</b><u>l</u><u>i</u><u>n</u><u>k</u>
+
+
+                     Redistributes  1/<u>n</u><b>_</b><u>l</u><u>i</u><u>n</u><u>k</u><u>s</u> of traffic when <u>n</u><b>_</b><u>l</u><u>i</u><u>n</u><u>k</u><u>s</u> changes.
+                     O(1) performance when <u>a</u><u>r</u><u>g</u>/<u>m</u><u>a</u><u>x</u><b>_</b><u>l</u><u>i</u><u>n</u><u>k</u> is bounded by  a  con‐
+                     stant.
+
+                     Redistributes all traffic when <u>a</u><u>r</u><u>g</u> changes.
+
+                     <u>a</u><u>r</u><u>g</u>  must  be  greater than <u>m</u><u>a</u><u>x</u><b>_</b><u>l</u><u>i</u><u>n</u><u>k</u> and for best perfor‐
+                     mance should be no more than approximately <u>m</u><u>a</u><u>x</u><b>_</b><u>l</u><u>i</u><u>n</u><u>k</u> *  2.
+                     If <u>a</u><u>r</u><u>g</u> is outside the acceptable range, Open vSwitch will
+                     automatically substitute the least  power  of  2  greater
+                     than <u>m</u><u>a</u><u>x</u><b>_</b><u>l</u><u>i</u><u>n</u><u>k</u>.
+
+                     This algorithm is specific to Open vSwitch.
+
+       Only the <b>i</b><b>t</b><b>e</b><b>r</b><b>_</b><b>h</b><b>a</b><b>s</b><b>h</b> algorithm uses <u>a</u><u>r</u><u>g</u>.
+
+       It is an error if <u>m</u><u>a</u><u>x</u><b>_</b><u>l</u><u>i</u><u>n</u><u>k</u> is greater than or equal to 2**<u>n</u><b>_</b><u>b</u><u>i</u><u>t</u><u>s</u>.
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       This is an OpenFlow extension added in Open vSwitch 1.1.
+
+<b>O</b><b>T</b><b>H</b><b>E</b><b>R</b> <b>A</b><b>C</b><b>T</b><b>I</b><b>O</b><b>N</b><b>S</b>
+   <b>T</b><b>h</b><b>e</b> <b>c</b><b>o</b><b>n</b><b>j</b><b>u</b><b>n</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>c</b><b>o</b><b>n</b><b>j</b><b>u</b><b>n</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>(</b><u>i</u><u>d</u><b>,</b> <u>k</u><b>/</b><u>n</u><b>)</b>
+
+       This action allows for sophisticated ``conjunctive match’’ flows. Refer
+       to ``Conjunctive Match Fields’’ in <b>o</b><b>v</b><b>s</b><b>-</b><b>f</b><b>i</b><b>e</b><b>l</b><b>d</b><b>s</b>(7) for details.
+
+       A flow that has one or more <b>c</b><b>o</b><b>n</b><b>j</b><b>u</b><b>n</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b> actions may not have any  other
+       actions except for <b>n</b><b>o</b><b>t</b><b>e</b> actions.
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       Open  vSwitch  2.4 introduced the <b>c</b><b>o</b><b>n</b><b>j</b><b>u</b><b>n</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b> action and <b>c</b><b>o</b><b>n</b><b>j</b><b>_</b><b>i</b><b>d</b> field.
+       They are Open vSwitch extensions to OpenFlow.
+
+   <b>T</b><b>h</b><b>e</b> <b>n</b><b>o</b><b>t</b><b>e</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>n</b><b>o</b><b>t</b><b>e</b><b>:</b>[<u>h</u><u>h</u>]...
+
+       This action does nothing at all. OpenFlow controllers may use it to an‐
+       notate flows with more data than can fit in a flow cookie.
+
+       The  action  may  include any number of bytes represented as hex digits
+       <u>h</u><u>h</u>. Periods may separate pairs of hex digits, for readability. The <b>n</b><b>o</b><b>t</b><b>e</b>
+       action’s format doesn’t include an exact length for its payload, so the
+       provided bytes will be padded on the right by enough bytes with value 0
+       to make the total number 6 more than a multiple of 8.
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       This action is an extension to OpenFlow introduced in Open vSwitch 1.1.
+
+   <b>T</b><b>h</b><b>e</b> <b>s</b><b>a</b><b>m</b><b>p</b><b>l</b><b>e</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>s</b><b>a</b><b>m</b><b>p</b><b>l</b><b>e</b><b>(</b><u>a</u><u>r</u><u>g</u><u>u</u><u>m</u><u>e</u><u>n</u><u>t</u><b>.</b><b>.</b><b>.</b><b>)</b>
+
+       Samples packets and sends one sample for every sampled packet.
+
+       The following <u>a</u><u>r</u><u>g</u><u>u</u><u>m</u><u>e</u><u>n</u><u>t</u> forms are accepted:
+
+              <b>p</b><b>r</b><b>o</b><b>b</b><b>a</b><b>b</b><b>i</b><b>l</b><b>i</b><b>t</b><b>y</b><b>=</b><u>p</u><u>a</u><u>c</u><u>k</u><u>e</u><u>t</u><u>s</u>
+                     The  number  of  sampled  packets  out  of 65535. Must be
+                     greater or equal to 1.
+
+              <b>c</b><b>o</b><b>l</b><b>l</b><b>e</b><b>c</b><b>t</b><b>o</b><b>r</b><b>_</b><b>s</b><b>e</b><b>t</b><b>_</b><b>i</b><b>d</b><b>=</b><u>i</u><u>d</u>
+                     The unsigned 32-bit integer identifier of the set of sam‐
+                     ple collectors to send sampled packets to. Defaults to 0.
+
+              <b>o</b><b>b</b><b>s</b><b>_</b><b>d</b><b>o</b><b>m</b><b>a</b><b>i</b><b>n</b><b>_</b><b>i</b><b>d</b><b>=</b><u>i</u><u>d</u>
+                     When  sending  samples  to IPFIX collectors, the unsigned
+                     32-bit integer Observation Domain ID sent in every  IPFIX
+                     flow record. Defaults to 0.
+
+              <b>o</b><b>b</b><b>s</b><b>_</b><b>p</b><b>o</b><b>i</b><b>n</b><b>t</b><b>_</b><b>i</b><b>d</b><b>=</b><u>i</u><u>d</u>
+                     When  sending  samples  to IPFIX collectors, the unsigned
+                     32-bit integer Observation Point ID sent in  every  IPFIX
+                     flow record. Defaults to 0.
+
+              <b>s</b><b>a</b><b>m</b><b>p</b><b>l</b><b>i</b><b>n</b><b>g</b><b>_</b><b>p</b><b>o</b><b>r</b><b>t</b><b>=</b><u>p</u><u>o</u><u>r</u><u>t</u>
+                     Sample  packets  on  <u>p</u><u>o</u><u>r</u><u>t</u>, which should be the ingress or
+                     egress port. This option, which was added in Open vSwitch
+                     2.5.90,  allows the IPFIX implementation to export egress
+                     tunnel information.
+
+              <b>i</b><b>n</b><b>g</b><b>r</b><b>e</b><b>s</b><b>s</b>
+              <b>e</b><b>g</b><b>r</b><b>e</b><b>s</b><b>s</b>
+                   Specifies explicitly that the packet is  being  sampled  on
+                   ingress to or egress from the switch. IPFIX reports sent by
+                   Open vSwitch before version 2.5.90 did not include a direc‐
+                   tion.  From  2.5.90  until 2.6.90, IPFIX reports inferred a
+                   direction from <u>s</u><u>a</u><u>m</u><u>p</u><u>l</u><u>i</u><u>n</u><u>g</u><b>_</b><u>p</u><u>o</u><u>r</u><u>t</u>: if it was the packet’s output
+                   port,  then the direction was reported as egress, otherwise
+                   as ingress. Open vSwitch 2.6.90 introduced  these  options,
+                   which  allow  the inferred direction to be overridden. This
+                   is particularly useful when the ingress (or egress) port is
+                   not a tunnel.
+
+       Refer to <b>o</b><b>v</b><b>s</b><b>-</b><b>v</b><b>s</b><b>w</b><b>i</b><b>t</b><b>c</b><b>h</b><b>d</b><b>.</b><b>c</b><b>o</b><b>n</b><b>f</b><b>.</b><b>d</b><b>b</b>(5) for more details on configuring sample
+       collector sets.
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       This action is an OpenFlow extension added in Open vSwitch 2.4.
+
+<b>I</b><b>N</b><b>S</b><b>T</b><b>R</b><b>U</b><b>C</b><b>T</b><b>I</b><b>O</b><b>N</b><b>S</b>
+       Every version of OpenFlow includes actions. OpenFlow 1.1 introduced the
+       higher-level,  related  concept  of  <u>i</u><u>n</u><u>s</u><u>t</u><u>r</u><u>u</u><u>c</u><u>t</u><u>i</u><u>o</u><u>n</u><u>s</u>.  In OpenFlow 1.1 and
+       later, actions within a flow are always encapsulated within an instruc‐
+       tion. Each flow has at most one instruction of each kind, which are ex‐
+       ecuted in the following fixed order defined in the OpenFlow  specifica‐
+       tion:
+
+              1.  <b>M</b><b>e</b><b>t</b><b>e</b><b>r</b>
+
+              2.  <b>A</b><b>p</b><b>p</b><b>l</b><b>y</b><b>-</b><b>A</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>
+
+              3.  <b>C</b><b>l</b><b>e</b><b>a</b><b>r</b><b>-</b><b>A</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>
+
+              4.  <b>W</b><b>r</b><b>i</b><b>t</b><b>e</b><b>-</b><b>A</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>
+
+              5.  <b>W</b><b>r</b><b>i</b><b>t</b><b>e</b><b>-</b><b>M</b><b>e</b><b>t</b><b>a</b><b>d</b><b>a</b><b>t</b><b>a</b>
+
+              6.  <b>S</b><b>t</b><b>a</b><b>t</b><b>-</b><b>T</b><b>r</b><b>i</b><b>g</b><b>g</b><b>e</b><b>r</b> (not supported by Open vSwitch)
+
+              7.  <b>G</b><b>o</b><b>t</b><b>o</b><b>-</b><b>T</b><b>a</b><b>b</b><b>l</b><b>e</b>
+
+       The  most  important instruction is <b>A</b><b>p</b><b>p</b><b>l</b><b>y</b><b>-</b><b>A</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>. This instruction en‐
+       capsulates any number of actions, which the instruction executes.  Open
+       vSwitch  does  not explicitly represent <b>A</b><b>p</b><b>p</b><b>l</b><b>y</b><b>-</b><b>A</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>. Instead, any ac‐
+       tion by itself is implicitly part of an <b>A</b><b>p</b><b>p</b><b>l</b><b>y</b><b>-</b><b>A</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b> instructions.
+
+       Open vSwitch syntax requires other instructions, if present, to  be  in
+       the order listed above. Otherwise it will flag an error.
+
+   <b>T</b><b>h</b><b>e</b> <b>m</b><b>e</b><b>t</b><b>e</b><b>r</b> <b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b> <b>a</b><b>n</b><b>d</b> <b>i</b><b>n</b><b>s</b><b>t</b><b>r</b><b>u</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>m</b><b>e</b><b>t</b><b>e</b><b>r</b><b>:</b><u>m</u><u>e</u><u>t</u><u>e</u><u>r</u><b>_</b><u>i</u><u>d</u>
+
+       Apply  meter <u>m</u><u>e</u><u>t</u><u>e</u><u>r</u><b>_</b><u>i</u><u>d</u>. If a meter band rate is exceeded, the packet may
+       be dropped, or modified, depending on the meter band type.
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       OpenFlow 1.3 introduced the <b>m</b><b>e</b><b>t</b><b>e</b><b>r</b> instruction. OpenFlow 1.5 changes <b>m</b><b>e</b><b>‐</b>
+       <b>t</b><b>e</b><b>r</b> from an instruction to an action.
+
+       Open  vSwitch  2.0 introduced OpenFlow protocol support for meters, but
+       it did not include a datapath implementation. Open  vSwitch  2.7  added
+       meter  support to the userspace datapath. Open vSwitch 2.10 added meter
+       support to the kernel datapath.
+
+   <b>T</b><b>h</b><b>e</b> <b>c</b><b>l</b><b>e</b><b>a</b><b>r</b><b>_</b><b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b> <b>i</b><b>n</b><b>s</b><b>t</b><b>r</b><b>u</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>c</b><b>l</b><b>e</b><b>a</b><b>r</b><b>_</b><b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>
+
+       Clears the action set. See ``Action Sets’’, above,  for  more  informa‐
+       tion.
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       OpenFlow  1.1  introduced <b>c</b><b>l</b><b>e</b><b>a</b><b>r</b><b>_</b><b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>. Open vSwitch 2.1 added support
+       for <b>c</b><b>l</b><b>e</b><b>a</b><b>r</b><b>_</b><b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>.
+
+   <b>T</b><b>h</b><b>e</b> <b>w</b><b>r</b><b>i</b><b>t</b><b>e</b><b>_</b><b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b> <b>i</b><b>n</b><b>s</b><b>t</b><b>r</b><b>u</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>w</b><b>r</b><b>i</b><b>t</b><b>e</b><b>_</b><b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b><b>(</b><u>a</u><u>c</u><u>t</u><u>i</u><u>o</u><u>n</u>...<b>)</b>
+
+       Adds each <u>a</u><u>c</u><u>t</u><u>i</u><u>o</u><u>n</u> to the action set. The action set is  carried  between
+       flow  tables and then executed at the end of the pipeline. Only certain
+       actions may be written to the action set. See ``Action  Sets’’,  above,
+       for more information.
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       OpenFlow  1.1  introduced <b>w</b><b>r</b><b>i</b><b>t</b><b>e</b><b>_</b><b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>. Open vSwitch 2.1 added support
+       for <b>w</b><b>r</b><b>i</b><b>t</b><b>e</b><b>_</b><b>a</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b><b>s</b>.
+
+   <b>T</b><b>h</b><b>e</b> <b>w</b><b>r</b><b>i</b><b>t</b><b>e</b><b>_</b><b>m</b><b>e</b><b>t</b><b>a</b><b>d</b><b>a</b><b>t</b><b>a</b> <b>i</b><b>n</b><b>s</b><b>t</b><b>r</b><b>u</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>w</b><b>r</b><b>i</b><b>t</b><b>e</b><b>_</b><b>m</b><b>e</b><b>t</b><b>a</b><b>d</b><b>a</b><b>t</b><b>a</b><b>:</b><u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>[<b>/</b><u>m</u><u>a</u><u>s</u><u>k</u>]
+
+       Updates the flow’s <b>m</b><b>e</b><b>t</b><b>a</b><b>d</b><b>a</b><b>t</b><b>a</b> field. If <u>m</u><u>a</u><u>s</u><u>k</u> is omitted, <b>m</b><b>e</b><b>t</b><b>a</b><b>d</b><b>a</b><b>t</b><b>a</b> is  set
+       exactly  to <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>; if <u>m</u><u>a</u><u>s</u><u>k</u> is specified, then a 1-bit in <u>m</u><u>a</u><u>s</u><u>k</u> indicates
+       that the corresponding bit in <b>m</b><b>e</b><b>t</b><b>a</b><b>d</b><b>a</b><b>t</b><b>a</b> will be replaced with the corre‐
+       sponding bit from <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u>. Both <u>v</u><u>a</u><u>l</u><u>u</u><u>e</u> and <u>m</u><u>a</u><u>s</u><u>k</u> are 64-bit values that are
+       decimal by default; use a <b>0</b><b>x</b> prefix to specify them in hexadecimal.
+
+       The <b>m</b><b>e</b><b>t</b><b>a</b><b>d</b><b>a</b><b>t</b><b>a</b> field can also be matched in the flow  table  and  updated
+       with actions such as <b>s</b><b>e</b><b>t</b><b>_</b><b>f</b><b>i</b><b>e</b><b>l</b><b>d</b> and <b>m</b><b>o</b><b>v</b><b>e</b>.
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       OpenFlow  1.1 introduced <b>w</b><b>r</b><b>i</b><b>t</b><b>e</b><b>_</b><b>m</b><b>e</b><b>t</b><b>a</b><b>d</b><b>a</b><b>t</b><b>a</b>. Open vSwitch 2.1 added support
+       for <b>w</b><b>r</b><b>i</b><b>t</b><b>e</b><b>_</b><b>m</b><b>e</b><b>t</b><b>a</b><b>d</b><b>a</b><b>t</b><b>a</b>.
+
+   <b>T</b><b>h</b><b>e</b> <b>g</b><b>o</b><b>t</b><b>o</b><b>_</b><b>t</b><b>a</b><b>b</b><b>l</b><b>e</b> <b>i</b><b>n</b><b>s</b><b>t</b><b>r</b><b>u</b><b>c</b><b>t</b><b>i</b><b>o</b><b>n</b>
+       <b>S</b><b>y</b><b>n</b><b>t</b><b>a</b><b>x</b><b>:</b>
+              <b>g</b><b>o</b><b>t</b><b>o</b><b>_</b><b>t</b><b>a</b><b>b</b><b>l</b><b>e</b><b>:</b><u>t</u><u>a</u><u>b</u><u>l</u><u>e</u>
+
+       Jumps to <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> as the next table in the process pipeline. The table may
+       be a number between 0 and 254 or a table name.
+
+       It  is an error if <u>t</u><u>a</u><u>b</u><u>l</u><u>e</u> is less than or equal to the table of the flow
+       that contains it; that is, <b>g</b><b>o</b><b>t</b><b>o</b><b>_</b><b>t</b><b>a</b><b>b</b><b>l</b><b>e</b> must move forward in the OpenFlow
+       pipeline.  Since  <b>g</b><b>o</b><b>t</b><b>o</b><b>_</b><b>t</b><b>a</b><b>b</b><b>l</b><b>e</b> must be the last instruction in a flow, it
+       never leads to recursion. The <b>r</b><b>e</b><b>s</b><b>u</b><b>b</b><b>m</b><b>i</b><b>t</b> extension action is more  flexi‐
+       ble.
+
+       <b>C</b><b>o</b><b>n</b><b>f</b><b>o</b><b>r</b><b>m</b><b>a</b><b>n</b><b>c</b><b>e</b><b>:</b>
+
+       OpenFlow  1.1 introduced <b>g</b><b>o</b><b>t</b><b>o</b><b>_</b><b>t</b><b>a</b><b>b</b><b>l</b><b>e</b>. Open vSwitch 2.1 added support for
+       <b>g</b><b>o</b><b>t</b><b>o</b><b>_</b><b>t</b><b>a</b><b>b</b><b>l</b><b>e</b>.
+
+Open vSwitch                        2.11.90                     ovs-actions(7)
+</pre></body></html>

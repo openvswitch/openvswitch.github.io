@@ -1,16 +1,195 @@
 .\" -*- nroff -*-
+.\" -*- nroff -*-
+.\" ovs.tmac
+.\"
+.\" Open vSwitch troff macro library
+.
+.
+.\" Continuation line for .IP.
 .de IQ
 .  br
 .  ns
 .  IP "\\$1"
 ..
+.
+.\" Introduces a sub-subsection
 .de ST
 .  PP
 .  RS -0.15in
 .  I "\\$1"
 .  RE
 ..
-.TH ovn\-sbctl 8 "2.8.90" "Open vSwitch" "Open vSwitch Manual"
+.
+.\" The content between the lines below is from an-ext.tmac in groff
+.\" 1.21, with some modifications.
+.\" ----------------------------------------------------------------------
+.\" an-ext.tmac
+.\"
+.\" Written by Eric S. Raymond <esr@thyrsus.com>
+.\"            Werner Lemberg <wl@gnu.org>
+.\"
+.\" Version 2007-Feb-02
+.\"
+.\" Copyright (C) 2007, 2009, 2011 Free Software Foundation, Inc.
+.\" You may freely use, modify and/or distribute this file.
+.\"
+.\"
+.\" The code below provides extension macros for the `man' macro package.
+.\" Care has been taken to make the code portable; groff extensions are
+.\" properly hidden so that all troff implementations can use it without
+.\" changes.
+.\"
+.\" With groff, this file is sourced by the `man' macro package itself.
+.\" Man page authors who are concerned about portability might add the
+.\" used macros directly to the prologue of the man page(s).
+.
+.
+.\" Convention: Auxiliary macros and registers start with `m' followed
+.\"             by an uppercase letter or digit.
+.
+.
+.\" Declare start of command synopsis.  Sets up hanging indentation.
+.de SY
+.  ie !\\n(mS \{\
+.    nh
+.    nr mS 1
+.    nr mA \\n(.j
+.    ad l
+.    nr mI \\n(.i
+.  \}
+.  el \{\
+.    br
+.    ns
+.  \}
+.
+.  HP \w'\fB\\$1\fP\ 'u
+.  B "\\$1"
+..
+.
+.
+.\" End of command synopsis.  Restores adjustment.
+.de YS
+.  in \\n(mIu
+.  ad \\n(mA
+.  hy \\n(HY
+.  nr mS 0
+..
+.
+.
+.\" Declare optional option.
+.de OP
+.  ie \\n(.$-1 \
+.    RI "[\fB\\$1\fP" "\ \\$2" "]"
+.  el \
+.    RB "[" "\\$1" "]"
+..
+.
+.
+.\" Start URL.
+.de UR
+.  ds m1 \\$1\"
+.  nh
+.  if \\n(mH \{\
+.    \" Start diversion in a new environment.
+.    do ev URL-div
+.    do di URL-div
+.  \}
+..
+.
+.
+.\" End URL.
+.de UE
+.  ie \\n(mH \{\
+.    br
+.    di
+.    ev
+.
+.    \" Has there been one or more input lines for the link text?
+.    ie \\n(dn \{\
+.      do HTML-NS "<a href=""\\*(m1"">"
+.      \" Yes, strip off final newline of diversion and emit it.
+.      do chop URL-div
+.      do URL-div
+\c
+.      do HTML-NS </a>
+.    \}
+.    el \
+.      do HTML-NS "<a href=""\\*(m1"">\\*(m1</a>"
+\&\\$*\"
+.  \}
+.  el \
+\\*(la\\*(m1\\*(ra\\$*\"
+.
+.  hy \\n(HY
+..
+.
+.
+.\" Start email address.
+.de MT
+.  ds m1 \\$1\"
+.  nh
+.  if \\n(mH \{\
+.    \" Start diversion in a new environment.
+.    do ev URL-div
+.    do di URL-div
+.  \}
+..
+.
+.
+.\" End email address.
+.de ME
+.  ie \\n(mH \{\
+.    br
+.    di
+.    ev
+.
+.    \" Has there been one or more input lines for the link text?
+.    ie \\n(dn \{\
+.      do HTML-NS "<a href=""mailto:\\*(m1"">"
+.      \" Yes, strip off final newline of diversion and emit it.
+.      do chop URL-div
+.      do URL-div
+\c
+.      do HTML-NS </a>
+.    \}
+.    el \
+.      do HTML-NS "<a href=""mailto:\\*(m1"">\\*(m1</a>"
+\&\\$*\"
+.  \}
+.  el \
+\\*(la\\*(m1\\*(ra\\$*\"
+.
+.  hy \\n(HY
+..
+.
+.
+.\" Continuation line for .TP header.
+.de TQ
+.  br
+.  ns
+.  TP \\$1\" no doublequotes around argument!
+..
+.
+.
+.\" Start example.
+.de EX
+.  nr mE \\n(.f
+.  nf
+.  nh
+.  ft CW
+..
+.
+.
+.\" End example.
+.de EE
+.  ft \\n(mE
+.  fi
+.  hy \\n(HY
+..
+.
+.\" EOF
+.\" ----------------------------------------------------------------------
+.TH ovn\-sbctl 8 "2.10.90" "Open vSwitch" "Open vSwitch Manual"
 .\" This program's name:
 .ds PN ovn\-sbctl
 .
@@ -54,49 +233,25 @@ the global options by \fB\-\-\fR.
 .IP "\fB\-\-db=\fIserver\fR"
 The OVSDB database remote to contact.  If the \fBOVN_SB_DB\fR
 environment variable is set, its value is used as the default.
-Otherwise, the default is \fBunix:/usr/local/var/run/openvswitch/ovnsb_db.sock\fR, but this
+Otherwise, the default is \fBunix:/var/run/openvswitch/ovnsb_db.sock\fR, but this
 default is unlikely to be useful outside of single-machine OVN test
 environments.
 .IP
-\fIserver\fR must take one of the following forms:
-.RS
-.IP "\fBssl:\fIip\fB:\fIport\fR"
-.IQ "\fBtcp:\fIip\fB:\fIport\fR"
-The given SSL or plain TCP \fIport\fR on the host at the given
-\fIip\fR, which must be expressed as an IP address (not a DNS name) in
-IPv4 or IPv6 address format.  If \fIip\fR is an IPv6 address, then
-wrap \fIip\fR with square brackets, e.g.: \fBssl:[::1]:6640\fR.  On
-Linux, use \fB%\fIdevice\fR to designate a scope for IPv6 link-level
-addresses, e.g. \fBssl:[fe80::1234%eth0]:6653\fR.  For \fBssl\fR, the
-\fB\-\-private\-key\fR, \fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR
-options are mandatory.
+\fIserver\fR may be an OVSDB active or passive connection method,
+e.g. \fBssl:192.168.10.5:6640\fR, as described in \fBovsdb\fR(7).
 .
-.IP "\fBunix:\fIfile\fR"
-On POSIX, connect to the Unix domain server socket named \fIfile\fR.
-.IP
-On Windows, connect to a local named pipe that is represented by a file
-created in the path \fIfile\fR to mimic the behavior of a Unix domain
-socket.
-.IP "\fBpssl:\fIport\fR[\fB:\fIip\fR]"
-.IQ "\fBptcp:\fIport\fR[\fB:\fIip\fR]"
-Listen on the given SSL or TCP \fIport\fR for a connection.  By
-default, connections are not bound to a particular local IP address
-and it listens only on IPv4 (but not IPv6) addresses, but specifying
-\fIip\fR limits connections to those from the given \fIip\fR, either
-IPv4 or IPv6 address.  If \fIip\fR is an IPv6 address, then wrap
-\fIip\fR with square brackets, e.g.: \fBpssl:6640:[::1]\fR.  On Linux,
-use \fB%\fIdevice\fR to designate a scope for IPv6 link-level
-addresses, e.g. \fBpssl:6653:[fe80::1234%eth0]\fR.  For \fBpssl\fR,
-the \fB\-\-private\-key\fR, \fB\-\-certificate\fR, and
-\fB\-\-ca\-cert\fR options are mandatory.
-.
-.IP "\fBpunix:\fIfile\fR"
-On POSIX, listen on the Unix domain server socket named \fIfile\fR for a
-connection.
-.IP
-On Windows, listen on a local named pipe.  A file is created in the
-path \fIfile\fR to mimic the behavior of a Unix domain socket.
-.RE
+.IP "\fB\-\-leader\-only\fR"
+.IQ "\fB\-\-no\-leader\-only\fR"
+By default, or with \fB\-\-leader\-only\fR, when the database server
+is a clustered database, \fBovn\-sbctl\fR will avoid servers other
+than the cluster leader.  This ensures that any data that
+\fBovn\-sbctl\fR reads and reports is up-to-date.  With
+\fB\-\-no\-leader\-only\fR, \fBovn\-sbctl\fR will use any server in
+the cluster, which means that for read-only transactions it can report
+and act on stale data (transactions that modify the database are
+always serialized even with \fB\-\-no\-leader\-only\fR).  Refer to
+\fBUnderstanding Cluster Consistency\fR in \fBovsdb\fR(7) for more
+information.
 .
 .IP "\fB\-\-no\-syslog\fR"
 By default, \fBovn\-sbctl\fR logs its arguments and the details of any
@@ -127,11 +282,6 @@ to approximately \fIsecs\fR seconds.  If the timeout expires,
 would normally happen only if the database cannot be contacted, or if
 the system is overloaded.)
 .
-.de IQ
-.  br
-.  ns
-.  IP "\\$1"
-..
 .IP "\fB\-v\fR[\fIspec\fR]
 .IQ "\fB\-\-verbose=\fR[\fIspec\fR]
 .
@@ -200,7 +350,7 @@ a message to the target provided via the \fB\-\-syslog\-target\fR option.
 \fB\-\-log\-file\fR[\fB=\fIfile\fR]
 Enables logging to a file.  If \fIfile\fR is specified, then it is
 used as the exact name for the log file.  The default log file name
-used if \fIfile\fR is omitted is \fB/usr/local/var/log/openvswitch/\*(PN.log\fR.
+used if \fIfile\fR is omitted is \fB/var/log/openvswitch/\*(PN.log\fR.
 .
 .IP "\fB\-\-syslog\-target=\fIhost\fB:\fIport\fR"
 Send syslog messages to UDP \fIport\fR on \fIhost\fR, in addition to
@@ -212,7 +362,7 @@ Specify \fImethod\fR how syslog messages should be sent to syslog daemon.
 Following forms are supported:
 .RS
 .IP \(bu
-\fBlibc\fR, use libc \fBsyslog()\fR function.  This is the default behavior.
+\fBlibc\fR, use libc \fBsyslog()\fR function.
 Downside of using this options is that libc adds fixed prefix to every
 message before it is actually sent to the syslog daemon over \fB/dev/log\fR
 UNIX domain socket.
@@ -232,12 +382,12 @@ to listen on the specified UDP port, accidental iptables rules could be
 interfering with local syslog traffic and there are some security
 considerations that apply to UDP sockets, but do not apply to UNIX domain
 sockets.
+.IP \(bu
+\fBnull\fR, discards all messages logged to syslog.
 .RE
-.de IQ
-.  br
-.  ns
-.  IP "\\$1"
-..
+.IP
+The default is taken from the \fBOVS_SYSLOG_METHOD\fR environment
+variable; if it is unset, the default is \fBlibc\fR.
 .IP "\fB\-h\fR"
 .IQ "\fB\-\-help\fR"
 Prints a brief help message to the console.
@@ -320,13 +470,33 @@ This option does not affect JSON in tables, which is always printed
 compactly.
 .IP "\fB\-\-bare\fR"
 Equivalent to \fB\-\-format=list \-\-data=bare \-\-no\-headings\fR.
+.IP "\fB\-\-max\-column-width=\fIn\fR"
+For table output only, limits the width of any column in the output to
+\fIn\fR columns.  Longer cell data is truncated to fit, as necessary.
+Columns are always wide enough to display the column names, if the
+heading row is printed.
 .
 .SS "Public Key Infrastructure Options"
-.de IQ
-.  br
-.  ns
-.  IP "\\$1"
-..
+.IP "\fB\-\-bootstrap\-ca\-cert=\fIcacert.pem\fR"
+When \fIcacert.pem\fR exists, this option has the same effect as
+\fB\-C\fR or \fB\-\-ca\-cert\fR.  If it does not exist, then
+\fB\*(PN\fR will attempt to obtain the CA certificate from the
+SSL peer on its first SSL connection and save it to the named PEM
+file.  If it is successful, it will immediately drop the connection
+and reconnect, and from then on all SSL connections must be
+authenticated by a certificate signed by the CA certificate thus
+obtained.
+.IP
+\fBThis option exposes the SSL connection to a man-in-the-middle
+attack obtaining the initial CA certificate\fR, but it may be useful
+for bootstrapping.
+.IP
+This option is only useful if the SSL peer sends its CA certificate as
+part of the SSL certificate chain.  The SSL protocol does not require
+the server to send the CA certificate.
+.IP
+This option is mutually exclusive with \fB\-C\fR and
+\fB\-\-ca\-cert\fR.
 .IP "\fB\-p\fR \fIprivkey.pem\fR"
 .IQ "\fB\-\-private\-key=\fIprivkey.pem\fR"
 Specifies a PEM file containing the private key used as \fB\*(PN\fR's
@@ -352,39 +522,6 @@ be a different one, depending on the PKI design in use.)
 Disables verification of certificates presented by SSL peers.  This
 introduces a security risk, because it means that certificates cannot
 be verified to be those of known trusted hosts.
-.IP "\fB\-\-bootstrap\-ca\-cert=\fIcacert.pem\fR"
-When \fIcacert.pem\fR exists, this option has the same effect as
-\fB\-C\fR or \fB\-\-ca\-cert\fR.  If it does not exist, then
-\fB\*(PN\fR will attempt to obtain the CA certificate from the
-SSL peer on its first SSL connection and save it to the named PEM
-file.  If it is successful, it will immediately drop the connection
-and reconnect, and from then on all SSL connections must be
-authenticated by a certificate signed by the CA certificate thus
-obtained.
-.IP
-\fBThis option exposes the SSL connection to a man-in-the-middle
-attack obtaining the initial CA certificate\fR, but it may be useful
-for bootstrapping.
-.IP
-This option is only useful if the SSL peer sends its CA certificate as
-part of the SSL certificate chain.  The SSL protocol does not require
-the server to send the CA certificate.
-.IP
-This option is mutually exclusive with \fB\-C\fR and
-\fB\-\-ca\-cert\fR.
-.IP "\fB\-\-peer\-ca\-cert=\fIpeer-cacert.pem\fR"
-Specifies a PEM file that contains one or more additional certificates
-to send to SSL peers.  \fIpeer-cacert.pem\fR should be the CA
-certificate used to sign \fB\*(PN\fR's own certificate, that is, the
-certificate specified on \fB\-c\fR or \fB\-\-certificate\fR.  If
-\fB\*(PN\fR's certificate is self-signed, then \fB\-\-certificate\fR
-and \fB\-\-peer\-ca\-cert\fR should specify the same file.
-.IP
-This option is not useful in normal operation, because the SSL peer
-must already have the CA certificate for the peer to have any
-confidence in \fB\*(PN\fR's identity.  However, this offers a way for
-a new installation to bootstrap the CA certificate on its first SSL
-connection.
 .
 .SH COMMANDS
 The commands implemented by \fBovn\-sbctl\fR are described in the
@@ -461,9 +598,9 @@ OpenFlow flows that correspond to a given logical flow.
 If \fB\-\-ovs\fR is included, \fBovn\-sbctl\fR attempts to obtain and
 display the OpenFlow flows that correspond to each OVN logical flow.
 To do so, \fBovn\-sbctl\fR connects to \fIremote\fR (by default,
-\fBunix:/usr/local/var/run/openvswitch/br-int.mgmt\fR) over OpenFlow and retrieves the
+\fBunix:/var/run/openvswitch/br-int.mgmt\fR) over OpenFlow and retrieves the
 flows.  If \fIremote\fR is specified, it must be an active OpenFlow
-connection method described in \fBovs\-ofctl\fR(8).  Please see the
+connection method described in \fBovsdb\fR(7).  Please see the
 discussion of the similar \fB\-\-ovs\fR option in \fBovn-trace\fR(8)
 for more information about the OpenFlow flow output.
 .IP
@@ -490,48 +627,10 @@ Deletes the configured connection(s).
 .
 .IP "\fBset\-connection\fR [\fIaccess\-specifier\fR] \fItarget\fR\&..."
 Sets the configured manager target or targets.  Each \fItarget\fR may
-be preceded by an optional access-specifier (\fBread\-only\fR or
-\fBread\-write\fR) and may use any of the following forms:
-.
-.RS
-.IP "\fBssl:\fIip\fB:\fIport\fR"
-.IQ "\fBtcp:\fIip\fB:\fIport\fR"
-The given SSL or plain TCP \fIport\fR on the host at the given
-\fIip\fR, which must be expressed as an IP address (not a DNS name) in
-IPv4 or IPv6 address format.  If \fIip\fR is an IPv6 address, then
-wrap \fIip\fR with square brackets, e.g.: \fBssl:[::1]:6640\fR.  On
-Linux, use \fB%\fIdevice\fR to designate a scope for IPv6 link-level
-addresses, e.g. \fBssl:[fe80::1234%eth0]:6653\fR.  For \fBssl\fR, the
-\fB\-\-private\-key\fR, \fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR
-options are mandatory.
-.
-.IP "\fBunix:\fIfile\fR"
-On POSIX, connect to the Unix domain server socket named \fIfile\fR.
-.IP
-On Windows, connect to a local named pipe that is represented by a file
-created in the path \fIfile\fR to mimic the behavior of a Unix domain
-socket.
-.IP "\fBpssl:\fIport\fR[\fB:\fIip\fR]"
-.IQ "\fBptcp:\fIport\fR[\fB:\fIip\fR]"
-Listen on the given SSL or TCP \fIport\fR for a connection.  By
-default, connections are not bound to a particular local IP address
-and it listens only on IPv4 (but not IPv6) addresses, but specifying
-\fIip\fR limits connections to those from the given \fIip\fR, either
-IPv4 or IPv6 address.  If \fIip\fR is an IPv6 address, then wrap
-\fIip\fR with square brackets, e.g.: \fBpssl:6640:[::1]\fR.  On Linux,
-use \fB%\fIdevice\fR to designate a scope for IPv6 link-level
-addresses, e.g. \fBpssl:6653:[fe80::1234%eth0]\fR.  For \fBpssl\fR,
-the \fB\-\-private\-key\fR, \fB\-\-certificate\fR, and
-\fB\-\-ca\-cert\fR options are mandatory.
-.
-.IP "\fBpunix:\fIfile\fR"
-On POSIX, listen on the Unix domain server socket named \fIfile\fR for a
-connection.
-.IP
-On Windows, listen on a local named pipe.  A file is created in the
-path \fIfile\fR to mimic the behavior of a Unix domain socket.
-.RE
-
+may be an OVSDB active or passive connection method,
+e.g. \fBpssl:6640\fR, as described in \fBovsdb\fR(7),
+optionally preceded by an optional access-specifier (\fBread\-only\fR or
+\fBread\-write\fR).
 If provided, the effect of the access specifier persists for subsequent
 targets until changed by another access specifier.
 .
@@ -599,8 +698,9 @@ parameter may be the UUID for a record, and many tables offer
 additional ways to identify records.  Some commands also take
 \fIcolumn\fR parameters that identify a particular field within the
 records in a table.
-.\" It would be kind to list all the tables and their supported identifiers
-.\" here.
+.PP
+For a list of tables and their columns, see \fBovn\-sb\fR(5) or
+see the table listing from the \fB--help\fR option.
 .PP
 Record names must be specified in full and with correct
 capitalization, except that UUIDs may be abbreviated to their first 4

@@ -1,0 +1,103 @@
+'\" p
+.\" -*- nroff -*-
+.TH "ovsdb-server" 5 " DB Schema 1.1.0" "Open vSwitch 2.10.90" "Open vSwitch Manual"
+.fp 5 L CR              \\" Make fixed-width font available as \\fL.
+.de TQ
+.  br
+.  ns
+.  TP "\\$1"
+..
+.de ST
+.  PP
+.  RS -0.15in
+.  I "\\$1"
+.  RE
+..
+.SH NAME
+ovsdb-server \- _Server database schema
+.PP
+.PP
+.PP
+.PP
+Every \fBovsdb\-server\fR (version 2\[char46]9 or later) always hosts an instance of this schema, which holds information on the status and configuration of the server itself\[char46] This database is read-only\[char46] This manpage describes the schema for this database\[char46]
+.SH "TABLE SUMMARY"
+.PP
+The following list summarizes the purpose of each of the tables in the
+\fB_Server\fR database.  Each table is described in more detail on a later
+page.
+.IP "Table" 1in
+Purpose
+.TQ 1in
+\fBDatabase\fR
+Databases\[char46]
+.bp
+.SH "Database TABLE"
+.PP
+.PP
+.PP
+This table describes the databases hosted by the database server, with one row per database\[char46] As its database configuration and status changes, the server automatically and immediately updates the table to match\[char46]
+.PP
+.PP
+The OVSDB protocol specified in RFC 7047 does not provide a way for an OVSDB client to find out about some kinds of configuration changes, such as about databases added or removed while a client is connected to the server, or databases changing between read/write and read-only due to a transition between active and backup roles\[char46] This table provides a solution: clients can monitor the table\(cqs contents to find out about important changes\[char46]
+.PP
+.PP
+Traditionally, \fBovsdb\-server\fR disconnects all of its clients when a significant configuration change occurs, because this prompts a well-written client to reassess what is available from the server when it reconnects\[char46] Because this table provides an alternative and more efficient way to find out about those changes, OVS 2\[char46]9 also introduces the \fBset_db_change_aware\fR RPC, documented in \fBovsdb\-server\fR(7), to allow clients to suppress this disconnection behavior\[char46]
+.PP
+.PP
+When a database is removed from the server, in addition to \fBDatabase\fR table updates, the server sends \fBcanceled\fR messages, as described in RFC 7047 section 4\[char46]1\[char46]4, in reply to outstanding transactions for the removed database\[char46] The server also cancels any outstanding monitoring initiated by \fBmonitor\fR or \fBmonitor_cond\fR requested on the removed database, sending the \fBmonitor_canceled\fR RPC described in \fBovsdb\-server\fR(7)\[char46] Only clients that disable disconnection with \fBset_db_change_aware\fR receive these messages\[char46]
+.PP
+.PP
+Clients can use the \fB_uuid\fR column in this table as a generation number\[char46] The server generates a fresh \fB_uuid\fR every time it adds a database, so that removing and then re-adding a database to the server causes its row \fB_uuid\fR to change\[char46]
+.SS "Summary:
+.TQ 3.00in
+\fBname\fR
+string
+.TQ 3.00in
+\fBmodel\fR
+string, either \fBclustered\fR or \fBstandalone\fR
+.TQ 3.00in
+\fBschema\fR
+optional string
+.TQ .25in
+\fIClustered Databases:\fR
+.RS .25in
+.TQ 2.75in
+\fBconnected\fR
+boolean
+.TQ 2.75in
+\fBleader\fR
+boolean
+.TQ 2.75in
+\fBcid\fR
+optional uuid
+.TQ 2.75in
+\fBsid\fR
+optional uuid
+.TQ 2.75in
+\fBindex\fR
+optional integer
+.RE
+.SS "Details:
+.IP "\fBname\fR: string"
+The database\(cqs name, as specified in its schema\[char46]
+.IP "\fBmodel\fR: string, either \fBclustered\fR or \fBstandalone\fR"
+The storage model: \fBstandalone\fR for a standalone or active-backup database, \fBclustered\fR for a clustered database\[char46]
+.IP "\fBschema\fR: optional string"
+The database schema, as a JSON string\[char46] In the case of a clustered database, this is empty until it finishes joining its cluster\[char46]
+.ST "Clustered Databases:"
+.PP
+.PP
+.PP
+These columns are most interesting and in some cases only relevant for clustered databases, that is, those where the \fBmodel\fR column is \fBclustered\fR\[char46]
+.IP "\fBconnected\fR: boolean"
+True if the database is connected to its storage\[char46] A standalone or active-backup database is always connected\[char46] A clustered database is connected if the server is in contact with a majority of its cluster\[char46] An unconnected database cannot be modified and its data might be unavailable or stale\[char46]
+.IP "\fBleader\fR: boolean"
+True if the database is the leader in its cluster\[char46] For a standalone or active-backup database, this is always true\[char46]
+.IP "\fBcid\fR: optional uuid"
+The cluster ID for this database, which is the same for all of the servers that host this particular clustered database\[char46] For a standalone or active-backup database, this is empty\[char46]
+.IP "\fBsid\fR: optional uuid"
+The server ID for this database, different for each server that hosts a particular clustered database\[char46] A server that hosts more than one clustered database will have a different \fBsid\fR in each one\[char46] For a standalone or active-backup database, this is empty\[char46]
+.IP "\fBindex\fR: optional integer"
+For a clustered database, the index of the log entry currently exposed to clients\[char46] For a given server, this increases monotonically\[char46] When a client switches from one server to another in a cluster, it can ensure that it never sees an older snapshot of data by avoiding servers that have \fBindex\fR less than the largest value they have already observed\[char46]
+.IP
+For a standalone or active-backup database, this is empty\[char46]

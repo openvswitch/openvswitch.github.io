@@ -1,6 +1,6 @@
 '\" p
 .\" -*- nroff -*-
-.TH "ovn-controller" 8 "ovn-controller" "Open vSwitch 2\[char46]8\[char46]90" "Open vSwitch Manual"
+.TH "ovn-controller" 8 "ovn-controller" "Open vSwitch 2\[char46]10\[char46]90" "Open vSwitch Manual"
 .fp 5 L CR              \\" Make fixed-width font available as \\fL.
 .de TQ
 .  br
@@ -33,7 +33,7 @@ ACL log messages are logged through \fBovn\-controller\fR\(cqs logging mechanism
 .SS "Daemon Options"
 .TP
 \fB\-\-pidfile\fR[\fB=\fR\fIpidfile\fR]
-Causes a file (by default, \fB\fIprogram\fB\[char46]pid\fR) to be created indicating the PID of the running process\[char46] If the \fIpidfile\fR argument is not specified, or if it does not begin with \fB/\fR, then it is created in \fB/usr/local/var/run/openvswitch\fR\[char46]
+Causes a file (by default, \fB\fIprogram\fB\[char46]pid\fR) to be created indicating the PID of the running process\[char46] If the \fIpidfile\fR argument is not specified, or if it does not begin with \fB/\fR, then it is created in \fB/var/run/openvswitch\fR\[char46]
 .IP
 If \fB\-\-pidfile\fR is not specified, no pidfile is created\[char46]
 .TP
@@ -63,7 +63,7 @@ By default this daemon will try to self-confine itself to work with files under 
 \fB\-\-user=\fR\fIuser\fR\fB:\fR\fIgroup\fR
 Causes this program to run as a different user specified in \fIuser\fR\fB:\fR\fIgroup\fR, thus dropping most of the root privileges\[char46] Short forms \fIuser\fR and \fB:\fR\fIgroup\fR are also allowed, with current user or group assumed, respectively\[char46] Only daemons started by the root user accepts this argument\[char46]
 .IP
-On Linux, daemons will be granted \fBCAP_IPC_LOCK\fR and \fBCAP_NET_BIND_SERVICES\fR before dropping root privileges\[char46] Daemons that interact with a datapath, such as \fBovs\-vswitchd\fR, will be granted two additional capabilities, namely \fBCAP_NET_ADMIN\fR and \fBCAP_NET_RAW\fR\[char46] The capability change will apply even if the new user is root\[char46]
+On Linux, daemons will be granted \fBCAP_IPC_LOCK\fR and \fBCAP_NET_BIND_SERVICES\fR before dropping root privileges\[char46] Daemons that interact with a datapath, such as \fBovs\-vswitchd\fR, will be granted three additional capabilities, namely \fBCAP_NET_ADMIN\fR, \fBCAP_NET_BROADCAST\fR and \fBCAP_NET_RAW\fR\[char46] The capability change will apply even if the new user is root\[char46]
 .IP
 On Windows, this option is not currently supported\[char46] For security reasons, specifying this option will cause the daemon process not to start\[char46]
 .SS "Logging Options"
@@ -105,7 +105,7 @@ Sets the log pattern for \fIdestination\fR to \fIpattern\fR\[char46] Refer to \f
 Sets the RFC5424 facility of the log message\[char46] \fIfacility\fR can be one of \fBkern\fR, \fBuser\fR, \fBmail\fR, \fBdaemon\fR, \fBauth\fR, \fBsyslog\fR, \fBlpr\fR, \fBnews\fR, \fBuucp\fR, \fBclock\fR, \fBftp\fR, \fBntp\fR, \fBaudit\fR, \fBalert\fR, \fBclock2\fR, \fBlocal0\fR, \fBlocal1\fR, \fBlocal2\fR, \fBlocal3\fR, \fBlocal4\fR, \fBlocal5\fR, \fBlocal6\fR or \fBlocal7\fR\[char46] If this option is not specified, \fBdaemon\fR is used as the default for the local system syslog and \fBlocal0\fR is used while sending a message to the target provided via the \fB\-\-syslog\-target\fR option\[char46]
 .TP
 \fB\-\-log\-file\fR[\fB=\fR\fIfile\fR]
-Enables logging to a file\[char46] If \fIfile\fR is specified, then it is used as the exact name for the log file\[char46] The default log file name used if \fIfile\fR is omitted is \fB/usr/local/var/log/openvswitch/\fIprogram\fB\[char46]log\fR\[char46]
+Enables logging to a file\[char46] If \fIfile\fR is specified, then it is used as the exact name for the log file\[char46] The default log file name used if \fIfile\fR is omitted is \fB/var/log/openvswitch/\fIprogram\fB\[char46]log\fR\[char46]
 .TP
 \fB\-\-syslog\-target=\fR\fIhost\fR\fB:\fR\fIport\fR
 Send syslog messages to UDP \fIport\fR on \fIhost\fR, in addition to the system syslog\[char46] The \fIhost\fR must be a numerical IP address, not a hostname\[char46]
@@ -114,12 +114,16 @@ Send syslog messages to UDP \fIport\fR on \fIhost\fR, in addition to the system 
 Specify \fImethod\fR as how syslog messages should be sent to syslog daemon\[char46] The following forms are supported:
 .RS
 .IP \(bu
-\fBlibc\fR, to use the libc \fBsyslog()\fR function\[char46] This is the default behavior\[char46] Downside of using this options is that libc adds fixed prefix to every message before it is actually sent to the syslog daemon over \fB/dev/log\fR UNIX domain socket\[char46]
+\fBlibc\fR, to use the libc \fBsyslog()\fR function\[char46] Downside of using this options is that libc adds fixed prefix to every message before it is actually sent to the syslog daemon over \fB/dev/log\fR UNIX domain socket\[char46]
 .IP \(bu
 \fBunix:\fIfile\fB\fR, to use a UNIX domain socket directly\[char46] It is possible to specify arbitrary message format with this option\[char46] However, \fBrsyslogd 8\[char46]9\fR and older versions use hard coded parser function anyway that limits UNIX domain socket use\[char46] If you want to use arbitrary message format with older \fBrsyslogd\fR versions, then use UDP socket to localhost IP address instead\[char46]
 .IP \(bu
 \fBudp:\fIip\fB:\fIport\fB\fR, to use a UDP socket\[char46] With this method it is possible to use arbitrary message format also with older \fBrsyslogd\fR\[char46] When sending syslog messages over UDP socket extra precaution needs to be taken into account, for example, syslog daemon needs to be configured to listen on the specified UDP port, accidental iptables rules could be interfering with local syslog traffic and there are some security considerations that apply to UDP sockets, but do not apply to UNIX domain sockets\[char46]
+.IP \(bu
+\fBnull\fR, to discard all messages logged to syslog\[char46]
 .RE
+.IP
+The default is taken from the \fBOVS_SYSLOG_METHOD\fR environment variable; if it is unset, the default is \fBlibc\fR\[char46]
 .SS "PKI Options"
 .PP
 .PP
@@ -146,6 +150,24 @@ Specifies a PEM file containing the CA certificate for verifying certificates pr
 \fB\-\-ca\-cert=none\fR
 Disables verification of certificates presented by SSL peers\[char46] This introduces a security risk, because it means that certificates cannot be verified to be those of known trusted hosts\[char46]
 .RE
+.RS
+.TP
+\fB\-\-bootstrap\-ca\-cert=\fR\fIcacert\[char46]pem\fR
+When \fIcacert\[char46]pem\fR exists, this option has the same effect as \fB\-C\fR or \fB\-\-ca\-cert\fR\[char46] If it does not exist, then the executable will attempt to obtain the CA certificate from the SSL peer on its first SSL connection and save it to the named PEM file\[char46] If it is successful, it will immediately drop the connection and reconnect, and from then on all SSL connections must be authenticated by a certificate signed by the CA certificate thus obtained\[char46]
+.IP
+This option exposes the SSL connection to a man-in-the-middle attack obtaining the initial CA certificate, but it may be useful for bootstrapping\[char46]
+.IP
+This option is only useful if the SSL peer sends its CA certificate as part of the SSL certificate chain\[char46] The SSL protocol does not require the server to send the CA certificate\[char46]
+.IP
+This option is mutually exclusive with \fB\-C\fR and \fB\-\-ca\-cert\fR\[char46]
+.RE
+.RS
+.TP
+\fB\-\-peer\-ca\-cert=\fR\fIpeer-cacert\[char46]pem\fR
+Specifies a PEM file that contains one or more additional certificates to send to SSL peers\[char46] \fIpeer-cacert\[char46]pem\fR should be the CA certificate used to sign the program\(cqs own certificate, that is, the certificate specified on \fB\-c\fR or \fB\-\-certificate\fR\[char46] If the program\(cqs certificate is self-signed, then \fB\-\-certificate\fR and \fB\-\-peer\-ca\-cert\fR should specify the same file\[char46]
+.IP
+This option is not useful in normal operation, because the SSL peer must already have the CA certificate for the peer to have any confidence in the program\(cqs identity\[char46] However, this offers a way for a new installation to bootstrap the CA certificate on its first SSL connection\[char46]
+.RE
 .SS "Other Options"
 .TP
 \fB\-h\fR
@@ -160,33 +182,7 @@ Prints version information to the console\[char46]
 .SH "CONFIGURATION"
 .PP
 .PP
-\fBovn\-controller\fR retrieves most of its configuration information from the local Open vSwitch\(cqs ovsdb-server instance\[char46] The default location is \fBdb\[char46]sock\fR in the local Open vSwitch\(cqs \(dqrun\(dq directory\[char46] It may be overridden by specifying the \fIovs-database\fR argument in one of the following forms:
-.RS
-.TP
-\fBssl:\fR\fIip\fR\fB:\fR\fIport\fR
-The specified SSL \fIport\fR on the host at the given \fIip\fR, which must be expressed as an IP address (not a DNS name) in IPv4 or IPv6 address format\[char46] If \fIip\fR is an IPv6 address, then wrap \fIip\fR with square brackets, e\[char46]g\[char46]: \fBssl:[::1]:6640\fR\[char46] The \fB\-\-private\-key\fR, \fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR options are mandatory when this form is used\[char46]
-.TP
-\fBtcp:\fR\fIip\fR\fB:\fR\fIport\fR
-Connect to the given TCP \fIport\fR on \fIip\fR, where \fIip\fR can be an IPv4 or IPv6 address\[char46] If \fIip\fR is an IPv6 address, then wrap \fIip\fR with square brackets, e\[char46]g\[char46]: \fBtcp:[::1]:6640\fR\[char46]
-.TP
-\fBunix:\fR\fIfile\fR
-On POSIX, connect to the Unix domain server socket named \fIfile\fR\[char46]
-.IP
-On Windows, connect to a local named pipe that is represented by a file created in the path \fIfile\fR to mimic the behavior of a Unix domain socket\[char46]
-.RE
-.RS
-.TP
-\fBpssl:\fR\fIport\fR\fB:\fR\fIip\fR
-Listen on the given SSL \fIport\fR for a connection\[char46] By default, connections are not bound to a particular local IP address and it listens only on IPv4 (but not IPv6) addresses, but specifying \fIip\fR limits connections to those from the given \fIip\fR, either IPv4 or IPv6 address\[char46] If \fIip\fR is an IPv6 address, then wrap \fIip\fR with square brackets, e\[char46]g\[char46]: \fBpssl:6640:[::1]\fR\[char46] The \fB\-\-private\-key\fR, \fB\-\-certificate\fR, and \fB\-\-ca\-cert\fR options are mandatory when this form is used\[char46]
-.TP
-\fBptcp:\fR\fIport\fR\fB:\fR\fIip\fR
-Listen on the given TCP \fIport\fR for a connection\[char46] By default, connections are not bound to a particular local IP address and it listens only on IPv4 (but not IPv6) addresses, but \fIip\fR may be specified to listen only for connections to the given \fIip\fR, either IPv4 or IPv6 address\[char46] If \fIip\fR is an IPv6 address, then wrap \fIip\fR with square brackets, e\[char46]g\[char46]: \fBptcp:6640:[::1]\fR\[char46]
-.TP
-\fBpunix:\fR\fIfile\fR
-On POSIX, listen on the Unix domain server socket named \fIfile\fR for a connection\[char46]
-.IP
-On Windows, listen on a local named pipe\[char46] A file is created in the path \fIfile\fR to mimic the behavior of a Unix domain socket\[char46]
-.RE
+\fBovn\-controller\fR retrieves most of its configuration information from the local Open vSwitch\(cqs ovsdb-server instance\[char46] The default location is \fBdb\[char46]sock\fR in the local Open vSwitch\(cqs \(dqrun\(dq directory\[char46] It may be overridden by specifying the \fIovs-database\fR argument as an OVSDB active or passive connection method, as described in \fBovsdb\fR(7)\[char46]
 .PP
 .PP
 \fBovn\-controller\fR assumes it gets configuration information from the following keys in the \fBOpen_vSwitch\fR table of the local OVS instance:
@@ -224,6 +220,9 @@ A list of key-value pairs that map a physical network name to a local ovs bridge
 .TP
 \fBexternal_ids:ovn\-encap\-csum\fR
 \fBovn\-encap\-csum\fR indicates that encapsulation checksums can be transmitted and received with reasonable performance\[char46] It is a hint to senders transmitting data to this chassis that they should use checksums to protect OVN metadata\[char46] Set to \fBtrue\fR to enable or \fBfalse\fR to disable\[char46] Depending on the capabilities of the network interface card, enabling encapsulation checksum may incur performance loss\[char46] In such cases, encapsulation checksums can be disabled\[char46]
+.TP
+\fBexternal_ids:ovn\-cms\-options\fR
+A list of options that will be consumed by the CMS Plugin and which specific to this particular chassis\[char46] An example would be: \fBcms_option1,cms_option2:foo\fR\[char46]
 .RE
 .PP
 .PP
@@ -267,6 +266,24 @@ This key identifies a patch port as one created by \fBovn\-controller\fR to impl
 \fBexternal\-ids:ovn\-logical\-patch\-port\fR in the \fBPort\fR table
 This key identifies a patch port as one created by \fBovn\-controller\fR to implement an OVN logical patch port within the integration bridge\[char46] Its value is the name of the OVN logical patch port that it implements\[char46]
 .RE
+.SH "OVN SOUTHBOUND DATABASE USAGE"
+.PP
+.PP
+\fBovn\-controller\fR reads from much of the \fBOVN_Southbound\fR database to guide its operation\[char46] \fBovn\-controller\fR also writes to the following tables:
+.RS
+.TP
+\fBChassis\fR
+Upon startup, \fBovn\-controller\fR creates a row in this table to represent its own chassis\[char46] Upon graceful termination, e\[char46]g\[char46] with \fBovs\-appctl \-t ovn\-controller exit\fR (but not \fBSIGTERM\fR), \fBovn\-controller\fR removes its row\[char46]
+.TP
+\fBEncap\fR
+Upon startup, \fBovn\-controller\fR creates a row or rows in this table that represent the tunnel encapsulations by which its chassis can be reached, and points its \fBChassis\fR row to them\[char46] Upon graceful termination, \fBovn\-controller\fR removes these rows\[char46]
+.TP
+\fBPort_Binding\fR
+At runtime, \fBovn\-controller\fR sets the \fBchassis\fR columns of ports that are resident on its chassis to point to its \fBChassis\fR row, and, conversely, clears the \fBchassis\fR column of ports that point to its \fBChassis\fR row but are no longer resident on its chassis\[char46] The \fBchassis\fR column has a weak reference type, so when \fBovn\-controller\fR gracefully exits and removes its \fBChassis\fR row, the database server automatically clears any remaining references to that row\[char46]
+.TP
+\fBMAC_Binding\fR
+At runtime, \fBovn\-controller\fR updates the \fBMAC_Binding\fR table as instructed by \fBput_arp\fR and \fBput_nd\fR logical actions\[char46] These changes persist beyond the lifetime of \fBovn\-controller\fR\[char46]
+.RE
 .SH "RUNTIME MANAGEMENT COMMANDS"
 .PP
 .PP
@@ -279,9 +296,18 @@ Causes \fBovn\-controller\fR to gracefully terminate\[char46]
 \fBct\-zone\-list\fR
 Lists each local logical port and its connection tracking zone\[char46]
 .TP
+\fBmeter\-table\-list\fR
+Lists each meter table entry and its local meter id\[char46]
+.TP
+\fBgroup\-table\-list\fR
+Lists each group table entry and its local group id\[char46]
+.TP
 \fBinject\-pkt\fR \fImicroflow\fR
 Injects \fImicroflow\fR into the connected Open vSwitch instance\[char46] \fImicroflow\fR must contain an ingress logical port (\fBinport\fR argument) that is present on the Open vSwitch instance\[char46]
 .IP
 The \fImicroflow\fR argument describes the packet whose forwarding is to be simulated, in the syntax of an OVN logical expression, as described in \fBovn\-sb\fR(5), to express constraints\[char46] The parser understands prerequisites; for example, if the expression refers to \fBip4\[char46]src\fR, there is no need to explicitly state \fBip4\fR or \fBeth\[char46]type ==
 0x800\fR\[char46]
+.TP
+\fBconnection\-status\fR
+Show OVN SBDB connection status for the chassis\[char46]
 .RE
