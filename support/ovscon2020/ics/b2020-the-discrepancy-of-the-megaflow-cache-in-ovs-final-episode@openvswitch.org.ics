@@ -1,0 +1,99 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:Ben's Python script for ovscon2020
+BEGIN:VEVENT
+UID:b2020-the-discrepancy-of-the-megaflow-cache-in-ovs-final-episode@openvs
+ witch.org
+DTSTAMP:20201125T233140Z
+ORGANIZER:CN=ovscon Program Committee:MAILTO:ovscon@openvswitch.org
+DTSTART:20201209T040500Z
+DTEND:20201209T041500Z
+SUMMARY:The Discrepancy of the Megaflow Cache in OVS\, Final Episode (sessi
+ on B\, ovscon 2020)
+DESCRIPTION:Presented by Levente Csikor\, National University of Singapore\
+ ; Vipul Ujawanae\, IIT Kharagpur\; and Dinil Mon Divakaran\, Trustwave.\n\
+ nIn the previous talks\, we demonstrated that the Tuple Space Search (TSS)
+ \nscheme\, used for packet classification algorithm in the MegaFlow Cache 
+ (MFC) of\nOVS\, has an algorithmic deficiency that can be abused by an att
+ acker in\ndifferent ways by pushing this generally high performing packet 
+ classifier to\nits corner case of degraded performance. We called this att
+ ack as Tuple Space\nExplosion (TSE). In TSE\, a legitimately looking low-r
+ ate attack traffic (with\nno particular pattern) inflates the tuple space 
+ making the cardinal linear\nsearch process in TSS to spend an unaffordable
+  time for classifying each\npacket\; this eventually leads to a complete d
+ enial-of-service (DoS) for the\nusers [2].\n\nIn the first part [4]\, we f
+ ocused on a limited attack scenario. In particular\,\nwe demonstrated that
+  for each set of flow rules\, e.g.\, Access Control Lists\n(ACL)\, there e
+ xists a well-engineered traffic trace from which almost every\npacket crea
+ tes a new tuple. We showed that the basic Whitelist+DefaultDeny ACLs\ntena
+ nts are typically given as default in cloud systems are particularly\nvuln
+ erable. However\, in order to carry out this attack\, the adversary has to
+ \nhave access to or knowledge of the installed ACLs.\n\nIn Part II [3]\, w
+ e analyzed that when the attacker is not aware of the ACL\, to\nwhat exten
+ t a randomized traffic trace can inflate the tuple space.\nParticularly\, 
+ we showed that with less than 7 Mbps attack rate\, significant\ndegradatio
+ n of 88% could be achieved.\n\nBoth works above\, however\, had one crucia
+ l aspect in common. We focused on one\ntype of datapath\, exclusively\, na
+ mely the kernel datapath installed by the\nunderlying system's own packet 
+ manager. In many real-world (production)\nenvironments\, administrators si
+ mply rely on the built-in software tools to\ninstall applications to reduc
+ e or even completely avoid all the crux around\nmanual installations and c
+ ompilations from source code\, e.g.\, via apt-get\ninstall openvswitch-com
+ mon in Debian-based Linux distributions. Even though in\nmost of the cases
+ \, we eventually end up having the same application with\nnegligible (perf
+ ormance) difference\, when applications also have modules\nsupplied by the
+  underlying kernel (e.g.\, in the case of Open vSwitch since the\nLinux 3.
+ 3 kernel debut in 2012 [5])\, there can be significant deviations among\nt
+ he implementations. In particular\, as it turned out after the discussions
+ \n(with some of the OVS developers) during our previous talks\, (i) the ke
+ rnel\nnetworking stack developers do not prefer exact flow caching\; there
+ fore\, the\nkernel datapath of OVS lacks the first-level Exact Match Cache
+  (EMC). This\nmeans that the whole fast-path only comprises the MFC\, ther
+ eby making TSE more\nefficient. On the other hand\, (ii) while the userspa
+ ce datapath provided by\nIntel's DPDK significantly improves the packet pr
+ ocessing performance (by\navoiding context-switching\, interrupt-based pac
+ ket handling\, and the\nside-effects of OS schedulers)\, it essentially sh
+ ares the same code base\, and\nmost parts of the algorithms are implemente
+ d according to the same original\ndesign.\n\nTherefore\, to round out our 
+ whole study around the discrepancy of the MFC\, in\nthis lightning talk\, 
+ we investigate to what extent other datapaths are exposed\nto the TSE atta
+ ck. First\, (i) we scrutinize the kernel datapath of OVS compiled\nand ins
+ talled from its up-to-date\, “out-of-kernel-tree” source code\, developed\
+ nby the core OVS developers. We show that the additional caching layer of 
+ EMC\ncan significantly increase the performance of OVS under the TSE attac
+ k\, thereby\nrequiring the adversary to increase her attack rate to become
+  successful.\nSubsequently\, (ii) we also analyze the Intel DPDK-based use
+ rspace datapath\n(also known as OVS-DPDK)\, which is less vulnerable to TS
+ E due to an efficient\nranking algorithm in the tuple space introduced by 
+ patch in 2016 [1]. In\nessence\, this ranking algorithm sorts the tuples a
+ ccording to the overall\nnumber of hits their entries have. Thus\, wheneve
+ r a packet of a frequent flow\nhas to be classified\, its corresponding tu
+ ple will be ranked higher\, making the\nlinear search process faster to fi
+ nd it. This renders the low-rate TSE attack\nmuch less efficient\; in part
+ icular\, after the attack commences\, the victim\nflows slowly “climb back
+ ” to the front of the tuple space and their throughput\nresurge to higher 
+ values.\n\nTo counter this ranking algorithm\, we propose TSE 2.0\, which 
+ by letting some\ntuples expire and re-spawning them by carefully switching
+  the original TSE\nattack on and off\, keeps the ranking algorithm busy. T
+ hus\, eventually\, TSE 2.0\ncauses a complete denial-of-service (DoS) for 
+ the users of the same software\nswitch. Furthermore\, we propose TSE 2.1 a
+ gainst OVS-DPDK running on multiple\ncores\, wherein we slightly increase 
+ the attack rate of TSE 2.0\, but\, at the\nsame time\, we carefully adjust
+  the packet sending sequence to achieve the same\nresults as with TSE 2.0.
+  We experimentally show that TSE 2.1 can still mount a\nlow-rate DoS attac
+ k as long as OVS-DPDK is running on less than five cores.\n\nBibliography\
+ n\n[1] B. Bodireddy and A. Fischetti\, OVS-DPDK Datapath Classifier\, Inte
+ l Blogpost\,\nhttps://intel.ly/3kCbIi8\, October 2016 [Accessed: Oct 2020]
+ .\n\n[2] L. Csikor\, D. M. Divakaran\, M. S. Kang\, A. Korosi\, B. Sonkoly
+ \, D. Haja\, D.\nP. Pezaros\, S. Schmid\, and G. Rétvári\, Tuple Space Exp
+ losion: A\nDenial-of-Service Attack Against a Software Packet Classifier I
+ n ACM CoNEXT\n2019\, Dec 2019.\n\n[3] L. Csikor\, M. S. Kang\, and D. M. D
+ ivakaran\, The Discrepancy of the Megaflow\nCache in OVS\, Part II.\, Full
+  talk at OVS+OVN Conference\,\nhttps://bit.ly/2SsfGh7\, Dec. 2019.\n\n[4] 
+ L. Csikor and G. Rétvári\, The Discrepancy of the Megaflow Cache in OVS\, 
+ Full\ntalk at OVS Fall Conference\, https://bit.ly/30A5qb9\, Dec. 2018.\n\
+ n[5] S. M. Kerner\, Open vSwitch (OVS) Becomes a Linux Foundation Collabor
+ ative\nProject\, Aug 2016 [Accessed: Jun 2020].\n\nVisit https://ovscon.si
+ te/ for details and a link to the live stream when it becomes available.
+END:VEVENT
+END:VCALENDAR
