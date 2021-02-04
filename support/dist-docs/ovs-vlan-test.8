@@ -1,0 +1,175 @@
+.\" Man page generated from reStructuredText.
+.
+.TH "OVS-VLAN-TEST" "8" "Feb 04, 2021" "2.15.90" "Open vSwitch"
+.SH NAME
+ovs-vlan-test \- Check Linux drivers for problems with vlan traffic
+.
+.nr rst2man-indent-level 0
+.
+.de1 rstReportMargin
+\\$1 \\n[an-margin]
+level \\n[rst2man-indent-level]
+level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+-
+\\n[rst2man-indent0]
+\\n[rst2man-indent1]
+\\n[rst2man-indent2]
+..
+.de1 INDENT
+.\" .rstReportMargin pre:
+. RS \\$1
+. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
+. nr rst2man-indent-level +1
+.\" .rstReportMargin post:
+..
+.de UNINDENT
+. RE
+.\" indent \\n[an-margin]
+.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.nr rst2man-indent-level -1
+.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
+..
+.SH SYNOPSIS
+.sp
+\fBovs\-vlan\-test\fP [\fB\-s\fP | \fB–server\fP] \fIcontrol_ip\fP \fIvlan_ip\fP
+.SH DESCRIPTION
+.sp
+The \fBovs\-vlan\-test\fP utility has some limitations, for example, it does
+not use TCP in its tests. Also it does not take into account MTU to detect
+potential edge cases. To overcome those limitations a new tool was developed \-
+\fBovs\-test\fP\&. \fBovs\-test\fP is currently supported only on Debian
+so, if possible, try to use that on instead of \fBovs\-vlan\-test\fP\&.
+.sp
+The \fBovs\-vlan\-test\fP program may be used to check for problems sending
+802.1Q traffic which may occur when running Open vSwitch. These problems can
+occur when Open vSwitch is used to send 802.1Q traffic through physical
+interfaces running certain drivers of certain Linux kernel versions. To run a
+test, configure Open vSwitch to tag traffic originating from \fIvlan_ip\fP and
+forward it out the target interface. Then run the \fBovs\-vlan\-test\fP in
+client mode connecting to an \fBovs\-vlan\-test\fP server.
+\fBovs\-vlan\-test\fP will display “OK” if it did not detect problems.
+.sp
+Some examples of the types of problems that may be encountered are:
+.INDENT 0.0
+.IP \(bu 2
+When NICs use VLAN stripping on receive they must pass a pointer to a
+\fIvlan_group\fP when reporting the stripped tag to the networking core. If no
+\fIvlan_group\fP is in use then some drivers just drop the extracted tag.
+Drivers are supposed to only enable stripping if a \fIvlan_group\fP is registered
+but not all of them do that.
+.IP \(bu 2
+On receive, some drivers handle priority tagged packets specially and don’t
+pass the tag onto the network stack at all, so Open vSwitch never has a
+chance to see it.
+.IP \(bu 2
+Some drivers size their receive buffers based on whether a \fIvlan_group\fP is
+enabled, meaning that a maximum size packet with a VLAN tag will not fit if
+no \fIvlan_group\fP is configured.
+.IP \(bu 2
+On transmit, some drivers expect that VLAN acceleration will be used if it is
+available, which can only be done if a \fIvlan_group\fP is configured. In these
+cases, the driver may fail to parse the packet and correctly setup checksum
+offloading or TSO.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B Client Mode
+An \fBovs\-vlan\-test\fP client may be run on a host to check for VLAN
+connectivity problems. The client must be able to establish HTTP connections
+with an \fBovs\-vlan\-test\fP server located at the specified \fIcontrol_ip\fP
+address. UDP traffic sourced at \fIvlan_ip\fP should be tagged and directed out
+the interface whose connectivity is being tested.
+.TP
+.B Server Mode
+To conduct tests, an \fBovs\-vlan\-test\fP server must be running on a
+host known not to have VLAN connectivity problems. The server must have a
+\fIcontrol_ip\fP on a non\-VLAN network which clients can establish connectivity
+with. It must also have a \fIvlan_ip\fP address on a VLAN network which clients
+will use to test their VLAN connectivity. Multiple clients may test against a
+single \fBovs\-vlan\-test\fP server concurrently.
+.UNINDENT
+.SH OPTIONS
+.INDENT 0.0
+.TP
+.B \-s, \-\-server
+Run in server mode.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-h, \-\-help
+Prints a brief help message to the console.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-V, \-\-version
+Prints version information to the console.
+.UNINDENT
+.SH EXAMPLES
+.sp
+Display the Linux kernel version and driver of \fIeth1\fP:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+uname \-r
+ethtool \-i eth1
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Set up a bridge which forwards traffic originating from \fI1.2.3.4\fP out \fIeth1\fP
+with VLAN tag 10:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+ovs\-vsctl \-\- add\-br vlan\-br \e
+  \-\- add\-port vlan\-br eth1 \e
+  \-\- add\-port vlan\-br vlan\-br\-tag tag=10 \e
+  \-\- set Interface vlan\-br\-tag type=internal
+ip addr add 1.2.3.4/8 dev vlan\-br\-tag
+ip link set vlan\-br\-tag up
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Run an \fBovs\-vlan\-test\fP server listening for client control traffic on
+\fI172.16.0.142\fP port \fI8080\fP and VLAN traffic on the default port of \fI1.2.3.3\fP:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+ovs\-vlan\-test \-s 172.16.0.142:8080 1.2.3.3
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Run an \fBovs\-vlan\-test\fP client with a control server located at
+\fI172.16.0.142\fP port \fI8080\fP and a local VLAN IP of \fI1.2.3.4\fP:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+ovs\-vlan\-test 172.16.0.142:8080 1.2.3.4
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SH SEE ALSO
+.sp
+\fIovs\-vswitchd(8)\fP, \fIovs\-ofctl(8)\fP, \fIovs\-vsctl(8)\fP, \fBovs\-test\fP,
+\fIethtool(8)\fP, \fIuname(1)\fP
+.SH AUTHOR
+The Open vSwitch Development Community
+.SH COPYRIGHT
+2016, The Open vSwitch Development Community
+.\" Generated by docutils manpage writer.
+.

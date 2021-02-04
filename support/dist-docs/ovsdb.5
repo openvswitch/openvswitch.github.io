@@ -1,0 +1,472 @@
+.\" Man page generated from reStructuredText.
+.
+.TH "OVSDB" "5" "Feb 04, 2021" "2.15.90" "Open vSwitch"
+.SH NAME
+ovsdb \- Open vSwitch Database (File Formats)
+.
+.nr rst2man-indent-level 0
+.
+.de1 rstReportMargin
+\\$1 \\n[an-margin]
+level \\n[rst2man-indent-level]
+level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+-
+\\n[rst2man-indent0]
+\\n[rst2man-indent1]
+\\n[rst2man-indent2]
+..
+.de1 INDENT
+.\" .rstReportMargin pre:
+. RS \\$1
+. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
+. nr rst2man-indent-level +1
+.\" .rstReportMargin post:
+..
+.de UNINDENT
+. RE
+.\" indent \\n[an-margin]
+.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.nr rst2man-indent-level -1
+.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
+..
+.SH DESCRIPTION
+.sp
+OVSDB, the Open vSwitch Database, is a database system whose network protocol
+is specified by RFC 7047.  The RFC does not specify an on\-disk storage format.
+The OVSDB implementation in Open vSwitch implements two storage formats: one
+for standalone (and active\-backup) databases, and the other for clustered
+databases.  This manpage documents both of these formats.
+.sp
+Most users do not need to be concerned with this specification.  Instead,
+to manipulate OVSDB files, refer to \fIovsdb\-tool(1)\fP\&.  For an
+introduction to OVSDB as a whole, read \fIovsdb(7)\fP\&.
+.sp
+OVSDB files explicitly record changes that are implied by the database schema.
+For example, the OVSDB “garbage collection” feature means that when a client
+removes the last reference to a garbage\-collected row, the database server
+automatically removes that row.  The database file explicitly records the
+deletion of the garbage\-collected row, so that the reader does not need to
+infer it.
+.sp
+OVSDB files do not include the values of ephemeral columns.
+.sp
+Standalone and clustered database files share the common structure described
+here.  They are text files encoded in UTF\-8 with LF (U+000A) line ends,
+organized as append\-only series of records.  Each record consists of 2 lines of
+text.
+.sp
+The first line in each record has the format \fBOVSDB <magic> <length> <hash>\fP,
+where <magic> is \fBJSON\fP for standalone databases or \fBCLUSTER\fP for clustered
+databases, <length> is a positive decimal integer, and <hash> is a SHA\-1
+checksum expressed as 40 hexadecimal digits.  Words in the first line must be
+separated by exactly one space.
+.sp
+The second line must be exactly \fIlength\fP bytes long (including the LF) and its
+SHA\-1 checksum (including the LF) must match \fIhash\fP exactly.  The line’s
+contents must be a valid JSON object as specified by RFC 4627.  Strings in the
+JSON object must be valid UTF\-8.  To ensure that the second line is exactly one
+line of text, the OVSDB implementation expresses any LF characters within a
+JSON string as \fB\en\fP\&.  For the same reason, and to save space, the OVSDB
+implementation does not “pretty print” the JSON object with spaces and LFs.
+(The OVSDB implementation tolerates LFs when reading an OVSDB database file, as
+long as \fIlength\fP and \fIhash\fP are correct.)
+.SS JSON Notation
+.sp
+We use notation from RFC 7047 here to describe the JSON data in records.
+In addition to the notation defined there, we add the following:
+.INDENT 0.0
+.TP
+.B <raw\-uuid>
+A 36\-character JSON string that contains a UUID in the format described by
+RFC 4122, e.g. \fB"550e8400\-e29b\-41d4\-a716\-446655440000"\fP
+.UNINDENT
+.SS Standalone Format
+.sp
+The first record in a standalone database contains the JSON schema for the
+database, as specified in RFC 7047.  Only this record is mandatory (a
+standalone file that contains only a schema represents an empty database).
+.sp
+The second and subsequent records in a standalone database are transaction
+records.  Each record may have the following optional special members,
+which do not have any semantics but are often useful to administrators
+looking through a database log with \fBovsdb\-tool show\-log\fP:
+.INDENT 0.0
+.TP
+.B \fB"_date": <integer>\fP
+The time at which the transaction was committed, as an integer number of
+milliseconds since the Unix epoch.  Early versions of OVSDB counted seconds
+instead of milliseconds; these can be detected by noticing that their
+values are less than 2**32.
+.sp
+OVSDB always writes a \fB_date\fP member.
+.TP
+.B \fB"_comment": <string>\fP
+A JSON string that specifies the comment provided in a transaction
+\fBcomment\fP operation.  If a transaction has multiple \fBcomment\fP
+operations, OVSDB concatenates them into a single \fB_comment\fP member,
+separated by a new\-line.
+.sp
+OVSDB only writes a \fB_comment\fP member if it would be a nonempty string.
+.UNINDENT
+.sp
+Each of these records also has one or more additional members, each of which
+maps from the name of a database table to a <table\-txn>:
+.INDENT 0.0
+.TP
+.B <table\-txn>
+A JSON object that describes the effects of a transaction on a database
+table.  Its names are <raw\-uuid>s for rows in the table and its values are
+<row\-txn>s.
+.TP
+.B <row\-txn>
+Either \fBnull\fP, which indicates that the transaction deleted this row, or
+a JSON object that describes how the transaction inserted or modified the
+row, whose names are the names of columns and whose values are <value>s
+that give the column’s new value.
+.sp
+For new rows, the OVSDB implementation omits columns whose values have the
+default values for their types defined in RFC 7047 section 5.2.1; for
+modified rows, the OVSDB implementation omits columns whose values are
+unchanged.
+.UNINDENT
+.SS Clustered Format
+.sp
+The clustered format has the following additional notation:
+.INDENT 0.0
+.TP
+.B <uint64>
+A JSON integer that represents a 64\-bit unsigned integer.  The OVS JSON
+implementation only supports integers in the range \-2**63 through 2**63\-1,
+so 64\-bit unsigned integer values from 2**63 through 2**64\-1 are expressed
+as negative numbers.
+.TP
+.B <address>
+A JSON string that represents a network address to support clustering, in
+the \fB<protocol>:<ip>:<port>\fP syntax described in \fBovsdb\-tool(1)\fP\&.
+.TP
+.B <servers>
+A JSON object whose names are <raw\-uuid>s that identify servers and
+whose values are <address>es that specify those servers’ addresses.
+.TP
+.B <cluster\-txn>
+A JSON array with two elements:
+.INDENT 7.0
+.IP 1. 3
+The first element is either a <database\-schema> or \fBnull\fP\&.  A
+<database\-schema> element is always present in the first record of a
+clustered database to indicate the database’s initial schema.  If it is
+not \fBnull\fP in a later record, it indicates a change of schema for the
+database.
+.IP 2. 3
+The second element is either a transaction record in the format
+described under \fBStandalone Format\fP above, or \fBnull\fP\&.
+.UNINDENT
+.sp
+When a schema is present, the transaction record is relative to an empty
+database.  That is, a schema change effectively resets the database to
+empty and the transaction record represents the full database contents.
+This allows readers to be ignorant of the full semantics of schema change.
+.UNINDENT
+.sp
+The first record in a clustered database contains the following members,
+all of which are required, except \fBprev_election_timer\fP:
+.INDENT 0.0
+.TP
+.B \fB"server_id": <raw\-uuid>\fP
+The server’s own UUID, which must be unique within the cluster.
+.TP
+.B \fB"local_address": <address>\fP
+The address on which the server listens for connections from other
+servers in the cluster.
+.TP
+.B \fB"name": <id>\fP
+The database schema name.  It is only important when a server is in the
+process of joining a cluster: a server will only join a cluster if the
+name matches.  (If the database schema name were unique, then we would
+not also need a cluster ID.)
+.TP
+.B \fB"cluster_id": <raw\-uuid>\fP
+The cluster’s UUID.  The all\-zeros UUID is not a valid cluster ID.
+.TP
+.B \fB"prev_term": <uint64>\fP and \fB"prev_index": <uint64>\fP
+The Raft term and index just before the beginning of the log.
+.TP
+.B \fB"prev_servers": <servers>\fP
+The set of one or more servers in the cluster at index “prev_index” and
+term “prev_term”.  It might not include this server, if it was not the
+initial server in the cluster.
+.TP
+.B \fB"prev_election_timer": <uint64>\fP
+The election base time before the beginning of the log.  If not exist,
+the default value 1000 ms is used as if it exists this record.
+.TP
+.B \fB"prev_data": <json\-value>\fP and \fB"prev_eid": <raw\-uuid>\fP
+A snapshot of the data in the database at index “prev_index” and term
+“prev_term”, and the entry ID for that data.  The snapshot must contain a
+schema.
+.UNINDENT
+.sp
+The second and subsequent records, if present, in a clustered database
+represent changes to the database, to the cluster state, or both.  There are
+several types of these records.  The most important types of records directly
+represent persistent state described in the Raft specification:
+.INDENT 0.0
+.TP
+.B Entry
+A Raft log entry.
+.TP
+.B Term
+The start of a new term.
+.TP
+.B Vote
+The server’s vote for a leader in the current term.
+.UNINDENT
+.sp
+The following additional types of records aid debugging and troubleshooting,
+but they do not affect correctness.
+.INDENT 0.0
+.TP
+.B Leader
+Identifies a newly elected leader for the current term.
+.TP
+.B Commit Index
+An update to the server’s \fBcommit_index\fP\&.
+.TP
+.B Note
+A human\-readable description of some event.
+.UNINDENT
+.sp
+The table below identifies the members that each type of record contains.
+“yes” indicates that a member is required, “?” that it is optional, blank that
+it is forbidden, and [1] that \fBdata\fP and \fBeid\fP must be either both present
+or both absent.
+.TS
+center;
+|l|l|l|l|l|l|l|.
+_
+T{
+member
+T}	T{
+Entry
+T}	T{
+Term
+T}	T{
+Vote
+T}	T{
+Leader
+T}	T{
+Commit Index
+T}	T{
+Note
+T}
+_
+T{
+comment
+T}	T{
+?
+T}	T{
+?
+T}	T{
+?
+T}	T{
+?
+T}	T{
+?
+T}	T{
+?
+T}
+_
+T{
+term
+T}	T{
+yes
+T}	T{
+yes
+T}	T{
+yes
+T}	T{
+yes
+T}	T{
+T}	T{
+T}
+_
+T{
+index
+T}	T{
+yes
+T}	T{
+T}	T{
+T}	T{
+T}	T{
+T}	T{
+T}
+_
+T{
+servers
+T}	T{
+?
+T}	T{
+T}	T{
+T}	T{
+T}	T{
+T}	T{
+T}
+_
+T{
+election_timer
+T}	T{
+?
+T}	T{
+T}	T{
+T}	T{
+T}	T{
+T}	T{
+T}
+_
+T{
+data
+T}	T{
+[1]
+T}	T{
+T}	T{
+T}	T{
+T}	T{
+T}	T{
+T}
+_
+T{
+eid
+T}	T{
+[1]
+T}	T{
+T}	T{
+T}	T{
+T}	T{
+T}	T{
+T}
+_
+T{
+vote
+T}	T{
+T}	T{
+T}	T{
+yes
+T}	T{
+T}	T{
+T}	T{
+T}
+_
+T{
+leader
+T}	T{
+T}	T{
+T}	T{
+T}	T{
+yes
+T}	T{
+T}	T{
+T}
+_
+T{
+commit_index
+T}	T{
+T}	T{
+T}	T{
+T}	T{
+T}	T{
+yes
+T}	T{
+T}
+_
+T{
+note
+T}	T{
+T}	T{
+T}	T{
+T}	T{
+T}	T{
+T}	T{
+yes
+T}
+_
+.TE
+.sp
+The members are:
+.INDENT 0.0
+.TP
+.B \fB"comment": <string>\fP
+A human\-readable string giving an administrator more information about
+the reason a record was emitted.
+.TP
+.B \fB"term": <uint64>\fP
+The term in which the activity occurred.
+.TP
+.B \fB"index": <uint64>\fP
+The index of a log entry.
+.TP
+.B \fB"servers": <servers>\fP
+Server configuration in a log entry.
+.TP
+.B \fB"election_timer": <uint64>\fP
+Leader election timeout base value in a log entry.
+.TP
+.B \fB"data": <json\-value>\fP
+The data in a log entry.
+.TP
+.B \fB"eid": <raw\-uuid>\fP
+Entry ID in a log entry.
+.TP
+.B \fB"vote": <raw\-uuid>\fP
+The server ID for which this server voted.
+.TP
+.B \fB"leader": <raw\-uuid>\fP
+The server ID of the server.  Emitted by both leaders and followers when a
+leader is elected.
+.TP
+.B \fB"commit_index": <uint64>\fP
+Updated \fBcommit_index\fP value.
+.TP
+.B \fB"note": <string>\fP
+One of a few special strings indicating important events.  The currently
+defined strings are:
+.INDENT 7.0
+.TP
+.B \fB"transfer leadership"\fP
+This server transferred leadership to a different server (with details
+included in \fBcomment\fP).
+.TP
+.B \fB"left"\fP
+This server finished leaving the cluster.  (This lets subsequent
+readers know that the server is not part of the cluster and should not
+attempt to connect to it.)
+.UNINDENT
+.UNINDENT
+.SS Joining a Cluster
+.sp
+In addition to general format for a clustered database, there is also a special
+case for a database file created by \fBovsdb\-tool join\-cluster\fP\&.  Such a file
+contains exactly one record, which conveys the information passed to the
+\fBjoin\-cluster\fP command.  It has the following members:
+.INDENT 0.0
+.TP
+.B \fB"server_id": <raw\-uuid>\fP and \fB"local_address": <address>\fP and \fB"name": <id>\fP
+These have the same semantics described above in the general description
+of the format.
+.TP
+.B \fB"cluster_id": <raw\-uuid>\fP
+This is provided only if the user gave the \fB\-\-cid\fP option to
+\fBjoin\-cluster\fP\&.  It has the same semantics described above.
+.TP
+.B \fB"remote_addresses"; [<address>*]\fP
+One or more remote servers to contact for joining the cluster.
+.UNINDENT
+.sp
+When the server successfully joins the cluster, the database file is replaced
+by one described in \fI\%Clustered Format\fP\&.
+.SH AUTHOR
+The Open vSwitch Development Community
+.SH COPYRIGHT
+2016, The Open vSwitch Development Community
+.\" Generated by docutils manpage writer.
+.

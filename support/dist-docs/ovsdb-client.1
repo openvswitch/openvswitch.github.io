@@ -189,7 +189,7 @@
 .
 .\" EOF
 .\" ----------------------------------------------------------------------
-.TH ovsdb\-client 1 "2.10.90" "Open vSwitch" "Open vSwitch Manual"
+.TH ovsdb\-client 1 "2.15.90" "Open vSwitch" "Open vSwitch Manual"
 .\" This program's name:
 .ds PN ovsdb\-client
 .
@@ -232,6 +232,9 @@ ovsdb\-client \- command-line interface to \fBovsdb-server\fR(1)
 .br
 \fBovsdb\-client\fR [\fIoptions\fR] \fBmonitor\-cond\fR [\fIserver\fR] [\fIdatabase\fR] \fIconditions
 \fItable\fR [\fIcolumn\fR[\fB,\fIcolumn\fR]...]...
+.br
+\fBovsdb\-client\fR [\fIoptions\fR] \fBmonitor\-cond\-since\fR [\fIserver\fR] [\fIdatabase\fR]
+[\fIlast-id\fR] \fIconditions \fItable\fR [\fIcolumn\fR[\fB,\fIcolumn\fR]...]...
 .br
 \fBovsdb\-client \fR[\fIoptions\fR] \fBwait\fR \fR[\fIserver\fR] \fIdatabase\fR \fIstate\fR
 .IP "Testing Commands:"
@@ -473,6 +476,7 @@ with an error or succeed with surprising results.
 .
 .IP "\fBmonitor\fR [\fIserver\fR] [\fIdatabase\fR] \fItable\fR [\fIcolumn\fR[\fB,\fIcolumn\fR]...]..."
 .IQ "\fBmonitor\-cond\fR [\fIserver\fR] [\fIdatabase\fR] \fIconditions\fR \fItable\fR [\fIcolumn\fR[\fB,\fIcolumn\fR]...]..."
+.IQ "\fBmonitor\-cond\-since\fR [\fIserver\fR] [\fIdatabase\fR] [\fIlast-id\fR] \fIconditions\fR \fItable\fR [\fIcolumn\fR[\fB,\fIcolumn\fR]...]..."
 Connects to \fIserver\fR and monitors the contents of rows that match conditions in
 \fItable\fR in \fIdatabase\fR. By default, the initial contents of \fItable\fR are
 printed, followed by each change as it occurs.  If conditions empty,
@@ -497,15 +501,16 @@ line.
 .IP
 \fBconditions\fR is a JSON array of <condition> as defined in RFC 7047 5.1
 with the following change: A condition can be either a 3-element JSON array
-as deescribed in the RFC or a boolean value..
+as described in the RFC or a boolean value.
 .IP
-If \fB\-\-detach\fR is used with \fBmonitor\fR or \fBmonitor\-cond\fR, then
-\fBovsdb\-client\fR detaches after it has successfully received and
-printed the initial contents of \fItable\fR.
+If \fB\-\-detach\fR is used with \fBmonitor\fR, \fBmonitor\-cond\fR or
+\fBmonitor\-cond\-since\fR, then \fBovsdb\-client\fR detaches after it has
+successfully received and printed the initial contents of \fItable\fR.
 .IP
 The \fBmonitor\fR command uses RFC 7047 "monitor" method to open a monitor
-session with the server. The \fBmonitor\-cond\fR command uses RFC 7047
-extension "monitor_cond" method. See \fBovsdb\-server\fR(1) for details.
+session with the server. The \fBmonitor\-cond\fR and \fBmonitor\-cond\-since\fR
+commandls uses RFC 7047 extension "monitor_cond" and "monitor_cond_since"
+methods. See \fBovsdb\-server\fR(1) for details.
 .IP "\fBmonitor\fI \fR[\fIserver\fR] \fR[\fIdatabase\fR] \fBALL\fR"
 Connects to \fIserver\fR and monitors the contents of all tables in
 \fIdatabase\fR.  Prints initial values and all kinds of changes to all
@@ -645,10 +650,10 @@ Columns are always wide enough to display the column names, if the
 heading row is printed.
 .
 .IP "\fB\-\-timestamp\fR"
-For the \fBmonitor\fR and \fBmonitor\-cond\fR commands, add a timestamp to each
-table update.  Most output formats add the timestamp on a line of its own
-just above the table.  The JSON output format puts the timestamp in a
-member of the top-level JSON object named \fBtime\fR.
+For the \fBmonitor\fR, \fBmonitor\-cond\fR and \fBmonitor\-cond\-since\fR
+commands, add a timestamp to each table update.  Most output formats add the
+timestamp on a line of its own just above the table.  The JSON output format
+puts the timestamp in a member of the top-level JSON object named \fBtime\fR.
 .
 .IP "\fB\-t\fR"
 .IQ "\fB\-\-timeout=\fIsecs\fR"
@@ -657,8 +662,9 @@ seconds.  If the timeout expires, \fBovsdb\-client\fR will exit with a
 \fBSIGALRM\fR signal.
 .
 .SS "Daemon Options"
-The daemon options apply only to the \fBmonitor\fR and \fBmonitor\-cond\fR commands.
-With any other command, they have no effect.
+The daemon options apply only to the \fBmonitor\fR, \fBmonitor\-cond\fR and
+\fBmonitor\-cond\-since\fR commands.  With any other command, they have no
+effect.
 .ds DD
 .PP
 The following options are valid on POSIX based platforms.
@@ -720,7 +726,7 @@ This option has no effect when \fB\-\-detach\fR is not specified.
 .TP
 \fB\-\-no\-self\-confinement\fR
 By default daemon will try to self-confine itself to work with
-files under well-know, at build-time whitelisted directories.  It
+files under well-known directories determined during build.  It
 is better to stick with this default behavior and not to use this
 flag unless some other Access Control is used to confine daemon.
 Note that in contrast to other access control implementations that

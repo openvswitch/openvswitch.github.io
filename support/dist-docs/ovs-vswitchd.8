@@ -189,7 +189,7 @@
 .
 .\" EOF
 .\" ----------------------------------------------------------------------
-.TH ovs\-vswitchd 8 "2.10.90" "Open vSwitch" "Open vSwitch Manual"
+.TH ovs\-vswitchd 8 "2.15.90" "Open vSwitch" "Open vSwitch Manual"
 .\" This program's name:
 .ds PN ovs\-vswitchd
 .
@@ -268,9 +268,8 @@ only allow privileged users, such as the superuser, to use it.
 unavailable or unsuccessful.
 .
 .SS "DPDK Options"
-For details on initializing the \fBovs\-vswitchd\fR DPDK datapath,
-refer to the documentation or \fBovs\-vswitchd.conf.db\fR(5) for
-details.
+For details on initializing \fBovs\-vswitchd\fR to use DPDK ports,
+refer to the documentation or \fBovs\-vswitchd.conf.db\fR(5).
 .SS "Daemon Options"
 .ds DD \
 \fBovs\-vswitchd\fR detaches only after it has connected to the \
@@ -336,7 +335,7 @@ This option has no effect when \fB\-\-detach\fR is not specified.
 .TP
 \fB\-\-no\-self\-confinement\fR
 By default daemon will try to self-confine itself to work with
-files under well-know, at build-time whitelisted directories.  It
+files under well-known directories determined during build.  It
 is better to stick with this default behavior and not to use this
 flag unless some other Access Control is used to confine daemon.
 Note that in contrast to other access control implementations that
@@ -573,8 +572,13 @@ how to configure Open vSwitch.
 .SS "GENERAL COMMANDS"
 .IP "\fBexit\fR \fI--cleanup\fR"
 Causes \fBovs\-vswitchd\fR to gracefully terminate. If \fI--cleanup\fR
-is specified, release datapath resources configured by \fBovs\-vswitchd\fR.
-Otherwise, datapath flows and other resources remains undeleted.
+is specified, deletes flows from datapaths and releases other datapath
+resources configured by \fBovs\-vswitchd\fR.  Otherwise, datapath
+flows and other resources remains undeleted.  Resources of datapaths
+that are integrated into \fBovs\-vswitchd\fR (e.g.  the \fBnetdev\fR
+datapath type) are always released regardless of \fI--cleanup\fR
+except for ports with \fBinternal\fR type. Use \fI--cleanup\fR to
+release \fBinternal\fR ports too.
 .
 .IP "\fBqos/show-types\fR \fIinterface\fR"
 Queries the interface for a list of Quality of Service types that are
@@ -646,56 +650,59 @@ their controller connections and reconnect.
 .IP
 This command might be useful for debugging OpenFlow controller issues.
 .
-.IP "\fBbridge/dump\-flows\fR \fIbridge\fR"
+.IP "\fBbridge/dump\-flows\fR [\fB\-\-offload-stats\fR] \fIbridge\fR"
 Lists all flows in \fIbridge\fR, including those normally hidden to
 commands such as \fBovs\-ofctl dump\-flows\fR.  Flows set up by mechanisms
 such as in-band control and fail-open are hidden from the controller
 since it is not allowed to modify or override them.
+If \fB\-\-offload-stats\fR are specified then also list statistics for
+offloaded packets and bytes, which are a subset of the total packets and
+bytes.
 .SS "BOND COMMANDS"
 These commands manage bonded ports on an Open vSwitch's bridges.  To
 understand some of these commands, it is important to understand a
 detail of the bonding implementation called ``source load balancing''
 (SLB).  Instead of directly assigning Ethernet source addresses to
-slaves, the bonding implementation computes a function that maps an
+members, the bonding implementation computes a function that maps an
 48-bit Ethernet source addresses into an 8-bit value (a ``MAC hash''
 value).  All of the Ethernet addresses that map to a single 8-bit
-value are then assigned to a single slave.
+value are then assigned to a single member.
 .IP "\fBbond/list\fR"
-Lists all of the bonds, and their slaves, on each bridge.
+Lists all of the bonds, and their members, on each bridge.
 .
 .IP "\fBbond/show\fR [\fIport\fR]"
 Lists all of the bond-specific information (updelay, downdelay, time
 until the next rebalance) about the given bonded \fIport\fR, or all
 bonded ports if no \fIport\fR is given.  Also lists information about
-each slave: whether it is enabled or disabled, the time to completion
+each members: whether it is enabled or disabled, the time to completion
 of an updelay or downdelay if one is in progress, whether it is the
-active slave, the hashes assigned to the slave.  Any LACP information
+active member, the hashes assigned to the member.  Any LACP information
 related to this bond may be found using the \fBlacp/show\fR command.
 .
-.IP "\fBbond/migrate\fR \fIport\fR \fIhash\fR \fIslave\fR"
-Only valid for SLB bonds.  Assigns a given MAC hash to a new slave.
+.IP "\fBbond/migrate\fR \fIport\fR \fIhash\fR \fImember\fR"
+Only valid for SLB bonds.  Assigns a given MAC hash to a new member.
 \fIport\fR specifies the bond port, \fIhash\fR the MAC hash to be
-migrated (as a decimal number between 0 and 255), and \fIslave\fR the
-new slave to be assigned.
+migrated (as a decimal number between 0 and 255), and \fImember\fR the
+new member to be assigned.
 .IP
 The reassignment is not permanent: rebalancing or fail-over will
-cause the MAC hash to be shifted to a new slave in the usual
+cause the MAC hash to be shifted to a new member in the usual
 manner.
 .IP
-A MAC hash cannot be migrated to a disabled slave.
-.IP "\fBbond/set\-active\-slave\fR \fIport\fR \fIslave\fR"
-Sets \fIslave\fR as the active slave on \fIport\fR.  \fIslave\fR must
+A MAC hash cannot be migrated to a disabled member.
+.IP "\fBbond/set\-active\-member\fR \fIport\fR \fImember\fR"
+Sets \fImember\fR as the active member on \fIport\fR.  \fImember\fR must
 currently be enabled.
 .IP
-The setting is not permanent: a new active slave will be selected
-if \fIslave\fR becomes disabled.
-.IP "\fBbond/enable\-slave\fR \fIport\fR \fIslave\fR"
-.IQ "\fBbond/disable\-slave\fR \fIport\fR \fIslave\fR"
-Enables (or disables) \fIslave\fR on the given bond \fIport\fR, skipping any
+The setting is not permanent: a new active member will be selected
+if \fImember\fR becomes disabled.
+.IP "\fBbond/enable\-member\fR \fIport\fR \fImember\fR"
+.IQ "\fBbond/disable\-member\fR \fIport\fR \fImember\fR"
+Enables (or disables) \fImember\fR on the given bond \fIport\fR, skipping any
 updelay (or downdelay).
 .IP
 This setting is not permanent: it persists only until the carrier
-status of \fIslave\fR changes.
+status of \fImember\fR changes.
 .IP "\fBbond/hash\fR \fImac\fR [\fIvlan\fR] [\fIbasis\fR]"
 Returns the hash value which would be used for \fImac\fR with \fIvlan\fR
 and \fIbasis\fR if specified.
@@ -703,7 +710,7 @@ and \fIbasis\fR if specified.
 .IP "\fBlacp/show\fR [\fIport\fR]"
 Lists all of the LACP related information about the given \fIport\fR:
 active or passive, aggregation key, system id, and system priority.  Also
-lists information about each slave: whether it is enabled or disabled,
+lists information about each member: whether it is enabled or disabled,
 whether it is attached or detached, port id and priority, actor
 information, and partner information.  If \fIport\fR is not specified,
 then displays detailed information about all interfaces with CFM
@@ -711,7 +718,7 @@ enabled.
 .
 .IP "\fBlacp/stats-show\fR [\fIport\fR]"
 Lists various stats about LACP PDUs (number of RX/TX PDUs, bad PDUs received)
-and slave state (number of time slave's state expired/defaulted and carrier
+and member state (number of times its state expired/defaulted and carrier
 status changed) for the given \fIport\fR.  If \fIport\fR is not specified,
 then displays stats of all interfaces with LACP enabled.
 .SS "DPCTL DATAPATH DEBUGGING COMMANDS"
@@ -834,7 +841,7 @@ default.  When multiple datapaths exist, then a datapath name is
 required.
 .
 .TP
-.DO "[\fB\-m \fR| \fB\-\-more\fR] [\fB\-\-names \fR| \fB\-\-no\-names\fR]" \*(DX\fBdump\-flows\fR "[\fIdp\fR] [\fBfilter=\fIfilter\fR] [\fBtype=\fItype\fR]"
+.DO "[\fB\-m \fR| \fB\-\-more\fR] [\fB\-\-names \fR| \fB\-\-no\-names\fR]" \*(DX\fBdump\-flows\fR "[\fIdp\fR] [\fBfilter=\fIfilter\fR] [\fBtype=\fItype\fR] [\fBpmd=\fIpmd\fR]"
 Prints to the console all flow entries in datapath \fIdp\fR's flow
 table.  Without \fB\-m\fR or \fB\-\-more\fR, output omits match fields
 that a flow wildcards entirely; with \fB\-m\fR or \fB\-\-more\fR,
@@ -848,16 +855,24 @@ The \fIfilter\fR is also useful to match wildcarded fields in the datapath
 flow. As an example, \fBfilter='tcp,tp_src=100'\fR will match the
 datapath flow containing '\fBtcp(src=80/0xff00,dst=8080/0xff)\fR'.
 .IP
+If \fBpmd=\fIpmd\fR is specified, only displays flows of the specified pmd.
+Using \fBpmd=\fI-1\fR will restrict the dump to flows from the main thread.
+This option is only supported by the \fBuserspace datapath\fR.
+.IP
 If \fBtype=\fItype\fR is specified, only displays flows of the specified types.
+This option supported only for \fBovs\-appctl dpctl/dump\-flows\fR.
 \fItype\fR is a comma separated list, which can contain any of the following:
 .
    \fBovs\fR - displays flows handled in the ovs dp
    \fBtc\fR - displays flows handled in the tc dp
+   \fBdpdk\fR - displays flows fully offloaded by dpdk
    \fBoffloaded\fR - displays flows offloaded to the HW
    \fBnon-offloaded\fR - displays flows not offloaded to the HW
+   \fBpartially-offloaded\fR - displays flows where only part of their proccessing is done in HW
    \fBall\fR - displays all the types of flows
 .IP
 By default all the types of flows are displayed.
+\fBovs\-dpctl\fR always acts as if the \fBtype\fR was \fIovs\fR.
 .
 .IP "\*(DX\fBadd\-flow\fR [\fIdp\fR] \fIflow actions\fR"
 .TP
@@ -920,6 +935,22 @@ ovs-dpctl add-flow myDP \\
 .
 .RE
 .TP
+\*(DX\fBadd\-flows\fR [\fIdp\fR] \fIfile\fR
+.TQ
+\*(DX\fBmod\-flows\fR [\fIdp\fR] \fIfile\fR
+.TQ
+\*(DX\fBdel\-flows\fR [\fIdp\fR] \fIfile\fR
+Reads flow entries from \fIfile\fR (or \fBstdin\fR if \fIfile\fR is
+\fB\-\fR) and adds, modifies, or deletes each entry to the datapath.
+.
+Each flow specification (e.g., each line in \fIfile\fR) may start with
+\fBadd\fR, \fBmodify\fR, or \fBdelete\fR keyword to specify whether a
+flow is to be added, modified, or deleted. A flow specification without
+one of these keywords is treated based on the used command.  All flow
+modifications are executed as individual transactions in the order
+specified.
+.
+.TP
 .DO "[\fB\-s\fR | \fB\-\-statistics\fR]" "\*(DX\fBdel\-flow\fR" "[\fIdp\fR] \fIflow\fR"
 Deletes the flow from \fIdp\fR's flow table that matches \fIflow\fR.
 If \fB\-s\fR or \fB\-\-statistics\fR is specified, then
@@ -948,6 +979,42 @@ kernel module Open vSwitch datapaths) share a single connection tracking
 table (which is also used by other kernel subsystems, such as iptables,
 nftables and the regular host stack).  Therefore, the following commands
 do not apply specifically to one datapath.
+.
+.TP
+\*(DX\fBipf\-set\-enabled\fR [\fIdp\fR] \fBv4\fR|\fBv6\fR
+.TQ
+\*(DX\fBipf\-set\-disabled\fR [\fIdp\fR] \fBv4\fR|\fBv6\fR
+Enables or disables IP fragmentation handling for the userspace
+connection tracker.  Either \fBv4\fR or \fBv6\fR must be specified.
+Both IPv4 and IPv6 fragment reassembly are enabled by default.  Only
+supported for the userspace datapath.
+.
+.TP
+\*(DX\fBipf\-set\-min\-frag\fR [\fIdp\fR] \fBv4\fR|\fBv6\fR \fIminfrag\fR
+Sets the minimum fragment size (L3 header and data) for non-final fragments to
+\fIminfrag\fR.  Either \fBv4\fR or \fBv6\fR must be specified.  For
+enhanced DOS security, higher minimum fragment sizes can usually be used.
+The default IPv4 value is 1200 and the clamped minimum is 400.  The default
+IPv6 value is 1280, with a clamped minimum of 400, for testing
+flexibility.  The maximum fragment size is not clamped, however, setting
+this value too high might result in valid fragments being dropped.  Only
+supported for userspace datapath.
+.
+.TP
+\*(DX\fBipf\-set\-max\-nfrags\fR [\fIdp\fR] \fImaxfrags\fR
+Sets the maximum number of fragments tracked by the userspace datapath
+connection tracker to \fImaxfrags\fR.  The default value is 1000 and the
+clamped maximum is 5000.  Note that packet buffers can be held by the
+fragmentation module while fragments are incomplete, but will timeout
+after 15 seconds.  Memory pool sizing should be set accordingly when
+fragmentation is enabled.  Only supported for userspace datapath.
+.
+.TP
+.DO "[\fB\-m\fR | \fB\-\-more\fR]" "\*(DX\fBipf\-get\-status\fR [\fIdp\fR]"
+Gets the configuration settings and fragment counters associated with the
+fragmentation handling of the userspace datapath connection tracker.
+With \fB\-m\fR or \fB\-\-more\fR, also dumps the IP fragment lists.
+Only supported for userspace datapath.
 .
 .TP
 .DO "[\fB\-m\fR | \fB\-\-more\fR] [\fB\-s\fR | \fB\-\-statistics\fR]" "\*(DX\fBdump\-conntrack\fR" "[\fIdp\fR] [\fBzone=\fIzone\fR]"
@@ -1012,6 +1079,24 @@ Prints the current number of connection tracker entries on \fIdp\fR.
 Only supported for userspace datapath.
 .
 .TP
+\*(DX\fBct\-enable\-tcp\-seq\-chk\fR [\fIdp\fR]
+.TQ
+\*(DX\fBct\-disable\-tcp\-seq\-chk\fR [\fIdp\fR]
+Enables or disables TCP sequence checking.  When set to disabled, all sequence
+number verification is disabled, including for TCP resets.  This is
+similar, but not the same as 'be_liberal' mode, as in Netfilter.  Disabling
+sequence number verification is not an optimization in itself, but is needed
+for some hardware offload support which might offer some performance
+advantage. Sequence number checking is enabled by default to enforce better
+security and should only be disabled if required for hardware offload support.
+This command is only supported for the userspace datapath.
+.
+.TP
+\*(DX\fBct\-get\-tcp\-seq\-chk\fR [\fIdp\fR]
+Prints whether TCP sequence checking is enabled or disabled on \fIdp\fR.  Only
+supported for the userspace datapath.
+.
+.TP
 \*(DX\fBct\-set\-limits\fR [\fIdp\fR] [\fBdefault=\fIdefault_limit\fR] [\fBzone=\fIzone\fR,\fBlimit=\fIlimit\fR]...
 Sets the maximum allowed number of connections in a connection tracking
 zone.  A specific \fIzone\fR may be set to \fIlimit\fR, and multiple zones
@@ -1020,21 +1105,33 @@ particular zone is not specified in the datapath, it defaults to the
 default per-zone limit.  A default zone may be specified with the
 \fBdefault=\fIdefault_limit\fR argument.   Initially, the default
 per-zone limit is unlimited.  An unlimited number of entries may be set
-with \fB0\fR limit.  Only supported for Linux kernel datapath.
+with \fB0\fR limit.
 .
 .TP
 \*(DX\fBct\-del\-limits\fR [\fIdp\fR] \fBzone=\fIzone[,zone]\fR...
 Deletes the connection tracking limit for \fIzone\fR.  Multiple zones may
-be specified with a comma-separated list.  Only supported for Linux
-kernel datapath.
+be specified with a comma-separated list.
 .
 .TP
 \*(DX\fBct\-get\-limits\fR [\fIdp\fR] [\fBzone=\fIzone\fR[\fB,\fIzone\fR]...]
 Retrieves the maximum allowed number of connections and current
 counts per-zone.  If \fIzone\fR is given, only the specified zone(s) are
 printed.  If no zones are specified, all the zone limits and counts are
-provided.  The command always displays the default zone limit.  Only
-supported for Linux kernel datapath.
+provided.  The command always displays the default zone limit.
+.
+.SS "DPDK COMMANDS"
+These commands manage DPDK components.
+.IP "\fBdpdk/log-list\fR"
+Lists all DPDK components that emit logs and their logging levels.
+.IP "\fBdpdk/log-set\fR [\fIspec\fR]"
+Sets DPDK components logging level. Without any \fIspec\fR, sets the logging
+\fBlevel\fR for all DPDK components to \fBdebug\fR. Otherwise, \fIspec\fR is a
+list of words separated by spaces: a word can be either a logging \fBlevel\fR
+(\fBemergency\fR, \fBalert\fR, \fBcritical\fR, \fBerror\fR, \fBwarning\fR,
+\fBnotice\fR, \fBinfo\fR or \fBdebug\fR) or a \fBpattern\fR matching DPDK
+components (see \fBdpdk/log-list\fR command on \fBovs\-appctl\fR(8)) separated
+by a colon from the logging \fBlevel\fR to apply.
+.RE
 .
 .SS "DPIF-NETDEV COMMANDS"
 These commands are used to expose internal information (mostly statistics)
@@ -1255,6 +1352,15 @@ with port names, which this thread polls.
 .
 .IP "\fBdpif-netdev/pmd-rxq-rebalance\fR [\fIdp\fR]"
 Reassigns rxqs to pmds in the datapath \fIdp\fR based on their current usage.
+.
+.IP "\fBdpif-netdev/bond-show\fR [\fIdp\fR]"
+When "other_config:lb-output-action" is set to "true", the userspace datapath
+handles the load balancing of bonds directly instead of depending on flow
+recirculation (only in balance-tcp mode).
+
+When this is the case, the above command prints the load-balancing information
+of the bonds configured in datapath \fIdp\fR showing the interface associated
+with each bucket (hash).
 .SS "NETDEV-DPDK COMMANDS"
 These commands manage DPDK related ports (\fBtype=\fR\fIdpdk*\fR).
 .IP "\fBnetdev-dpdk/set-admin-state\fR [\fIinterface\fR] \fBup\fR | \fBdown\fR"
@@ -1314,7 +1420,7 @@ that may be used on \fBofproto/trace\fR.
 .IP "\fBofproto/trace\fR [\fIoptions\fR] [\fIdpname\fR] \fIodp_flow\fR [\fIpacket\fR]
 .IQ "\fBofproto/trace\fR [\fIoptions\fR] \fIbridge\fR \fIbr_flow\fR [\fIpacket\fR]]
 .IQ "\fBofproto/trace\-packet\-out\fR [\fIoptions\fR] [\fIdpname\fR] \fIodp_flow\fR [\fIpacket\fR] \fIactions\fR"
-.IQ "\fBofproto/trace\-packet\-out\fR [\fIoptions\fR \fIbridge\fR \fIbr_flow\fR  [\fIpacket\fR] \fIactions\fR"
+.IQ "\fBofproto/trace\-packet\-out\fR [\fIoptions\fR] \fIbridge\fR \fIbr_flow\fR [\fIpacket\fR] \fIactions\fR"
 Traces the path of an imaginary packet through \fIswitch\fR and
 reports the path that it took.  The initial treatment of the packet
 varies based on the command:
@@ -1375,7 +1481,7 @@ OpenFlow version.  One exception is that, when \fIactions\fR includes
 an action that only OpenFlow 1.1 and later supports (such as
 \fBpush_vlan\fR), \fB\-\-consistent\fR is automatically enabled.
 .
-.IP "--ct-next \fIflags\fR"
+.IP "\fB\-\-ct-next\fR \fIflags\fR"
 When the traced flow triggers conntrack actions, \fBofproto/trace\fR
 will automatically trace the forked packet processing pipeline with
 user specified ct_state.  This option sets the ct_state flags that the
@@ -1412,8 +1518,9 @@ changed.
 .RE
 .
 .IP
-When --ct-next is unspecified, or when there are fewer --ct-next options than
-ct actions, the \fIflags\fR default to trk,new.
+When \fB\-\-ct-next\fR is unspecified, or when there are fewer
+\fB\-\-ct-next\fR options than ct \fIactions\fR, the \fIflags\fR default to
+\fBtrk,new\fR.
 .
 .RE
 .
@@ -1633,6 +1740,8 @@ debugging.
 Displays the averaged per-second rates for the last few seconds, the
 last minute and the last hour, and the total counts of all of the
 coverage counters.
+.IP "\fBcoverage/read-counter\fR \fIcounter\fR"
+Displays the total count for the given coverage \fIcounter\fR.
 .SS "OPENVSWITCH TUNNELING COMMANDS"
 These commands query and modify OVS tunnel components.
 .
@@ -1712,13 +1821,12 @@ limits assume the use of the Linux kernel datapath.
 \fBovs\-vswitchd\fR started through \fBovs\-ctl\fR(8) provides a limit of 65535
 file descriptors.  The limits on the number of bridges and ports is decided by
 the availability of file descriptors.  With the Linux kernel datapath, creation
-of a single bridge consumes three file descriptors and adding a port consumes
-"n-handler-threads" file descriptors per bridge port.  Performance will degrade
-beyond 1,024 ports per bridge due to fixed hash table sizing.  Other platforms
+of a single bridge consumes three file descriptors and each port
+consumes one additional file descriptor.  Other platforms
 may have different limitations.
 .
 .IP \(bu
-2,048 MAC learning entries per bridge, by default.  (This is
+8,192 MAC learning entries per bridge, by default.  (This is
 configurable via \fBother\-config:mac\-table\-size\fR in the
 \fBBridge\fR table.  See \fBovs\-vswitchd.conf.db\fR(5) for details.)
 .
@@ -1744,7 +1852,10 @@ time linear in the number of flows.
 32 mirrors per bridge.
 .
 .IP \(bu
-15 bytes for the name of a port.  (This is a Linux kernel limitation.)
+15 bytes for the name of a port, for ports implemented in the Linux
+kernel.  Ports implemented in userspace, such as patch ports, do not
+have an arbitrary length limitation.  OpenFlow also limit port names
+to 15 bytes.
 .
 .SH "SEE ALSO"
 .BR ovs\-appctl (8),

@@ -1,0 +1,701 @@
+.\" Man page generated from reStructuredText.
+.
+.TH "OVSDB" "7" "Feb 04, 2021" "2.15.90" "Open vSwitch"
+.SH NAME
+ovsdb \- Open vSwitch Database (Overview)
+.
+.nr rst2man-indent-level 0
+.
+.de1 rstReportMargin
+\\$1 \\n[an-margin]
+level \\n[rst2man-indent-level]
+level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+-
+\\n[rst2man-indent0]
+\\n[rst2man-indent1]
+\\n[rst2man-indent2]
+..
+.de1 INDENT
+.\" .rstReportMargin pre:
+. RS \\$1
+. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
+. nr rst2man-indent-level +1
+.\" .rstReportMargin post:
+..
+.de UNINDENT
+. RE
+.\" indent \\n[an-margin]
+.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.nr rst2man-indent-level -1
+.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
+..
+.SH DESCRIPTION
+.sp
+OVSDB, the Open vSwitch Database, is a network\-accessible database system.
+Schemas in OVSDB specify the tables in a database and their columns’ types and
+can include data, uniqueness, and referential integrity constraints.  OVSDB
+offers atomic, consistent, isolated, durable transactions.  RFC 7047 specifies
+the JSON\-RPC based protocol that OVSDB clients and servers use to communicate.
+.sp
+The OVSDB protocol is well suited for state synchronization because it
+allows each client to monitor the contents of a whole database or a subset
+of it.  Whenever a monitored portion of the database changes, the server
+tells the client what rows were added or modified (including the new
+contents) or deleted.  Thus, OVSDB clients can easily keep track of the
+newest contents of any part of the database.
+.sp
+While OVSDB is general\-purpose and not particularly specialized for use with
+Open vSwitch, Open vSwitch does use it for multiple purposes.  The leading use
+of OVSDB is for configuring and monitoring \fBovs\-vswitchd(8)\fP, the Open
+vSwitch switch daemon, using the schema documented in
+\fBovs\-vswitchd.conf.db(5)\fP\&.  The Open Virtual Network (OVN) project uses two
+OVSDB schemas, documented as part of that project.  Finally, Open vSwitch
+includes the “VTEP” schema, documented in \fBvtep(5)\fP that many third\-party
+hardware switches support for configuring VXLAN, although OVS itself does not
+directly use this schema.
+.sp
+The OVSDB protocol specification allows independent, interoperable
+implementations of OVSDB to be developed.  Open vSwitch includes an OVSDB
+server implementation named \fBovsdb\-server(1)\fP, which supports several
+protocol extensions documented in its manpage, and a basic command\-line OVSDB
+client named \fBovsdb\-client(1)\fP, as well as OVSDB client libraries for C and
+for Python.  Open vSwitch documentation often speaks of these OVSDB
+implementations in Open vSwitch as simply “OVSDB,” even though that is distinct
+from the OVSDB protocol; we make the distinction explicit only when it might
+otherwise be unclear from the context.
+.sp
+In addition to these generic OVSDB server and client tools, Open vSwitch
+includes tools for working with databases that have specific schemas:
+\fBovs\-vsctl\fP works with the \fBovs\-vswitchd\fP configuration database and
+\fBvtep\-ctl\fP works with the VTEP database.
+.sp
+RFC 7047 specifies the OVSDB protocol but it does not specify an on\-disk
+storage format.  Open vSwitch includes \fBovsdb\-tool(1)\fP for working with its
+own on\-disk database formats.  The most notable feature of this format is that
+\fBovsdb\-tool(1)\fP makes it easy for users to print the transactions that have
+changed a database since the last time it was compacted.  This feature is often
+useful for troubleshooting.
+.SH SCHEMAS
+.sp
+Schemas in OVSDB have a JSON format that is specified in RFC 7047.  They
+are often stored in files with an extension \fB\&.ovsschema\fP\&.  An
+on\-disk database in OVSDB includes a schema and data, embedding both into a
+single file.  The Open vSwitch utility \fBovsdb\-tool\fP has commands
+that work with schema files and with the schemas embedded in database
+files.
+.sp
+An Open vSwitch schema has three important identifiers.  The first is its
+name, which is also the name used in JSON\-RPC calls to identify a database
+based on that schema.  For example, the schema used to configure Open
+vSwitch has the name \fBOpen_vSwitch\fP\&.  Schema names begin with a
+letter or an underscore, followed by any number of letters, underscores, or
+digits.  The \fBovsdb\-tool\fP commands \fBschema\-name\fP and
+\fBdb\-name\fP extract the schema name from a schema or database
+file, respectively.
+.sp
+An OVSDB schema also has a version of the form \fBx.y.z\fP e.g. \fB1.2.3\fP\&.
+Schemas managed within the Open vSwitch project manage version numbering in the
+following way (but OVSDB does not mandate this approach).  Whenever we change
+the database schema in a non\-backward compatible way (e.g. when we delete a
+column or a table), we increment <x> and set <y> and <z> to 0.  When we change
+the database schema in a backward compatible way (e.g. when we add a new
+column), we increment <y> and set <z> to 0.  When we change the database schema
+cosmetically (e.g. we reindent its syntax), we increment <z>.  The
+\fBovsdb\-tool\fP commands \fBschema\-version\fP and \fBdb\-version\fP extract the
+schema version from a schema or database file, respectively.
+.sp
+Very old OVSDB schemas do not have a version, but RFC 7047 mandates it.
+.sp
+An OVSDB schema optionally has a “checksum.”  RFC 7047 does not specify the use
+of the checksum and recommends that clients ignore it.  Open vSwitch uses the
+checksum to remind developers to update the version: at build time, if the
+schema’s embedded checksum, ignoring the checksum field itself, does not match
+the schema’s content, then it fails the build with a recommendation to update
+the version and the checksum.  Thus, a developer who changes the schema, but
+does not update the version, receives an automatic reminder.  In practice this
+has been an effective way to ensure compliance with the version number policy.
+The \fBovsdb\-tool\fP commands \fBschema\-cksum\fP and \fBdb\-cksum\fP extract the
+schema checksum from a schema or database file, respectively.
+.SH SERVICE MODELS
+.sp
+OVSDB supports three service models for databases: \fBstandalone\fP,
+\fBactive\-backup\fP, and \fBclustered\fP\&.  The service models provide different
+compromises among consistency, availability, and partition tolerance.  They
+also differ in the number of servers required and in terms of performance.  The
+standalone and active\-backup database service models share one on\-disk format,
+and clustered databases use a different format, but the OVSDB programs work
+with both formats.  \fBovsdb(5)\fP documents these file formats.
+.sp
+RFC 7047, which specifies the OVSDB protocol, does not mandate or specify
+any particular service model.
+.sp
+The following sections describe the individual service models.
+.SS Standalone Database Service Model
+.sp
+A \fBstandalone\fP database runs a single server.  If the server stops running,
+the database becomes inaccessible, and if the server’s storage is lost or
+corrupted, the database’s content is lost.  This service model is appropriate
+when the database controls a process or activity to which it is linked via
+“fate\-sharing.”  For example, an OVSDB instance that controls an Open vSwitch
+virtual switch daemon, \fBovs\-vswitchd\fP, is a standalone database because a
+server failure would take out both the database and the virtual switch.
+.sp
+To set up a standalone database, use \fBovsdb\-tool create\fP to
+create a database file, then run \fBovsdb\-server\fP to start the
+database service.
+.sp
+To configure a client, such as \fBovs\-vswitchd\fP or \fBovs\-vsctl\fP, to use a
+standalone database, configure the server to listen on a “connection method”
+that the client can reach, then point the client to that connection method.
+See \fI\%Connection Methods\fP below for information about connection methods.
+.SS Active\-Backup Database Service Model
+.sp
+An \fBactive\-backup\fP database runs two servers (on different hosts).  At any
+given time, one of the servers is designated with the \fBactive\fP role and the
+other the \fBbackup\fP role.  An active server behaves just like a standalone
+server.  A backup server makes an OVSDB connection to the active server and
+uses it to continuously replicate its content as it changes in real time.
+OVSDB clients can connect to either server but only the active server allows
+data modification or lock transactions.
+.sp
+Setup for an active\-backup database starts from a working standalone database
+service, which is initially the active server.  On another node, to set up a
+backup server, create a database file with the same schema as the active
+server.  The initial contents of the database file do not matter, as long as
+the schema is correct, so \fBovsdb\-tool create\fP will work, as will copying the
+database file from the active server.  Then use
+\fBovsdb\-server \-\-sync\-from=<active>\fP to start the backup server, where
+<active> is an OVSDB connection method (see \fI\%Connection Methods\fP below) that
+connects to the active server.  At that point, the backup server will fetch a
+copy of the active database and keep it up\-to\-date until it is killed.
+.sp
+When the active server in an active\-backup server pair fails, an administrator
+can switch the backup server to an active role with the \fBovs\-appctl\fP command
+\fBovsdb\-server/disconnect\-active\-ovsdb\-server\fP\&.  Clients then have read/write
+access to the now\-active server.  Of course, administrators are slow to respond
+compared to software, so in practice external management software detects the
+active server’s failure and changes the backup server’s role.  For example, the
+“Integration Guide for Centralized Control” in the OVN documentation describes
+how to use Pacemaker for this purpose in OVN.
+.sp
+Suppose an active server fails and its backup is promoted to active.  If the
+failed server is revived, it must be started as a backup server.  Otherwise, if
+both servers are active, then they may start out of sync, if the database
+changed while the server was down, and they will continue to diverge over time.
+This also happens if the software managing the database servers cannot reach
+the active server and therefore switches the backup to active, but other hosts
+can reach both servers.  These “split\-brain” problems are unsolvable in general
+for server pairs.
+.sp
+Compared to a standalone server, the active\-backup service model
+somewhat increases availability, at a risk of split\-brain.  It adds
+generally insignificant performance overhead.  On the other hand, the
+clustered service model, discussed below, requires at least 3 servers
+and has greater performance overhead, but it avoids the need for
+external management software and eliminates the possibility of
+split\-brain.
+.sp
+Open vSwitch 2.6 introduced support for the active\-backup service model.
+.sp
+\fBIMPORTANT:\fP
+.INDENT 0.0
+.INDENT 3.5
+There was a change of a database file format in version 2.15.
+To upgrade/downgrade the \fBovsdb\-server\fP processes across this version
+follow the instructions described under
+\fI\%Upgrading from version 2.14 and earlier to 2.15 and later\fP and
+\fI\%Downgrading from version 2.15 and later to 2.14 and earlier\fP\&.
+.UNINDENT
+.UNINDENT
+.SS Clustered Database Service Model
+.sp
+A \fBclustered\fP database runs across 3 or 5 or more database servers (the
+\fBcluster\fP) on different hosts.  Servers in a cluster automatically
+synchronize writes within the cluster.  A 3\-server cluster can remain available
+in the face of at most 1 server failure; a 5\-server cluster tolerates up to 2
+failures.  Clusters larger than 5 servers will also work, with every 2 added
+servers allowing the cluster to tolerate 1 more failure, but write performance
+decreases.  The number of servers should be odd: a 4\- or 6\-server cluster
+cannot tolerate more failures than a 3\- or 5\-server cluster, respectively.
+.sp
+To set up a clustered database, first initialize it on a single node by running
+\fBovsdb\-tool create\-cluster\fP, then start \fBovsdb\-server\fP\&.  Depending on its
+arguments, the \fBcreate\-cluster\fP command can create an empty database or copy
+a standalone database’s contents into the new database.
+.sp
+To configure a client to use a clustered database, first configure all of the
+servers to listen on a connection method that the client can reach, then point
+the client to all of the servers’ connection methods, comma\-separated.  See
+\fI\%Connection Methods\fP, below, for more detail.
+.sp
+Open vSwitch 2.9 introduced support for the clustered service model.
+.SS How to Maintain a Clustered Database
+.sp
+To add a server to a cluster, run \fBovsdb\-tool join\-cluster\fP on the new server
+and start \fBovsdb\-server\fP\&.  To remove a running server from a cluster, use
+\fBovs\-appctl\fP to invoke the \fBcluster/leave\fP command.  When a server fails
+and cannot be recovered, e.g. because its hard disk crashed, or to otherwise
+remove a server that is down from a cluster, use \fBovs\-appctl\fP to invoke
+\fBcluster/kick\fP to make the remaining servers kick it out of the cluster.
+.sp
+The above methods for adding and removing servers only work for healthy
+clusters, that is, for clusters with no more failures than their maximum
+tolerance.  For example, in a 3\-server cluster, the failure of 2 servers
+prevents servers joining or leaving the cluster (as well as database access).
+To prevent data loss or inconsistency, the preferred solution to this problem
+is to bring up enough of the failed servers to make the cluster healthy again,
+then if necessary remove any remaining failed servers and add new ones.  If
+this cannot be done, though, use \fBovs\-appctl\fP to invoke \fBcluster/leave
+\-\-force\fP on a running server.  This command forces the server to which it is
+directed to leave its cluster and form a new single\-node cluster that contains
+only itself.  The data in the new cluster may be inconsistent with the former
+cluster: transactions not yet replicated to the server will be lost, and
+transactions not yet applied to the cluster may be committed.  Afterward, any
+servers in its former cluster will regard the server to have failed.
+.sp
+Once a server leaves a cluster, it may never rejoin it.  Instead, create a new
+server and join it to the cluster.
+.sp
+The servers in a cluster synchronize data over a cluster management protocol
+that is specific to Open vSwitch; it is not the same as the OVSDB protocol
+specified in RFC 7047.  For this purpose, a server in a cluster is tied to a
+particular IP address and TCP port, which is specified in the \fBovsdb\-tool\fP
+command that creates or joins the cluster.  The TCP port used for clustering
+must be different from that used for OVSDB clients.  To change the port or
+address of a server in a cluster, first remove it from the cluster, then add it
+back with the new address.
+.sp
+To upgrade the \fBovsdb\-server\fP processes in a cluster from one version of Open
+vSwitch to another, upgrading them one at a time will keep the cluster healthy
+during the upgrade process.  (This is different from upgrading a database
+schema, which is covered later under \fI\%Upgrading or Downgrading a Database\fP\&.)
+.sp
+\fBIMPORTANT:\fP
+.INDENT 0.0
+.INDENT 3.5
+There was a change of a database file format in version 2.15.
+To upgrade/downgrade the \fBovsdb\-server\fP processes across this version
+follow the instructions described under
+\fI\%Upgrading from version 2.14 and earlier to 2.15 and later\fP and
+\fI\%Downgrading from version 2.15 and later to 2.14 and earlier\fP\&.
+.UNINDENT
+.UNINDENT
+.sp
+Clustered OVSDB does not support the OVSDB “ephemeral columns” feature.
+\fBovsdb\-tool\fP and \fBovsdb\-client\fP change ephemeral columns into persistent
+ones when they work with schemas for clustered databases.  Future versions of
+OVSDB might add support for this feature.
+.SS Upgrading from version 2.14 and earlier to 2.15 and later
+.sp
+There is a change of a database file format in version 2.15 that doesn’t allow
+older versions of \fBovsdb\-server\fP to read the database file modified by the
+\fBovsdb\-server\fP version 2.15 or later.  This also affects runtime
+communications between servers in \fBactive\-backup\fP and \fBcluster\fP service
+models. To upgrade the \fBovsdb\-server\fP processes from one version of Open
+vSwitch (2.14 or earlier) to another (2.15 or higher) instructions below should
+be followed. (This is different from upgrading a database schema, which is
+covered later under \fI\%Upgrading or Downgrading a Database\fP\&.)
+.sp
+In case of \fBstandalone\fP service model no special handling during upgrade is
+required.
+.sp
+For the \fBactive\-backup\fP service model, administrator needs to update backup
+\fBovsdb\-server\fP first and the active one after that, or shut down both servers
+and upgrade at the same time.
+.sp
+For the \fBcluster\fP service model recommended upgrade strategy is following:
+.INDENT 0.0
+.IP 1. 3
+Upgrade processes one at a time.  Each \fBovsdb\-server\fP process after
+upgrade should be started with \fB\-\-disable\-file\-column\-diff\fP command line
+argument.
+.IP 2. 3
+When all \fBovsdb\-server\fP processes upgraded, use \fBovs\-appctl\fP to invoke
+\fBovsdb/file/column\-diff\-enable\fP command on each of them or restart all
+\fBovsdb\-server\fP processes one at a time without
+\fB\-\-disable\-file\-column\-diff\fP command line option.
+.UNINDENT
+.SS Downgrading from version 2.15 and later to 2.14 and earlier
+.sp
+Similar to upgrading covered under \fI\%Upgrading from version 2.14 and earlier to
+2.15 and later\fP, downgrading from the \fBovsdb\-server\fP version 2.15 and later
+to 2.14 and earlier requires additional steps. (This is different from
+upgrading a database schema, which is covered later under
+\fI\%Upgrading or Downgrading a Database\fP\&.)
+.sp
+For all service models it’s required to:
+.INDENT 0.0
+.IP 1. 3
+Stop all \fBovsdb\-server\fP processes (single process for \fBstandalone\fP
+service model, all involved processes for \fBactive\-backup\fP and \fBcluster\fP
+service models).
+.IP 2. 3
+Compact all database files with \fBovsdb\-tool compact\fP command.
+.IP 3. 3
+Downgrade and restart \fBovsdb\-server\fP processes.
+.UNINDENT
+.SS Understanding Cluster Consistency
+.sp
+To ensure consistency, clustered OVSDB uses the Raft algorithm described in
+Diego Ongaro’s Ph.D. thesis, “Consensus: Bridging Theory and Practice”.  In an
+operational Raft cluster, at any given time a single server is the “leader” and
+the other nodes are “followers”.  Only the leader processes transactions, but a
+transaction is only committed when a majority of the servers confirm to the
+leader that they have written it to persistent storage.
+.sp
+In most database systems, read and write access to the database happens through
+transactions.  In such a system, Raft allows a cluster to present a strongly
+consistent transactional interface.  OVSDB uses conventional transactions for
+writes, but clients often effectively do reads a different way, by asking the
+server to “monitor” a database or a subset of one on the client’s behalf.
+Whenever monitored data changes, the server automatically tells the client what
+changed, which allows the client to maintain an accurate snapshot of the
+database in its memory.  Of course, at any given time, the snapshot may be
+somewhat dated since some of it could have changed without the change
+notification yet being received and processed by the client.
+.sp
+Given this unconventional usage model, OVSDB also adopts an unconventional
+clustering model.  Each server in a cluster acts independently for the purpose
+of monitors and read\-only transactions, without verifying that data is
+up\-to\-date with the leader.  Servers forward transactions that write to the
+database to the leader for execution, ensuring consistency.  This has the
+following consequences:
+.INDENT 0.0
+.IP \(bu 2
+Transactions that involve writes, against any server in the cluster, are
+linearizable if clients take care to use correct prerequisites, which is the
+same condition required for linearizability in a standalone OVSDB.
+(Actually, “at\-least\-once” consistency, because OVSDB does not have a session
+mechanism to drop duplicate transactions if a connection drops after the
+server commits it but before the client receives the result.)
+.IP \(bu 2
+Read\-only transactions can yield results based on a stale version of the
+database, if they are executed against a follower.  Transactions on the
+leader always yield fresh results.  (With monitors, as explained above, a
+client can always see stale data even without clustering, so clustering does
+not change the consistency model for monitors.)
+.IP \(bu 2
+Monitor\-based (or read\-heavy) workloads scale well across a cluster, because
+clustering OVSDB adds no additional work or communication for reads and
+monitors.
+.IP \(bu 2
+A write\-heavy client should connect to the leader, to avoid the overhead of
+followers forwarding transactions to the leader.
+.IP \(bu 2
+When a client conducts a mix of read and write transactions across more than
+one server in a cluster, it can see inconsistent results because a read
+transaction might read stale data whose updates have not yet propagated from
+the leader.  By default, utilities such as \fBovn\-sbctl\fP (in OVN) connect to
+the cluster leader to avoid this issue.
+.sp
+The same might occur for transactions against a single follower except that
+the OVSDB server ensures that the results of a write forwarded to the leader
+by a given server are visible at that server before it replies to the
+requesting client.
+.IP \(bu 2
+If a client uses a database on one server in a cluster, then another server
+in the cluster (perhaps because the first server failed), the client could
+observe stale data.  Clustered OVSDB clients, however, can use a column in
+the \fB_Server\fP database to detect that data on a server is older than data
+that the client previously read.  The OVSDB client library in Open vSwitch
+uses this feature to avoid servers with stale data.
+.UNINDENT
+.SH DATABASE REPLICATION
+.sp
+OVSDB can layer \fBreplication\fP on top of any of its service models.
+Replication, in this context, means to make, and keep up\-to\-date, a read\-only
+copy of the contents of a database (the \fBreplica\fP).  One use of replication
+is to keep an up\-to\-date backup of a database.  A replica used solely for
+backup would not need to support clients of its own.  A set of replicas that do
+serve clients could be used to scale out read access to the primary database.
+.sp
+A database replica is set up in the same way as a backup server in an
+active\-backup pair, with the difference that the replica is never promoted to
+an active role.
+.sp
+A database can have multiple replicas.
+.sp
+Open vSwitch 2.6 introduced support for database replication.
+.SH CONNECTION METHODS
+.sp
+An OVSDB \fBconnection method\fP is a string that specifies how to make a
+JSON\-RPC connection between an OVSDB client and server.  Connection methods are
+part of the Open vSwitch implementation of OVSDB and not specified by RFC 7047.
+\fBovsdb\-server\fP uses connection methods to specify how it should listen for
+connections from clients and \fBovsdb\-client\fP uses them to specify how it
+should connect to a server.  Connections in the opposite direction, where
+\fBovsdb\-server\fP connects to a client that is configured to listen for an
+incoming connection, are also possible.
+.sp
+Connection methods are classified as \fBactive\fP or \fBpassive\fP\&.  An active
+connection method makes an outgoing connection to a remote host; a passive
+connection method listens for connections from remote hosts.  The most common
+arrangement is to configure an OVSDB server with passive connection methods and
+clients with active ones, but the OVSDB implementation in Open vSwitch supports
+the opposite arrangement as well.
+.sp
+OVSDB supports the following active connection methods:
+.INDENT 0.0
+.TP
+.B ssl:<host>:<port>
+The specified SSL or TLS <port> on the given <host>.
+.TP
+.B tcp:<host>:<port>
+The specified TCP <port> on the given <host>.
+.TP
+.B unix:<file>
+On Unix\-like systems, connect to the Unix domain server socket named
+<file>.
+.sp
+On Windows, connect to a local named pipe that is represented by a file
+created in the path <file> to mimic the behavior of a Unix domain socket.
+.TP
+.B <method1>,<method2>,…,<methodN>
+For a clustered database service to be highly available, a client must be
+able to connect to any of the servers in the cluster.  To do so, specify
+connection methods for each of the servers separated by commas (and
+optional spaces).
+.sp
+In theory, if machines go up and down and IP addresses change in the right
+way, a client could talk to the wrong instance of a database.  To avoid
+this possibility, add \fBcid:<uuid>\fP to the list of methods, where <uuid>
+is the cluster ID of the desired database cluster, as printed by
+\fBovsdb\-tool db\-cid\fP\&.  This feature is optional.
+.UNINDENT
+.sp
+OVSDB supports the following passive connection methods:
+.INDENT 0.0
+.TP
+.B pssl:<port>[:<ip>]
+Listen on the given TCP <port> for SSL or TLS connections.  By default,
+connections are not bound to a particular local IP address.  Specifying
+<ip> limits connections to those from the given IP.
+.TP
+.B ptcp:<port>[:<ip>]
+Listen on the given TCP <port>.  By default, connections are not bound to a
+particular local IP address.  Specifying <ip> limits connections to those
+from the given IP.
+.TP
+.B punix:<file>
+On Unix\-like systems, listens for connections on the Unix domain socket
+named <file>.
+.sp
+On Windows, listens on a local named pipe, creating a named pipe
+<file> to mimic the behavior of a Unix domain socket. The ACLs of the named
+pipe include LocalSystem, Administrators, and Creator Owner.
+.UNINDENT
+.sp
+All IP\-based connection methods accept IPv4 and IPv6 addresses.  To specify an
+IPv6 address, wrap it in square brackets, e.g.  \fBssl:[::1]:6640\fP\&.  Passive
+IP\-based connection methods by default listen for IPv4 connections only; use
+\fB[::]\fP as the address to accept both IPv4 and IPv6 connections,
+e.g. \fBpssl:6640:[::]\fP\&.  DNS names are also accepted if built with unbound
+library.  On Linux, use \fB%<device>\fP to designate a scope for IPv6 link\-level
+addresses, e.g. \fBssl:[fe80::1234%eth0]:6653\fP\&.
+.sp
+The <port> may be omitted from connection methods that use a port number.  The
+default <port> for TCP\-based connection methods is 6640, e.g. \fBpssl:\fP is
+equivalent to \fBpssl:6640\fP\&.  In Open vSwitch prior to version 2.4.0, the
+default port was 6632.  To avoid incompatibility between older and newer
+versions, we encourage users to specify a port number.
+.sp
+The \fBssl\fP and \fBpssl\fP connection methods requires additional configuration
+through \fB\-\-private\-key\fP, \fB\-\-certificate\fP, and \fB\-\-ca\-cert\fP command line
+options.  Open vSwitch can be built without SSL support, in which case these
+connection methods are not supported.
+.SH DATABASE LIFE CYCLE
+.sp
+This section describes how to handle various events in the life cycle of
+a database using the Open vSwitch implementation of OVSDB.
+.SS Creating a Database
+.sp
+Creating and starting up the service for a new database was covered
+separately for each database service model in the \fI\%Service
+Models\fP section, above.
+.SS Backing Up and Restoring a Database
+.sp
+OVSDB is often used in contexts where the database contents are not
+particularly valuable.  For example, in many systems, the database for
+configuring \fBovs\-vswitchd\fP is essentially rebuilt from scratch
+at boot time.  It is not worthwhile to back up these databases.
+.sp
+When OVSDB is used for valuable data, a backup strategy is worth
+considering.  One way is to use database replication, discussed above in
+\fI\%Database Replication\fP which keeps an online, up\-to\-date
+copy of a database, possibly on a remote system.  This works with all OVSDB
+service models.
+.sp
+A more common backup strategy is to periodically take and store a snapshot.
+For the standalone and active\-backup service models, making a copy of the
+database file, e.g. using \fBcp\fP, effectively makes a snapshot, and because
+OVSDB database files are append\-only, it works even if the database is being
+modified when the snapshot takes place.  This approach does not work for
+clustered databases.
+.sp
+Another way to make a backup, which works with all OVSDB service models, is to
+use \fBovsdb\-client backup\fP, which connects to a running database server and
+outputs an atomic snapshot of its schema and content, in the same format used
+for standalone and active\-backup databases.
+.sp
+Multiple options are also available when the time comes to restore a database
+from a backup.  For the standalone and active\-backup service models, one option
+is to stop the database server or servers, overwrite the database file with the
+backup (e.g. with \fBcp\fP), and then restart the servers.  Another way, which
+works with any service model, is to use \fBovsdb\-client restore\fP, which
+connects to a running database server and replaces the data in one of its
+databases by a provided snapshot.  The advantage of \fBovsdb\-client restore\fP is
+that it causes zero downtime for the database and its server.  It has the
+downside that UUIDs of rows in the restored database will differ from those in
+the snapshot, because the OVSDB protocol does not allow clients to specify row
+UUIDs.
+.sp
+None of these approaches saves and restores data in columns that the schema
+designates as ephemeral.  This is by design: the designer of a schema only
+marks a column as ephemeral if it is acceptable for its data to be lost
+when a database server restarts.
+.sp
+Clustering and backup serve different purposes.  Clustering increases
+availability, but it does not protect against data loss if, for example, a
+malicious or malfunctioning OVSDB client deletes or tampers with data.
+.SS Changing Database Service Model
+.sp
+Use \fBovsdb\-tool create\-cluster\fP to create a clustered database from the
+contents of a standalone database.  Use \fBovsdb\-client backup\fP to create a
+standalone database from the contents of a running clustered database.
+When the cluster is down and cannot be revived, \fBovsdb\-client backup\fP will
+not work.
+.sp
+Use \fBovsdb\-tool cluster\-to\-standalone\fP to convert clustered database to
+standalone database when the cluster is down and cannot be revived.
+.SS Upgrading or Downgrading a Database
+.sp
+The evolution of a piece of software can require changes to the schemas of the
+databases that it uses.  For example, new features might require new tables or
+new columns in existing tables, or conceptual changes might require a database
+to be reorganized in other ways.  In some cases, the easiest way to deal with a
+change in a database schema is to delete the existing database and start fresh
+with the new schema, especially if the data in the database is easy to
+reconstruct.  But in many other cases, it is better to convert the database
+from one schema to another.
+.sp
+The OVSDB implementation in Open vSwitch has built\-in support for some simple
+cases of converting a database from one schema to another.  This support can
+handle changes that add or remove database columns or tables or that eliminate
+constraints (for example, changing a column that must have exactly one value
+into one that has one or more values).  It can also handle changes that add
+constraints or make them stricter, but only if the existing data in the
+database satisfies the new constraints (for example, changing a column that has
+one or more values into a column with exactly one value, if every row in the
+column has exactly one value).  The built\-in conversion can cause data loss in
+obvious ways, for example if the new schema removes tables or columns, or
+indirectly, for example by deleting unreferenced rows in tables that the new
+schema marks for garbage collection.
+.sp
+Converting a database can lose data, so it is wise to make a backup beforehand.
+.sp
+To use OVSDB’s built\-in support for schema conversion with a standalone or
+active\-backup database, first stop the database server or servers, then use
+\fBovsdb\-tool convert\fP to convert it to the new schema, and then restart the
+database server.
+.sp
+OVSDB also supports online database schema conversion for any of its database
+service models.  To convert a database online, use \fBovsdb\-client convert\fP\&.
+The conversion is atomic, consistent, isolated, and durable.  \fBovsdb\-server\fP
+disconnects any clients connected when the conversion takes place (except
+clients that use the \fBset_db_change_aware\fP Open vSwitch extension RPC).  Upon
+reconnection, clients will discover that the schema has changed.
+.sp
+Schema versions and checksums (see \fI\%Schemas\fP above) can give hints about whether
+a database needs to be converted to a new schema.  If there is any question,
+though, the \fBneeds\-conversion\fP command on \fBovsdb\-tool\fP and \fBovsdb\-client\fP
+can provide a definitive answer.
+.SS Working with Database History
+.sp
+Both on\-disk database formats that OVSDB supports are organized as a stream of
+transaction records.  Each record describes a change to the database as a list
+of rows that were inserted or deleted or modified, along with the details.
+Therefore, in normal operation, a database file only grows, as each change
+causes another record to be appended at the end.  Usually, a user has no need
+to understand this file structure.  This section covers some exceptions.
+.SS Compacting Databases
+.sp
+If OVSDB database files were truly append\-only, then over time they would grow
+without bound.  To avoid this problem, OVSDB can \fBcompact\fP a database file,
+that is, replace it by a new version that contains only the current database
+contents, as if it had been inserted by a single transaction.  From time to
+time, \fBovsdb\-server\fP automatically compacts a database that grows much larger
+than its minimum size.
+.sp
+Because \fBovsdb\-server\fP automatically compacts databases, it is usually not
+necessary to compact them manually, but OVSDB still offers a few ways to do it.
+First, \fBovsdb\-tool compact\fP can compact a standalone or active\-backup
+database that is not currently being served by \fBovsdb\-server\fP (or otherwise
+locked for writing by another process).  To compact any database that is
+currently being served by \fBovsdb\-server\fP, use \fBovs\-appctl\fP to send the
+\fBovsdb\-server/compact\fP command.  Each server in an active\-backup or clustered
+database maintains its database file independently, so to compact all of them,
+issue this command separately on each server.
+.SS Viewing History
+.sp
+The \fBovsdb\-tool\fP utility’s \fBshow\-log\fP command displays the transaction
+records in an OVSDB database file in a human\-readable format.  By default, it
+shows minimal detail, but adding the option \fB\-m\fP once or twice increases the
+level of detail.  In addition to the transaction data, it shows the time and
+date of each transaction and any “comment” added to the transaction by the
+client.  The comments can be helpful for quickly understanding a transaction;
+for example, \fBovs\-vsctl\fP adds its command line to the transactions that it
+makes.
+.sp
+The \fBshow\-log\fP command works with both OVSDB file formats, but the details of
+the output format differ.  For active\-backup and clustered databases, the
+sequence of transactions in each server’s log will differ, even at points when
+they reflect the same data.
+.SS Truncating History
+.sp
+It may occasionally be useful to “roll back” a database file to an earlier
+point.  Because of the organization of OVSDB records, this is easy to do.
+Start by noting the record number <i> of the first record to delete in
+\fBovsdb\-tool show\-log\fP output.  Each record is two lines of plain text, so
+trimming the log is as simple as running \fBhead \-n <j>\fP, where <j> = 2 * <i>.
+.SS Corruption
+.sp
+When \fBovsdb\-server\fP opens an OVSDB database file, of any kind, it reads as
+many transaction records as it can from the file until it reaches the end of
+the file or it encounters a corrupted record.  At that point it stops reading
+and regards the data that it has read to this point as the full contents of the
+database file, effectively rolling the database back to an earlier point.
+.sp
+Each transaction record contains an embedded SHA\-1 checksum, which the server
+verifies as it reads a database file.  It detects corruption when a checksum
+fails to verify.  Even though SHA\-1 is no longer considered secure for use in
+cryptography, it is acceptable for this purpose because it is not used to
+defend against malicious attackers.
+.sp
+The first record in a standalone or active\-backup database file specifies the
+schema.  \fBovsdb\-server\fP will refuse to work with a database where this record
+is corrupted, or with a clustered database file with corruption in the first
+few records.  Delete and recreate such a database, or restore it from a backup.
+.sp
+When \fBovsdb\-server\fP adds records to a database file in which it detected
+corruption, it first truncates the file just after the last good record.
+.SH SEE ALSO
+.sp
+RFC 7047, “The Open vSwitch Database Management Protocol.”
+.sp
+Open vSwitch implementations of generic OVSDB functionality:
+\fBovsdb\-server(1)\fP, \fBovsdb\-client(1)\fP, \fBovsdb\-tool(1)\fP\&.
+.sp
+Tools for working with databases that have specific OVSDB schemas:
+\fBovs\-vsctl(8)\fP, \fBvtep\-ctl(8)\fP, and (in OVN) \fBovn\-nbctl(8)\fP,
+\fBovn\-sbctl(8)\fP\&.
+.sp
+OVSDB schemas for Open vSwitch and related functionality:
+\fBovs\-vswitchd.conf.db(5)\fP, \fBvtep(5)\fP, and (in OVN) \fBovn\-nb(5)\fP,
+\fBovn\-sb(5)\fP\&.
+.SH AUTHOR
+The Open vSwitch Development Community
+.SH COPYRIGHT
+2016, The Open vSwitch Development Community
+.\" Generated by docutils manpage writer.
+.

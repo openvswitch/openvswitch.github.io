@@ -189,7 +189,7 @@
 .
 .\" EOF
 .\" ----------------------------------------------------------------------
-.TH ovsdb\-server 1 "2.10.90" "Open vSwitch" "Open vSwitch Manual"
+.TH ovsdb\-server 1 "2.15.90" "Open vSwitch" "Open vSwitch Manual"
 .\" This program's name:
 .ds PN ovsdb\-server
 .
@@ -250,7 +250,7 @@ For an introduction to OVSDB and its implementation in Open vSwitch,
 see \fBovsdb\fR(7).
 .PP
 Each OVSDB file may be specified on the command line as \fIdatabase\fR.
-If none is specified, the default is \fB/usr/etc/openvswitch/conf.db\fR.  The database
+If none is specified, the default is \fB/etc/openvswitch/conf.db\fR.  The database
 files must already have been created and initialized using, for
 example, \fBovsdb\-tool\fR's \fBcreate\fR, \fBcreate\-cluster\fR, or
 \fBjoin\-cluster\fR command.
@@ -396,7 +396,7 @@ This option has no effect when \fB\-\-detach\fR is not specified.
 .TP
 \fB\-\-no\-self\-confinement\fR
 By default daemon will try to self-confine itself to work with
-files under well-know, at build-time whitelisted directories.  It
+files under well-known directories determined during build.  It
 is better to stick with this default behavior and not to use this
 flag unless some other Access Control is used to confine daemon.
 Note that in contrast to other access control implementations that
@@ -709,6 +709,10 @@ but not before 100 commits have been added or 10 minutes have elapsed
 since the last compaction. It will also be compacted automatically
 after 24 hours since the last compaction if 100 commits were added
 regardless of its size.
+.IP "\fBovsdb\-server/memory-trim-on-compaction\fR \fIon\fR|\fIoff\fR"
+If this option is \fIon\fR, ovsdb-server will try to reclaim all unused
+heap memory back to the system after each successful database compaction
+to reduce the memory consumption of the process.  \fIoff\fR by default.
 .
 .IP "\fBovsdb\-server/reconnect\fR"
 Makes \fBovsdb\-server\fR drop all of the JSON\-RPC
@@ -791,6 +795,11 @@ Switches the server to an active role.  The server stops synchronizing
 its databases with an active server and closes all existing client
 connections, which requires clients to reconnect.
 .
+.IP "\fBovsdb\-server/set\-active\-ovsdb\-server\-probe\-interval \fIprobe interval"
+Sets  the probe interval (in milli seconds) for the connection to
+active \fIserver\fR.
+.
+.
 .IP "\fBovsdb\-server/set\-sync\-exclude\-tables \fIdb\fB:\fItable\fR[\fB,\fIdb\fB:\fItable\fR]..."
 Sets the \fItable\fR within \fIdb\fR that will be excluded from synchronization.
 This overrides the \fB\-\-sync\-exclude-tables\fR command-line option.
@@ -845,6 +854,11 @@ until the server has left the cluster.
 .IP
 Once a server leaves a cluster, it may never rejoin it.  Instead,
 create a new server and join it to the cluster.
+.IP
+Note that removing the server from the cluster alters the total size
+of the cluster. For example, if you remove two servers from a three
+server cluster, then the "cluster" becomes a single functioning server.
+This does not result in a three server cluster that lacks quorum.
 .
 .IP "\fBcluster/kick \fIdb server\fR"
 Start graceful removal of \fIserver\fR from \fIdb\fR's cluster, like
@@ -855,6 +869,26 @@ remove any server, not just this one.
 the server's local network address as passed to \fBovsdb-tool\fR's
 \fBcreate\-cluster\fR or \fBjoin\-cluster\fR command.  Use
 \fBcluster/status\fR to see a list of cluster members.
+.
+.IP "\fBcluster/change-election-timer \fIdb time\fR"
+Change the leader election timeout base value of the cluster, in milliseconds.
+.IP
+Leader election will be initiated by a follower if there is no heartbeat
+received from the leader within this time plus a random time within 1 second.
+.IP
+The default value is 1000, if not changed with this command.  This command can
+be used to adjust the value when necessary, according to the expected load and
+response time of the servers.
+.IP
+This command must be executed on the leader.  It initiates the change to the
+cluster.  To see if the change takes effect (committed), use
+\fBcluster/status\fR to show the current setting.  Once a change is committed,
+it persists at server restarts.
+.IP "\fBcluster/set\-backlog\-threshold \fIdb\fR \fIn_msgs\fR \fIn_bytes\fR"
+Sets the backlog limits for \fIdb\fR's RAFT connections to a maximum of
+\fIn_msgs\fR messages or \fIn_bytes\fR bytes.  If the backlog on one of the
+connections reaches the limit, it will be disconnected (and re-established).
+Values are checked only if the backlog contains more than 50 messages.
 .
 .SS "VLOG COMMANDS"
 These commands manage \fB\*(PN\fR's logging settings.
@@ -955,6 +989,8 @@ debugging.
 Displays the averaged per-second rates for the last few seconds, the
 last minute and the last hour, and the total counts of all of the
 coverage counters.
+.IP "\fBcoverage/read-counter\fR \fIcounter\fR"
+Displays the total count for the given coverage \fIcounter\fR.
 .SH "BUGS"
 .
 In Open vSwitch before version 2.4, when \fBovsdb\-server\fR sent

@@ -1,6 +1,6 @@
 '\" tp
 .\" -*- mode: troff; coding: utf-8 -*-
-.TH "ovs\-fields" 7 "2.11.90" "Open vSwitch" "Open vSwitch Manual"
+.TH "ovs\-fields" 7 "2.15.90" "Open vSwitch" "Open vSwitch Manual"
 .fp 5 L CR              \" Make fixed-width font available as \fL.
 .de ST
 .  PP
@@ -632,6 +632,7 @@ Prefix;Vendor;Class
 \_;\_;\_
 \fBNXM_OF\fR;(none);\fL0x0000\fR;
 \fBNXM_NX\fR;(none);\fL0x0001\fR;
+\fBERICOXM_OF\fR;(none);\fL0x1000\fR;
 \fBOXM_OF\fR;(none);\fL0x8000\fR;
 \fBOXM_OF_PKT_REG\fR;(none);\fL0x8001\fR;
 \fBNXOXM_ET\fR;\fL0x00002320\fR;\fL0xffff\fR;
@@ -743,7 +744,7 @@ A flow with \fBconjunction\fR actions may also include \fBnote\fR actions for an
 .IP \(bu
 All of the flows that constitute a conjunctive flow with a given \fIid\fR must have the same priority\[char46] (Flows with the same \fIid\fR but different priorities are currently treated as different conjunctive flows, that is, currently \fIid\fR values need only be unique within an OpenFlow table at a given priority\[char46] This behavior isn\(cqt guaranteed to stay the same in later releases, so please use \fIid\fR values unique within an OpenFlow table\[char46])
 .IP \(bu
-Conjunctive flows must not overlap with each other, at a given priority, that is, any given packet must be able to match at most one conjunctive flow at a given priority\[char46] Overlapping conjunctive flows yield unpredictable results\[char46]
+Conjunctive flows must not overlap with each other, at a given priority, that is, any given packet must be able to match at most one conjunctive flow at a given priority\[char46] Overlapping conjunctive flows yield unpredictable results\[char46] (The flows that constitute a conjunctive flow may overlap with those that constitute the same or another conjunctive flow\[char46])
 .IP \(bu
 Following a conjunctive flow match, the search for the flow with \fBconj_id=\fR\fIid\fR is done in the same general-purpose way as other flow table searches, so one can use flows with \fBconj_id=\fR\fIid\fR to act differently depending on circumstances\[char46] (One exception is that the search for the \fBconj_id=\fR\fIid\fR flow itself ignores conjunctive flows, to avoid recursion\[char46]) If the search with \fBconj_id=\fR\fIid\fR fails, Open vSwitch acts as if the conjunctive flow had not matched at all, and continues searching the flow table for other matching flows\[char46]
 .IP \(bu
@@ -820,6 +821,8 @@ Name;Bytes;Mask;RW?;Prereqs;NXM/OXM Support
 \fBtun_erspan_idx\fR;4 (low 20 bits);yes;yes;none;OVS 2.10+
 \fBtun_erspan_dir\fR;1 (low 1 bits);yes;yes;none;OVS 2.10+
 \fBtun_erspan_hwid\fR;1 (low 6 bits);yes;yes;none;OVS 2.10+
+\fBtun_gtpu_flags\fR;1;yes;no;none;OVS 2.13+
+\fBtun_gtpu_msgtype\fR;1;yes;no;none;OVS 2.13+
 \fBtun_metadata0\fR;124;yes;yes;none;OVS 2.5+
 \fBtun_metadata1\fR;124;yes;yes;none;OVS 2.5+
 \fBtun_metadata2\fR;124;yes;yes;none;OVS 2.5+
@@ -907,7 +910,7 @@ The following Open vSwitch commands create a bridge \fBbr\-int\fR, add port \fBt
 .br
 \fBovs\-vsctl add\-port br\-int tap0 \-\- set interface tap0 ofport_request=1
 .br
-\fBovs\-vsctl add\-port br\-int gre0 \-\-
+\fBovs\-vsctl add\-port br\-int gre0 \-\- \e
 .br
 \fB    set interface gre0 ofport_request=2 type=gre \e
 .br
@@ -932,11 +935,11 @@ The following Open vSwitch commands create a bridge \fBbr\-int\fR, add port \fBt
 .br
 \fBovs\-vsctl add\-port br\-int tap0 \-\- set interface tap0 ofport_request=1
 .br
-\fBovs\-vsctl add\-port br\-int allgre \-\-
+\fBovs\-vsctl add\-port br\-int allgre \-\- \e
 .br
-\fB    set interface gre0 ofport_request=3 type=gre \e
+\fB    set interface allgre ofport_request=3 type=gre \e
 .br
-\fB                       options:remote_ip=flow options:key=flow
+\fB                         options:remote_ip=flow options:key=flow
 .br
 \fBovs\-ofctl add\-flow br\-int \e
 .br
@@ -1003,6 +1006,8 @@ GRE has an optional 32-bit key\[char46]
 STT has a 64-bit key\[char46]
 .IP \(bu
 ERSPAN has a 10-bit key (Session ID)\[char46]
+.IP \(bu
+GTPU has a 32-bit key (Tunnel Endpoint ID)\[char46]
 .RE
 .PP
 .PP
@@ -1904,6 +1909,176 @@ T}
 .PP
 A 6-bit unique identifier of an ERSPAN v2 engine within a system\[char46]
 .PP
+.SS "GTP\-U Metadata Fields"
+.PP
+.PP
+These fields provide access to set-up GPRS Tunnelling Protocol for User Plane (GTPv1-U), based on 3GPP TS 29\[char46]281\[char46] A GTP-U header has the following format:
+.PP
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "flags" width 0.6
+B1: box "msg type" width 0.6
+B2: box "length" width 0.9
+B3: box "TEID" width 1.3
+"8" at B0.n above
+"" at B0.s below
+"8" at B1.n above
+"" at B1.s below
+"16" at B2.n above
+"" at B2.s below
+"32" at B3.n above
+"" at B3.s below
+line <-> invis "" above from B0.nw + (0,textht) to B3.ne + (0,textht)
+]
+move .1
+". . ." ljust
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL   8      8       16    32
+.br
+\fL+-----+--------+------+----+
+.br
+\fL|flags|msg type|length|TEID| ...
+.br
+\fL+-----+--------+------+----+
+.br
+\fL
+.fi
+\}
+.PP
+.PP
+The flags and message type have the Open vSwitch GTP-U specific fields described below\[char46] Open vSwitch makes the TEID (Tunnel Endpoint Identifier), which identifies a tunnel endpoint in the receiving GTP-U protocol entity, available via \fBtun_id\fR\[char46]
+.PP
+.PP
+\fBGTP-U Flags Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBtun_gtpu_flags\fR
+Width:;8 bits
+Format:;hexadecimal
+Masking:;arbitrary bitwise masks
+Prerequisites:;none
+Access:;read-only
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+none
+T}
+NXM:;T{
+\fBNXOXM_ET_GTPU_FLAGS\fR (15) since Open vSwitch 2.13
+T}
+.TE
+.PP
+.PP
+.PP
+.PP
+This field holds the 8-bit GTP-U flags, encoded as:
+.PP
+.\" check if in troff mode (TTY)
+.if t \{
+.PS
+boxht = .2
+textht = 1/6
+fillval = .2
+[
+B0: box "version" width 0.5
+B1: box "PT" width 0.3
+B2: box "rsv" width 0.3
+B3: box "E" width 0.3
+B4: box "S" width 0.3
+B5: box "PN" width 0.3
+"3" at B0.n above
+"1" at B0.s below
+"1" at B1.n above
+"" at B1.s below
+"1" at B2.n above
+"0" at B2.s below
+"1" at B3.n above
+"" at B3.s below
+"1" at B4.n above
+"" at B4.s below
+"1" at B5.n above
+"" at B5.s below
+line <-> "GTP-U Tunnel Flags" above from B0.nw + (0,textht) to B5.ne + (0,textht)
+]
+.PE
+\}
+.\" check if in nroff mode:
+.if n \{
+.nf
+\fL  GTP-U Tunnel Flags
+.br
+\fL <------------------->
+.br
+\fL    3    1   1  1 1 1
+.br
+\fL+-------+--+---+-+-+--+
+.br
+\fL|version|PT|rsv|E|S|PN|
+.br
+\fL+-------+--+---+-+-+--+
+.br
+\fL    1        0
+.fi
+\}
+.PP
+.PP
+The flags are:
+.RS
+.TP
+version
+Used to determine the version of the GTP-U protocol, which should be set to 1\[char46]
+.TP
+PT
+Protocol type, used as a protocol discriminator between GTP (1) and GTP\(cq (0)\[char46]
+.TP
+rsv
+Reserved\[char46] Must be zero\[char46]
+.TP
+E
+If 1, indicates the presence of a meaningful value of the Next Extension Header field\[char46]
+.TP
+S
+If 1, indicates the presence of a meaningful value of the Sequence Number field\[char46]
+.TP
+PN
+If 1, indicates the presence of a meaningful value of the N-PDU Number field\[char46]
+.RE
+.PP
+.PP
+\fBGTP-U Message Type Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBtun_gtpu_msgtype\fR
+Width:;8 bits
+Format:;decimal
+Masking:;arbitrary bitwise masks
+Prerequisites:;none
+Access:;read-only
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+none
+T}
+NXM:;T{
+\fBNXOXM_ET_GTPU_MSGTYPE\fR (16) since Open vSwitch 2.13
+T}
+.TE
+.PP
+.PP
+This field indicates whether it\(cqs a signalling message used for path management, or a user plane message which carries the original packet\[char46] The complete range of message types can be referred to [3GPP TS 29\[char46]281]\[char46]
+.PP
 .SS "Geneve Fields"
 .PP
 .PP
@@ -2660,7 +2835,7 @@ Name;Bytes;Mask;RW?;Prereqs;NXM/OXM Support
 .TE
 .PP
 .PP
-Open vSwitch 2\[char46]5 and later support ``connection tracking,\(cq\(cq which allows bidirectional streams of packets to be statefully grouped into connections\[char46] Open vSwitch connection tracking, for example, identifies the patterns of TCP packets that indicates a successfully initiated connection, as well as those that indicate that a connection has been torn down\[char46] Open vSwitch connection tracking can also identify related connections, such as FTP data connections spawned from FTP control connections\[char46]
+Open vSwitch supports ``connection tracking,\(cq\(cq which allows bidirectional streams of packets to be statefully grouped into connections\[char46] Open vSwitch connection tracking, for example, identifies the patterns of TCP packets that indicates a successfully initiated connection, as well as those that indicate that a connection has been torn down\[char46] Open vSwitch connection tracking can also identify related connections, such as FTP data connections spawned from FTP control connections\[char46]
 .PP
 .PP
 An individual packet passing through the pipeline may be in one of two states, ``untracked\(cq\(cq or ``tracked,\(cq\(cq which may be distinguished via the ``trk\(cq\(cq flag in \fBct_state\fR\[char46] A packet is \fIuntracked\fR at the beginning of the Open vSwitch pipeline and continues to be untracked until the pipeline invokes the \fBct\fR action\[char46] The connection tracking fields are all zeroes in an untracked packet\[char46] When a flow in the Open vSwitch pipeline invokes the \fBct\fR action, the action initializes the connection tracking fields and the packet becomes \fItracked\fR for the remainder of its processing\[char46]
@@ -2669,7 +2844,7 @@ An individual packet passing through the pipeline may be in one of two states, `
 The connection tracker stores connection state in an internal table, but it only adds a new entry to this table when a \fBct\fR action for a new connection invokes \fBct\fR with the \fBcommit\fR parameter\[char46] For a given connection, when a pipeline has executed \fBct\fR, but not yet with \fBcommit\fR, the connection is said to be \fIuncommitted\fR\[char46] State for an uncommitted connection is ephemeral and does not persist past the end of the pipeline, so some features are only available to committed connections\[char46] A connection would typically be left uncommitted as a way to drop its packets\[char46]
 .PP
 .PP
-Connection tracking is an Open vSwitch extension to OpenFlow\[char46]
+Connection tracking is an Open vSwitch extension to OpenFlow\[char46] Open vSwitch 2\[char46]5 added the initial support for connection tracking\[char46] Subsequent versions of Open vSwitch added many refinements and extensions to the initial support\[char46] Many of these capabilities depend on the Open vSwitch datapath rather than simply the userspace version\[char46] The \fBcapabilities\fR column in the \fBDatapath\fR table (see \fBovs\-vswitchd\[char46]conf\[char46]db\fR(5)) reports the detailed capabilities of a particular Open vSwitch datapath\[char46]
 .PP
 .PP
 \fBConnection Tracking State Field\fR
@@ -2708,7 +2883,7 @@ The following flags are defined:
 A new connection\[char46] Set to 1 if this is an uncommitted connection\[char46]
 .TP
 \fBest\fR (0x02)
-Part of an existing connection\[char46] Set to 1 if this is a committed connection\[char46]
+Part of an existing connection\[char46] Set to 1 if packets of a committed connection have been seen by conntrack from both directions\[char46]
 .TP
 \fBrel\fR (0x04)
 Related to an existing connection, e\[char46]g\[char46] an ICMP ``destination unreachable\(cq\(cq message or an FTP data connections\[char46] This flag will only be 1 if the connection to which this one is related is committed\[char46]
@@ -2835,10 +3010,10 @@ The label committed, by an action within the \fBexec\fR parameter to the \fBct\f
 Open vSwitch 2\[char46]8 introduced the matching support for connection tracker original direction 5-tuple fields\[char46]
 .PP
 .PP
-For non-committed non-related connections the conntrack original direction tuple fields always have the same values as the corresponding headers in the packet itself\[char46] For any other packets of a committed connection the conntrack original direction tuple fields reflect the values from that initial non-committed non-related packet, and thus may be different from the actual packet headers, as the actual packet headers may be in reverse direction (for reply packets), transformed by NAT (when \fBnat\fR option was applied to the connection), or be of different protocol (i\[char46]e\[char46], when an ICMP response is sent to an UDP packet)\[char46] In case of related connections, e\[char46]g\[char46], an FTP data connection, the original direction tuple contains the original direction headers from the master connection, e\[char46]g\[char46], an FTP control connection\[char46]
+For non-committed non-related connections the conntrack original direction tuple fields always have the same values as the corresponding headers in the packet itself\[char46] For any other packets of a committed connection the conntrack original direction tuple fields reflect the values from that initial non-committed non-related packet, and thus may be different from the actual packet headers, as the actual packet headers may be in reverse direction (for reply packets), transformed by NAT (when \fBnat\fR option was applied to the connection), or be of different protocol (i\[char46]e\[char46], when an ICMP response is sent to an UDP packet)\[char46] In case of related connections, e\[char46]g\[char46], an FTP data connection, the original direction tuple contains the original direction headers from the parent connection, e\[char46]g\[char46], an FTP control connection\[char46]
 .PP
 .PP
-The following fields are populated by the ct action, and require a match to a valid connection tracking state as a prerequisite, in addition to the IP or IPv6 ethertype match\[char46] Examples of valid connection tracking state matches include \fBct_state=+new\fR, \fBct_state=+est\fR, \fBct_state=+rel\fR, and \fBct_state=+trk\-inv\fR\[char46]
+The following fields are populated by the \fBct\fR action, and require a match to a valid connection tracking state as a prerequisite, in addition to the IP or IPv6 ethertype match\[char46] Examples of valid connection tracking state matches include \fBct_state=+new\fR, \fBct_state=+est\fR, \fBct_state=+rel\fR, and \fBct_state=+trk\-inv\fR\[char46]
 .PP
 .PP
 \fBConnection Tracking Original Direction IPv4 Source Address Field\fR
@@ -4288,7 +4463,7 @@ OpenFlow does not make the MPLS TTL available as a match field, but actions are 
 Unlike the other encapsulations supported by OpenFlow and Open vSwitch, MPLS labels are routinely used in ``stacks\(cq\(cq two or three deep and sometimes even deeper\[char46] Open vSwitch currently supports up to three labels\[char46]
 .PP
 .PP
-The OpenFlow specification only supports matching on the outermost MPLS label at any given time\[char46] To match on the second label, one must first ``pop\(cq\(cq the outer label and advance to another OpenFlow table, where the inner label may be matched\[char46] To match on the third label, one must pop the two outer labels, and so on\[char46] The Open Networking Foundation is considering support for directly matching on multiple MPLS labels for OpenFlow 1\[char46]6\[char46]
+The OpenFlow specification only supports matching on the outermost MPLS label at any given time\[char46] To match on the second label, one must first ``pop\(cq\(cq the outer label and advance to another OpenFlow table, where the inner label may be matched\[char46] To match on the third label, one must pop the two outer labels, and so on\[char46]
 .PP
 .SS "MPLS Inner Protocol"
 .PP
@@ -4510,12 +4685,12 @@ line <-> "OXM_OF_MPLS_BOS" above from B0.nw + (0,textht) to B1.ne + (0,textht)
 This field is useful as part of processing a series of incoming MPLS labels\[char46] A flow that includes a \fBpop_mpls\fR action should generally match on \fBmpls_bos\fR:
 .RS
 .IP \(bu
-When \fBmpls_bos\fR is 1, there is another MPLS label following this one, so the Ethertype passed to \fBpop_mpls\fR should be an MPLS Ethertype\[char46] For example: \fBtable=0,
-dl_type=0x8847, mpls_bos=1, actions=pop_mpls:0x8847,
+When \fBmpls_bos\fR is 0, there is another MPLS label following this one, so the Ethertype passed to \fBpop_mpls\fR should be an MPLS Ethertype\[char46] For example: \fBtable=0,
+dl_type=0x8847, mpls_bos=0, actions=pop_mpls:0x8847,
 goto_table:1\fR
 .IP \(bu
-When \fBmpls_bos\fR is 0, this MPLS label is the last one, so the Ethertype passed to \fBpop_mpls\fR should be a non-MPLS Ethertype such as IPv4\[char46] For example: \fBtable=1, dl_type=0x8847,
-mpls_bos=0, actions=pop_mpls:0x0800, goto_table:2\fR
+When \fBmpls_bos\fR is 1, this MPLS label is the last one, so the Ethertype passed to \fBpop_mpls\fR should be a non-MPLS Ethertype such as IPv4\[char46] For example: \fBtable=1, dl_type=0x8847,
+mpls_bos=1, actions=pop_mpls:0x0800, goto_table:2\fR
 .RE
 .PP
 .PP
@@ -6444,6 +6619,8 @@ Name;Bytes;Mask;RW?;Prereqs;NXM/OXM Support
 \fBnd_target\fR;16;yes;yes;ND;OF 1.2+ and OVS 1.1+
 \fBnd_sll\fR;6;yes;yes;ND solicit;OF 1.2+ and OVS 1.1+
 \fBnd_tll\fR;6;yes;yes;ND advert;OF 1.2+ and OVS 1.1+
+\fBnd_reserved\fR;4;no;yes;ND;OVS 2.11+
+\fBnd_options_type\fR;1;no;yes;ND;OVS 2.11+
 .TE
 .PP
 .SS "ICMPv4"
@@ -6834,6 +7011,56 @@ NXM:;T{
 T}
 .TE
 .PP
+.PP
+.PP
+\fBICMPv6 Neighbor Discovery Reserved Field Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBnd_reserved\fR
+Width:;32 bits
+Format:;decimal
+Masking:;not maskable
+Prerequisites:;ND
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+none
+T}
+NXM:;T{
+\fBERICOXM_OF_ICMPV6_ND_RESERVED\fR (1) since Open vSwitch 2.11
+T}
+.TE
+.PP
+.PP
+.PP
+This is used to set the R,S,O bits in Neighbor Advertisement Messages
+.PP
+.PP
+\fBICMPv6 Neighbor Discovery Options Type Field Field\fR
+.TS
+tab(;);
+l lx.
+Name:;\fBnd_options_type\fR
+Width:;8 bits
+Format:;decimal
+Masking:;not maskable
+Prerequisites:;ND
+Access:;read/write
+OpenFlow 1.0:;not supported
+OpenFlow 1.1:;not supported
+OXM:;T{
+none
+T}
+NXM:;T{
+\fBERICOXM_OF_ICMPV6_ND_OPTIONS_TYPE\fR (2) since Open vSwitch 2.11
+T}
+.TE
+.PP
+.PP
+.PP
+A value of 1 indicates that the option is Source Link Layer\[char46] A value of 2 indicates that the options is Target Link Layer\[char46] See RFC 4861 for further details\[char46]
 .PP
 .SH "REFERENCES"
 .RS

@@ -1,0 +1,225 @@
+.\" Man page generated from reStructuredText.
+.
+.TH "OVS-TEST" "8" "Feb 04, 2021" "2.15.90" "Open vSwitch"
+.SH NAME
+ovs-test \- Check Linux drivers for performance, vlan and L3 tunneling problems
+.
+.nr rst2man-indent-level 0
+.
+.de1 rstReportMargin
+\\$1 \\n[an-margin]
+level \\n[rst2man-indent-level]
+level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+-
+\\n[rst2man-indent0]
+\\n[rst2man-indent1]
+\\n[rst2man-indent2]
+..
+.de1 INDENT
+.\" .rstReportMargin pre:
+. RS \\$1
+. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
+. nr rst2man-indent-level +1
+.\" .rstReportMargin post:
+..
+.de UNINDENT
+. RE
+.\" indent \\n[an-margin]
+.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.nr rst2man-indent-level -1
+.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
+..
+.SH SYNOPSIS
+.sp
+\fBovs\-test\fP \-s \fIport\fP
+.INDENT 0.0
+.TP
+\fBovs\-test\fP \-c \fIserver1\fP \fIserver2\fP [\fB\-b\fP \fItargetbandwidth\fP] [\fB\-i\fP \fItestinterval\fP] [\fB\-d\fP]
+[\fB\-l\fP \fIvlantag\fP] [\fB\-t\fP \fItunnelmodes\fP]
+.UNINDENT
+.SH DESCRIPTION
+.sp
+The \fBovs\-test\fP program may be used to check for problems sending
+802.1Q or GRE traffic that Open vSwitch may uncover. These problems, for
+example, can occur when Open vSwitch is used to send 802.1Q traffic through
+physical interfaces running certain drivers of certain Linux kernel versions.
+To run a test, configure IP addresses on \fIserver1\fP and \fIserver2\fP for interfaces
+you intended to test. These interfaces could also be already configured OVS
+bridges that have a physical interface attached to them. Then, on one of the
+nodes, run \fBovs\-test\fP in server mode and on the other node run it in
+client mode. The client will connect to \fBovs\-test\fP server and schedule
+tests between both of them. The \fBovs\-test\fP client will perform UDP and
+TCP tests.
+.sp
+UDP tests can report packet loss and achieved bandwidth for various datagram
+sizes. By default target bandwidth for UDP tests is 1Mbit/s.
+.sp
+TCP tests report only achieved bandwidth, because kernel TCP stack takes care
+of flow control and packet loss. TCP tests are essential to detect potential
+TSO related issues.
+.sp
+To determine whether Open vSwitch is encountering any problems, the user must
+compare packet loss and achieved bandwidth in a setup where traffic is being
+directly sent and in one where it is not. If in the 802.1Q or L3 tunneled tests
+both \fBovs\-test\fP processes are unable to communicate or the achieved
+bandwidth is much lower compared to direct setup, then, most likely, Open
+vSwitch has encountered a pre\-existing kernel or driver bug.
+.sp
+Some examples of the types of problems that may be encountered are:
+.INDENT 0.0
+.IP \(bu 2
+When NICs use VLAN stripping on receive they must pass a pointer to a
+\fIvlan_group\fP when reporting the stripped tag to the networking core. If no
+\fIvlan_group\fP is in use then some drivers just drop the extracted tag.
+Drivers are supposed to only enable stripping if a \fIvlan_group\fP is registered
+but not all of them do that.
+.IP \(bu 2
+On receive, some drivers handle priority tagged packets specially and don’t
+pass the tag onto the network stack at all, so Open vSwitch never has a
+chance to see it.
+.IP \(bu 2
+Some drivers size their receive buffers based on whether a \fIvlan_group\fP is
+enabled, meaning that a maximum size packet with a VLAN tag will not fit if
+no \fIvlan_group\fP is configured.
+.IP \(bu 2
+On transmit, some drivers expect that VLAN acceleration will be used if it is
+available, which can only be done if a \fIvlan_group\fP is configured. In these
+cases, the driver may fail to parse the packet and correctly setup checksum
+offloading or TSO.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B Client Mode
+An \fBovs\-test\fP client will connect to two \fBovs\-test\fP servers
+and will ask them to exchange test traffic. It is also possible to spawn an
+\fBovs\-test\fP server automatically from the client.
+.TP
+.B Server Mode
+To conduct tests, two \fBovs\-test\fP servers must be running on two
+different hosts where the client can connect. The actual test traffic is
+exchanged only between both \fBovs\-test\fP servers. It is recommended
+that both servers have their IP addresses in the same subnet, otherwise one
+would have to make sure that routing is set up correctly.
+.UNINDENT
+.SH OPTIONS
+.INDENT 0.0
+.TP
+.B \-s <port>, \-\-server <port>
+Run in server mode and wait for the client to establish XML RPC Control
+Connection on this TCP port. It is recommended to have \fIethtool(8)\fP
+installed on the server so that it could retrieve information about the NIC
+driver.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-c <server1> <server2>, \-\-client <server1> <server2>
+Run in client mode and schedule tests between \fIserver1\fP and \fIserver2\fP,
+where each server must be given in the following format:
+.INDENT 7.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+OuterIP[:OuterPort],InnerIP[/Mask][:InnerPort].
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+The \fIOuterIP\fP must be already assigned to the physical interface which is
+going to be tested. This is the IP address where client will try to
+establish XML RPC connection. If \fIOuterIP\fP is 127.0.0.1 then client will
+automatically spawn a local instance of \fBovs\-test\fP server.
+OuterPort is TCP port where server is listening for incoming XML/RPC
+control connections to schedule tests (by default it is 15531). The
+\fBovs\-test\fP will automatically assign \fIInnerIP[/Mask]\fP to the
+interfaces that will be created on the fly for testing purposes. It is
+important that \fIInnerIP[/Mask]\fP does not interfere with already existing IP
+addresses on both \fBovs\-test\fP servers and client. InnerPort is port
+which will be used by server to listen for test traffic that will be
+encapsulated (by default it is 15532).
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-b <targetbandwidth>, \-\-bandwidth <targetbandwidth>
+Target bandwidth for UDP tests. The targetbandwidth must be given in bits
+per second. It is possible to use postfix \fIM\fP or \fIK\fP to alter the target
+bandwidth magnitude.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-i <testinterval>, \-\-interval <testinterval>
+How long each test should run. By default 5 seconds.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-h, \-\-help
+Prints a brief help message to the console.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-V, \-\-version
+Prints version information to the console.
+.UNINDENT
+.sp
+The following test modes are supported by \fBovs\-test\fP\&. It is possible
+to combine multiple of them in a single \fBovs\-test\fP invocation.
+.INDENT 0.0
+.TP
+.B \-d, \-\-direct
+Perform direct tests between both OuterIP addresses. These tests could be
+used as a reference to compare 802.1Q or L3 tunneling test results.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-l <vlantag>, \-\-vlan\-tag <vlantag>
+Perform 802.1Q tests between both servers. These tests will create a
+temporary OVS bridge, if necessary, and attach a VLAN tagged port to
+it for testing purposes.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-t <tunnelmodes>, \-\-tunnel\-modes <tunnelmodes>
+Perform L3 tunneling tests. The given argument is a comma sepa‐ rated
+string that specifies all the L3 tunnel modes that should be tested (e.g.
+gre). The L3 tunnels are terminated on interface that has the OuterIP
+address assigned.
+.UNINDENT
+.SH EXAMPLES
+.sp
+On host 1.2.3.4 start \fBovs\-test\fP in server mode:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+ovs\-test \-s 15531
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+On host 1.2.3.5 start \fBovs\-test\fP in client mode and do direct, VLAN
+and GRE tests between both nodes:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+ovs\-test \-c 127.0.0.1,1.1.1.1/30 1.2.3.4,1.1.1.2/30 \-d \-l 123 \-t
+gre
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SH SEE ALSO
+.sp
+\fIovs\-vswitchd(8)\fP, \fIovs\-ofctl(8)\fP, \fIovs\-vsctl(8)\fP, \fBovs\-vlan\-test\fP,
+\fIethtool(8)\fP, \fIuname(1)\fP
+.SH AUTHOR
+The Open vSwitch Development Community
+.SH COPYRIGHT
+2016, The Open vSwitch Development Community
+.\" Generated by docutils manpage writer.
+.
