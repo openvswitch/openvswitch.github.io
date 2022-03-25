@@ -42,9 +42,9 @@ ovsdb-server(5)               Open vSwitch Manual              ovsdb-server(5)
 
        When a database is removed from the server, in addition to <b>Database</b> ta‐
        ble  updates,  the  server sends <b>canceled</b> messages, as described in RFC
-       7047 section 4.1.4,  in  reply  to  outstanding  transactions  for  the
-       removed  database.  The  server also cancels any outstanding monitoring
-       initiated by <b>monitor</b> or <b>monitor_cond</b> requested on the removed database,
+       7047 section 4.1.4, in reply to outstanding transactions  for  the  re‐
+       moved database. The server also cancels any outstanding monitoring ini‐
+       tiated by <b>monitor</b> or <b>monitor_cond</b> requested on  the  removed  database,
        sending  the  <b>monitor_canceled</b>  RPC  described in <b>ovsdb-server</b>(7). Only
        clients that disable  disconnection  with  <b>set_db_change_aware</b>  receive
        these messages.
@@ -56,10 +56,11 @@ ovsdb-server(5)               Open vSwitch Manual              ovsdb-server(5)
 
    <b>Summary:</b>
        <b>name</b>                          string
-       <b>model</b>                         string, either <b>clustered</b> or <b>standalone</b>
+       <b>model</b>                         string,  one  of  <b>clustered</b>,  <b>relay</b>,   or
+                                     <b>standalone</b>
        <b>schema</b>                        optional string
+       <b>connected</b>                     boolean
        <u>Clustered</u> <u>Databases:</u>
-         <b>connected</b>                   boolean
          <b>leader</b>                      boolean
          <b>cid</b>                         optional uuid
          <b>sid</b>                         optional uuid
@@ -69,54 +70,61 @@ ovsdb-server(5)               Open vSwitch Manual              ovsdb-server(5)
        <b>name</b>: string
               The database’s name, as specified in its schema.
 
-       <b>model</b>: string, either <b>clustered</b> or <b>standalone</b>
-              The storage model: <b>standalone</b> for a standalone or  active-backup
-              database, <b>clustered</b> for a clustered database.
+       <b>model</b>: string, one of <b>clustered</b>, <b>relay</b>, or <b>standalone</b>
+              The  storage model: <b>standalone</b> for a standalone or active-backup
+              database, <b>clustered</b> for a clustered database, <b>relay</b> for a  relay
+              database.
 
        <b>schema</b>: optional string
               The  database  schema,  as a JSON string. In the case of a clus‐
               tered database, this is empty  until  it  finishes  joining  its
-              cluster.
+              cluster. In the case of a relay database, this is empty until it
+              connects to the relay source.
+
+       <b>connected</b>: boolean
+              True if the database is connected to its storage.  A  standalone
+              database  is always connected. A clustered database is connected
+              if the server is in contact with a majority of  its  cluster.  A
+              relay database is connected if the server is in contact with the
+              relay source, i.e. is connected to the server it syncs from.  An
+              unconnected  database  cannot  be modified and its data might be
+              unavailable or stale.
 
      <u>Clustered</u> <u>Databases:</u>
 
-       These  columns are most interesting and in some cases only relevant for
-       clustered databases, that is, those where the  <b>model</b>  column  is  <b>clus‐</b>
+       These columns are most interesting and in some cases only relevant  for
+       clustered  databases,  that  is,  those where the <b>model</b> column is <b>clus‐</b>
        <b>tered</b>.
 
-       <b>connected</b>: boolean
-              True  if  the database is connected to its storage. A standalone
-              or active-backup database is always connected. A clustered data‐
-              base is connected if the server is in contact with a majority of
-              its cluster. An unconnected database cannot be modified and  its
-              data might be unavailable or stale.
-
        <b>leader</b>: boolean
-              True  if the database is the leader in its cluster. For a stand‐
-              alone or active-backup database, this is always true.
+              True if the database is the leader in its cluster. For a  stand‐
+              alone  or active-backup database, this is always true. For a re‐
+              lay database, this is always false.
 
        <b>cid</b>: optional uuid
               The cluster ID for this database, which is the same for  all  of
               the  servers that host this particular clustered database. For a
-              standalone or active-backup database, this is empty.
+              standalone, active-backup or relay database, this is empty.
 
        <b>sid</b>: optional uuid
               The server ID for this database, different for each server  that
               hosts  a particular clustered database. A server that hosts more
               than one clustered database will have a different  <b>sid</b>  in  each
-              one. For a standalone or active-backup database, this is empty.
+              one.  For a standalone, active-backup or relay database, this is
+              empty.
 
        <b>index</b>: optional integer
-              For  a  clustered database, the index of the log entry currently
+              For a clustered database, the index of the log  entry  currently
               exposed to clients. For a given server, this increases monotoni‐
-              cally.  When  a  client switches from one server to another in a
-              cluster, it can ensure that it never sees an older  snapshot  of
-              data  by  avoiding servers that have <b>index</b> less than the largest
+              cally. When a client switches from one server to  another  in  a
+              cluster,  it  can ensure that it never sees an older snapshot of
+              data by avoiding servers that have <b>index</b> less than  the  largest
               value they have already observed.
 
-              For a standalone or active-backup database, this is empty.
+              For  a  standalone,  active-backup  or  relay  database, this is
+              empty.
 
 
 
-Open vSwitch 2.15.90            DB Schema 1.1.0                ovsdb-server(5)
+Open vSwitch 2.17.90            DB Schema 1.2.0                ovsdb-server(5)
 </pre></body></html>

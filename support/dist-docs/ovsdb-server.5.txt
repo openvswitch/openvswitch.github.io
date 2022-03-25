@@ -41,9 +41,9 @@ Database TABLE
 
        When a database is removed from the server, in addition to Database ta‐
        ble  updates,  the  server sends canceled messages, as described in RFC
-       7047 section 4.1.4,  in  reply  to  outstanding  transactions  for  the
-       removed  database.  The  server also cancels any outstanding monitoring
-       initiated by monitor or monitor_cond requested on the removed database,
+       7047 section 4.1.4, in reply to outstanding transactions  for  the  re‐
+       moved database. The server also cancels any outstanding monitoring ini‐
+       tiated by monitor or monitor_cond requested on  the  removed  database,
        sending  the  monitor_canceled  RPC  described in ovsdb-server(7). Only
        clients that disable  disconnection  with  set_db_change_aware  receive
        these messages.
@@ -55,10 +55,11 @@ Database TABLE
 
    Summary:
        name                          string
-       model                         string, either clustered or standalone
+       model                         string,  one  of  clustered,  relay,   or
+                                     standalone
        schema                        optional string
+       connected                     boolean
        Clustered Databases:
-         connected                   boolean
          leader                      boolean
          cid                         optional uuid
          sid                         optional uuid
@@ -68,53 +69,60 @@ Database TABLE
        name: string
               The database’s name, as specified in its schema.
 
-       model: string, either clustered or standalone
-              The storage model: standalone for a standalone or  active-backup
-              database, clustered for a clustered database.
+       model: string, one of clustered, relay, or standalone
+              The  storage model: standalone for a standalone or active-backup
+              database, clustered for a clustered database, relay for a  relay
+              database.
 
        schema: optional string
               The  database  schema,  as a JSON string. In the case of a clus‐
               tered database, this is empty  until  it  finishes  joining  its
-              cluster.
+              cluster. In the case of a relay database, this is empty until it
+              connects to the relay source.
+
+       connected: boolean
+              True if the database is connected to its storage.  A  standalone
+              database  is always connected. A clustered database is connected
+              if the server is in contact with a majority of  its  cluster.  A
+              relay database is connected if the server is in contact with the
+              relay source, i.e. is connected to the server it syncs from.  An
+              unconnected  database  cannot  be modified and its data might be
+              unavailable or stale.
 
      Clustered Databases:
 
-       These  columns are most interesting and in some cases only relevant for
-       clustered databases, that is, those where the  model  column  is  clus‐
+       These columns are most interesting and in some cases only relevant  for
+       clustered  databases,  that  is,  those where the model column is clus‐
        tered.
 
-       connected: boolean
-              True  if  the database is connected to its storage. A standalone
-              or active-backup database is always connected. A clustered data‐
-              base is connected if the server is in contact with a majority of
-              its cluster. An unconnected database cannot be modified and  its
-              data might be unavailable or stale.
-
        leader: boolean
-              True  if the database is the leader in its cluster. For a stand‐
-              alone or active-backup database, this is always true.
+              True if the database is the leader in its cluster. For a  stand‐
+              alone  or active-backup database, this is always true. For a re‐
+              lay database, this is always false.
 
        cid: optional uuid
               The cluster ID for this database, which is the same for  all  of
               the  servers that host this particular clustered database. For a
-              standalone or active-backup database, this is empty.
+              standalone, active-backup or relay database, this is empty.
 
        sid: optional uuid
               The server ID for this database, different for each server  that
               hosts  a particular clustered database. A server that hosts more
               than one clustered database will have a different  sid  in  each
-              one. For a standalone or active-backup database, this is empty.
+              one.  For a standalone, active-backup or relay database, this is
+              empty.
 
        index: optional integer
-              For  a  clustered database, the index of the log entry currently
+              For a clustered database, the index of the log  entry  currently
               exposed to clients. For a given server, this increases monotoni‐
-              cally.  When  a  client switches from one server to another in a
-              cluster, it can ensure that it never sees an older  snapshot  of
-              data  by  avoiding servers that have index less than the largest
+              cally. When a client switches from one server to  another  in  a
+              cluster,  it  can ensure that it never sees an older snapshot of
+              data by avoiding servers that have index less than  the  largest
               value they have already observed.
 
-              For a standalone or active-backup database, this is empty.
+              For  a  standalone,  active-backup  or  relay  database, this is
+              empty.
 
 
 
-Open vSwitch 2.15.90            DB Schema 1.1.0                ovsdb-server(5)
+Open vSwitch 2.17.90            DB Schema 1.2.0                ovsdb-server(5)

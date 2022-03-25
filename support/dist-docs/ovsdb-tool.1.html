@@ -9,9 +9,10 @@ ovsdb-tool(1)                 Open vSwitch Manual                ovsdb-tool(1)
 <b>SYNOPSIS</b>
        Database Creation Commands:
               <b>ovsdb-tool</b> [<u>options</u>] <b>create</b> [<u>db</u> [<u>schema</u>]]
-              <b>ovsdb-tool</b> [<u>options</u>] <b>create-cluster</b> <u>db</u> <u>contents</u> <u>address</u>
-              <b>ovsdb-tool</b>  [<u>options</u>]  [<b>--cid=</b><u>uuid</u>]  <b>join-cluster</b>  <u>db</u> <u>name</u> <u>local</u>
-              <u>remote</u>...
+              <b>ovsdb-tool</b>  [<u>options</u>]  [<b>--election-timer=</b><u>ms</u>]  <b>create-cluster</b>  <u>db</u>
+              <u>contents</u> <u>address</u>
+              <b>ovsdb-tool</b> [<u>options</u>] [<b>--cid=</b><u>uuid</u>] <b>join-cluster</b> <u>db</u> <u>name</u> <u>local</u> <u>re‐</u>
+              <u>mote</u>...
 
        Version Management Commands:
               <b>ovsdb-tool</b> [<u>options</u>] <b>convert</b> [<u>db</u> [<u>schema</u> [<u>target</u>]]]
@@ -25,7 +26,7 @@ ovsdb-tool(1)                 Open vSwitch Manual                ovsdb-tool(1)
        Other commands:
               <b>ovsdb-tool</b> [<u>options</u>] <b>compact</b> [<u>db</u> [<u>target</u>]]
               <b>ovsdb-tool</b> [<u>options</u>] [<b>--rbac-role=</b><u>role</u>] <b>query</b> [<u>db</u>] <u>transaction</u>
-              <b>ovsdb-tool</b> [<u>options</u>] [<b>--rbac-role=</b><u>role</u>] <b>transact</b>  [<u>db</u>]  <u>transac‐</u>
+              <b>ovsdb-tool</b>  [<u>options</u>]  [<b>--rbac-role=</b><u>role</u>] <b>transact</b> [<u>db</u>] <u>transac‐</u>
               <u>tion</u>
               <b>ovsdb-tool</b> [<u>options</u>] [<b>-m</b> | <b>--more</b>]... <b>show-log</b> [<u>db</u>]
               <b>ovsdb-tool</b> [<u>options</u>] <b>check-cluster</b> <u>db</u>...
@@ -47,67 +48,74 @@ ovsdb-tool(1)                 Open vSwitch Manual                ovsdb-tool(1)
 
 <b>DESCRIPTION</b>
        The <b>ovsdb-tool</b> program is a command-line tool for managing Open vSwitch
-       database (OVSDB) files.  It does not  interact  directly  with  running
-       Open  vSwitch  database  servers  (instead,  use <b>ovsdb-client</b>).  For an
-       introduction to OVSDB and  its  implementation  in  Open  vSwitch,  see
+       database  (OVSDB)  files.   It  does not interact directly with running
+       Open vSwitch database servers (instead, use <b>ovsdb-client</b>).  For an  in‐
+       troduction  to  OVSDB  and  its  implementation  in  Open  vSwitch, see
        <b>ovsdb</b>(7).
 
        Each command that takes an optional <u>db</u> or <u>schema</u> argument has a default
-       file location if it is not specified..  The default  <u>db</u>  is  <b>/etc/open‐</b>
-       <b>vswitch/conf.db</b>.      The     default     <u>schema</u>     is    <b>/share/open‐</b>
-       <b>vswitch/vswitch.ovsschema</b>.
+       file  location  if  it  is  not specified..  The default <u>db</u> is <b>/usr/lo‐</b>
+       <b>cal/etc/openvswitch/conf.db</b>.    The   default   <u>schema</u>   is    <b>/usr/lo‐</b>
+       <b>cal/share/openvswitch/vswitch.ovsschema</b>.
 
-       This OVSDB implementation supports standalone and  active-backup  data‐
-       base  service  models  with one on-disk format and a clustered database
-       service model with a different format.  <b>ovsdb-tool</b> supports  both  for‐
-       mats,  but  some commands are appropriate for only one format, as docu‐
-       mented for individual commands below.  For  a  specification  of  these
-       formats,  see  <b>ovsdb</b>(5).  For more information on OVSDB service models,
+       This  OVSDB  implementation supports standalone and active-backup data‐
+       base service models with one on-disk format and  a  clustered  database
+       service  model  with a different format.  <b>ovsdb-tool</b> supports both for‐
+       mats, but some commands are appropriate for only one format,  as  docu‐
+       mented  for  individual  commands  below.  For a specification of these
+       formats, see <b>ovsdb</b>(5).  For more information on OVSDB  service  models,
        see the <b>Service</b> <b>Models</b> section in <b>ovsdb</b>(7).
 
    <b>Database</b> <b>Creation</b> <b>Commands</b>
-       These commands create a new OVSDB database file.  They will  not  over‐
-       write  an existing database file.  To replace an existing database with
+       These  commands  create a new OVSDB database file.  They will not over‐
+       write an existing database file.  To replace an existing database  with
        a new one, first delete the old one.
 
        <b>create</b> [<u>db</u> [<u>schema</u>]]
-              Use  this  command  to  create  the  database  for   controlling
-              <b>ovs-vswitchd</b>  or  another  standalone or active-backup database.
+              Use   this  command  to  create  the  database  for  controlling
+              <b>ovs-vswitchd</b> or another standalone  or  active-backup  database.
               It creates database file <u>db</u> with the given <u>schema</u>, which must be
               the name of a file that contains an OVSDB schema in JSON format,
-              as specified in the OVSDB specification.  The  new  database  is
-              initially  empty.   (You can use <b>cp</b> to copy a database including
+              as  specified  in  the OVSDB specification.  The new database is
+              initially empty.  (You can use <b>cp</b> to copy a  database  including
               both its schema and data.)
 
-       <b>create-cluster</b> <u>db</u> <u>contents</u> <u>local</u>
+       [<b>--election-timer=</b><u>ms</u>] <b>create-cluster</b> <u>db</u> <u>contents</u> <u>local</u>
               Use this command to initialize the first server in a high-avail‐
-              ability  cluster  of  3  (or  more) database servers, e.g. for a
-              database in an environment that cannot tolerate a  single  point
-              of  failure.   It creates clustered database file <u>db</u> and config‐
-              ures the server to listen on <u>local</u>, which  must  take  the  form
-              <u>protocol</u><b>:</b><u>ip</u><b>:</b><u>port</u>,  where  <u>protocol</u>  is  <b>tcp</b>  or  <b>ssl</b>,  <u>ip</u> is the
-              server's IP (either an IPv4 address or an IPv6 address  enclosed
-              in  square  brackets),  and <u>port</u> is a TCP port number.  Only one
+              ability cluster of 3 (or more)  database  servers,  e.g.  for  a
+              database  in  an environment that cannot tolerate a single point
+              of failure.  It creates clustered database file <u>db</u>  and  config‐
+              ures  the  server  to  listen on <u>local</u>, which must take the form
+              <u>protocol</u><b>:</b><u>ip</u><b>:</b><u>port</u>, where <u>protocol</u>  is  <b>tcp</b>  or  <b>ssl</b>,  <u>ip</u>  is  the
+              server's  IP (either an IPv4 address or an IPv6 address enclosed
+              in square brackets), and <u>port</u> is a TCP port  number.   Only  one
               address is specified, for the first server in the cluster, ordi‐
-              narily  the  one  for  the  server  running <b>create-cluster</b>.  The
-              address is used for communication within the  cluster,  not  for
-              communicating with OVSDB clients, and must not use the same port
+              narily the one for the server running <b>create-cluster</b>.   The  ad‐
+              dress is used for communication within the cluster, not for com‐
+              municating with OVSDB clients, and must not use  the  same  port
               used for the OVSDB protocol.
 
               The new database is initialized with <u>contents</u>, which must name a
-              file  that  contains  either an OVSDB schema in JSON format or a
-              standalone OVSDB database.  If it is  a  schema  file,  the  new
-              database  will initially be empty, with the given schema.  If it
-              is a database file, the new database will have the  same  schema
+              file that contains either an OVSDB schema in JSON  format  or  a
+              standalone  OVSDB  database.   If  it  is a schema file, the new
+              database will initially be empty, with the given schema.  If  it
+              is  a  database file, the new database will have the same schema
               and contents.
+
+              Leader election will be initiated by a follower if there  is  no
+              heartbeat  received from the cluster leader within the specified
+              election timer.  The  default  leader  election  timer  is  1000
+              miliseconds.  To  use  a different value when creating the data‐
+              base, specify  <b>--election-timer=</b><u>ms</u>,  where  <u>ms</u>  is  a  value  in
+              miliseconds between 100 and 600000 inclusive.
 
        [<b>--cid=</b><u>uuid</u>] <b>join-cluster</b> <u>db</u> <u>name</u> <u>local</u> <u>remote</u>...
               Use  this  command to initialize each server after the first one
               in an OVSDB high-availability  cluster.   It  creates  clustered
               database  file  <u>db</u> for a database named <u>name</u>, and configures the
               server to listen on <u>local</u> and to initially  connect  to  <u>remote</u>,
-              which  must  be  a  server  that already belongs to the cluster.
-              <u>local</u> and <u>remote</u> use the same <u>protocol</u><b>:</b><u>ip</u><b>:</b><u>port</u>  syntax  as  <b>cre‐</b>
+              which must be a server that already belongs to the cluster.  <u>lo‐</u>
+              <u>cal</u> and <u>remote</u> use the  same  <u>protocol</u><b>:</b><u>ip</u><b>:</b><u>port</u>  syntax  as  <b>cre‐</b>
               <b>ate-cluster</b>.
 
               The  <u>name</u>  must  be the name of the schema or database passed to
@@ -148,12 +156,12 @@ ovsdb-tool(1)                 Open vSwitch Manual                ovsdb-tool(1)
               file.
 
    <b>Version</b> <b>Management</b> <b>Commands</b>
-       An OVSDB schema has a schema version  number,  and  an  OVSDB  database
-       embeds  a particular version of an OVSDB schema.  These version numbers
-       take the form <u>x</u><b>.</b><u>y</u><b>.</b><u>z</u>, e.g. <b>1.2.3</b>.  The  OVSDB  implementation  does  not
-       enforce  a  particular  version  numbering  scheme, but schemas managed
-       within the Open vSwitch project use the following  approach.   Whenever
-       the  database  schema is changed in a non-backward compatible way (e.g.
+       An OVSDB schema has a schema version number, and an OVSDB database  em‐
+       beds  a  particular  version of an OVSDB schema.  These version numbers
+       take the form <u>x</u><b>.</b><u>y</u><b>.</b><u>z</u>, e.g. <b>1.2.3</b>.  The OVSDB implementation does not en‐
+       force a particular version numbering scheme, but schemas managed within
+       the Open vSwitch project use  the  following  approach.   Whenever  the
+       database  schema  is  changed  in  a  non-backward compatible way (e.g.
        deleting a column or a table), <u>x</u> is incremented (and <u>y</u> and <u>z</u> are  reset
        to  0).   When  the database schema is changed in a backward compatible
        way (e.g. adding a new column), <u>y</u> is incremented (and <u>z</u> is reset to 0).
@@ -181,10 +189,10 @@ ovsdb-tool(1)                 Open vSwitch Manual                ovsdb-tool(1)
 
               This command can do simple ``upgrades'' and ``downgrades'' on  a
               database's  schema.   The  data  in <u>db</u> must be valid when inter‐
-              preted under <u>schema</u>, with only one exception:  data  in  <u>db</u>  for
-              tables  and  columns  that  do  not exist in <u>schema</u> are ignored.
-              Columns that exist in <u>schema</u> but not in  <u>db</u>  are  set  to  their
-              default values.  All of <u>schema</u>'s constraints apply in full.
+              preted under <u>schema</u>, with only one exception: data in <u>db</u> for ta‐
+              bles  and columns that do not exist in <u>schema</u> are ignored.  Col‐
+              umns that exist in <u>schema</u> but not in <u>db</u> are set to their default
+              values.  All of <u>schema</u>'s constraints apply in full.
 
               Some  uses  of  this  command can cause unrecoverable data loss.
               For example, converting a database from  a  schema  that  has  a
@@ -248,8 +256,8 @@ ovsdb-tool(1)                 Open vSwitch Manual                ovsdb-tool(1)
               that grows much larger than its minimum size.
 
               This command does not work if <u>db</u> is currently  being  served  by
-              <b>ovsdb-server</b>,  or  if  it  is  otherwise  locked  for writing by
-              another process.  This command also does not work with clustered
+              <b>ovsdb-server</b>,  or  if  it is otherwise locked for writing by an‐
+              other process.  This command also does not work  with  clustered
               databases.   Instead, in either case, send the <b>ovsdb-server/com‐</b>
               <b>pact</b> command to <b>ovsdb-server</b>, via <b>ovs-appctl</b>).
 
@@ -279,8 +287,8 @@ ovsdb-tool(1)                 Open vSwitch Manual                ovsdb-tool(1)
               method, as described in the OVSDB specification.
 
               This  command  does  not work if <u>db</u> is currently being served by
-              <b>ovsdb-server</b>, or if  it  is  otherwise  locked  for  writing  by
-              another process.  This command also does not work with clustered
+              <b>ovsdb-server</b>, or if it is otherwise locked for  writing  by  an‐
+              other  process.   This command also does not work with clustered
               databases.  Instead, in either case, use <b>ovsdb-client</b>'s <b>transact</b>
               command to send the query to <b>ovsdb-server</b>.
 
@@ -357,11 +365,11 @@ ovsdb-tool(1)                 Open vSwitch Manual                ovsdb-tool(1)
               of words separated by spaces or commas or colons, up to one from
               each category below:
 
-              ·      A  valid  module name, as displayed by the <b>vlog/list</b> com‐
+              •      A  valid  module name, as displayed by the <b>vlog/list</b> com‐
                      mand on <b>ovs-appctl</b>(8), limits the log level change to the
                      specified module.
 
-              ·      <b>syslog</b>,  <b>console</b>,  or <b>file</b>, to limit the log level change
+              •      <b>syslog</b>,  <b>console</b>,  or <b>file</b>, to limit the log level change
                      to only to the system log, to the console, or to a  file,
                      respectively.   (If  <b>--detach</b>  is  specified,  <b>ovsdb-tool</b>
                      closes its standard file descriptors, so logging  to  the
@@ -371,7 +379,7 @@ ovsdb-tool(1)                 Open vSwitch Manual                ovsdb-tool(1)
                      only useful along with the  <b>--syslog-target</b>  option  (the
                      word has no effect otherwise).
 
-              ·      <b>off</b>,  <b>emer</b>,  <b>err</b>,  <b>warn</b>, <b>info</b>, or <b>dbg</b>, to control the log
+              •      <b>off</b>,  <b>emer</b>,  <b>err</b>,  <b>warn</b>, <b>info</b>, or <b>dbg</b>, to control the log
                      level.  Messages of the given severity or higher will  be
                      logged,  and  messages of lower severity will be filtered
                      out.  <b>off</b> filters out all  messages.   See  <b>ovs-appctl</b>(8)
@@ -380,8 +388,8 @@ ovsdb-tool(1)                 Open vSwitch Manual                ovsdb-tool(1)
               Case is not significant within <u>spec</u>.
 
               Regardless  of  the  log  levels set for <b>file</b>, logging to a file
-              will not take place unless <b>--log-file</b>  is  also  specified  (see
-              below).
+              will not take place unless <b>--log-file</b> is also specified (see be‐
+              low).
 
               For compatibility with older versions of OVS, <b>any</b> is accepted as
               a word but has no effect.
@@ -409,7 +417,7 @@ ovsdb-tool(1)                 Open vSwitch Manual                ovsdb-tool(1)
        <b>--log-file</b>[<b>=</b><u>file</u>]
               Enables logging to a file.  If <u>file</u> is  specified,  then  it  is
               used  as  the exact name for the log file.  The default log file
-              name   used   if   <u>file</u>    is    omitted    is    <b>/var/log/open‐</b>
+              name  used  if  <u>file</u>  is  omitted  is   <b>/usr/local/var/log/open‐</b>
               <b>vswitch/ovsdb-tool.log</b>.
 
        <b>--syslog-target=</b><u>host</u><b>:</b><u>port</u>
@@ -421,12 +429,12 @@ ovsdb-tool(1)                 Open vSwitch Manual                ovsdb-tool(1)
               Specify <u>method</u> how syslog messages should be sent to syslog dae‐
               mon.  Following forms are supported:
 
-              ·      <b>libc</b>, use libc <b>syslog()</b> function.  Downside of using this
+              •      <b>libc</b>, use libc <b>syslog()</b> function.  Downside of using this
                      options  is  that libc adds fixed prefix to every message
                      before it is actually sent  to  the  syslog  daemon  over
                      <b>/dev/log</b> UNIX domain socket.
 
-              ·      <b>unix:</b><u>file</u>, use UNIX domain socket directly.  It is possi‐
+              •      <b>unix:</b><u>file</u>, use UNIX domain socket directly.  It is possi‐
                      ble to specify arbitrary message format with this option.
                      However,  <b>rsyslogd</b>  <b>8.9</b> and older versions use hard coded
                      parser function anyway that  limits  UNIX  domain  socket
@@ -434,17 +442,17 @@ ovsdb-tool(1)                 Open vSwitch Manual                ovsdb-tool(1)
                      older <b>rsyslogd</b> versions, then use UDP socket to localhost
                      IP address instead.
 
-              ·      <b>udp:</b><u>ip</u>:<u>port</u>, use UDP socket.  With this method it is pos‐
+              •      <b>udp:</b><u>ip</u>:<u>port</u>, use UDP socket.  With this method it is pos‐
                      sible to use arbitrary message  format  also  with  older
                      <b>rsyslogd</b>.   When  sending syslog messages over UDP socket
-                     extra precaution needs to  be  taken  into  account,  for
-                     example,  syslog  daemon needs to be configured to listen
-                     on the specified  UDP  port,  accidental  iptables  rules
-                     could  be interfering with local syslog traffic and there
-                     are some security considerations that apply to UDP  sock‐
-                     ets, but do not apply to UNIX domain sockets.
+                     extra precaution needs to be taken into account, for  ex‐
+                     ample,  syslog daemon needs to be configured to listen on
+                     the specified UDP port, accidental iptables  rules  could
+                     be  interfering  with  local syslog traffic and there are
+                     some security considerations that apply to  UDP  sockets,
+                     but do not apply to UNIX domain sockets.
 
-              ·      <b>null</b>, discards all messages logged to syslog.
+              •      <b>null</b>, discards all messages logged to syslog.
 
               The  default  is  taken  from  the <b>OVS_SYSLOG_METHOD</b> environment
               variable; if it is unset, the default is <b>libc</b>.
@@ -458,14 +466,14 @@ ovsdb-tool(1)                 Open vSwitch Manual                ovsdb-tool(1)
               Prints version information to the console.
 
 <b>FILES</b>
-       The default <u>db</u> is  <b>/etc/openvswitch/conf.db</b>.   The  default  <u>schema</u>  is
-       <b>/share/openvswitch/vswitch.ovsschema</b>.   The  <b>help</b> command also displays
-       these defaults.
+       The default  <u>db</u>  is  <b>/usr/local/etc/openvswitch/conf.db</b>.   The  default
+       <u>schema</u>  is  <b>/usr/local/share/openvswitch/vswitch.ovsschema</b>.   The  <b>help</b>
+       command also displays these defaults.
 
 <b>SEE</b> <b>ALSO</b>
        <b>ovsdb</b>(7), <b>ovsdb-server</b>(1), <b>ovsdb-client</b>(1).
 
 
 
-Open vSwitch                        2.15.90                      ovsdb-tool(1)
+Open vSwitch                        2.17.90                      ovsdb-tool(1)
 </pre></body></html>

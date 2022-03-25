@@ -189,7 +189,7 @@
 .
 .\" EOF
 .\" ----------------------------------------------------------------------
-.TH ovs\-vswitchd 8 "2.15.90" "Open vSwitch" "Open vSwitch Manual"
+.TH ovs\-vswitchd 8 "2.17.90" "Open vSwitch" "Open vSwitch Manual"
 .\" This program's name:
 .ds PN ovs\-vswitchd
 .
@@ -206,7 +206,7 @@ on the local machine.
 The \fIdatabase\fR argument specifies how \fBovs\-vswitchd\fR connects
 to \fBovsdb\-server\fR.  \fIdatabase\fR may be an OVSDB active or
 passive connection method, as described in \fBovsdb\fR(7).  The
-default is \fBunix:/var/run/openvswitch/db.sock\fR.
+default is \fBunix:/usr/local/var/run/openvswitch/db.sock\fR.
 .PP
 \fBovs\-vswitchd\fR retrieves its configuration from \fIdatabase\fR at
 startup.  It sets up Open vSwitch datapaths and then operates
@@ -283,7 +283,7 @@ Causes a file (by default, \fB\*(PN.pid\fR) to be created indicating
 the PID of the running process.  If the \fIpidfile\fR argument is not
 specified, or
 if it does not begin with \fB/\fR, then it is created in
-\fB/var/run/openvswitch\fR.
+\fB/usr/local/var/run/openvswitch\fR.
 .IP
 If \fB\-\-pidfile\fR is not specified, no pidfile is created.
 .
@@ -500,7 +500,7 @@ a message to the target provided via the \fB\-\-syslog\-target\fR option.
 \fB\-\-log\-file\fR[\fB=\fIfile\fR]
 Enables logging to a file.  If \fIfile\fR is specified, then it is
 used as the exact name for the log file.  The default log file name
-used if \fIfile\fR is omitted is \fB/var/log/openvswitch/\*(PN.log\fR.
+used if \fIfile\fR is omitted is \fB/usr/local/var/log/openvswitch/\*(PN.log\fR.
 .
 .IP "\fB\-\-syslog\-target=\fIhost\fB:\fIport\fR"
 Send syslog messages to UDP \fIport\fR on \fIhost\fR, in addition to
@@ -543,9 +543,9 @@ variable; if it is unset, the default is \fBlibc\fR.
 Sets the name of the control socket on which \fB\*(PN\fR listens for
 runtime management commands (see \fBRUNTIME MANAGEMENT COMMANDS\fR,
 below).  If \fIsocket\fR does not begin with \fB/\fR, it is
-interpreted as relative to \fB/var/run/openvswitch\fR.  If \fB\-\-unixctl\fR is
+interpreted as relative to \fB/usr/local/var/run/openvswitch\fR.  If \fB\-\-unixctl\fR is
 not used at all, the default socket is
-\fB/var/run/openvswitch/\*(PN.\fIpid\fB.ctl\fR, where \fIpid\fR is \fB\*(PN\fR's
+\fB/usr/local/var/run/openvswitch/\*(PN.\fIpid\fB.ctl\fR, where \fIpid\fR is \fB\*(PN\fR's
 process ID.
 .IP
 On Windows a local named pipe is used to listen for runtime management
@@ -624,6 +624,12 @@ If \fIbridge\fR is not specified, then displays detailed information about all
 bridges with RSTP enabled.
 .SS "BRIDGE COMMANDS"
 These commands manage bridges.
+.IP "\fBfdb/add\fR \fIbridge\fR \fIport\fR \fIvlan\fR \fImac\fR"
+Adds \fImac\fR address to a \fIport\fR and \fIvlan\fR on a \fIbridge\fR. This
+utility can be used to pre-populate fdb table without relying on dynamic
+mac learning.
+.IP "\fBfdb/del\fR \fIbridge\fR \fIvlan\fR \fImac\fR"
+Deletes \fImac\fR address from a \fIport\fR and \fIvlan\fR on a \fIbridge\fR.
 .IP "\fBfdb/flush\fR [\fIbridge\fR]"
 Flushes \fIbridge\fR MAC address learning table, or all learning tables
 if no \fIbridge\fR is given.
@@ -963,6 +969,20 @@ Fetches the flow from \fIdp\fR's flow table with unique identifier \fIufid\fR.
 .
 .IP "\*(DX\fBdel\-flows\fR [\fIdp\fR]"
 Deletes all flow entries from datapath \fIdp\fR's flow table.
+.SS "DATAPATH FLOW CACHE COMMANDS"
+The following commands are useful for debugging and configuring
+the datapath flow cache settings.
+.
+.TP
+\*(DX\fBcache\-get\-size\fR [\fIdp\fR]
+Prints the current cache sizes to the console.
+.
+.TP
+\*(DX\fBcache\-set\-size\fR \fIdp\fR \fIcache\fR \fIsize\fR
+Set the \fIdp\fR's specific \fIcache\fR to the given \fIsize\fR.
+The cache name can be found by using the \fBcache\-get\-size\fR
+command.
+.
 .SS "CONNECTION TRACKING TABLE COMMANDS"
 The following commands are useful for debugging and configuring
 the connection tracking table in the datapath.
@@ -1121,6 +1141,9 @@ provided.  The command always displays the default zone limit.
 .
 .SS "DPDK COMMANDS"
 These commands manage DPDK components.
+.IP "\fBdpdk/lcore-list\fR"
+Lists the DPDK lcores and their cpu affinity.
+When RTE_MAX_LCORE lcores are registered, some OVS PMD threads won't appear.
 .IP "\fBdpdk/log-list\fR"
 Lists all DPDK components that emit logs and their logging levels.
 .IP "\fBdpdk/log-set\fR [\fIspec\fR]"
@@ -1131,6 +1154,8 @@ list of words separated by spaces: a word can be either a logging \fBlevel\fR
 \fBnotice\fR, \fBinfo\fR or \fBdebug\fR) or a \fBpattern\fR matching DPDK
 components (see \fBdpdk/log-list\fR command on \fBovs\-appctl\fR(8)) separated
 by a colon from the logging \fBlevel\fR to apply.
+.IP "\fBdpdk/get-malloc-stats\fR"
+Prints the heap information statistics about DPDK malloc.
 .RE
 .
 .SS "DPIF-NETDEV COMMANDS"
@@ -1146,10 +1171,14 @@ Shows performance statistics for one or all pmd threads of the datapath
 \fIdp\fR. The special thread "main" sums up the statistics of every non pmd
 thread.
 
-The sum of "emc hits", "smc hits", "megaflow hits" and "miss" is the number of
-packet lookups performed by the datapath. Beware that a recirculated packet
-experiences one additional lookup per recirculation, so there may be
-more lookups than forwarded packets in the datapath.
+The sum of "phwol hits", "simple match hits", "emc hits", "smc hits",
+"megaflow hits" and "miss" is the number of packet lookups performed by the
+datapath. Beware that a recirculated packet experiences one additional lookup
+per recirculation, so there may be more lookups than forwarded packets in the
+datapath.
+
+The MFEX Opt hits displays the number of packets that are processed by the
+optimized miniflow extract implementations.
 
 Cycles are counted using the TSC or similar facilities (when available on
 the platform). The duration of one cycle depends on the processing platform.
@@ -1270,8 +1299,11 @@ pmd thread numa_id 0 core_id 1:
   - busy iterations:        86009  ( 84.1 % of used cycles)
   Rx packets:             2399607  (2381 Kpps, 848 cycles/pkt)
   Datapath passes:        3599415  (1.50 passes/pkt)
+  - PHWOL hits:                 0  (  0.0 %)
+  - MFEX Opt hits:        3570133  ( 99.2 %)
+  - Simple Match hits:          0  (  0.0 %)
   - EMC hits:              336472  (  9.3 %)
-  - SMC hits:                   0  ( 0.0 %)
+  - SMC hits:                   0  (  0.0 %)
   - Megaflow hits:        3262943  ( 90.7 %, 1.00 subtbl lookups/hit)
   - Upcalls:                    0  (  0.0 %, 0.0 us/upcall)
   - Lost upcalls:               0  (  0.0 %)
@@ -1361,6 +1393,41 @@ recirculation (only in balance-tcp mode).
 When this is the case, the above command prints the load-balancing information
 of the bonds configured in datapath \fIdp\fR showing the interface associated
 with each bucket (hash).
+.
+.IP "\fBdpif-netdev/subtable-lookup-prio-get\fR"
+Lists the DPCLS implementations or lookup functions that are available as well
+as their priorities.
+.
+.IP "\fBdpif-netdev/subtable-lookup-prio-set\fR \fIlookup_function\fR \
+\fIprio\fR"
+Sets the priority of a lookup function by name, \fIlookup_function\fR, and
+priority, \fIprio\fR, which should be a positive integer value.  The highest
+priority lookup function is used for classification.
+
+The number of affected dpcls ports and subtables is returned.
+.
+.IP "\fBdpif-netdev/dpif-impl-get\fR
+Lists the DPIF implementations that are available.
+.
+.IP "\fBdpif-netdev/dpif-impl-set\fR \fIdpif_impl\fR"
+Sets the DPIF to be used to \fIdpif_impl\fR. By default "dpif_scalar" is used.
+.
+.IP "\fBdpif-netdev/miniflow-parser-get\fR
+Lists the miniflow extract implementations that are available.
+.
+.IP "\fBdpif-netdev/miniflow-parser-set\fR [\fB-pmd\fR \fIcore\fR] \
+\fIminiflow_impl\fR [\fIstudy_cnt\fR]"
+Sets the miniflow extract to \fIminiflow_impl\fR for a specified PMD or all
+PMDs in the case where no value is specified.  By default "scalar" is used.
+\fIstudy_cnt\fR defaults to 128 and indicates the number of packets that the
+"study" miniflow implementation must parse before choosing an optimal
+implementation.
+.SS "DPIF-NETLINK COMMANDS"
+These commands are used to expose internal information of the "dpif-netlink"
+kernel space datapath.
+.
+.IP "\fBdpif-netlink/dispatch-mode\fR"
+Displays the "dispatch-mode" for all datapaths.
 .SS "NETDEV-DPDK COMMANDS"
 These commands manage DPDK related ports (\fBtype=\fR\fIdpdk*\fR).
 .IP "\fBnetdev-dpdk/set-admin-state\fR [\fIinterface\fR] \fBup\fR | \fBdown\fR"
@@ -1770,6 +1837,15 @@ to \fImac\fR.
 .IP "\fBtnl/neigh/flush\fR"
 .IP "\fBtnl/arp/flush\fR"
 Flush ARP table.
+.
+.IP "\fBtnl/neigh/aging [\fIseconds\fB]\fR"
+.IP "\fBtnl/arp/aging [\fIseconds\fB]\fR"
+Changes the aging time. The accepted values of \fIseconds\fR are
+between 1 and 3600. The new entries will get the value as specified in
+\fIseconds\fR. For the existing entries, the aging time is updated
+only if the current expiration is greater than \fIseconds\fR.
+.IP
+If used without arguments, it prints the current aging value.
 .
 .IP "\fBtnl/egress_port_range [num1] [num2]\fR"
 Set range for UDP source port used for UDP based Tunnels. For

@@ -1,6 +1,6 @@
 '\" p
 .\" -*- nroff -*-
-.TH "ovsdb-server" 5 " DB Schema 1.1.0" "Open vSwitch 2.15.90" "Open vSwitch Manual"
+.TH "ovsdb-server" 5 " DB Schema 1.2.0" "Open vSwitch 2.17.90" "Open vSwitch Manual"
 .fp 5 L CR              \\" Make fixed-width font available as \\fL.
 .de TQ
 .  br
@@ -54,16 +54,16 @@ Clients can use the \fB_uuid\fR column in this table as a generation number\[cha
 string
 .TQ 3.00in
 \fBmodel\fR
-string, either \fBclustered\fR or \fBstandalone\fR
+string, one of \fBclustered\fR, \fBrelay\fR, or \fBstandalone\fR
 .TQ 3.00in
 \fBschema\fR
 optional string
+.TQ 3.00in
+\fBconnected\fR
+boolean
 .TQ .25in
 \fIClustered Databases:\fR
 .RS .25in
-.TQ 2.75in
-\fBconnected\fR
-boolean
 .TQ 2.75in
 \fBleader\fR
 boolean
@@ -80,24 +80,24 @@ optional integer
 .SS "Details:
 .IP "\fBname\fR: string"
 The database\(cqs name, as specified in its schema\[char46]
-.IP "\fBmodel\fR: string, either \fBclustered\fR or \fBstandalone\fR"
-The storage model: \fBstandalone\fR for a standalone or active-backup database, \fBclustered\fR for a clustered database\[char46]
+.IP "\fBmodel\fR: string, one of \fBclustered\fR, \fBrelay\fR, or \fBstandalone\fR"
+The storage model: \fBstandalone\fR for a standalone or active-backup database, \fBclustered\fR for a clustered database, \fBrelay\fR for a relay database\[char46]
 .IP "\fBschema\fR: optional string"
-The database schema, as a JSON string\[char46] In the case of a clustered database, this is empty until it finishes joining its cluster\[char46]
+The database schema, as a JSON string\[char46] In the case of a clustered database, this is empty until it finishes joining its cluster\[char46] In the case of a relay database, this is empty until it connects to the relay source\[char46]
+.IP "\fBconnected\fR: boolean"
+True if the database is connected to its storage\[char46] A standalone database is always connected\[char46] A clustered database is connected if the server is in contact with a majority of its cluster\[char46] A relay database is connected if the server is in contact with the relay source, i\[char46]e\[char46] is connected to the server it syncs from\[char46] An unconnected database cannot be modified and its data might be unavailable or stale\[char46]
 .ST "Clustered Databases:"
 .PP
 .PP
 .PP
 These columns are most interesting and in some cases only relevant for clustered databases, that is, those where the \fBmodel\fR column is \fBclustered\fR\[char46]
-.IP "\fBconnected\fR: boolean"
-True if the database is connected to its storage\[char46] A standalone or active-backup database is always connected\[char46] A clustered database is connected if the server is in contact with a majority of its cluster\[char46] An unconnected database cannot be modified and its data might be unavailable or stale\[char46]
 .IP "\fBleader\fR: boolean"
-True if the database is the leader in its cluster\[char46] For a standalone or active-backup database, this is always true\[char46]
+True if the database is the leader in its cluster\[char46] For a standalone or active-backup database, this is always true\[char46] For a relay database, this is always false\[char46]
 .IP "\fBcid\fR: optional uuid"
-The cluster ID for this database, which is the same for all of the servers that host this particular clustered database\[char46] For a standalone or active-backup database, this is empty\[char46]
+The cluster ID for this database, which is the same for all of the servers that host this particular clustered database\[char46] For a standalone, active-backup or relay database, this is empty\[char46]
 .IP "\fBsid\fR: optional uuid"
-The server ID for this database, different for each server that hosts a particular clustered database\[char46] A server that hosts more than one clustered database will have a different \fBsid\fR in each one\[char46] For a standalone or active-backup database, this is empty\[char46]
+The server ID for this database, different for each server that hosts a particular clustered database\[char46] A server that hosts more than one clustered database will have a different \fBsid\fR in each one\[char46] For a standalone, active-backup or relay database, this is empty\[char46]
 .IP "\fBindex\fR: optional integer"
 For a clustered database, the index of the log entry currently exposed to clients\[char46] For a given server, this increases monotonically\[char46] When a client switches from one server to another in a cluster, it can ensure that it never sees an older snapshot of data by avoiding servers that have \fBindex\fR less than the largest value they have already observed\[char46]
 .IP
-For a standalone or active-backup database, this is empty\[char46]
+For a standalone, active-backup or relay database, this is empty\[char46]
