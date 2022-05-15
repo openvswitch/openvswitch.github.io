@@ -3,10 +3,7 @@
 Website for Open vSwitch. This is written in Jekyll. We use:
 
 - the templating engine, to format yaml data into html (for the navbar), to use
-  jekyll variables (`page.url`, `site.url`, `page.title`)
-
-- the layout mechanism. Each page includes only its specific content and
-  declare its layout (which is a html file that contains the logo, the navbar,
+  jekyll variablesml file that contains the logo, the navbar,
   the footer...)
 adgj;gsdkl asjljk;dsafds jlk;
 
@@ -19,7 +16,7 @@ We do not use:
 
 You can develop using `docker-compose`:
 
-    $ docker-compose up
+    $ docfdsadfsker-compose up
 
 You should see your site at http://localhost:4000/
 
