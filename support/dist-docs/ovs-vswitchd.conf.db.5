@@ -1,6 +1,6 @@
 '\" p
 .\" -*- nroff -*-
-.TH "ovs-vswitchd.conf.db" 5 " DB Schema 8.3.0" "Open vSwitch 2.17.90" "Open vSwitch Manual"
+.TH "ovs-vswitchd.conf.db" 5 " DB Schema 8.3.0" "Open vSwitch 3.0.0" "Open vSwitch Manual"
 .fp 5 L CR              \\" Make fixed-width font available as \\fL.
 .de TQ
 .  br
@@ -247,9 +247,6 @@ optional \fBSSL\fR
 \fBexternal_ids : system-id\fR
 optional string
 .TQ 2.75in
-\fBexternal_ids : xs-system-uuid\fR
-optional string
-.TQ 2.75in
 \fBexternal_ids : hostname\fR
 optional string
 .TQ 2.75in
@@ -318,6 +315,9 @@ optional string, either \fBtrue\fR or \fBfalse\fR
 .TQ 2.75in
 \fBother_config : per-port-memory\fR
 optional string, either \fBtrue\fR or \fBfalse\fR
+.TQ 2.75in
+\fBother_config : shared-mempool-config\fR
+optional string
 .TQ 2.75in
 \fBother_config : tx-flush-interval\fR
 optional string, containing an integer, in range 0 to 1,000,000
@@ -478,9 +478,7 @@ Set of bridges managed by the daemon\[char46]
 .IP "\fBssl\fR: optional \fBSSL\fR"
 SSL used globally by the daemon\[char46]
 .IP "\fBexternal_ids : system-id\fR: optional string"
-A unique identifier for the Open vSwitch\(cqs physical host\[char46] The form of the identifier depends on the type of the host\[char46] On a Citrix XenServer, this will likely be the same as \fBexternal_ids:xs-system-uuid\fR\[char46]
-.IP "\fBexternal_ids : xs-system-uuid\fR: optional string"
-The Citrix XenServer universally unique identifier for the physical host as displayed by \fBxe host\-list\fR\[char46]
+A unique identifier for the Open vSwitch\(cqs physical host\[char46] The form of the identifier depends on the type of the host\[char46]
 .IP "\fBexternal_ids : hostname\fR: optional string"
 The hostname for the host running Open vSwitch\[char46] This is a fully qualified domain name since version 2\[char46]6\[char46]2\[char46]
 .IP "\fBexternal_ids : rundir\fR: optional string"
@@ -621,6 +619,30 @@ Changing this value requires restarting the daemon\[char46]
 By default OVS DPDK uses a shared memory model wherein devices that have the same MTU and socket values can share the same mempool\[char46] Setting this value to \fBtrue\fR changes this behaviour\[char46] Per port memory allow DPDK devices to use private memory per device\[char46] This can provide greater transparency as regards memory usage but potentially at the cost of greater memory requirements\[char46]
 .IP
 Changing this value requires restarting the daemon if dpdk-init has already been set to true\[char46]
+.IP "\fBother_config : shared-mempool-config\fR: optional string"
+Specifies dpdk shared mempool config\[char46]
+.IP
+Value should be set in the following form:
+.IP
+\fBother_config:shared\-mempool\-config=<
+user\-shared\-mempool\-mtu\-list>\fR
+.IP
+where
+.IP
+.RS
+.IP \(bu
+<user-shared-mempool-mtu-list> ::= NULL | <non-empty-list>
+.IP \(bu
+<non-empty-list> ::= <user-mtus> | <user-mtus> , <non-empty-list>
+.IP \(bu
+<user-mtus> ::= <mtu-all-socket> | <mtu-socket-pair>
+.IP \(bu
+<mtu-all-socket> ::= <mtu>
+.IP \(bu
+<mtu-socket-pair> ::= <mtu> : <socket-id>
+.RE
+.IP
+Changing this value requires restarting the daemon if dpdk-init has already been set to true\[char46]
 .IP "\fBother_config : tx-flush-interval\fR: optional string, containing an integer, in range 0 to 1,000,000"
 Specifies the time in microseconds that a packet can wait in output batch for sending i\[char46]e\[char46] amount of time that packet can spend in an intermediate output queue before sending to netdev\[char46] This option can be used to configure balance between throughput and latency\[char46] Lower values decreases latency while higher values may be useful to achieve higher performance\[char46]
 .IP
@@ -703,7 +725,7 @@ This only comes in effect if cycle based assignment is enabled and there are mor
 .IP "\fBother_config : pmd-auto-lb-rebal-interval\fR: optional string, containing an integer, in range 0 to 20,000"
 The minimum time (in minutes) 2 consecutive PMD Auto Load Balancing iterations\[char46]
 .IP
-The defaul value is 1 min\[char46] If configured to 0 then it would be converted to default value i\[char46]e\[char46] 1 min
+The default value is 1 min\[char46] If configured to 0 then it would be converted to default value i\[char46]e\[char46] 1 min
 .IP
 This option can be configured to avoid frequent trigger of auto load balancing of PMDs\[char46] For e\[char46]g\[char46] set the value (in min) such that it occurs once in few hours or a day or a week\[char46]
 .IP "\fBother_config : pmd-auto-lb-load-threshold\fR: optional string, containing an integer, in range 0 to 100"
@@ -807,11 +829,11 @@ The database schema version number, e\[char46]g\[char46] \fB1\[char46]2\[char46]
 .IP
 The schema version is part of the database schema, so it can also be retrieved by fetching the schema using the Open vSwitch database protocol\[char46]
 .IP "\fBsystem_type\fR: optional string"
-An identifier for the type of system on top of which Open vSwitch runs, e\[char46]g\[char46] \fBXenServer\fR or \fBKVM\fR\[char46]
+An identifier for the type of system on top of which Open vSwitch runs, e\[char46]g\[char46] \fBKVM\fR\[char46]
 .IP
 System integrators are responsible for choosing and setting an appropriate value for this column\[char46]
 .IP "\fBsystem_version\fR: optional string"
-The version of the system identified by \fBsystem_type\fR, e\[char46]g\[char46] \fB5\[char46]6\[char46]100\-39265p\fR on XenServer 5\[char46]6\[char46]100 build 39265\[char46]
+The version of the system identified by \fBsystem_type\fR, e\[char46]g\[char46] \fB4\[char46]18\[char46]0\-372\[char46]19\[char46]1\[char46]el8_6\fR on RHEL 8\[char46]6 with kernel 4\[char46]18\[char46]0\-372\[char46]19\[char46]1\[char46]
 .IP
 System integrators are responsible for choosing and setting an appropriate value for this column\[char46]
 .IP "\fBdpdk_version\fR: optional string"
@@ -841,7 +863,7 @@ For this column to serve its purpose, \fBovsdb\-server\fR must be configured to 
 .PP
 .PP
 .PP
-These settings control the global configuration of IPsec tunnels\[char46] The \fBoptions\fR column of the \fBInterface\fR table configures IPsec for individual tunnels\[char46]
+These settings control the global configuration of IPsec tunnels\[char46] The \fBoptions\fR column of the \fBInterface\fR table configures IPsec for individual tunnels\[char46] The \fBoptions\fR column also allows for custom options prefixed with \fBipsec_\fR to be passed to the individual connections\[char46]
 .PP
 .PP
 OVS IPsec supports the following three forms of authentication\[char46] Currently, all IPsec tunnels must use the same form:
@@ -1082,9 +1104,6 @@ string
 \fBexternal_ids : bridge-id\fR
 optional string
 .TQ 2.75in
-\fBexternal_ids : xs-network-uuids\fR
-optional string
-.TQ 2.75in
 \fBother_config : hwaddr\fR
 optional string
 .TQ 2.75in
@@ -1268,9 +1287,7 @@ Enable multicast snooping on the bridge\[char46] For now, the default is disable
 .IP "\fBdatapath_type\fR: string"
 Name of datapath provider\[char46] The kernel datapath has type \fBsystem\fR\[char46] The userspace datapath has type \fBnetdev\fR\[char46] A manager may refer to the \fBdatapath_types\fR column of the \fBOpen_vSwitch\fR table for a list of the types accepted by this Open vSwitch instance\[char46]
 .IP "\fBexternal_ids : bridge-id\fR: optional string"
-A unique identifier of the bridge\[char46] On Citrix XenServer this will commonly be the same as \fBexternal_ids:xs-network-uuids\fR\[char46]
-.IP "\fBexternal_ids : xs-network-uuids\fR: optional string"
-Semicolon-delimited set of universally unique identifier(s) for the network with which this bridge is associated on a Citrix XenServer host\[char46] The network identifiers are RFC 4122 UUIDs as displayed by, e\[char46]g\[char46], \fBxe network\-list\fR\[char46]
+A unique identifier of the bridge\[char46]
 .IP "\fBother_config : hwaddr\fR: optional string"
 An Ethernet address in the form \fIxx\fR:\fIxx\fR:\fIxx\fR:\fIxx\fR:\fIxx\fR:\fIxx\fR to set the hardware address of the local port and influence the datapath ID\[char46]
 .IP "\fBother_config : forward-bpdu\fR: optional string, either \fBtrue\fR or \fBfalse\fR"
@@ -1387,6 +1404,9 @@ optional string, either \fBtrue\fR or \fBfalse\fR
 .TQ 2.75in
 \fBother_config : bond-primary\fR
 optional string
+.TQ 2.75in
+\fBother_config : all-members-active\fR
+optional string, either \fBtrue\fR or \fBfalse\fR
 .TQ .25in
 \fILink Failure Detection:\fR
 .RS .25in
@@ -1562,7 +1582,7 @@ boolean
 \fBprotected\fR
 boolean
 .TQ 2.75in
-\fBexternal_ids : fake-bridge-id-*\fR
+\fBexternal_ids : fake-bridge-*\fR
 optional string
 .TQ 2.75in
 \fBother_config : transient\fR
@@ -1710,6 +1730,10 @@ An integer hashed along with flows when choosing output members in load balanced
 Enable/disable usage of optimized \fBlb_output\fR action for balancing flows among output members in load balanced bonds in \fBbalance\-tcp\fR\[char46] When enabled, it uses optimized path for balance-tcp mode by using rss hash and avoids recirculation\[char46] This knob does not affect other balancing modes\[char46]
 .IP "\fBother_config : bond-primary\fR: optional string"
 If a slave interface with this name exists in the bond and is up, it will be made active\[char46] Relevant only when \fBother_config:bond_mode\fR is \fBactive\-backup\fR or if \fBbalance\-tcp\fR falls back to \fBactive\-backup\fR (e\[char46]g\[char46], LACP negotiation fails and \fBother_config:lacp-fallback-ab\fR is \fBtrue\fR)\[char46]
+.IP "\fBother_config : all-members-active\fR: optional string, either \fBtrue\fR or \fBfalse\fR"
+Enable/Disable delivery of broadcast/multicast packets on secondary interface of a balance-slb bond\[char46] Relevant only when \fBlacp\fR is \fBoff\fR\[char46]
+.IP
+This parameter is identical to \fBall_slaves_active\fR for Linux kernel bonds\[char46] Disabled by default as it is not a desirable configuration for most users\[char46]
 .ST "Link Failure Detection:"
 .PP
 .PP
@@ -1837,8 +1861,8 @@ The MAC address to use for this port for the purpose of choosing the bridge\(cqs
 Does this port represent a sub-bridge for its tagged VLAN within the Bridge? See ovs-vsctl(8) for more information\[char46]
 .IP "\fBprotected\fR: boolean"
 The protected ports feature allows certain ports to be designated as protected\[char46] Traffic between protected ports is blocked\[char46] Protected ports can send traffic to unprotected ports\[char46] Unprotected ports can send traffic to any port\[char46] Default is false\[char46]
-.IP "\fBexternal_ids : fake-bridge-id-*\fR: optional string"
-External IDs for a fake bridge (see the \fBfake_bridge\fR column) are defined by prefixing a \fBBridge\fR \fBexternal_ids\fR key with \fBfake\-bridge\-\fR, e\[char46]g\[char46] \fBfake\-bridge\-xs\-network\-uuids\fR\[char46]
+.IP "\fBexternal_ids : fake-bridge-*\fR: optional string"
+External IDs for a fake bridge (see the \fBfake_bridge\fR column) are defined by prefixing a \fBBridge\fR \fBexternal_ids\fR key with \fBfake\-bridge\-\fR, e\[char46]g\[char46] \fBfake\-bridge\-bridge\-id\fR\[char46]
 .IP "\fBother_config : transient\fR: optional string, either \fBtrue\fR or \fBfalse\fR"
 If set to \fBtrue\fR, the port will be removed when \fBovs\-ctl start \-\-delete\-transient\-ports\fR is used\[char46]
 .IP "\fBbond_active_slave\fR: optional string"
@@ -2384,16 +2408,7 @@ optional string
 \fBexternal_ids : iface-status\fR
 optional string, either \fBactive\fR or \fBinactive\fR
 .TQ 2.75in
-\fBexternal_ids : xs-vif-uuid\fR
-optional string
-.TQ 2.75in
-\fBexternal_ids : xs-network-uuid\fR
-optional string
-.TQ 2.75in
 \fBexternal_ids : vm-id\fR
-optional string
-.TQ 2.75in
-\fBexternal_ids : xs-vm-uuid\fR
 optional string
 .RE
 .TQ .25in
@@ -3104,22 +3119,16 @@ The LACP aggregation key of this \fBInterface\fR\[char46] \fBInterface\fRs with 
 .PP
 .PP
 .PP
-These key-value pairs specifically apply to an interface that represents a virtual Ethernet interface connected to a virtual machine\[char46] These key-value pairs should not be present for other types of interfaces\[char46] Keys whose names end in \fB\-uuid\fR have values that uniquely identify the entity in question\[char46] For a Citrix XenServer hypervisor, these values are UUIDs in RFC 4122 format\[char46] Other hypervisors may use other formats\[char46]
+These key-value pairs specifically apply to an interface that represents a virtual Ethernet interface connected to a virtual machine\[char46] These key-value pairs should not be present for other types of interfaces\[char46] Keys whose names end in \fB\-uuid\fR have values that uniquely identify the entity in question\[char46]
 .IP "\fBexternal_ids : attached-mac\fR: optional string"
-The MAC address programmed into the ``virtual hardware\(cq\(cq for this interface, in the form \fIxx\fR:\fIxx\fR:\fIxx\fR:\fIxx\fR:\fIxx\fR:\fIxx\fR\[char46] For Citrix XenServer, this is the value of the \fBMAC\fR field in the VIF record for this interface\[char46]
+The MAC address programmed into the ``virtual hardware\(cq\(cq for this interface, in the form \fIxx\fR:\fIxx\fR:\fIxx\fR:\fIxx\fR:\fIxx\fR:\fIxx\fR\[char46]
 .IP "\fBexternal_ids : iface-id\fR: optional string"
-A system-unique identifier for the interface\[char46] On XenServer, this will commonly be the same as \fBexternal_ids:xs-vif-uuid\fR\[char46]
+A system-unique identifier for the interface\[char46]
 .IP "\fBexternal_ids : iface-status\fR: optional string, either \fBactive\fR or \fBinactive\fR"
-Hypervisors may sometimes have more than one interface associated with a given \fBexternal_ids:iface-id\fR, only one of which is actually in use at a given time\[char46] For example, in some circumstances XenServer has both a ``tap\(cq\(cq and a ``vif\(cq\(cq interface for a single \fBexternal_ids:iface-id\fR, but only uses one of them at a time\[char46] A hypervisor that behaves this way must mark the currently in use interface \fBactive\fR and the others \fBinactive\fR\[char46] A hypervisor that never has more than one interface for a given \fBexternal_ids:iface-id\fR may mark that interface \fBactive\fR or omit \fBexternal_ids:iface-status\fR entirely\[char46]
+Hypervisors may sometimes have more than one interface associated with a given \fBexternal_ids:iface-id\fR, only one of which is actually in use at a given time\[char46] For example, in some circumstances hypervisor may have both a ``tap\(cq\(cq and a ``vif\(cq\(cq interface for a single \fBexternal_ids:iface-id\fR, but only uses one of them at a time\[char46] A hypervisor that behaves this way must mark the currently in use interface \fBactive\fR and the others \fBinactive\fR\[char46] A hypervisor that never has more than one interface for a given \fBexternal_ids:iface-id\fR may mark that interface \fBactive\fR or omit \fBexternal_ids:iface-status\fR entirely\[char46]
 .IP
 During VM migration, a given \fBexternal_ids:iface-id\fR might transiently be marked \fBactive\fR on two different hypervisors\[char46] That is, \fBactive\fR means that this \fBexternal_ids:iface-id\fR is the active instance within a single hypervisor, not in a broader scope\[char46] There is one exception: some hypervisors support ``migration\(cq\(cq from a given hypervisor to itself (most often for test purposes)\[char46] During such a ``migration,\(cq\(cq two instances of a single \fBexternal_ids:iface-id\fR might both be briefly marked \fBactive\fR on a single hypervisor\[char46]
-.IP "\fBexternal_ids : xs-vif-uuid\fR: optional string"
-The virtual interface associated with this interface\[char46]
-.IP "\fBexternal_ids : xs-network-uuid\fR: optional string"
-The virtual network to which this interface is attached\[char46]
 .IP "\fBexternal_ids : vm-id\fR: optional string"
-The VM to which this interface belongs\[char46] On XenServer, this will be the same as \fBexternal_ids:xs-vm-uuid\fR\[char46]
-.IP "\fBexternal_ids : xs-vm-uuid\fR: optional string"
 The VM to which this interface belongs\[char46]
 .ST "Auto Attach Configuration:"
 .PP
@@ -4314,7 +4323,7 @@ Number of 802\[char46]1q VLAN headers supported by the datapath, as probed by th
 .IP "\fBcapabilities : recirc\fR: optional string, either \fBtrue\fR or \fBfalse\fR"
 If this is true, then the datapath supports recirculation, specifically OVS_KEY_ATTR_RECIRC_ID\[char46] Recirculation enables higher performance for MPLS and active-active load balancing bonding modes\[char46]
 .IP "\fBcapabilities : lb_output_action\fR: optional string, either \fBtrue\fR or \fBfalse\fR"
-If this is true, then the datapath supports optimized balance-tcp bond mode\[char46] This capability replaces existing \fBhash\fR and \fBrecirc\fR actions with new action \fBlb_output\fR and avoids recirculation of packet in datapath\[char46] It is supported only for balance-tcp bond mode in netdev datapath\[char46] The new action gives higer performance by using bond buckets instead of post recirculation flows for selection of slave port from bond\[char46] By default this new action is disabled, however it can be enabled by setting \fBother-config:lb-output-action\fR in \fBPort\fR table\[char46]
+If this is true, then the datapath supports optimized balance-tcp bond mode\[char46] This capability replaces existing \fBhash\fR and \fBrecirc\fR actions with new action \fBlb_output\fR and avoids recirculation of packet in datapath\[char46] It is supported only for balance-tcp bond mode in netdev datapath\[char46] The new action gives higher performance by using bond buckets instead of post recirculation flows for selection of slave port from bond\[char46] By default this new action is disabled, however it can be enabled by setting \fBother-config:lb-output-action\fR in \fBPort\fR table\[char46]
 .ST "Connection-Tracking Capabilities:"
 .PP
 .PP

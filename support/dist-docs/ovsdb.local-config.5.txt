@@ -1,0 +1,269 @@
+Local_Config(5)               Open vSwitch Manual              Local_Config(5)
+
+
+
+NAME
+       Local_Config - Local_Config database schema
+
+       This  database is for local configuration of an ovsdb-server. The data‐
+       base is meant to be unique, even among multiple clustered  db  servers,
+       so  that  configuration  that is local to that server can be configured
+       separately (e.g. Connection information).
+
+TABLE SUMMARY
+       The following list summarizes the purpose of each of the tables in  the
+       Local_Config  database.   Each  table  is described in more detail on a
+       later page.
+
+       Table     Purpose
+       Config    ovsdb-server configuration
+       Connection
+                 OVSDB client connections.
+
+Config TABLE
+       The root local configuration table for an ovsdb-server. This table must
+       have exactly one row.
+
+   Summary:
+       Connection Options:
+         connections                 set of Connections
+
+   Details:
+     Connection Options:
+
+       connections: set of Connections
+              Database  clients  to  which  the  Open  vSwitch database server
+              should connect or on which it should listen, along with  options
+              for  how these connections should be configured. See the Connec‐
+              tion table for more information.
+
+Connection TABLE
+       Configuration for a database connection to  an  Open  vSwitch  database
+       (OVSDB) client.
+
+       This  table  primarily  configures  the  Open  vSwitch  database server
+       (ovsdb-server).
+
+       The Open vSwitch database server can initiate and maintain active  con‐
+       nections  to  remote  clients.  It can also listen for database connec‐
+       tions.
+
+   Summary:
+       Core Features:
+         target                      string (must be unique within table)
+         read_only                   boolean
+         role                        string
+       Client Failure Detection and Handling:
+         max_backoff                 optional integer, at least 1,000
+         inactivity_probe            optional integer
+       Status:
+         is_connected                boolean
+         status : last_error         optional string
+         status : state              optional string, one of ACTIVE,  BACKOFF,
+                                     CONNECTING, IDLE, or VOID
+         status : sec_since_connect  optional  string,  containing an integer,
+                                     at least 0
+         status : sec_since_disconnect
+                                     optional string, containing  an  integer,
+                                     at least 0
+         status : locks_held         optional string
+         status : locks_waiting      optional string
+         status : locks_lost         optional string
+         status : n_connections      optional  string,  containing an integer,
+                                     at least 2
+         status : bound_port         optional string, containing an integer
+       Connection Parameters:
+         other_config : dscp         optional string, containing an integer
+       Configuration:
+         external_ids                map of string-string pairs
+
+   Details:
+     Core Features:
+
+       target: string (must be unique within table)
+              Connection methods for clients.
+
+              The following connection methods are currently supported:
+
+              ssl:host[:port]
+                     The specified SSL port on the host  at  the  given  host,
+                     which can either be a DNS name (if built with unbound li‐
+                     brary) or an IP address. A valid SSL  configuration  must
+                     be  provided  when  this form is used, this configuration
+                     can be specified via command-line options or the SSL  ta‐
+                     ble.
+
+                     If port is not specified, it defaults to 6640.
+
+                     SSL  support  is  an  optional feature that is not always
+                     built as part of Open vSwitch.
+
+              tcp:host[:port]
+                     The specified TCP port on the host  at  the  given  host,
+                     which can either be a DNS name (if built with unbound li‐
+                     brary) or an IP address. If host is an IPv6 address, wrap
+                     it in square brackets, e.g. tcp:[::1]:6640.
+
+                     If port is not specified, it defaults to 6640.
+
+              pssl:[port][:host]
+                     Listens  for  SSL  connections on the specified TCP port.
+                     Specify 0 for  port  to  have  the  kernel  automatically
+                     choose  an available port. If host, which can either be a
+                     DNS name (if built with unbound library)  or  an  IP  ad‐
+                     dress,  is  specified, then connections are restricted to
+                     the resolved or specified local IPaddress (either IPv4 or
+                     IPv6 address). If host is an IPv6 address, wrap in square
+                     brackets, e.g. pssl:6640:[::1]. If host is not  specified
+                     then  it listens only on IPv4 (but not IPv6) addresses. A
+                     valid SSL configuration must be provided when  this  form
+                     is  used,  this  can be specified either via command-line
+                     options or the SSL table.
+
+                     If port is not specified, it defaults to 6640.
+
+                     SSL support is an optional feature  that  is  not  always
+                     built as part of Open vSwitch.
+
+              ptcp:[port][:host]
+                     Listens  for connections on the specified TCP port. Spec‐
+                     ify 0 for port to have the kernel automatically choose an
+                     available  port.  If host, which can either be a DNS name
+                     (if built with unbound library)  or  an  IP  address,  is
+                     specified,  then  connections  are  restricted to the re‐
+                     solved or specified local IP address (either IPv4 or IPv6
+                     address).  If  host is an IPv6 address, wrap it in square
+                     brackets, e.g. ptcp:6640:[::1]. If host is not  specified
+                     then it listens only on IPv4 addresses.
+
+                     If port is not specified, it defaults to 6640.
+
+              When  multiple clients are configured, the target values must be
+              unique. Duplicate target values yield unspecified results.
+
+       read_only: boolean
+              true to restrict these connections  to  read-only  transactions,
+              false to allow them to modify the database.
+
+       role: string
+              String containing role name for this connection entry.
+
+     Client Failure Detection and Handling:
+
+       max_backoff: optional integer, at least 1,000
+              Maximum  number  of  milliseconds to wait between connection at‐
+              tempts. Default is implementation-specific.
+
+       inactivity_probe: optional integer
+              Maximum number of milliseconds of idle time on connection to the
+              client  before  sending  an  inactivity  probe  message. If Open
+              vSwitch does not communicate with the client for  the  specified
+              number  of  seconds,  it will send a probe. If a response is not
+              received for the same additional amount of  time,  Open  vSwitch
+              assumes  the  connection  has been broken and attempts to recon‐
+              nect. Default is implementation-specific. A value of 0  disables
+              inactivity probes.
+
+     Status:
+
+       Key-value pair of is_connected is always updated. Other key-value pairs
+       in the status columns may be updated depends on the target type.
+
+       When target specifies a connection method that listens for inbound con‐
+       nections  (e.g.  ptcp:  or punix:), both n_connections and is_connected
+       may also be updated while the remaining key-value pairs are omitted.
+
+       On the other hand, when target specifies an  outbound  connection,  all
+       key-value  pairs  may  be  updated, except the above-mentioned two key-
+       value pairs associated with inbound connection targets. They are  omit‐
+       ted.
+
+       is_connected: boolean
+              true if currently connected to this client, false otherwise.
+
+       status : last_error: optional string
+              A human-readable description of the last error on the connection
+              to the manager; i.e. strerror(errno). This key will  exist  only
+              if an error has occurred.
+
+       status  :  state:  optional string, one of ACTIVE, BACKOFF, CONNECTING,
+       IDLE, or VOID
+              The state of the connection to the manager:
+
+              VOID   Connection is disabled.
+
+              BACKOFF
+                     Attempting to reconnect at an increasing period.
+
+              CONNECTING
+                     Attempting to connect.
+
+              ACTIVE Connected, remote host responsive.
+
+              IDLE   Connection is idle. Waiting for response to keep-alive.
+
+              These values may change in the future. They  are  provided  only
+              for human consumption.
+
+       status  : sec_since_connect: optional string, containing an integer, at
+       least 0
+              The amount of time since this client last successfully connected
+              to the database (in seconds). Value is empty if client has never
+              successfully been connected.
+
+       status : sec_since_disconnect: optional string, containing an  integer,
+       at least 0
+              The  amount of time since this client last disconnected from the
+              database (in seconds). Value is empty if client has  never  dis‐
+              connected.
+
+       status : locks_held: optional string
+              Space-separated  list  of the names of OVSDB locks that the con‐
+              nection holds. Omitted if  the  connection  does  not  hold  any
+              locks.
+
+       status : locks_waiting: optional string
+              Space-separated  list  of the names of OVSDB locks that the con‐
+              nection is currently waiting to acquire. Omitted if the  connec‐
+              tion is not waiting for any locks.
+
+       status : locks_lost: optional string
+              Space-separated  list  of the names of OVSDB locks that the con‐
+              nection has had stolen by another OVSDB client.  Omitted  if  no
+              locks have been stolen from this connection.
+
+       status  :  n_connections:  optional  string,  containing an integer, at
+       least 2
+              When target specifies a connection method that listens  for  in‐
+              bound  connections  (e.g. ptcp: or pssl:) and more than one con‐
+              nection is actually active, the value is the  number  of  active
+              connections. Otherwise, this key-value pair is omitted.
+
+       status : bound_port: optional string, containing an integer
+              When target is ptcp: or pssl:, this is the TCP port on which the
+              OVSDB server is listening. (This  is  particularly  useful  when
+              target  specifies a port of 0, allowing the kernel to choose any
+              available port.)
+
+     Connection Parameters:
+
+       other_config : dscp: optional string, containing an integer
+              The Differentiated Service Code Point (DSCP) is specified  using
+              6 bits in the Type of Service (TOS) field in the IP header. DSCP
+              provides a mechanism to classify the network traffic and provide
+              Quality  of  Service (QoS) on IP networks. The DSCP value speci‐
+              fied here is used when establishing the connection  between  the
+              manager  and  the  Open vSwitch. If no value is specified, a de‐
+              fault value of 48 is chosen. Valid DSCP values must  be  in  the
+              range 0 to 63.
+
+     Configuration:
+
+       External configuration options
+
+       external_ids: map of string-string pairs
+              External client-defined key-value pairs
+
+
+
+Open vSwitch 3.0.0              DB Schema 1.0.0                Local_Config(5)

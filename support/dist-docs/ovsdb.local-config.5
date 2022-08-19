@@ -1,0 +1,242 @@
+'\" p
+.\" -*- nroff -*-
+.TH "Local_Config" 5 " DB Schema 1.0.0" "Open vSwitch 3.0.0" "Open vSwitch Manual"
+.fp 5 L CR              \\" Make fixed-width font available as \\fL.
+.de TQ
+.  br
+.  ns
+.  TP "\\$1"
+..
+.de ST
+.  PP
+.  RS -0.15in
+.  I "\\$1"
+.  RE
+..
+.SH NAME
+Local_Config \- Local_Config database schema
+.PP
+.PP
+.PP
+.PP
+This database is for local configuration of an ovsdb-server\[char46] The database is meant to be unique, even among multiple clustered db servers, so that configuration that is local to that server can be configured separately (e\[char46]g\[char46] Connection information)\[char46]
+.SH "TABLE SUMMARY"
+.PP
+The following list summarizes the purpose of each of the tables in the
+\fBLocal_Config\fR database.  Each table is described in more detail on a later
+page.
+.IP "Table" 1in
+Purpose
+.TQ 1in
+\fBConfig\fR
+ovsdb-server configuration
+.TQ 1in
+\fBConnection\fR
+OVSDB client connections\[char46]
+.bp
+.SH "Config TABLE"
+.PP
+.PP
+.PP
+The root local configuration table for an ovsdb-server\[char46] This table must have exactly one row\[char46]
+.SS "Summary:
+.TQ .25in
+\fIConnection Options:\fR
+.RS .25in
+.TQ 2.75in
+\fBconnections\fR
+set of \fBConnection\fRs
+.RE
+.SS "Details:
+.ST "Connection Options:"
+.PP
+.IP "\fBconnections\fR: set of \fBConnection\fRs"
+Database clients to which the Open vSwitch database server should connect or on which it should listen, along with options for how these connections should be configured\[char46] See the \fBConnection\fR table for more information\[char46]
+.bp
+.SH "Connection TABLE"
+.PP
+.PP
+.PP
+Configuration for a database connection to an Open vSwitch database (OVSDB) client\[char46]
+.PP
+.PP
+This table primarily configures the Open vSwitch database server (\fBovsdb\-server\fR)\[char46]
+.PP
+.PP
+The Open vSwitch database server can initiate and maintain active connections to remote clients\[char46] It can also listen for database connections\[char46]
+.SS "Summary:
+.TQ .25in
+\fICore Features:\fR
+.RS .25in
+.TQ 2.75in
+\fBtarget\fR
+string (must be unique within table)
+.TQ 2.75in
+\fBread_only\fR
+boolean
+.TQ 2.75in
+\fBrole\fR
+string
+.RE
+.TQ .25in
+\fIClient Failure Detection and Handling:\fR
+.RS .25in
+.TQ 2.75in
+\fBmax_backoff\fR
+optional integer, at least 1,000
+.TQ 2.75in
+\fBinactivity_probe\fR
+optional integer
+.RE
+.TQ .25in
+\fIStatus:\fR
+.RS .25in
+.TQ 2.75in
+\fBis_connected\fR
+boolean
+.TQ 2.75in
+\fBstatus : last_error\fR
+optional string
+.TQ 2.75in
+\fBstatus : state\fR
+optional string, one of \fBACTIVE\fR, \fBBACKOFF\fR, \fBCONNECTING\fR, \fBIDLE\fR, or \fBVOID\fR
+.TQ 2.75in
+\fBstatus : sec_since_connect\fR
+optional string, containing an integer, at least 0
+.TQ 2.75in
+\fBstatus : sec_since_disconnect\fR
+optional string, containing an integer, at least 0
+.TQ 2.75in
+\fBstatus : locks_held\fR
+optional string
+.TQ 2.75in
+\fBstatus : locks_waiting\fR
+optional string
+.TQ 2.75in
+\fBstatus : locks_lost\fR
+optional string
+.TQ 2.75in
+\fBstatus : n_connections\fR
+optional string, containing an integer, at least 2
+.TQ 2.75in
+\fBstatus : bound_port\fR
+optional string, containing an integer
+.RE
+.TQ .25in
+\fIConnection Parameters:\fR
+.RS .25in
+.TQ 2.75in
+\fBother_config : dscp\fR
+optional string, containing an integer
+.RE
+.TQ .25in
+\fIConfiguration:\fR
+.RS .25in
+.TQ 2.75in
+\fBexternal_ids\fR
+map of string-string pairs
+.RE
+.SS "Details:
+.ST "Core Features:"
+.PP
+.IP "\fBtarget\fR: string (must be unique within table)"
+Connection methods for clients\[char46]
+.IP
+The following connection methods are currently supported:
+.RS
+.TP
+\fBssl:\fIhost\fB\fR[\fB:\fIport\fB\fR]
+The specified SSL \fIport\fR on the host at the given \fIhost\fR, which can either be a DNS name (if built with unbound library) or an IP address\[char46] A valid SSL configuration must be provided when this form is used, this configuration can be specified via command-line options or the \fBSSL\fR table\[char46]
+.IP
+If \fIport\fR is not specified, it defaults to 6640\[char46]
+.IP
+SSL support is an optional feature that is not always built as part of Open vSwitch\[char46]
+.TP
+\fBtcp:\fIhost\fB\fR[\fB:\fIport\fB\fR]
+The specified TCP \fIport\fR on the host at the given \fIhost\fR, which can either be a DNS name (if built with unbound library) or an IP address\[char46] If \fIhost\fR is an IPv6 address, wrap it in square brackets, e\[char46]g\[char46] \fBtcp:[::1]:6640\fR\[char46]
+.IP
+If \fIport\fR is not specified, it defaults to 6640\[char46]
+.TP
+\fBpssl:\fR[\fIport\fR][\fB:\fIhost\fB\fR]
+Listens for SSL connections on the specified TCP \fIport\fR\[char46] Specify 0 for \fIport\fR to have the kernel automatically choose an available port\[char46] If \fIhost\fR, which can either be a DNS name (if built with unbound library) or an IP address, is specified, then connections are restricted to the resolved or specified local IPaddress (either IPv4 or IPv6 address)\[char46] If \fIhost\fR is an IPv6 address, wrap in square brackets, e\[char46]g\[char46] \fBpssl:6640:[::1]\fR\[char46] If \fIhost\fR is not specified then it listens only on IPv4 (but not IPv6) addresses\[char46] A valid SSL configuration must be provided when this form is used, this can be specified either via command-line options or the \fBSSL\fR table\[char46]
+.IP
+If \fIport\fR is not specified, it defaults to 6640\[char46]
+.IP
+SSL support is an optional feature that is not always built as part of Open vSwitch\[char46]
+.TP
+\fBptcp:\fR[\fIport\fR][\fB:\fIhost\fB\fR]
+Listens for connections on the specified TCP \fIport\fR\[char46] Specify 0 for \fIport\fR to have the kernel automatically choose an available port\[char46] If \fIhost\fR, which can either be a DNS name (if built with unbound library) or an IP address, is specified, then connections are restricted to the resolved or specified local IP address (either IPv4 or IPv6 address)\[char46] If \fIhost\fR is an IPv6 address, wrap it in square brackets, e\[char46]g\[char46] \fBptcp:6640:[::1]\fR\[char46] If \fIhost\fR is not specified then it listens only on IPv4 addresses\[char46]
+.IP
+If \fIport\fR is not specified, it defaults to 6640\[char46]
+.RE
+.IP
+When multiple clients are configured, the \fBtarget\fR values must be unique\[char46] Duplicate \fBtarget\fR values yield unspecified results\[char46]
+.IP "\fBread_only\fR: boolean"
+\fBtrue\fR to restrict these connections to read-only transactions, \fBfalse\fR to allow them to modify the database\[char46]
+.IP "\fBrole\fR: string"
+String containing role name for this connection entry\[char46]
+.ST "Client Failure Detection and Handling:"
+.PP
+.IP "\fBmax_backoff\fR: optional integer, at least 1,000"
+Maximum number of milliseconds to wait between connection attempts\[char46] Default is implementation-specific\[char46]
+.IP "\fBinactivity_probe\fR: optional integer"
+Maximum number of milliseconds of idle time on connection to the client before sending an inactivity probe message\[char46] If Open vSwitch does not communicate with the client for the specified number of seconds, it will send a probe\[char46] If a response is not received for the same additional amount of time, Open vSwitch assumes the connection has been broken and attempts to reconnect\[char46] Default is implementation-specific\[char46] A value of 0 disables inactivity probes\[char46]
+.ST "Status:"
+.PP
+.PP
+.PP
+Key-value pair of \fBis_connected\fR is always updated\[char46] Other key-value pairs in the status columns may be updated depends on the \fBtarget\fR type\[char46]
+.PP
+.PP
+When \fBtarget\fR specifies a connection method that listens for inbound connections (e\[char46]g\[char46] \fBptcp:\fR or \fBpunix:\fR), both \fBn_connections\fR and \fBis_connected\fR may also be updated while the remaining key-value pairs are omitted\[char46]
+.PP
+.PP
+On the other hand, when \fBtarget\fR specifies an outbound connection, all key-value pairs may be updated, except the above-mentioned two key-value pairs associated with inbound connection targets\[char46] They are omitted\[char46]
+.IP "\fBis_connected\fR: boolean"
+\fBtrue\fR if currently connected to this client, \fBfalse\fR otherwise\[char46]
+.IP "\fBstatus : last_error\fR: optional string"
+A human-readable description of the last error on the connection to the manager; i\[char46]e\[char46] \fBstrerror(errno)\fR\[char46] This key will exist only if an error has occurred\[char46]
+.IP "\fBstatus : state\fR: optional string, one of \fBACTIVE\fR, \fBBACKOFF\fR, \fBCONNECTING\fR, \fBIDLE\fR, or \fBVOID\fR"
+The state of the connection to the manager:
+.RS
+.TP
+\fBVOID\fR
+Connection is disabled\[char46]
+.TP
+\fBBACKOFF\fR
+Attempting to reconnect at an increasing period\[char46]
+.TP
+\fBCONNECTING\fR
+Attempting to connect\[char46]
+.TP
+\fBACTIVE\fR
+Connected, remote host responsive\[char46]
+.TP
+\fBIDLE\fR
+Connection is idle\[char46] Waiting for response to keep-alive\[char46]
+.RE
+.IP
+These values may change in the future\[char46] They are provided only for human consumption\[char46]
+.IP "\fBstatus : sec_since_connect\fR: optional string, containing an integer, at least 0"
+The amount of time since this client last successfully connected to the database (in seconds)\[char46] Value is empty if client has never successfully been connected\[char46]
+.IP "\fBstatus : sec_since_disconnect\fR: optional string, containing an integer, at least 0"
+The amount of time since this client last disconnected from the database (in seconds)\[char46] Value is empty if client has never disconnected\[char46]
+.IP "\fBstatus : locks_held\fR: optional string"
+Space-separated list of the names of OVSDB locks that the connection holds\[char46] Omitted if the connection does not hold any locks\[char46]
+.IP "\fBstatus : locks_waiting\fR: optional string"
+Space-separated list of the names of OVSDB locks that the connection is currently waiting to acquire\[char46] Omitted if the connection is not waiting for any locks\[char46]
+.IP "\fBstatus : locks_lost\fR: optional string"
+Space-separated list of the names of OVSDB locks that the connection has had stolen by another OVSDB client\[char46] Omitted if no locks have been stolen from this connection\[char46]
+.IP "\fBstatus : n_connections\fR: optional string, containing an integer, at least 2"
+When \fBtarget\fR specifies a connection method that listens for inbound connections (e\[char46]g\[char46] \fBptcp:\fR or \fBpssl:\fR) and more than one connection is actually active, the value is the number of active connections\[char46] Otherwise, this key-value pair is omitted\[char46]
+.IP "\fBstatus : bound_port\fR: optional string, containing an integer"
+When \fBtarget\fR is \fBptcp:\fR or \fBpssl:\fR, this is the TCP port on which the OVSDB server is listening\[char46] (This is particularly useful when \fBtarget\fR specifies a port of 0, allowing the kernel to choose any available port\[char46])
+.ST "Connection Parameters:"
+.PP
+.IP "\fBother_config : dscp\fR: optional string, containing an integer"
+The Differentiated Service Code Point (DSCP) is specified using 6 bits in the Type of Service (TOS) field in the IP header\[char46] DSCP provides a mechanism to classify the network traffic and provide Quality of Service (QoS) on IP networks\[char46] The DSCP value specified here is used when establishing the connection between the manager and the Open vSwitch\[char46] If no value is specified, a default value of 48 is chosen\[char46] Valid DSCP values must be in the range 0 to 63\[char46]
+.ST "Configuration:"
+.PP
+External configuration options
+.IP "\fBexternal_ids\fR: map of string-string pairs"
+External client-defined key-value pairs
