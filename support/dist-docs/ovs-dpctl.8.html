@@ -311,128 +311,150 @@ ovs-dpctl(8)                  Open vSwitch Manual                 ovs-dpctl(8)
               tails  are  included.  With <b>--statistics</b> timeouts and timestamps
               are added to the output.
 
-       <b>flush-conntrack</b> [<u>dp</u>] [<b>zone=</b><u>zone</u>] [<u>ct-tuple</u>]
-              Flushes the connection entries in the tracker used by  <u>dp</u>  based
-              on  <u>zone</u> and connection tracking tuple <u>ct-tuple</u>.  If <u>ct-tuple</u> is
-              not provided, flushes all the connection entries.  If  <b>zone</b>=<u>zone</u>
-              is specified, only flushes the connections in <u>zone</u>.
+       <b>dump-conntrack-exp</b> [<u>dp</u>] [<b>zone=</b><u>zone</u>]
+              Prints to the console all the expectation entries in the tracker
+              used  by <u>dp</u>.  If <b>zone=</b><u>zone</u> is specified, only shows the expecta‐
+              tions in <u>zone</u>. Only supported for userspace datapath.
 
-              If  <u>ct-tuple</u> is provided, flushes the connection entry specified
-              by <u>ct-tuple</u> in <u>zone</u>. The zone defaults to 0 if it  is  not  pro‐
-              vided.   The userspace connection tracker requires flushing with
-              the original pre-NATed tuple and a warning log will be otherwise
-              generated.  An example of an IPv4 ICMP <u>ct-tuple</u>:
+       <b>flush-conntrack</b> [<u>dp</u>] [<b>zone=</b><u>zone</u>] [<u>ct-origin-tuple</u> [<u>ct-reply-tuple</u>]]
+              Flushes the connection entries in the tracker used by  <u>dp</u>  based
+              on  <u>zone</u>  and connection tracking tuple <u>ct-origin-tuple</u>.  If <u>ct-</u>
+              <u>tuple</u> is not provided, flushes all the connection  entries.   If
+              <b>zone</b>=<u>zone</u> is specified, only flushes the connections in <u>zone</u>.
+
+              If <u>ct-[orig|reply]-tuple</u> is provided, flushes the connection en‐
+              try specified by <u>ct-[orig|reply]-tuple</u> in <u>zone</u>.   The  zone  de‐
+              faults  to  0  if  it is not provided.  The userspace connection
+              tracker requires flushing with the original pre-NATed tuple  and
+              a  warning  log  will  be otherwise generated.  The tuple can be
+              partial and will remove all connections that are matching on the
+              specified fields.  In order to specify only <u>ct-reply-tuple</u>, pro‐
+              vide empty string as <u>ct-origin-tuple</u>.
+
+              Note: Currently there is a limitation for matching on  ICMP,  in
+              order  to  partially  match  on ICMP parameters the <u>ct-[orig|re‐</u>
+              <u>ply]-tuple</u> has to include either source or destination IP.
+
+              An example of an IPv4 ICMP <u>ct-[orig|reply]-tuple</u>:
 
               "ct_nw_src=10.1.1.1,ct_nw_dst=10.1.1.2,ct_nw_proto=1,icmp_type=8,icmp_code=0,icmp_id=10"
 
-              An example of an IPv6 TCP <u>ct-tuple</u>:
+              An example of an IPv6 TCP <u>ct-[orig|reply]-tuple</u>:
 
               "ct_ipv6_src=fc00::1,ct_ipv6_dst=fc00::2,ct_nw_proto=6,ct_tp_src=1,ct_tp_dst=2"
 
        [<b>-m</b> | <b>--more</b>] <b>ct-stats-show</b> [<u>dp</u>] [<b>zone=</b><u>zone</u>]
-              Displays  the  number of connections grouped by protocol used by
+              Displays the number of connections grouped by protocol  used  by
               <u>dp</u>.  If <b>zone=</b><u>zone</u> is specified, numbers refer to the connections
-              in  <u>zone</u>.  With <b>--more</b>, groups by connection state for each pro‐
+              in <u>zone</u>.  With <b>--more</b>, groups by connection state for each  pro‐
               tocol.
 
        <b>ct-bkts</b> [<u>dp</u>] [<b>gt=</b><u>threshold</u>]
-              For each conntrack bucket, displays the  number  of  connections
-              used  by  <u>dp</u>.   If <b>gt=</b><u>threshold</u> is specified, bucket numbers are
-              displayed when the number of connections in a bucket is  greater
+              For  each  conntrack  bucket, displays the number of connections
+              used by <u>dp</u>.  If <b>gt=</b><u>threshold</u> is specified,  bucket  numbers  are
+              displayed  when the number of connections in a bucket is greater
               than <u>threshold</u>.
 
        <b>ct-set-maxconns</b> [<u>dp</u>] <u>maxconns</u>
               Sets the maximum limit of connection tracker entries to <u>maxconns</u>
-              on <u>dp</u>.  This can be used to reduce the processing  load  on  the
-              system  due to connection tracking or simply limiting connection
-              tracking.  If the number of connections is already over the  new
-              maximum  limit  request  then  the new maximum limit will be en‐
-              forced when the number of connections decreases to  that  limit,
+              on  <u>dp</u>.   This  can be used to reduce the processing load on the
+              system due to connection tracking or simply limiting  connection
+              tracking.   If the number of connections is already over the new
+              maximum limit request then the new maximum  limit  will  be  en‐
+              forced  when  the number of connections decreases to that limit,
               which normally happens due to connection expiry.  Only supported
               for userspace datapath.
 
        <b>ct-get-maxconns</b> [<u>dp</u>]
-              Prints the maximum limit of connection tracker  entries  on  <u>dp</u>.
+              Prints  the  maximum  limit of connection tracker entries on <u>dp</u>.
               Only supported for userspace datapath.
 
        <b>ct-get-nconns</b> [<u>dp</u>]
-              Prints  the  current number of connection tracker entries on <u>dp</u>.
+              Prints the current number of connection tracker entries  on  <u>dp</u>.
               Only supported for userspace datapath.
 
        <b>ct-enable-tcp-seq-chk</b> [<u>dp</u>]
        <b>ct-disable-tcp-seq-chk</b> [<u>dp</u>]
-              Enables or disables TCP sequence checking.   When  set  to  dis‐
-              abled,  all  sequence number verification is disabled, including
-              for TCP resets.  This is similar, but not the same  as  'be_lib‐
-              eral'  mode, as in Netfilter.  Disabling sequence number verifi‐
-              cation is not an optimization in itself, but is needed for  some
-              hardware  offload support which might offer some performance ad‐
-              vantage. Sequence number checking is enabled by default  to  en‐
-              force  better  security  and should only be disabled if required
-              for hardware offload support.  This command  is  only  supported
+              Enables  or  disables  TCP  sequence checking.  When set to dis‐
+              abled, all sequence number verification is  disabled,  including
+              for  TCP  resets.  This is similar, but not the same as 'be_lib‐
+              eral' mode, as in Netfilter.  Disabling sequence number  verifi‐
+              cation  is not an optimization in itself, but is needed for some
+              hardware offload support which might offer some performance  ad‐
+              vantage.  Sequence  number checking is enabled by default to en‐
+              force better security and should only be  disabled  if  required
+              for  hardware  offload  support.  This command is only supported
               for the userspace datapath.
 
        <b>ct-get-tcp-seq-chk</b> [<u>dp</u>]
-              Prints  whether  TCP sequence checking is enabled or disabled on
+              Prints whether TCP sequence checking is enabled or  disabled  on
               <u>dp</u>.  Only supported for the userspace datapath.
 
+       <b>ct-set-sweep-interval</b> [<u>dp</u>] <u>ms</u>
+              Sets  the sweep interval. Only supported for the userspace data‐
+              path.
+
+       <b>ct-get-sweep-interval</b> [<u>dp</u>]
+              Prints the current sweep interval in ms. Only supported for  the
+              userspace datapath.
+
        <b>ct-set-limits</b> [<u>dp</u>] [<b>default=</b><u>default</u><b>_</b><u>limit</u>] [<b>zone=</b><u>zone</u>,<b>limit=</b><u>limit</u>]...
-              Sets the maximum allowed number of connections in  a  connection
-              tracking  zone.  A specific <u>zone</u> may be set to <u>limit</u>, and multi‐
-              ple zones may be specified with a comma-separated  list.   If  a
-              per-zone  limit  for  a  particular zone is not specified in the
-              datapath, it defaults to the default per-zone limit.  A  default
-              zone  may  be specified with the <b>default=</b><u>default</u><b>_</b><u>limit</u> argument.
-              Initially, the default per-zone limit is unlimited.   An  unlim‐
+              Sets  the  maximum allowed number of connections in a connection
+              tracking zone.  A specific <u>zone</u> may be set to <u>limit</u>, and  multi‐
+              ple  zones  may  be specified with a comma-separated list.  If a
+              per-zone limit for a particular zone is  not  specified  in  the
+              datapath,  it defaults to the default per-zone limit.  A default
+              zone may be specified with the  <b>default=</b><u>default</u><b>_</b><u>limit</u>  argument.
+              Initially,  the  default per-zone limit is unlimited.  An unlim‐
               ited number of entries may be set with <b>0</b> limit.
 
        <b>ct-del-limits</b> [<u>dp</u>] <b>zone=</b><u>zone[,zone]</u>...
-              Deletes  the connection tracking limit for <u>zone</u>.  Multiple zones
+              Deletes the connection tracking limit for <u>zone</u>.  Multiple  zones
               may be specified with a comma-separated list.
 
        <b>ct-get-limits</b> [<u>dp</u>] [<b>zone=</b><u>zone</u>[<b>,</b><u>zone</u>]...]
-              Retrieves the maximum allowed number of connections and  current
-              counts  per-zone.   If <u>zone</u> is given, only the specified zone(s)
+              Retrieves  the maximum allowed number of connections and current
+              counts per-zone.  If <u>zone</u> is given, only the  specified  zone(s)
               are printed.  If no zones are specified, all the zone limits and
-              counts  are  provided.   The command always displays the default
+              counts are provided.  The command always  displays  the  default
               zone limit.
 
 <b>OPTIONS</b>
        <b>-t</b>
        <b>--timeout=</b><u>secs</u>
-              Limits <b>ovs-dpctl</b> runtime to approximately <u>secs</u> seconds.  If  the
+              Limits  <b>ovs-dpctl</b> runtime to approximately <u>secs</u> seconds.  If the
               timeout expires, <b>ovs-dpctl</b> will exit with a <b>SIGALRM</b> signal.
 
        <b>-v</b>[<u>spec</u>]
        <b>--verbose=</b>[<u>spec</u>]
-              Sets  logging  levels.  Without any <u>spec</u>, sets the log level for
-              every module and destination to <b>dbg</b>.  Otherwise, <u>spec</u> is a  list
+              Sets logging levels.  Without any <u>spec</u>, sets the log  level  for
+              every  module and destination to <b>dbg</b>.  Otherwise, <u>spec</u> is a list
               of words separated by spaces or commas or colons, up to one from
               each category below:
 
-              •      A valid module name, as displayed by the  <b>vlog/list</b>  com‐
+              •      A  valid  module name, as displayed by the <b>vlog/list</b> com‐
                      mand on <b>ovs-appctl</b>(8), limits the log level change to the
                      specified module.
 
-              •      <b>syslog</b>, <b>console</b>, or <b>file</b>, to limit the log  level  change
-                     to  only to the system log, to the console, or to a file,
-                     respectively.   (If  <b>--detach</b>  is  specified,   <b>ovs-dpctl</b>
-                     closes  its  standard file descriptors, so logging to the
+              •      <b>syslog</b>,  <b>console</b>,  or <b>file</b>, to limit the log level change
+                     to only to the system log, to the console, or to a  file,
+                     respectively.    (If  <b>--detach</b>  is  specified,  <b>ovs-dpctl</b>
+                     closes its standard file descriptors, so logging  to  the
                      console will have no effect.)
 
-                     On Windows platform, <b>syslog</b> is accepted as a word and  is
-                     only  useful  along  with the <b>--syslog-target</b> option (the
+                     On  Windows platform, <b>syslog</b> is accepted as a word and is
+                     only useful along with the  <b>--syslog-target</b>  option  (the
                      word has no effect otherwise).
 
-              •      <b>off</b>, <b>emer</b>, <b>err</b>, <b>warn</b>, <b>info</b>, or <b>dbg</b>, to  control  the  log
-                     level.   Messages of the given severity or higher will be
-                     logged, and messages of lower severity will  be  filtered
-                     out.   <b>off</b>  filters  out all messages.  See <b>ovs-appctl</b>(8)
+              •      <b>off</b>,  <b>emer</b>,  <b>err</b>,  <b>warn</b>, <b>info</b>, or <b>dbg</b>, to control the log
+                     level.  Messages of the given severity or higher will  be
+                     logged,  and  messages of lower severity will be filtered
+                     out.  <b>off</b> filters out all  messages.   See  <b>ovs-appctl</b>(8)
                      for a definition of each log level.
 
               Case is not significant within <u>spec</u>.
 
-              Regardless of the log levels set for <b>file</b>,  logging  to  a  file
+              Regardless  of  the  log  levels set for <b>file</b>, logging to a file
               will not take place unless <b>--log-file</b> is also specified (see be‐
               low).
 
@@ -441,33 +463,33 @@ ovs-dpctl(8)                  Open vSwitch Manual                 ovs-dpctl(8)
 
        <b>-v</b>
        <b>--verbose</b>
-              Sets  the  maximum logging verbosity level, equivalent to <b>--ver‐</b>
+              Sets the maximum logging verbosity level, equivalent  to  <b>--ver‐</b>
               <b>bose=dbg</b>.
 
        <b>-vPATTERN:</b><u>destination</u><b>:</b><u>pattern</u>
        <b>--verbose=PATTERN:</b><u>destination</u><b>:</b><u>pattern</u>
-              Sets the log pattern  for  <u>destination</u>  to  <u>pattern</u>.   Refer  to
+              Sets  the  log  pattern  for  <u>destination</u>  to <u>pattern</u>.  Refer to
               <b>ovs-appctl</b>(8) for a description of the valid syntax for <u>pattern</u>.
 
        <b>-vFACILITY:</b><u>facility</u>
        <b>--verbose=FACILITY:</b><u>facility</u>
-              Sets  the  RFC5424  facility of the log message. <u>facility</u> can be
-              one of <b>kern</b>, <b>user</b>, <b>mail</b>, <b>daemon</b>, <b>auth</b>, <b>syslog</b>, <b>lpr</b>, <b>news</b>,  <b>uucp</b>,
-              <b>clock</b>,  <b>ftp</b>,  <b>ntp</b>, <b>audit</b>, <b>alert</b>, <b>clock2</b>, <b>local0</b>, <b>local1</b>, <b>local2</b>,
-              <b>local3</b>, <b>local4</b>, <b>local5</b>, <b>local6</b> or <b>local7</b>. If this option is  not
-              specified,  <b>daemon</b>  is  used as the default for the local system
-              syslog and <b>local0</b> is used while sending a message to the  target
+              Sets the RFC5424 facility of the log message.  <u>facility</u>  can  be
+              one  of <b>kern</b>, <b>user</b>, <b>mail</b>, <b>daemon</b>, <b>auth</b>, <b>syslog</b>, <b>lpr</b>, <b>news</b>, <b>uucp</b>,
+              <b>clock</b>, <b>ftp</b>, <b>ntp</b>, <b>audit</b>, <b>alert</b>, <b>clock2</b>, <b>local0</b>,  <b>local1</b>,  <b>local2</b>,
+              <b>local3</b>,  <b>local4</b>, <b>local5</b>, <b>local6</b> or <b>local7</b>. If this option is not
+              specified, <b>daemon</b> is used as the default for  the  local  system
+              syslog  and <b>local0</b> is used while sending a message to the target
               provided via the <b>--syslog-target</b> option.
 
        <b>--log-file</b>[<b>=</b><u>file</u>]
-              Enables  logging  to  a  file.  If <u>file</u> is specified, then it is
-              used as the exact name for the log file.  The default  log  file
-              name   used  if  <u>file</u>  is  omitted  is  <b>/usr/local/var/log/open‐</b>
+              Enables logging to a file.  If <u>file</u> is  specified,  then  it  is
+              used  as  the exact name for the log file.  The default log file
+              name  used  if  <u>file</u>  is  omitted  is   <b>/usr/local/var/log/open‐</b>
               <b>vswitch/ovs-dpctl.log</b>.
 
        <b>--syslog-target=</b><u>host</u><b>:</b><u>port</u>
-              Send syslog messages to UDP <u>port</u> on <u>host</u>,  in  addition  to  the
-              system  syslog.   The <u>host</u> must be a numerical IP address, not a
+              Send  syslog  messages  to  UDP <u>port</u> on <u>host</u>, in addition to the
+              system syslog.  The <u>host</u> must be a numerical IP address,  not  a
               hostname.
 
        <b>--syslog-method=</b><u>method</u>
@@ -475,31 +497,31 @@ ovs-dpctl(8)                  Open vSwitch Manual                 ovs-dpctl(8)
               mon.  Following forms are supported:
 
               •      <b>libc</b>, use libc <b>syslog()</b> function.  Downside of using this
-                     options is that libc adds fixed prefix to  every  message
-                     before  it  is  actually  sent  to the syslog daemon over
+                     options  is  that libc adds fixed prefix to every message
+                     before it is actually sent  to  the  syslog  daemon  over
                      <b>/dev/log</b> UNIX domain socket.
 
               •      <b>unix:</b><u>file</u>, use UNIX domain socket directly.  It is possi‐
                      ble to specify arbitrary message format with this option.
-                     However, <b>rsyslogd</b> <b>8.9</b> and older versions use  hard  coded
-                     parser  function  anyway  that  limits UNIX domain socket
-                     use.  If you want to use arbitrary  message  format  with
+                     However,  <b>rsyslogd</b>  <b>8.9</b> and older versions use hard coded
+                     parser function anyway that  limits  UNIX  domain  socket
+                     use.   If  you  want to use arbitrary message format with
                      older <b>rsyslogd</b> versions, then use UDP socket to localhost
                      IP address instead.
 
               •      <b>udp:</b><u>ip</u>:<u>port</u>, use UDP socket.  With this method it is pos‐
-                     sible  to  use  arbitrary  message format also with older
-                     <b>rsyslogd</b>.  When sending syslog messages over  UDP  socket
-                     extra  precaution needs to be taken into account, for ex‐
-                     ample, syslog daemon needs to be configured to listen  on
-                     the  specified  UDP port, accidental iptables rules could
-                     be interfering with local syslog traffic  and  there  are
-                     some  security  considerations that apply to UDP sockets,
+                     sible to use arbitrary message  format  also  with  older
+                     <b>rsyslogd</b>.   When  sending syslog messages over UDP socket
+                     extra precaution needs to be taken into account, for  ex‐
+                     ample,  syslog daemon needs to be configured to listen on
+                     the specified UDP port, accidental iptables  rules  could
+                     be  interfering  with  local syslog traffic and there are
+                     some security considerations that apply to  UDP  sockets,
                      but do not apply to UNIX domain sockets.
 
               •      <b>null</b>, discards all messages logged to syslog.
 
-              The default is  taken  from  the  <b>OVS_SYSLOG_METHOD</b>  environment
+              The  default  is  taken  from  the <b>OVS_SYSLOG_METHOD</b> environment
               variable; if it is unset, the default is <b>libc</b>.
 
        <b>-h</b>
@@ -514,5 +536,5 @@ ovs-dpctl(8)                  Open vSwitch Manual                 ovs-dpctl(8)
 
 
 
-Open vSwitch                         3.0.0                        ovs-dpctl(8)
+Open vSwitch                         3.2.0                        ovs-dpctl(8)
 </pre></body></html>

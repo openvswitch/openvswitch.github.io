@@ -71,6 +71,16 @@ ovs-vswitchd(8)               Open vSwitch Manual              ovs-vswitchd(8)
        For details on initializing <b>ovs-vswitchd</b> to use DPDK  ports,  refer  to
        the documentation or <b>ovs-vswitchd.conf.db</b>(5).
 
+   <b>DPDK</b> <b>HW</b> <b>Access</b> <b>Options</b>
+       <b>--hw-rawio-access</b>
+              Tells  <b>ovs-vswitchd</b>  to  retain the <b>CAP_SYS_RAWIO</b> capability, to
+              allow userspace drivers access to  raw  hardware  memory.   This
+              will  also allow the <b>ovs-vswitchd</b> daemon to call <b>iopl()</b> and <b>iop‐</b>
+              <b>erm()</b> functions as well as access memory devices to set port ac‐
+              cess.  This is a <b>very</b> powerful capability, so generally only en‐
+              able as needed for specific hardware (for example mlx5 with full
+              hardware offload via rte_flow).
+
    <b>Daemon</b> <b>Options</b>
        The following options are valid on POSIX based platforms.
 
@@ -837,21 +847,36 @@ ovs-vswitchd(8)               Open vSwitch Manual              ovs-vswitchd(8)
               tails  are  included.  With <b>--statistics</b> timeouts and timestamps
               are added to the output.
 
-       <b>dpctl/flush-conntrack</b> [<u>dp</u>] [<b>zone=</b><u>zone</u>] [<u>ct-tuple</u>]
-              Flushes the connection entries in the tracker used by  <u>dp</u>  based
-              on  <u>zone</u> and connection tracking tuple <u>ct-tuple</u>.  If <u>ct-tuple</u> is
-              not provided, flushes all the connection entries.  If  <b>zone</b>=<u>zone</u>
-              is specified, only flushes the connections in <u>zone</u>.
+       <b>dpctl/dump-conntrack-exp</b> [<u>dp</u>] [<b>zone=</b><u>zone</u>]
+              Prints to the console all the expectation entries in the tracker
+              used  by <u>dp</u>.  If <b>zone=</b><u>zone</u> is specified, only shows the expecta‐
+              tions in <u>zone</u>. Only supported for userspace datapath.
 
-              If  <u>ct-tuple</u> is provided, flushes the connection entry specified
-              by <u>ct-tuple</u> in <u>zone</u>. The zone defaults to 0 if it  is  not  pro‐
-              vided.   The userspace connection tracker requires flushing with
-              the original pre-NATed tuple and a warning log will be otherwise
-              generated.  An example of an IPv4 ICMP <u>ct-tuple</u>:
+       <b>dpctl/flush-conntrack</b> [<u>dp</u>] [<b>zone=</b><u>zone</u>]  [<u>ct-origin-tuple</u>  [<u>ct-reply-tu‐</u>
+       <u>ple</u>]]
+              Flushes  the  connection entries in the tracker used by <u>dp</u> based
+              on <u>zone</u> and connection tracking tuple <u>ct-origin-tuple</u>.   If  <u>ct-</u>
+              <u>tuple</u>  is  not provided, flushes all the connection entries.  If
+              <b>zone</b>=<u>zone</u> is specified, only flushes the connections in <u>zone</u>.
+
+              If <u>ct-[orig|reply]-tuple</u> is provided, flushes the connection en‐
+              try  specified  by  <u>ct-[orig|reply]-tuple</u> in <u>zone</u>.  The zone de‐
+              faults to 0 if it is not  provided.   The  userspace  connection
+              tracker  requires flushing with the original pre-NATed tuple and
+              a warning log will be otherwise generated.   The  tuple  can  be
+              partial and will remove all connections that are matching on the
+              specified fields.  In order to specify only <u>ct-reply-tuple</u>, pro‐
+              vide empty string as <u>ct-origin-tuple</u>.
+
+              Note:  Currently  there is a limitation for matching on ICMP, in
+              order to partially match on  ICMP  parameters  the  <u>ct-[orig|re‐</u>
+              <u>ply]-tuple</u> has to include either source or destination IP.
+
+              An example of an IPv4 ICMP <u>ct-[orig|reply]-tuple</u>:
 
               "ct_nw_src=10.1.1.1,ct_nw_dst=10.1.1.2,ct_nw_proto=1,icmp_type=8,icmp_code=0,icmp_id=10"
 
-              An example of an IPv6 TCP <u>ct-tuple</u>:
+              An example of an IPv6 TCP <u>ct-[orig|reply]-tuple</u>:
 
               "ct_ipv6_src=fc00::1,ct_ipv6_dst=fc00::2,ct_nw_proto=6,ct_tp_src=1,ct_tp_dst=2"
 
@@ -901,6 +926,14 @@ ovs-vswitchd(8)               Open vSwitch Manual              ovs-vswitchd(8)
        <b>dpctl/ct-get-tcp-seq-chk</b> [<u>dp</u>]
               Prints  whether  TCP sequence checking is enabled or disabled on
               <u>dp</u>.  Only supported for the userspace datapath.
+
+       <b>dpctl/ct-set-sweep-interval</b> [<u>dp</u>] <u>ms</u>
+              Sets the sweep interval. Only supported for the userspace  data‐
+              path.
+
+       <b>dpctl/ct-get-sweep-interval</b> [<u>dp</u>]
+              Prints  the current sweep interval in ms. Only supported for the
+              userspace datapath.
 
        <b>dpctl/ct-set-limits</b>            [<u>dp</u>]             [<b>default=</b><u>default</u><b>_</b><u>limit</u>]
        [<b>zone=</b><u>zone</u>,<b>limit=</b><u>limit</u>]...
@@ -1557,17 +1590,17 @@ ovs-vswitchd(8)               Open vSwitch Manual              ovs-vswitchd(8)
    <b>OPENVSWITCH</b> <b>TUNNELING</b> <b>COMMANDS</b>
        These commands query and modify OVS tunnel components.
 
-       <b>ovs/route/add</b> <b>ipv4_address/plen</b> <b>output_bridge</b> <b>[GW]</b>
-              Adds ipv4_address/plen route to  vswitchd  routing  table.  out‐
-              put_bridge  needs to be OVS bridge name.  This command is useful
-              if OVS cached routes does not look right.
+       <b>ovs/route/add</b> <u>ip</u><b>/</b><u>plen</u> <u>output</u><b>_</b><u>bridge</u> <b>[</b><u>gw</u><b>]</b> <b>[pkt_mark=</b><u>mark</u><b>]</b> <b>[src=</b><u>src</u><b>_</b><u>ip</u><b>]</b>
+              Adds <u>ip</u>/<u>plen</u> route  to  vswitchd  routing  table.  <u>output</u><b>_</b><u>bridge</u>
+              needs  to  be  OVS  bridge  name.  This command is useful if OVS
+              cached routes does not look right.
 
        <b>ovs/route/show</b>
               Print all routes in OVS  routing  table,  This  includes  routes
               cached from system routing table and user configured routes.
 
-       <b>ovs/route/del</b> <b>ipv4_address/plen</b>
-              Delete ipv4_address/plen route from OVS routing table.
+       <b>ovs/route/del</b> <b>ip/plen</b> <b>[pkt_mark=mark]</b>
+              Delete ip/plen route from OVS routing table.
 
        <b>tnl/neigh/show</b>
 
@@ -1674,5 +1707,5 @@ ovs-vswitchd(8)               Open vSwitch Manual              ovs-vswitchd(8)
 
 
 
-Open vSwitch                         3.0.0                     ovs-vswitchd(8)
+Open vSwitch                         3.2.0                     ovs-vswitchd(8)
 </pre></body></html>

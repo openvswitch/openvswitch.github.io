@@ -187,78 +187,88 @@ OVSDB(7)                         Open vSwitch                         OVSDB(7)
           <u>and</u>  <u>earlier</u> <u>to</u> <u>2.15</u> <u>and</u> <u>later</u> and <u>Downgrading</u> <u>from</u> <u>version</u> <u>2.15</u> <u>and</u>
           <u>later</u> <u>to</u> <u>2.14</u> <u>and</u> <u>earlier</u>.
 
+          Another change happened in version 3.2.   To  upgrade/downgrade  the
+          <b>ovsdb-server</b>  processes  across this version follow the instructions
+          described under <u>Upgrading</u> <u>from</u> <u>version</u> <u>3.1</u> <u>and</u> <u>earlier</u>  <u>to</u>  <u>3.2</u>  <u>and</u>
+          <u>later</u> and <u>Downgrading</u> <u>from</u> <u>version</u> <u>3.2</u> <u>and</u> <u>later</u> <u>to</u> <u>3.1</u> <u>and</u> <u>earlier</u>.
+
    <b>Clustered</b> <b>Database</b> <b>Service</b> <b>Model</b>
-       A <b>clustered</b> database runs across 3 or 5 or more database  servers  (the
-       <b>cluster</b>)  on  different hosts.  Servers in a cluster automatically syn‐
-       chronize writes within the cluster.   A  3-server  cluster  can  remain
-       available  in  the face of at most 1 server failure; a 5-server cluster
-       tolerates up to 2 failures.  Clusters larger than 5 servers  will  also
-       work,  with  every  2  added servers allowing the cluster to tolerate 1
-       more failure, but write performance decreases.  The number  of  servers
-       should  be  odd: a 4- or 6-server cluster cannot tolerate more failures
+       A  <b>clustered</b>  database runs across 3 or 5 or more database servers (the
+       <b>cluster</b>) on different hosts.  Servers in a cluster  automatically  syn‐
+       chronize  writes  within  the  cluster.   A 3-server cluster can remain
+       available in the face of at most 1 server failure; a  5-server  cluster
+       tolerates  up  to 2 failures.  Clusters larger than 5 servers will also
+       work, with every 2 added servers allowing the  cluster  to  tolerate  1
+       more  failure,  but write performance decreases.  The number of servers
+       should be odd: a 4- or 6-server cluster cannot tolerate  more  failures
        than a 3- or 5-server cluster, respectively.
 
        To set up a clustered database, first initialize it on a single node by
-       running  <b>ovsdb-tool</b> <b>create-cluster</b>, then start <b>ovsdb-server</b>.  Depending
-       on its arguments, the <b>create-cluster</b> command can create an empty  data‐
+       running <b>ovsdb-tool</b> <b>create-cluster</b>, then start <b>ovsdb-server</b>.   Depending
+       on  its arguments, the <b>create-cluster</b> command can create an empty data‐
        base or copy a standalone database’s contents into the new database.
 
-       To  configure a client to use a clustered database, first configure all
-       of the servers to listen on a connection method  that  the  client  can
+       To configure a client to use a clustered database, first configure  all
+       of  the  servers  to  listen on a connection method that the client can
        reach, then point the client to all of the servers’ connection methods,
        comma-separated.  See <u>Connection</u> <u>Methods</u>, below, for more detail.
 
        Open vSwitch 2.9 introduced support for the clustered service model.
 
    <b>How</b> <b>to</b> <b>Maintain</b> <b>a</b> <b>Clustered</b> <b>Database</b>
-       To add a server to a cluster, run <b>ovsdb-tool</b> <b>join-cluster</b>  on  the  new
+       To  add  a  server to a cluster, run <b>ovsdb-tool</b> <b>join-cluster</b> on the new
        server and start <b>ovsdb-server</b>.  To remove a running server from a clus‐
        ter, use <b>ovs-appctl</b> to invoke the <b>cluster/leave</b> command.  When a server
-       fails  and  cannot be recovered, e.g. because its hard disk crashed, or
-       to otherwise remove a server that is down from a cluster,  use  <b>ovs-ap‐</b>
-       <b>pctl</b>  to  invoke <b>cluster/kick</b> to make the remaining servers kick it out
+       fails and cannot be recovered, e.g. because its hard disk  crashed,  or
+       to  otherwise  remove a server that is down from a cluster, use <b>ovs-ap‐</b>
+       <b>pctl</b> to invoke <b>cluster/kick</b> to make the remaining servers kick  it  out
        of the cluster.
 
        The above methods for adding and removing servers only work for healthy
-       clusters,  that is, for clusters with no more failures than their maxi‐
-       mum tolerance.  For example, in a 3-server cluster, the  failure  of  2
-       servers  prevents  servers  joining  or leaving the cluster (as well as
+       clusters, that is, for clusters with no more failures than their  maxi‐
+       mum  tolerance.   For  example, in a 3-server cluster, the failure of 2
+       servers prevents servers joining or leaving the  cluster  (as  well  as
        database access).  To prevent data loss or inconsistency, the preferred
        solution to this problem is to bring up enough of the failed servers to
-       make the cluster healthy again, then if necessary remove any  remaining
-       failed  servers  and add new ones.  If this cannot be done, though, use
-       <b>ovs-appctl</b> to invoke <b>cluster/leave</b> <b>--force</b> on a running  server.   This
-       command  forces the server to which it is directed to leave its cluster
+       make  the cluster healthy again, then if necessary remove any remaining
+       failed servers and add new ones.  If this cannot be done,  though,  use
+       <b>ovs-appctl</b>  to  invoke <b>cluster/leave</b> <b>--force</b> on a running server.  This
+       command forces the server to which it is directed to leave its  cluster
        and form a new single-node cluster that contains only itself.  The data
-       in  the new cluster may be inconsistent with the former cluster: trans‐
+       in the new cluster may be inconsistent with the former cluster:  trans‐
        actions not yet replicated to the server will be lost, and transactions
-       not  yet  applied  to  the  cluster  may  be committed.  Afterward, any
+       not yet applied to  the  cluster  may  be  committed.   Afterward,  any
        servers in its former cluster will regard the server to have failed.
 
-       Once a server leaves a cluster, it may never rejoin it.  Instead,  cre‐
+       Once  a server leaves a cluster, it may never rejoin it.  Instead, cre‐
        ate a new server and join it to the cluster.
 
-       The  servers  in  a  cluster synchronize data over a cluster management
-       protocol that is specific to Open vSwitch; it is not the  same  as  the
-       OVSDB  protocol specified in RFC 7047.  For this purpose, a server in a
+       The servers in a cluster synchronize data  over  a  cluster  management
+       protocol  that  is  specific to Open vSwitch; it is not the same as the
+       OVSDB protocol specified in RFC 7047.  For this purpose, a server in  a
        cluster is tied to a particular IP address and TCP port, which is spec‐
        ified in the <b>ovsdb-tool</b> command that creates or joins the cluster.  The
        TCP port used for clustering must be different from that used for OVSDB
        clients.  To change the port or address of a server in a cluster, first
        remove it from the cluster, then add it back with the new address.
 
-       To upgrade the <b>ovsdb-server</b> processes in a cluster from one version  of
-       Open  vSwitch  to  another,  upgrading them one at a time will keep the
-       cluster healthy during the upgrade process.  (This  is  different  from
-       upgrading  a database schema, which is covered later under <u>Upgrading</u> <u>or</u>
+       To  upgrade the <b>ovsdb-server</b> processes in a cluster from one version of
+       Open vSwitch to another, upgrading them one at a  time  will  keep  the
+       cluster  healthy  during  the upgrade process.  (This is different from
+       upgrading a database schema, which is covered later under <u>Upgrading</u>  <u>or</u>
        <u>Downgrading</u> <u>a</u> <u>Database</u>.)
 
        <b>IMPORTANT:</b>
-          There was a change of a database file format in  version  2.15.   To
-          upgrade/downgrade  the  <b>ovsdb-server</b>  processes  across this version
-          follow the instructions described under <u>Upgrading</u> <u>from</u> <u>version</u>  <u>2.14</u>
-          <u>and</u>  <u>earlier</u> <u>to</u> <u>2.15</u> <u>and</u> <u>later</u> and <u>Downgrading</u> <u>from</u> <u>version</u> <u>2.15</u> <u>and</u>
+          There  was  a  change of a database file format in version 2.15.  To
+          upgrade/downgrade the <b>ovsdb-server</b>  processes  across  this  version
+          follow  the instructions described under <u>Upgrading</u> <u>from</u> <u>version</u> <u>2.14</u>
+          <u>and</u> <u>earlier</u> <u>to</u> <u>2.15</u> <u>and</u> <u>later</u> and <u>Downgrading</u> <u>from</u> <u>version</u> <u>2.15</u>  <u>and</u>
           <u>later</u> <u>to</u> <u>2.14</u> <u>and</u> <u>earlier</u>.
+
+          Another  change  happened  in version 3.2.  To upgrade/downgrade the
+          <b>ovsdb-server</b> processes across this version follow  the  instructions
+          described  under  <u>Upgrading</u>  <u>from</u> <u>version</u> <u>3.1</u> <u>and</u> <u>earlier</u> <u>to</u> <u>3.2</u> <u>and</u>
+          <u>later</u> and <u>Downgrading</u> <u>from</u> <u>version</u> <u>3.2</u> <u>and</u> <u>later</u> <u>to</u> <u>3.1</u> <u>and</u> <u>earlier</u>.
 
        Clustered OVSDB does not support the OVSDB “ephemeral columns” feature.
        <b>ovsdb-tool</b>  and  <b>ovsdb-client</b>  change ephemeral columns into persistent
@@ -309,6 +319,54 @@ OVSDB(7)                         Open vSwitch                         OVSDB(7)
           service models).
 
        2. Compact all database files with <b>ovsdb-tool</b> <b>compact</b> command.
+
+       3. Downgrade and restart <b>ovsdb-server</b> processes.
+
+   <b>Upgrading</b> <b>from</b> <b>version</b> <b>3.1</b> <b>and</b> <b>earlier</b> <b>to</b> <b>3.2</b> <b>and</b> <b>later</b>
+       There is another change of a database file format in version  3.2  that
+       doesn’t  allow older versions of <b>ovsdb-server</b> to read the database file
+       modified by the <b>ovsdb-server</b> version 3.2 or later.  This  also  affects
+       runtime  communications  between servers in <b>cluster</b> service models.  To
+       upgrade the <b>ovsdb-server</b> processes from one  version  of  Open  vSwitch
+       (3.1  or  earlier) to another (3.2 or higher) instructions below should
+       be followed. (This is different from upgrading a database schema, which
+       is covered later under <u>Upgrading</u> <u>or</u> <u>Downgrading</u> <u>a</u> <u>Database</u>.)
+
+       In  case  of  <b>standalone</b> or <b>active-backup</b> service model no special han‐
+       dling during upgrade is required.
+
+       For the <b>cluster</b> service model recommended upgrade strategy  is  follow‐
+       ing:
+
+       1. Upgrade  processes  one  at a time.  Each <b>ovsdb-server</b> process after
+          upgrade should  be  started  with  <b>--disable-file-no-data-conversion</b>
+          command line argument.
+
+       2. When  all  <b>ovsdb-server</b> processes upgraded, use <b>ovs-appctl</b> to invoke
+          <b>ovsdb/file/no-data-conversion-enable</b> command  on  each  of  them  or
+          restart  all  <b>ovsdb-server</b>  processes  one  at a time without <b>--dis‐</b>
+          <b>able-file-no-data-conversion</b> command line option.
+
+   <b>Downgrading</b> <b>from</b> <b>version</b> <b>3.2</b> <b>and</b> <b>later</b> <b>to</b> <b>3.1</b> <b>and</b> <b>earlier</b>
+       Similar to upgrading covered under <u>Upgrading</u> <u>from</u> <u>version</u> <u>3.1</u> <u>and</u>  <u>ear‐</u>
+       <u>lier</u>  <u>to</u>  <u>3.2</u>  <u>and</u> <u>later</u>, downgrading from the <b>ovsdb-server</b> version 3.2
+       and later to 3.1 and earlier requires additional steps. (This  is  dif‐
+       ferent  from  upgrading a database schema, which is covered later under
+       <u>Upgrading</u> <u>or</u> <u>Downgrading</u> <u>a</u> <u>Database</u>.)
+
+       For all service models it’s required to:
+
+       1. Compact all database files  via  <b>ovsdb-server/compact</b>  command  with
+          <b>ovs-appctl</b>   utility.    This  should  be  done  for  each  involved
+          <b>ovsdb-server</b> process separately (single process for <b>standalone</b>  ser‐
+          vice  model,  all  involved  processes for <b>active-backup</b> and <b>cluster</b>
+          service models).
+
+       2. Stop all <b>ovsdb-server</b> processes.  Make sure that no database  schema
+          conversion  operations  were  performed  between steps 1 and 2.  For
+          <b>standalone</b> and <b>active-backup</b> service models, the database compaction
+          can  be  performed after stopping all the processes instead with the
+          <b>ovsdb-tool</b> <b>compact</b> command.
 
        3. Downgrade and restart <b>ovsdb-server</b> processes.
 
@@ -738,5 +796,5 @@ OVSDB(7)                         Open vSwitch                         OVSDB(7)
 
 
 
-3.0                              Aug 19, 2022                         OVSDB(7)
+3.2                              Sep 27, 2023                         OVSDB(7)
 </pre></body></html>

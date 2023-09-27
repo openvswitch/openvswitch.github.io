@@ -1,8 +1,5 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "OVSDB" "7" "Aug 19, 2022" "3.0" "Open vSwitch"
-.SH NAME
-ovsdb \- Open vSwitch Database (Overview)
 .
 .nr rst2man-indent-level 0
 .
@@ -30,6 +27,9 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
+.TH "OVSDB" "7" "Sep 27, 2023" "3.2" "Open vSwitch"
+.SH NAME
+ovsdb \- Open vSwitch Database (Overview)
 .SH DESCRIPTION
 .sp
 OVSDB, the Open vSwitch Database, is a network\-accessible database system.
@@ -207,6 +207,12 @@ To upgrade/downgrade the \fBovsdb\-server\fP processes across this version
 follow the instructions described under
 \fI\%Upgrading from version 2.14 and earlier to 2.15 and later\fP and
 \fI\%Downgrading from version 2.15 and later to 2.14 and earlier\fP\&.
+.sp
+Another change happened in version 3.2.  To upgrade/downgrade the
+\fBovsdb\-server\fP processes across this version follow the instructions
+described under
+\fI\%Upgrading from version 3.1 and earlier to 3.2 and later\fP and
+\fI\%Downgrading from version 3.2 and later to 3.1 and earlier\fP\&.
 .UNINDENT
 .UNINDENT
 .SS Clustered Database Service Model
@@ -280,6 +286,12 @@ To upgrade/downgrade the \fBovsdb\-server\fP processes across this version
 follow the instructions described under
 \fI\%Upgrading from version 2.14 and earlier to 2.15 and later\fP and
 \fI\%Downgrading from version 2.15 and later to 2.14 and earlier\fP\&.
+.sp
+Another change happened in version 3.2.  To upgrade/downgrade the
+\fBovsdb\-server\fP processes across this version follow the instructions
+described under
+\fI\%Upgrading from version 3.1 and earlier to 3.2 and later\fP and
+\fI\%Downgrading from version 3.2 and later to 3.1 and earlier\fP\&.
 .UNINDENT
 .UNINDENT
 .sp
@@ -333,6 +345,57 @@ service model, all involved processes for \fBactive\-backup\fP and \fBcluster\fP
 service models).
 .IP 2. 3
 Compact all database files with \fBovsdb\-tool compact\fP command.
+.IP 3. 3
+Downgrade and restart \fBovsdb\-server\fP processes.
+.UNINDENT
+.SS Upgrading from version 3.1 and earlier to 3.2 and later
+.sp
+There is another change of a database file format in version 3.2 that doesn’t
+allow older versions of \fBovsdb\-server\fP to read the database file modified by
+the \fBovsdb\-server\fP version 3.2 or later.  This also affects runtime
+communications between servers in \fBcluster\fP service models.  To upgrade the
+\fBovsdb\-server\fP processes from one version of Open vSwitch (3.1 or earlier) to
+another (3.2 or higher) instructions below should be followed. (This is
+different from upgrading a database schema, which is covered later under
+\fI\%Upgrading or Downgrading a Database\fP\&.)
+.sp
+In case of \fBstandalone\fP or \fBactive\-backup\fP service model no special
+handling during upgrade is required.
+.sp
+For the \fBcluster\fP service model recommended upgrade strategy is following:
+.INDENT 0.0
+.IP 1. 3
+Upgrade processes one at a time.  Each \fBovsdb\-server\fP process after
+upgrade should be started with \fB\-\-disable\-file\-no\-data\-conversion\fP command
+line argument.
+.IP 2. 3
+When all \fBovsdb\-server\fP processes upgraded, use \fBovs\-appctl\fP to invoke
+\fBovsdb/file/no\-data\-conversion\-enable\fP command on each of them or restart
+all \fBovsdb\-server\fP processes one at a time without
+\fB\-\-disable\-file\-no\-data\-conversion\fP command line option.
+.UNINDENT
+.SS Downgrading from version 3.2 and later to 3.1 and earlier
+.sp
+Similar to upgrading covered under \fI\%Upgrading from version 3.1 and earlier to
+3.2 and later\fP, downgrading from the \fBovsdb\-server\fP version 3.2 and later
+to 3.1 and earlier requires additional steps. (This is different from
+upgrading a database schema, which is covered later under
+\fI\%Upgrading or Downgrading a Database\fP\&.)
+.sp
+For all service models it’s required to:
+.INDENT 0.0
+.IP 1. 3
+Compact all database files via \fBovsdb\-server/compact\fP command with
+\fBovs\-appctl\fP utility.  This should be done for each involved
+\fBovsdb\-server\fP process separately (single process for \fBstandalone\fP
+service model, all involved processes for \fBactive\-backup\fP and \fBcluster\fP
+service models).
+.IP 2. 3
+Stop all \fBovsdb\-server\fP processes.  Make sure that no database schema
+conversion operations were performed between steps 1 and 2.  For
+\fBstandalone\fP and \fBactive\-backup\fP service models, the database compaction
+can be performed after stopping all the processes instead with the
+\fBovsdb\-tool compact\fP command.
 .IP 3. 3
 Downgrade and restart \fBovsdb\-server\fP processes.
 .UNINDENT

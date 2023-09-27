@@ -176,7 +176,7 @@
 .  nr mE \\n(.f
 .  nf
 .  nh
-.  ft CW
+.  ft CR
 ..
 .
 .
@@ -189,7 +189,7 @@
 .
 .\" EOF
 .\" ----------------------------------------------------------------------
-.TH ovs\-vswitchd 8 "3.0.0" "Open vSwitch" "Open vSwitch Manual"
+.TH ovs\-vswitchd 8 "3.2.0" "Open vSwitch" "Open vSwitch Manual"
 .\" This program's name:
 .ds PN ovs\-vswitchd
 .
@@ -270,6 +270,15 @@ unavailable or unsuccessful.
 .SS "DPDK Options"
 For details on initializing \fBovs\-vswitchd\fR to use DPDK ports,
 refer to the documentation or \fBovs\-vswitchd.conf.db\fR(5).
+.SS "DPDK HW Access Options"
+.IP "\fB\-\-hw\-rawio\-access\fR"
+Tells \fBovs\-vswitchd\fR to retain the \fBCAP_SYS_RAWIO\fR capability,
+to allow userspace drivers access to raw hardware memory.  This will
+also allow the \fBovs\-vswitchd\fR daemon to call \fBiopl()\fR and
+\fBioperm()\fR functions as well as access memory devices to set port
+access.  This is a \fBvery\fR powerful capability, so generally only
+enable as needed for specific hardware (for example mlx5 with full
+hardware offload via rte_flow).
 .SS "Daemon Options"
 .ds DD \
 \fBovs\-vswitchd\fR detaches only after it has connected to the \
@@ -1045,22 +1054,36 @@ are included. With \fB\-\-statistics\fR timeouts and timestamps are
 added to the output.
 .
 .TP
-\*(DX\fBflush\-conntrack\fR [\fIdp\fR] [\fBzone=\fIzone\fR] [\fIct-tuple\fR]
+\*(DX\fBdump\-conntrack\-exp\fR [\fIdp\fR] [\fBzone=\fIzone\fR]
+Prints to the console all the expectation entries in the tracker used by
+\fIdp\fR.  If \fBzone=\fIzone\fR is specified, only shows the expectations
+in \fIzone\fR. Only supported for userspace datapath.
+.
+.TP
+\*(DX\fBflush\-conntrack\fR [\fIdp\fR] [\fBzone=\fIzone\fR] [\fIct-origin-tuple\fR [\fIct-reply-tuple\fR]]
 Flushes the connection entries in the tracker used by \fIdp\fR based on
-\fIzone\fR and connection tracking tuple \fIct-tuple\fR.
+\fIzone\fR and connection tracking tuple \fIct-origin-tuple\fR.
 If \fIct-tuple\fR is not provided, flushes all the connection entries.
 If \fBzone\fR=\fIzone\fR is specified, only flushes the connections in
 \fIzone\fR.
 .IP
-If \fIct-tuple\fR is provided, flushes the connection entry specified by
-\fIct-tuple\fR in \fIzone\fR. The zone defaults to 0 if it is not provided.
-The userspace connection tracker requires flushing with the original pre-NATed
-tuple and a warning log will be otherwise generated.
-An example of an IPv4 ICMP \fIct-tuple\fR:
+If \fIct-[orig|reply]-tuple\fR is provided, flushes the connection entry
+specified by \fIct-[orig|reply]-tuple\fR in \fIzone\fR.  The zone defaults
+to 0 if it is not provided.  The userspace connection tracker requires flushing
+with the original pre-NATed tuple and a warning log will be otherwise
+generated.  The tuple can be partial and will remove all connections that are
+matching on the specified fields.  In order to specify only
+\fIct-reply-tuple\fR, provide empty string as \fIct-origin-tuple\fR.
+.IP
+Note: Currently there is a limitation for matching on ICMP, in order to
+partially match on ICMP parameters the \fIct-[orig|reply]-tuple\fR has
+to include either source or destination IP.
+.IP
+An example of an IPv4 ICMP \fIct-[orig|reply]-tuple\fR:
 .IP
 "ct_nw_src=10.1.1.1,ct_nw_dst=10.1.1.2,ct_nw_proto=1,icmp_type=8,icmp_code=0,icmp_id=10"
 .IP
-An example of an IPv6 TCP \fIct-tuple\fR:
+An example of an IPv6 TCP \fIct-[orig|reply]-tuple\fR:
 .IP
 "ct_ipv6_src=fc00::1,ct_ipv6_dst=fc00::2,ct_nw_proto=6,ct_tp_src=1,ct_tp_dst=2"
 .
@@ -1115,6 +1138,15 @@ This command is only supported for the userspace datapath.
 \*(DX\fBct\-get\-tcp\-seq\-chk\fR [\fIdp\fR]
 Prints whether TCP sequence checking is enabled or disabled on \fIdp\fR.  Only
 supported for the userspace datapath.
+.
+.TP
+\*(DX\fBct\-set\-sweep\-interval\fR [\fIdp\fR] \fIms\fR
+Sets the sweep interval. Only supported for the userspace datapath.
+.
+.TP
+\*(DX\fBct\-get\-sweep\-interval\fR [\fIdp\fR]
+Prints the current sweep interval in ms. Only supported for the userspace
+datapath.
 .
 .TP
 \*(DX\fBct\-set\-limits\fR [\fIdp\fR] [\fBdefault=\fIdefault_limit\fR] [\fBzone=\fIzone\fR,\fBlimit=\fIlimit\fR]...
@@ -1822,8 +1854,9 @@ Displays the total count for the given coverage \fIcounter\fR.
 .SS "OPENVSWITCH TUNNELING COMMANDS"
 These commands query and modify OVS tunnel components.
 .
-.IP "\fBovs/route/add ipv4_address/plen output_bridge [GW]\fR"
-Adds ipv4_address/plen route to vswitchd routing table. output_bridge
+.IP "\fBovs/route/add \fIip\fB/\fIplen\fB \fIoutput_bridge\fB \
+[\fIgw\fB] [pkt_mark=\fImark\fB] [src=\fIsrc_ip\fB]\fR"
+Adds \fIip\fR/\fIplen\fR route to vswitchd routing table. \fIoutput_bridge\fR
 needs to be OVS bridge name.  This command is useful if OVS cached
 routes does not look right.
 .
@@ -1831,8 +1864,8 @@ routes does not look right.
 Print all routes in OVS routing table, This includes routes cached
 from system routing table and user configured routes.
 .
-.IP "\fBovs/route/del ipv4_address/plen\fR"
-Delete ipv4_address/plen route from OVS routing table.
+.IP "\fBovs/route/del ip/plen [pkt_mark=mark]\fR"
+Delete ip/plen route from OVS routing table.
 .
 .IP "\fBtnl/neigh/show\fR"
 .IP "\fBtnl/arp/show\fR"

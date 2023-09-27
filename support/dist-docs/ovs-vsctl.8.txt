@@ -1017,7 +1017,7 @@ COMMANDS
               With  --if-exists,  this command does nothing if record does not
               exist.
 
-       [--id=@name] create table column[:key]=value...
+       [--id=(@name | uuid] create table column[:key]=value...
               Creates a new record in table and sets  the  initial  values  of
               each  column.  Columns not explicitly set will receive their de‐
               fault values.  Outputs the UUID of the new row.
@@ -1027,19 +1027,22 @@ COMMANDS
               tion in contexts where a UUID is expected.  Such references  may
               precede or follow the create command.
 
+              If a valid uuid is specified, then it is used as the UUID of the
+              new row.
+
               Caution (ovs-vsctl as example)
                      Records in the Open vSwitch database are significant only
-                     when they can be reached directly or indirectly from  the
-                     Open_vSwitch  table.   Except  for  records in the QoS or
-                     Queue tables, records that are  not  reachable  from  the
-                     Open_vSwitch  table  are  automatically  deleted from the
-                     database.  This  deletion  happens  immediately,  without
-                     waiting  for additional ovs-vsctl commands or other data‐
-                     base activity.  Thus, a create command must generally  be
-                     accompanied   by  additional  commands  within  the  same
-                     ovs-vsctl invocation to add a chain of references to  the
-                     newly  created  record  from  the  top-level Open_vSwitch
-                     record.  The EXAMPLES section gives  some  examples  that
+                     when  they can be reached directly or indirectly from the
+                     Open_vSwitch table.  Except for records  in  the  QoS  or
+                     Queue  tables,  records  that  are not reachable from the
+                     Open_vSwitch table are  automatically  deleted  from  the
+                     database.   This  deletion  happens  immediately, without
+                     waiting for additional ovs-vsctl commands or other  data‐
+                     base  activity.  Thus, a create command must generally be
+                     accompanied  by  additional  commands  within  the   same
+                     ovs-vsctl  invocation to add a chain of references to the
+                     newly created  record  from  the  top-level  Open_vSwitch
+                     record.   The  EXAMPLES  section gives some examples that
                      show how to do this.
 
        [--if-exists] destroy table record...
@@ -1051,40 +1054,40 @@ COMMANDS
 
               Caution (ovs-vsctl as example)
                      The destroy command is only useful for records in the QoS
-                     or  Queue  tables.  Records in other tables are automati‐
+                     or Queue tables.  Records in other tables  are  automati‐
                      cally deleted from the database when they become unreach‐
                      able from the Open_vSwitch table.  This means that delet‐
-                     ing the last reference to  a  record  is  sufficient  for
+                     ing  the  last  reference  to  a record is sufficient for
                      deleting the record itself.  For records in these tables,
-                     destroy is silently ignored.  See  the  EXAMPLES  section
+                     destroy  is  silently  ignored.  See the EXAMPLES section
                      below for more information.
 
        wait-until table record [column[:key]=value]...
-              Waits  until  table  contains a record named record whose column
-              equals value or, if key is specified, whose  column  contains  a
-              key  with  the  specified value.  This command supports the same
+              Waits until table contains a record named  record  whose  column
+              equals  value  or,  if key is specified, whose column contains a
+              key with the specified value.  This command  supports  the  same
               operators and semantics described for the find command above.
 
               If no column[:key]=value arguments are given, this command waits
-              only  until  record  exists.   If more than one such argument is
+              only until record exists.  If more than  one  such  argument  is
               given, the command waits until all of them are satisfied.
 
               Caution (ovs-vsctl as example)
                      Usually wait-until should be placed at the beginning of a
                      set  of  ovs-vsctl  commands.   For  example,  wait-until
-                     bridge br0 -- get bridge br0 datapath_id  waits  until  a
-                     bridge  named br0 is created, then prints its datapath_id
-                     column, whereas get bridge br0 datapath_id --  wait-until
-                     bridge  br0 will abort if no bridge named br0 exists when
+                     bridge  br0  --  get bridge br0 datapath_id waits until a
+                     bridge named br0 is created, then prints its  datapath_id
+                     column,  whereas get bridge br0 datapath_id -- wait-until
+                     bridge br0 will abort if no bridge named br0 exists  when
                      ovs-vsctl initially connects to the database.
 
               Consider specifying --timeout=0 along with --wait-until, to pre‐
-              vent  ovs-vsctl  from  terminating  after waiting only at most 5
+              vent ovs-vsctl from terminating after waiting  only  at  most  5
               seconds.
 
        comment [arg]...
-              This command has no effect on behavior,  but  any  database  log
-              record  created  by the command will include the command and its
+              This  command  has  no  effect on behavior, but any database log
+              record created by the command will include the command  and  its
               arguments.
 
 EXAMPLES
@@ -1105,12 +1108,12 @@ EXAMPLES
 
               ovs-vsctl --if-exists del-br br0
 
-       Set the qos column of the Port record for eth0 to point to  a  new  QoS
+       Set  the  qos  column of the Port record for eth0 to point to a new QoS
        record, which in turn points with its queue 0 to a new Queue record:
 
-              ovs-vsctl  --  set  port eth0 qos=@newqos -- --id=@newqos create
+              ovs-vsctl -- set port eth0 qos=@newqos  --  --id=@newqos  create
               qos         type=linux-htb         other-config:max-rate=1000000
-              queues:0=@newqueue  --  --id=@newqueue  create  queue other-con‐
+              queues:0=@newqueue --  --id=@newqueue  create  queue  other-con‐
               fig:min-rate=1000000 other-config:max-rate=1000000
 
 CONFIGURATION COOKBOOK
@@ -1118,19 +1121,19 @@ CONFIGURATION COOKBOOK
        Add an ``internal port'' vlan10 to bridge br0 as a VLAN access port for
        VLAN 10, and configure it with an IP address:
 
-              ovs-vsctl  add-port  br0  vlan10  tag=10 -- set Interface vlan10
+              ovs-vsctl add-port br0 vlan10 tag=10  --  set  Interface  vlan10
               type=internal
 
               ip addr add 192.168.0.123/24 dev vlan10
 
        Add a GRE tunnel port gre0 to remote IP address 1.2.3.4 to bridge br0:
 
-              ovs-vsctl add-port br0 gre0 -- set Interface gre0  type=gre  op‐
+              ovs-vsctl  add-port  br0 gre0 -- set Interface gre0 type=gre op‐
               tions:remote_ip=1.2.3.4
 
    Port Mirroring
        Mirror all packets received or sent on eth0 or eth1 onto eth2, assuming
-       that all of those ports exist on bridge  br0  (as  a  side-effect  this
+       that  all  of  those  ports  exist on bridge br0 (as a side-effect this
        causes any packets received on eth2 to be ignored):
 
               ovs-vsctl -- set Bridge br0 mirrors=@m \
@@ -1141,10 +1144,10 @@ CONFIGURATION COOKBOOK
 
               -- --id=@eth2 get Port eth2 \
 
-              --    --id=@m    create    Mirror    name=mymirror   select-dst-
+              --   --id=@m    create    Mirror    name=mymirror    select-dst-
               port=@eth0,@eth1 select-src-port=@eth0,@eth1 output-port=@eth2
 
-       Remove the mirror created above from br0, which also destroys the  Mir‐
+       Remove  the mirror created above from br0, which also destroys the Mir‐
        ror record (since it is now unreferenced):
 
               ovs-vsctl -- --id=@rec get Mirror mymirror \
@@ -1163,7 +1166,7 @@ CONFIGURATION COOKBOOK
 
               -- set Port eth1 qos=@newqos \
 
-              --   --id=@newqos   create   QoS    type=linux-htb    other-con‐
+              --    --id=@newqos    create   QoS   type=linux-htb   other-con‐
               fig:max-rate=1000000000 queues=0=@q0,1=@q1 \
 
               --   --id=@q0   create   Queue   other-config:min-rate=100000000
@@ -1175,16 +1178,16 @@ CONFIGURATION COOKBOOK
 
               ovs-vsctl clear Port eth1 qos
 
-       To deconfigure the QoS record from both eth0 and eth1 and  then  delete
-       the  QoS record (which must be done explicitly because unreferenced QoS
+       To  deconfigure  the QoS record from both eth0 and eth1 and then delete
+       the QoS record (which must be done explicitly because unreferenced  QoS
        records are not automatically destroyed):
 
-              ovs-vsctl -- destroy QoS eth0 -- clear Port eth0  qos  --  clear
+              ovs-vsctl  --  destroy  QoS eth0 -- clear Port eth0 qos -- clear
               Port eth1 qos
 
-       (This  command  will  leave two unreferenced Queue records in the data‐
-       base.  To delete them, use "ovs-vsctl list Queue" to find their  UUIDs,
-       then  "ovs-vsctl  destroy Queue uuid1 uuid2" to destroy each of them or
+       (This command will leave two unreferenced Queue records  in  the  data‐
+       base.   To delete them, use "ovs-vsctl list Queue" to find their UUIDs,
+       then "ovs-vsctl destroy Queue uuid1 uuid2" to destroy each of  them  or
        use "ovs-vsctl -- --all destroy Queue" to delete all records.)
 
    Connectivity Monitoring
@@ -1197,12 +1200,12 @@ CONFIGURATION COOKBOOK
               ovs-vsctl clear Interface eth0 cfm_mpid
 
    NetFlow
-       Configure bridge br0 to send NetFlow records to UDP port 5566  on  host
+       Configure  bridge  br0 to send NetFlow records to UDP port 5566 on host
        192.168.0.34, with an active timeout of 30 seconds:
 
               ovs-vsctl -- set Bridge br0 netflow=@nf \
 
-              --  --id=@nf  create  NetFlow  targets=\"192.168.0.34:5566\" ac‐
+              -- --id=@nf  create  NetFlow  targets=\"192.168.0.34:5566\"  ac‐
               tive-timeout=30
 
        Update the NetFlow configuration created by the previous command to in‐
@@ -1216,11 +1219,11 @@ CONFIGURATION COOKBOOK
               ovs-vsctl clear Bridge br0 netflow
 
    sFlow
-       Configure bridge br0 to send sFlow records to a collector  on  10.0.0.1
+       Configure  bridge  br0 to send sFlow records to a collector on 10.0.0.1
        at port 6343, using eth1's IP address as the source, with specific sam‐
        pling parameters:
 
-              ovs-vsctl   --   --id=@s   create    sFlow    agent=eth1    tar‐
+              ovs-vsctl    --    --id=@s    create   sFlow   agent=eth1   tar‐
               get=\"10.0.0.1:6343\" header=128 sampling=64 polling=10 \
 
               -- set Bridge br0 sflow=@s
@@ -1232,22 +1235,22 @@ CONFIGURATION COOKBOOK
 
    IPFIX
        Configure bridge br0 to send one IPFIX flow record per packet sample to
-       UDP  port 4739 on host 192.168.0.34, with Observation Domain ID 123 and
-       Observation Point ID 456, a flow cache active timeout of 1  minute  (60
-       seconds),  maximum  flow  cache  size of 13 flows, and flows sampled on
-       output port with tunnel info(sampling on input and output port  is  en‐
+       UDP port 4739 on host 192.168.0.34, with Observation Domain ID 123  and
+       Observation  Point  ID 456, a flow cache active timeout of 1 minute (60
+       seconds), maximum flow cache size of 13 flows,  and  flows  sampled  on
+       output  port  with tunnel info(sampling on input and output port is en‐
        abled by default if not disabled) :
 
               ovs-vsctl -- set Bridge br0 ipfix=@i \
 
-              --  --id=@i  create  IPFIX targets=\"192.168.0.34:4739\" obs_do‐
+              -- --id=@i create  IPFIX  targets=\"192.168.0.34:4739\"  obs_do‐
               main_id=123       obs_point_id=456       cache_active_timeout=60
               cache_max_flows=13 \
 
               other_config:enable-input-sampling=false    other_config:enable-
               tunnel-sampling=true
 
-       Deconfigure the IPFIX settings from br0, which also destroys the  IPFIX
+       Deconfigure  the IPFIX settings from br0, which also destroys the IPFIX
        record (since it is now unreferenced):
 
               ovs-vsctl clear Bridge br0 ipfix
@@ -1276,31 +1279,31 @@ CONFIGURATION COOKBOOK
 
        Set the multicast snooping aging time br0 to 300 seconds:
 
-              ovs-vsctl   set  Bridge  br0  other_config:mcast-snooping-aging-
+              ovs-vsctl  set  Bridge  br0   other_config:mcast-snooping-aging-
               time=300
 
        Set the multicast snooping table size br0 to 2048 entries:
 
-              ovs-vsctl  set  Bridge  br0   other_config:mcast-snooping-table-
+              ovs-vsctl   set  Bridge  br0  other_config:mcast-snooping-table-
               size=2048
 
-       Disable  flooding  of unregistered multicast packets to all ports. When
-       set to true, the switch will send unregistered multicast  packets  only
-       to  ports  connected to multicast routers. When it is set to false, the
-       switch will send them to all ports. This command disables the flood  of
+       Disable flooding of unregistered multicast packets to all  ports.  When
+       set  to  true, the switch will send unregistered multicast packets only
+       to ports connected to multicast routers. When it is set to  false,  the
+       switch  will send them to all ports. This command disables the flood of
        unregistered packets on bridge br0.
 
-              ovs-vsctl  set  Bridge  br0 other_config:mcast-snooping-disable-
+              ovs-vsctl set  Bridge  br0  other_config:mcast-snooping-disable-
               flood-unregistered=true
 
-       Enable flooding of multicast packets (except  Reports)  on  a  specific
+       Enable  flooding  of  multicast  packets (except Reports) on a specific
        port.
 
               ovs-vsctl set Port eth1 other_config:mcast-snooping-flood=true
 
        Enable flooding of Reports on a specific port.
 
-              ovs-vsctl  set  Port  eth1 other_config:mcast-snooping-flood-re‐
+              ovs-vsctl set  Port  eth1  other_config:mcast-snooping-flood-re‐
               ports=true
 
        Deconfigure multicasting snooping from above:
@@ -1308,46 +1311,46 @@ CONFIGURATION COOKBOOK
               ovs-vsctl set Bridge br0 mcast_snooping_enable=false
 
    802.1D-2004 Rapid Spanning Tree Protocol (RSTP)
-       Configure bridge br0 to participate in an  802.1D-2004  Rapid  Spanning
+       Configure  bridge  br0  to participate in an 802.1D-2004 Rapid Spanning
        Tree:
 
               ovs-vsctl set Bridge br0 rstp_enable=true
 
        Set the bridge address of br0 to 00:aa:aa:aa:aa:aa :
 
-              ovs-vsctl      set      Bridge     br0     other_config:rstp-ad‐
+              ovs-vsctl     set     Bridge      br0      other_config:rstp-ad‐
               dress=00:aa:aa:aa:aa:aa
 
-       Set the bridge priority of br0 to 0x7000. The value must  be  specified
-       in  decimal  notation  and  should be a multiple of 4096 (if not, it is
-       rounded down to the nearest multiple of  4096).  The  default  priority
+       Set  the  bridge priority of br0 to 0x7000. The value must be specified
+       in decimal notation and should be a multiple of 4096  (if  not,  it  is
+       rounded  down  to  the  nearest multiple of 4096). The default priority
        value is 0x800 (32768).
 
               ovs-vsctl set Bridge br0 other_config:rstp-priority=28672
 
-       Set  the  bridge  ageing  time  of br0 to 1000 s. The ageing time value
+       Set the bridge ageing time of br0 to 1000  s.  The  ageing  time  value
        should be between 10 s and 1000000 s. The default value is 300 s.
 
               ovs-vsctl set Bridge br0 other_config:rstp-ageing-time=1000
 
-       Set the bridge force protocol version of br0 to 0. The  force  protocol
-       version  has  two  acceptable  values: 0 (STP compatibility mode) and 2
+       Set  the  bridge force protocol version of br0 to 0. The force protocol
+       version has two acceptable values: 0 (STP  compatibility  mode)  and  2
        (normal operation).
 
-              ovs-vsctl set Bridge  br0  other_config:rstp-force-protocol-ver‐
+              ovs-vsctl  set  Bridge br0 other_config:rstp-force-protocol-ver‐
               sion=0
 
-       Set  the bridge max age of br0 to 10 s. The max age value should be be‐
+       Set the bridge max age of br0 to 10 s. The max age value should be  be‐
        tween 6 s and 40 s. The default value is 20 s.
 
               ovs-vsctl set Bridge br0 other_config:rstp-max-age=10
 
-       Set the bridge forward delay of br0 to 15 s.  This value should be  be‐
+       Set  the bridge forward delay of br0 to 15 s.  This value should be be‐
        tween 4 s and 30 s. The default value is 15 s.
 
               ovs-vsctl set Bridge br0 other_config:rstp-forward-delay=15
 
-       Set  the bridge transmit hold count of br0 to 7 s. This value should be
+       Set the bridge transmit hold count of br0 to 7 s. This value should  be
        between 1 s and 10 s. The default value is 6 s.
 
               ovs-vsctl set Bridge br0 other_config:rstp-transmit-hold-count=7
@@ -1360,8 +1363,8 @@ CONFIGURATION COOKBOOK
 
               ovs-vsctl set Port eth0 other_config:rstp-enable=false
 
-       Set the priority of port eth0 to 32. The value  must  be  specified  in
-       decimal  notation and should be a multiple of 16 (if not, it is rounded
+       Set  the  priority  of  port eth0 to 32. The value must be specified in
+       decimal notation and should be a multiple of 16 (if not, it is  rounded
        down to the nearest multiple of 16). The default priority value is 0x80
        (128).
 
@@ -1384,13 +1387,13 @@ CONFIGURATION COOKBOOK
               ovs-vsctl set Port eth0 other_config:rstp-port-auto-edge=true
 
        Set the admin point to point MAC value of port eth0.  Acceptable values
-       are 0 (not point-to-point), 1 (point-to-point, the default value) or  2
+       are  0 (not point-to-point), 1 (point-to-point, the default value) or 2
        (automatic detection).  The auto-detection mode is not currently imple‐
        mented, and the value 2 has the same effect of 0 (not point-to-point).
 
               ovs-vsctl set Port eth0 other_config:rstp-admin-p2p-mac=1
 
-       Set the admin port state value of  port  eth0.   true  is  the  default
+       Set  the  admin  port  state  value  of port eth0.  true is the default
        value.
 
               ovs-vsctl set Port eth0 other_config:rstp-admin-port-state=false
@@ -1406,20 +1409,20 @@ CONFIGURATION COOKBOOK
    OpenFlow Version
        Configure bridge br0 to support OpenFlow versions 1.0, 1.2, and 1.3:
 
-              ovs-vsctl  set  bridge br0 protocols=OpenFlow10,OpenFlow12,Open‐
+              ovs-vsctl set bridge  br0  protocols=OpenFlow10,OpenFlow12,Open‐
               Flow13
 
    Flow Table Configuration
        Make flow table 0 on bridge br0 refuse to accept more than 100 flows:
 
-              ovs-vsctl -- --id=@ft  create  Flow_Table  flow_limit=100  over‐
+              ovs-vsctl  --  --id=@ft  create  Flow_Table flow_limit=100 over‐
               flow_policy=refuse -- set Bridge br0 flow_tables=0=@ft
 
        Make flow table 0 on bridge br0 evict flows, with fairness based on the
        matched ingress port, when there are more than 100:
 
-              ovs-vsctl -- --id=@ft  create  Flow_Table  flow_limit=100  over‐
-              flow_policy=evict  groups='"NXM_OF_IN_PORT[]"' -- set Bridge br0
+              ovs-vsctl  --  --id=@ft  create  Flow_Table flow_limit=100 over‐
+              flow_policy=evict groups='"NXM_OF_IN_PORT[]"' -- set Bridge  br0
               flow_tables:0=@ft
 
 EXIT STATUS
@@ -1427,7 +1430,7 @@ EXIT STATUS
 
        1      Usage, syntax, or configuration file error.
 
-       2      The bridge argument to br-exists specified the name of a  bridge
+       2      The  bridge argument to br-exists specified the name of a bridge
               that does not exist.
 
 SEE ALSO
@@ -1435,4 +1438,4 @@ SEE ALSO
 
 
 
-Open vSwitch                         3.0.0                        ovs-vsctl(8)
+Open vSwitch                         3.2.0                        ovs-vsctl(8)
