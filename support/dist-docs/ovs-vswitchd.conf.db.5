@@ -1,6 +1,6 @@
 '\" p
 .\" -*- nroff -*-
-.TH "ovs-vswitchd.conf.db" 5 " DB Schema 8.4.0" "Open vSwitch 3.2.2" "Open vSwitch Manual"
+.TH "ovs-vswitchd.conf.db" 5 " DB Schema 8.5.0" "Open vSwitch 3.3.0" "Open vSwitch Manual"
 .fp 5 L CR              \\" Make fixed-width font available as \\fL.
 .de TQ
 .  br
@@ -368,7 +368,7 @@ optional string, containing an integer, in range 0 to 100
 optional string, containing an integer, in range 0 to 100
 .TQ 2.75in
 \fBother_config : pmd-sleep-max\fR
-optional string, containing an integer, in range 0 to 10,000
+optional string
 .TQ 2.75in
 \fBother_config : userspace-tso-enable\fR
 optional string, either \fBtrue\fR or \fBfalse\fR
@@ -748,7 +748,7 @@ Specifies the minimum evaluated % improvement in load distribution across the no
 Note, setting this parameter to 0 will always allow an auto load balance to occur regardless of estimated improvement or not\[char46]
 .IP
 The default value is \fB25%\fR\[char46]
-.IP "\fBother_config : pmd-sleep-max\fR: optional string, containing an integer, in range 0 to 10,000"
+.IP "\fBother_config : pmd-sleep-max\fR: optional string"
 Specifies the maximum sleep time that will be requested in microseconds per iteration for a PMD thread which has received zero or a small amount of packets from the Rx queues it is polling\[char46]
 .IP
 The actual sleep time requested is based on the load of the Rx queues that the PMD polls and may be less than the maximum value\[char46]
@@ -756,6 +756,23 @@ The actual sleep time requested is based on the load of the Rx queues that the P
 The default value is \fB0 microseconds\fR, which means that the PMD will not sleep regardless of the load from the Rx queues that it polls\[char46]
 .IP
 The maximum value is \fB10000 microseconds\fR\[char46]
+.IP
+\fBother_config:pmd\-sleep\-max=<pmd\-sleep\-list>\fR
+.IP
+where
+.IP
+.RS
+.IP \(bu
+<pmd-sleep-list> ::= NULL | <non-empty-list>
+.IP \(bu
+<non-empty-list> ::= <pmd-sleep-value> | <pmd-sleep-value> , <non-empty-list>
+.IP \(bu
+<pmd-sleep-value> ::= <global-default-sleep-value> | <pmd-core-sleep-pair>
+.IP \(bu
+<global-default-sleep-value> ::= <max-sleep-time>
+.IP \(bu
+<pmd-core-sleep-pair> ::= <core> : <max-sleep-time>
+.RE
 .IP "\fBother_config : userspace-tso-enable\fR: optional string, either \fBtrue\fR or \fBfalse\fR"
 Set this value to \fBtrue\fR to enable userspace support for TCP Segmentation Offloading (TSO)\[char46] When it is enabled, the interfaces can provide an oversized TCP segment to the datapath and the datapath will offload the TCP segmentation and checksum calculation to the interfaces when necessary\[char46]
 .IP
@@ -2199,6 +2216,15 @@ optional string
 \fBstatus : max_vmdq_pools\fR
 optional string
 .TQ 2.50in
+\fBstatus : n_rxq\fR
+optional string
+.TQ 2.50in
+\fBstatus : n_txq\fR
+optional string
+.TQ 2.50in
+\fBstatus : rx_csum_offload\fR
+optional string
+.TQ 2.50in
 \fBstatus : if_type\fR
 optional string
 .TQ 2.50in
@@ -2211,7 +2237,7 @@ optional string
 \fBstatus : dpdk-vf-mac\fR
 optional string
 .TQ 2.50in
-\fBstatus : rx_steering\fR
+\fBstatus : rx-steering\fR
 optional string
 .TQ 2.50in
 \fBstatus : rx_steering_queue\fR
@@ -2246,6 +2272,13 @@ optional string
 optional string
 .TQ 2.50in
 \fBstatus : userspace-tso\fR
+optional string
+.RE
+.TQ .25in
+\fIafxdp:\fR
+.RS .25in
+.TQ 2.50in
+\fBstatus : xdp-mode\fR
 optional string
 .RE
 .RE
@@ -2979,6 +3012,12 @@ Maximum number of hash MAC addresses for MTA and UTA\[char46]
 Maximum number of hash MAC addresses for MTA and UTA\[char46] Maximum number of VFs\[char46]
 .IP "\fBstatus : max_vmdq_pools\fR: optional string"
 Maximum number of VMDq pools\[char46]
+.IP "\fBstatus : n_rxq\fR: optional string"
+Number of Rx queues\[char46]
+.IP "\fBstatus : n_txq\fR: optional string"
+Number of Tx queues\[char46]
+.IP "\fBstatus : rx_csum_offload\fR: optional string"
+Whether Rx Checksum offload is enabled or not\[char46]
 .IP "\fBstatus : if_type\fR: optional string"
 Interface type ID according to IANA ifTYPE MIB definitions\[char46]
 .IP "\fBstatus : if_descr\fR: optional string"
@@ -2987,7 +3026,7 @@ Interface description string\[char46]
 Bus name and bus info such as Vendor ID and Device ID of PCI device\[char46]
 .IP "\fBstatus : dpdk-vf-mac\fR: optional string"
 Ethernet address set for this VF interface\[char46] Only reported for dpdk VF representors\[char46]
-.IP "\fBstatus : rx_steering\fR: optional string"
+.IP "\fBstatus : rx-steering\fR: optional string"
 Hardware Rx queue steering policy in use\[char46]
 .IP "\fBstatus : rx_steering_queue\fR: optional string"
 ID of rx steering queue\[char46] Only reported if \fBrx\-steering\fR is supported by hardware\[char46]
@@ -3014,6 +3053,13 @@ Status of connection to the device\[char46]
 Each virtqueue will have it\(cqs size reported, where n is the virtqueue number from 0\[char46]\[char46](num_of_vrings\-1)\[char46]
 .IP "\fBstatus : userspace-tso\fR: optional string"
 Whether userspace-tso is enabled or disabled\[char46]
+.ST "afxdp:"
+.PP
+.PP
+.PP
+AF_XDP specific interface status options\[char46]
+.IP "\fBstatus : xdp-mode\fR: optional string"
+XDP mode currently in use\[char46] See \fBoptions:xdp-mode\fR for description of possible values\[char46]
 .ST "Statistics:"
 .PP
 .PP
@@ -4424,6 +4470,9 @@ optional string, either \fBtrue\fR or \fBfalse\fR
 \fBcapabilities : ct_flush\fR
 optional string, either \fBtrue\fR or \fBfalse\fR
 .RE
+.TQ 3.00in
+\fBct_zone_default_limit\fR
+optional integer, in range 0 to 4,294,967,295
 .TQ .25in
 \fICommon Columns:\fR
 .RS .25in
@@ -4530,6 +4579,8 @@ True if the datapath supports OVS_ACTION_ATTR_DROP\[char46] If false, explicit d
 True if the datapath supports all-zero SNAT\[char46] This is a special case if the \fBsrc\fR IP address is configured as all 0\(cqs, i\[char46]e\[char46], \fBnat(src=0\[char46]0\[char46]0\[char46]0)\fR\[char46] In this case, when a source port collision is detected during the commit, the source port will be translated to an ephemeral port\[char46] If there is no collision, no SNAT is performed\[char46]
 .IP "\fBcapabilities : ct_flush\fR: optional string, either \fBtrue\fR or \fBfalse\fR"
 True if the datapath supports CT flush OpenFlow Nicira extension called \fBNXT_CT_FLUSH\fR\[char46] The \fBNXT_CT_FLUSH\fR extensions allows to flush CT entries based on specified parameters\[char46]
+.IP "\fBct_zone_default_limit\fR: optional integer, in range 0 to 4,294,967,295"
+Default connection tracking zone limit that is applied to all zones that didn\(cqt specify the \fBlimit\fR explicitly\[char46] If the limit is unspecified the default limit configuration for the datapath is left intact\[char46] The value 0 means unlimited\[char46]
 .ST "Common Columns:"
 .PP
 The overall purpose of these columns is described under \fBCommon
@@ -4543,6 +4594,9 @@ Connection tracking zone configuration
 .TQ 3.00in
 \fBtimeout_policy\fR
 optional \fBCT_Timeout_Policy\fR
+.TQ 3.00in
+\fBlimit\fR
+optional integer, in range 0 to 4,294,967,295
 .TQ .25in
 \fICommon Columns:\fR
 .RS .25in
@@ -4553,6 +4607,8 @@ map of string-string pairs
 .SS "Details:
 .IP "\fBtimeout_policy\fR: optional \fBCT_Timeout_Policy\fR"
 Connection tracking timeout policy for this zone\[char46] If a timeout policy is not specified, it defaults to the timeout policy in the system\[char46]
+.IP "\fBlimit\fR: optional integer, in range 0 to 4,294,967,295"
+Connection tracking limit for this zone\[char46] If the limit is unspecified the \fBct_zone_default_limit\fR will be used\[char46] The value 0 means unlimited\[char46]
 .ST "Common Columns:"
 .PP
 The overall purpose of these columns is described under \fBCommon

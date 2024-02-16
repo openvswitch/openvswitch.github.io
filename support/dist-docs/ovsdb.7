@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "OVSDB" "7" "Feb 08, 2024" "3.2" "Open vSwitch"
+.TH "OVSDB" "7" "Feb 17, 2024" "3.3" "Open vSwitch"
 .SH NAME
 ovsdb \- Open vSwitch Database (Overview)
 .SH DESCRIPTION
@@ -150,6 +150,30 @@ To configure a client, such as \fBovs\-vswitchd\fP or \fBovs\-vsctl\fP, to use a
 standalone database, configure the server to listen on a “connection method”
 that the client can reach, then point the client to that connection method.
 See \fI\%Connection Methods\fP below for information about connection methods.
+.sp
+Open vSwitch 3.3 introduced support for configuration files via
+\fB\-\-config\-file\fP command line option.  The configuration file for a server
+with a \fBstandalone\fP database may look like this:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+    \(dqremotes\(dq: { \(dq<connection method>\(dq: {} },
+    \(dqdatabases\(dq: { \(dq<database file>\(dq: {} }
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+\fBovsdb\-server\fP will infer the service model from the database file itself.
+However, if additional verification is desired, an optional
+\fB\(dqservice\-model\(dq: \(dqstandalone\(dq\fP can be provided for the database file inside
+the inner curly braces.  If the specified \fBservice\-model\fP will not match the
+content of the database file, \fBovsdb\-server\fP will refuse to open this
+database.
 .SS Active\-Backup Database Service Model
 .sp
 An \fBactive\-backup\fP database runs two servers (on different hosts).  At any
@@ -171,10 +195,44 @@ database file from the active server.  Then use
 connects to the active server.  At that point, the backup server will fetch a
 copy of the active database and keep it up\-to\-date until it is killed.
 .sp
+Open vSwitch 3.3 introduced support for configuration files via
+\fB\-\-config\-file\fP command line option.  The configuration file for a backup
+server in this case may look like this:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+    \(dqremotes\(dq: { \(dq<connection method>\(dq: {} },
+    \(dqdatabases\(dq: {
+        \(dq<database file>\(dq: {
+            \(dqservice\-model\(dq: \(dqactive\-backup\(dq,
+            \(dqbackup\(dq: true,
+            \(dqsource\(dq: {
+                \(dq<active>\(dq: {
+                    \(dqinactivity\-probe\(dq: <integer>,
+                    \(dqmax\-backoff\(dq: <integer>
+                }
+            }
+        }
+    }
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+All the fields in the \fB\(dq<database file>\(dq\fP description above are required.
+Options for the \fB\(dq<active>\(dq\fP connection method (\fB\(dqinactivity\-probe\(dq\fP, etc.)
+can be omitted.
+.sp
 When the active server in an active\-backup server pair fails, an administrator
 can switch the backup server to an active role with the \fBovs\-appctl\fP command
 \fBovsdb\-server/disconnect\-active\-ovsdb\-server\fP\&.  Clients then have read/write
-access to the now\-active server.  Of course, administrators are slow to respond
+access to the now\-active server.  When the \fB\-\-config\-file\fP is in use, the
+same can be achieved by changing the \fB\(dqbackup\(dq\fP value in the file and running
+\fBovsdb\-server/reload\fP command.  Of course, administrators are slow to respond
 compared to software, so in practice external management software detects the
 active server’s failure and changes the backup server’s role.  For example, the
 “Integration Guide for Centralized Control” in the OVN documentation describes
@@ -230,6 +288,30 @@ To set up a clustered database, first initialize it on a single node by running
 \fBovsdb\-tool create\-cluster\fP, then start \fBovsdb\-server\fP\&.  Depending on its
 arguments, the \fBcreate\-cluster\fP command can create an empty database or copy
 a standalone database’s contents into the new database.
+.sp
+Open vSwitch 3.3 introduced support for configuration files via
+\fB\-\-config\-file\fP command line option.  The configuration file for a server
+with a \fBclustered\fP database may look like this:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+    \(dqremotes\(dq: { \(dq<connection method>\(dq: {} },
+    \(dqdatabases\(dq: { \(dq<database file>\(dq: {} }
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+\fBovsdb\-server\fP will infer the service model from the database file itself.
+However, if additional verification is desired, an optional
+\fB\(dqservice\-model\(dq: \(dqclustered\(dq\fP can be provided for the database file inside
+the inner curly braces.  If the specified \fBservice\-model\fP will not match the
+content of the database file, \fBovsdb\-server\fP will refuse to open this
+database.
 .sp
 To configure a client to use a clustered database, first configure all of the
 servers to listen on a connection method that the client can reach, then point
@@ -499,6 +581,37 @@ server.  \fB<relay source>\fP could contain a comma\-separated list of connectio
 methods, e.g. to connect to any server of the clustered database.
 Multiple relay servers could be started for the same relay source.
 .sp
+Open vSwitch 3.3 introduced support for configuration files via
+\fB\-\-config\-file\fP command line option.  The configuration file for a relay
+database server in this case may look like this:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+    \(dqremotes\(dq: { \(dq<connection method>\(dq: {} },
+    \(dqdatabases\(dq: {
+        \(dq<DB_NAME>\(dq: {
+            \(dqservice\-model\(dq: \(dqrelay\(dq,
+            \(dqsource\(dq: {
+                \(dq<relay source>\(dq: {
+                    \(dqinactivity\-probe\(dq: <integer>,
+                    \(dqmax\-backoff\(dq: <integer>
+                }
+            }
+        }
+    }
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Both the \fB\(dqservice\-model\(dq\fP and the \fB\(dqsource\(dq\fP are required.  Options for
+the \fB\(dq<relay source>\(dq\fP connection method (\fB\(dqinactivity\-probe\(dq\fP, etc.)
+can be omitted.
+.sp
 Since the way relays handle read and write transactions is very similar
 to the clustered model where “cluster” means “set of relay servers connected
 to the same relay source”, “follower” means “relay server” and the “leader”
@@ -619,7 +732,8 @@ a database using the Open vSwitch implementation of OVSDB.
 .sp
 Creating and starting up the service for a new database was covered
 separately for each database service model in the \fI\%Service
-Models\fP section, above.
+Models\fP section, above.  A single \fBovsdb\-server\fP process may serve
+any number of databases with different service models at the same time.
 .SS Backing Up and Restoring a Database
 .sp
 OVSDB is often used in contexts where the database contents are not
