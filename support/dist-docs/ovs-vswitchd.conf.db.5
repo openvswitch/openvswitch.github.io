@@ -1,6 +1,6 @@
 '\" p
 .\" -*- nroff -*-
-.TH "ovs-vswitchd.conf.db" 5 " DB Schema 8.5.0" "Open vSwitch 3.3.1" "Open vSwitch Manual"
+.TH "ovs-vswitchd.conf.db" 5 " DB Schema 8.7.0" "Open vSwitch 3.4.0" "Open vSwitch Manual"
 .fp 5 L CR              \\" Make fixed-width font available as \\fL.
 .de TQ
 .  br
@@ -371,6 +371,9 @@ optional string, containing an integer, in range 0 to 100
 optional string
 .TQ 2.75in
 \fBother_config : userspace-tso-enable\fR
+optional string, either \fBtrue\fR or \fBfalse\fR
+.TQ 2.75in
+\fBother_config : explicit-sampled-drops\fR
 optional string, either \fBtrue\fR or \fBfalse\fR
 .RE
 .TQ .25in
@@ -781,6 +784,14 @@ The default value is \fBfalse\fR\[char46] Changing this value requires restartin
 The feature only works if Open vSwitch is built with DPDK support\[char46]
 .IP
 The feature is considered experimental\[char46]
+.IP "\fBother_config : explicit-sampled-drops\fR: optional string, either \fBtrue\fR or \fBfalse\fR"
+When a flow is installed in the datapath with an empty action list, it indicates an implicit \(dqdrop\(dq action\[char46] Most datapaths report this for event for statistics and monitoring (in datapath-specific ways)\[char46]
+.IP
+However, if any of the per-bridge or per-flow sampling functionalities are enabled (e\[char46]g: sFlow, IPFIX, local sampling), the action list might not be empty, but contain an action to implement such functionality\[char46] This makes the datapaths not report the packet drop\[char46]
+.IP
+This knob makes Open vSwitch detect when the last datapath action comes from these sampling features and add an explicit drop action at the end to keep drop statistics accurate\[char46]
+.IP
+The default value is \fBfalse\fR\[char46]
 .ST "Status:"
 .PP
 .IP "\fBnext_cfg\fR: integer"
@@ -1764,7 +1775,7 @@ An integer hashed along with flows when choosing output members in load balanced
 .IP "\fBother_config : lb-output-action\fR: optional string, either \fBtrue\fR or \fBfalse\fR"
 Enable/disable usage of optimized \fBlb_output\fR action for balancing flows among output members in load balanced bonds in \fBbalance\-tcp\fR\[char46] When enabled, it uses optimized path for balance-tcp mode by using rss hash and avoids recirculation\[char46] This knob does not affect other balancing modes\[char46]
 .IP "\fBother_config : bond-primary\fR: optional string"
-If a slave interface with this name exists in the bond and is up, it will be made active\[char46] Relevant only when \fBother_config:bond_mode\fR is \fBactive\-backup\fR or if \fBbalance\-tcp\fR falls back to \fBactive\-backup\fR (e\[char46]g\[char46], LACP negotiation fails and \fBother_config:lacp-fallback-ab\fR is \fBtrue\fR)\[char46]
+If a member interface with this name exists in the bond and is up, it will be made active\[char46] Relevant only when \fBother_config:bond_mode\fR is \fBactive\-backup\fR or if \fBbalance\-tcp\fR falls back to \fBactive\-backup\fR (e\[char46]g\[char46], LACP negotiation fails and \fBother_config:lacp-fallback-ab\fR is \fBtrue\fR)\[char46]
 .IP "\fBother_config : all-members-active\fR: optional string, either \fBtrue\fR or \fBfalse\fR"
 Enable/Disable delivery of broadcast/multicast packets on secondary interface of a balance-slb bond\[char46] Relevant only when \fBlacp\fR is \fBoff\fR\[char46]
 .IP
@@ -2773,7 +2784,7 @@ Optional\[char46] A 4-byte sequence number field for GRE tunnel only\[char46] De
 .PP
 \fBgre\fR, \fBip6gre\fR, \fBgeneve\fR, \fBbareudp\fR and \fBvxlan\fR interfaces support these options\[char46]
 .IP "\fBoptions : csum\fR: optional string, either \fBtrue\fR or \fBfalse\fR"
-Optional\[char46] Compute encapsulation header (either GRE or UDP) checksums on outgoing packets\[char46] Default is disabled, set to \fBtrue\fR to enable\[char46] Checksums present on incoming packets will be validated regardless of this setting\[char46]
+Optional\[char46] Compute encapsulation header (either GRE or UDP) checksums on outgoing packets\[char46] When unset (the default value), checksum computing for outgoing packets is enabled for UDP IPv6 tunnels, and disabled for GRE and IPv4 UDP tunnels\[char46] When set to \fBfalse\fR, no checksums will be computed for outgoing tunnel encapsulation headers\[char46] When \fBtrue\fR, checksums will be computed for all outgoing tunnel encapsulation headers\[char46] Checksums present on incoming packets will be validated regardless of this setting\[char46] Incoming packets without a checksum will also be accepted regardless of this setting\[char46]
 .IP
 When using the upstream Linux kernel module, computation of checksums for \fBgeneve\fR and \fBvxlan\fR requires Linux kernel version 4\[char46]0 or higher\[char46] \fBgre\fR and \fBip6gre\fR support checksums for all versions of Open vSwitch that support GRE\[char46] The out of tree kernel module distributed as part of OVS can compute all tunnel checksums on any kernel version that it is compatible with\[char46]
 .ST "Tunnel Options: IPsec:"
@@ -3327,9 +3338,9 @@ Set to \fBtrue\fR to enable flow control auto negotiation on physical ports\[cha
 .ST "Link State Change detection mode:"
 .PP
 .IP "\fBoptions : dpdk-lsc-interrupt\fR: optional string, either \fBtrue\fR or \fBfalse\fR"
-Set this value to \fBtrue\fR to configure interrupt mode for Link State Change (LSC) detection instead of poll mode for the DPDK interface\[char46]
+Set this value to \fBfalse\fR to configure poll mode for Link State Change (LSC) detection instead of interrupt mode for the DPDK interface\[char46]
 .IP
-If this value is not set, poll mode is configured\[char46]
+If this value is not set, interrupt mode is configured\[char46]
 .IP
 This parameter has an effect only on netdev dpdk interfaces\[char46]
 .ST "Common Columns:"
@@ -3723,6 +3734,9 @@ set of weak reference to \fBPort\fRs
 .TQ 2.75in
 \fBselect_vlan\fR
 set of up to 4,096 integers, in range 0 to 4,095
+.TQ 2.75in
+\fBfilter\fR
+optional string
 .RE
 .TQ .25in
 \fIMirroring Destination Configuration:\fR
@@ -3770,6 +3784,10 @@ Ports on which departing packets are selected for mirroring\[char46]
 Ports on which arriving packets are selected for mirroring\[char46]
 .IP "\fBselect_vlan\fR: set of up to 4,096 integers, in range 0 to 4,095"
 VLANs on which packets are selected for mirroring\[char46] An empty set selects packets on all VLANs\[char46]
+.IP "\fBfilter\fR: optional string"
+When set, only packets that match \fBfilter\fR are selected for mirroring\[char46] Packets that do not match are ignored by thie mirror\[char46] The \fBfilter\fR syntax is described in \fBovs\-fields\fR(7)\[char46] However, the \fBin_port\fR field is not supported; \fBselect_src_port\fR should be used to limit the mirror to a source port\[char46]
+.IP
+This filter is applied after \fBselect_all\fR, \fBselect_dst_port\fR, \fBselect_src_port\fR, and \fBselect_vlan\fR\[char46]
 .ST "Mirroring Destination Configuration:"
 .PP
 .PP
@@ -4469,6 +4487,9 @@ optional string, either \fBtrue\fR or \fBfalse\fR
 .TQ 2.75in
 \fBcapabilities : ct_flush\fR
 optional string, either \fBtrue\fR or \fBfalse\fR
+.TQ 2.75in
+\fBcapabilities : psample\fR
+optional string, either \fBtrue\fR or \fBfalse\fR
 .RE
 .TQ 3.00in
 \fBct_zone_default_limit\fR
@@ -4510,7 +4531,7 @@ Number of 802\[char46]1q VLAN headers supported by the datapath, as probed by th
 .IP "\fBcapabilities : recirc\fR: optional string, either \fBtrue\fR or \fBfalse\fR"
 If this is true, then the datapath supports recirculation, specifically OVS_KEY_ATTR_RECIRC_ID\[char46] Recirculation enables higher performance for MPLS and active-active load balancing bonding modes\[char46]
 .IP "\fBcapabilities : lb_output_action\fR: optional string, either \fBtrue\fR or \fBfalse\fR"
-If this is true, then the datapath supports optimized balance-tcp bond mode\[char46] This capability replaces existing \fBhash\fR and \fBrecirc\fR actions with new action \fBlb_output\fR and avoids recirculation of packet in datapath\[char46] It is supported only for balance-tcp bond mode in netdev datapath\[char46] The new action gives higher performance by using bond buckets instead of post recirculation flows for selection of slave port from bond\[char46] By default this new action is disabled, however it can be enabled by setting \fBother-config:lb-output-action\fR in \fBPort\fR table\[char46]
+If this is true, then the datapath supports optimized balance-tcp bond mode\[char46] This capability replaces existing \fBhash\fR and \fBrecirc\fR actions with new action \fBlb_output\fR and avoids recirculation of packet in datapath\[char46] It is supported only for balance-tcp bond mode in netdev datapath\[char46] The new action gives higher performance by using bond buckets instead of post recirculation flows for selection of member port from bond\[char46] By default this new action is disabled, however it can be enabled by setting \fBother-config:lb-output-action\fR in \fBPort\fR table\[char46]
 .ST "Connection-Tracking Capabilities:"
 .PP
 .PP
@@ -4579,6 +4600,8 @@ True if the datapath supports OVS_ACTION_ATTR_DROP\[char46] If false, explicit d
 True if the datapath supports all-zero SNAT\[char46] This is a special case if the \fBsrc\fR IP address is configured as all 0\(cqs, i\[char46]e\[char46], \fBnat(src=0\[char46]0\[char46]0\[char46]0)\fR\[char46] In this case, when a source port collision is detected during the commit, the source port will be translated to an ephemeral port\[char46] If there is no collision, no SNAT is performed\[char46]
 .IP "\fBcapabilities : ct_flush\fR: optional string, either \fBtrue\fR or \fBfalse\fR"
 True if the datapath supports CT flush OpenFlow Nicira extension called \fBNXT_CT_FLUSH\fR\[char46] The \fBNXT_CT_FLUSH\fR extensions allows to flush CT entries based on specified parameters\[char46]
+.IP "\fBcapabilities : psample\fR: optional string, either \fBtrue\fR or \fBfalse\fR"
+True if the datapath supports OVS_ACTION_ATTR_PSAMPLE\[char46] If false, local sampling will not be supported with the Linux kernel datapath\[char46]
 .IP "\fBct_zone_default_limit\fR: optional integer, in range 0 to 4,294,967,295"
 Default connection tracking zone limit that is applied to all zones that didn\(cqt specify the \fBlimit\fR explicitly\[char46] If the limit is unspecified the default limit configuration for the datapath is left intact\[char46] The value 0 means unlimited\[char46]
 .ST "Common Columns:"
@@ -5026,7 +5049,16 @@ Columns\fR at the beginning of this document\[char46]
 .PP
 .PP
 .PP
-A set of IPFIX collectors of packet samples generated by OpenFlow \fBsample\fR actions\[char46] This table is used only for IPFIX flow-based sampling, not for per-bridge sampling (see the \fBIPFIX\fR table for a description of the two forms)\[char46]
+A set of IPFIX or local sampling collectors of packet samples generated by OpenFlow \fBsample\fR actions\[char46]
+.PP
+.PP
+If the column \fBipfix\fR contains a reference to a valid IPFIX entry, samples will be emitted via IPFIX\[char46] This mechanism is known as flow-based IPFIX sampling, as opposed to bridge-based sampling (see the \fBIPFIX\fR table for a description of the two forms)\[char46]
+.PP
+.PP
+If the column \fBlocal_group_id\fR contains an integer and the running datapath supports local sample emission, packets will be sent to some local sample collector\[char46] Samples will contain the group number specified by \fBlocal_group_id\fR which helps identify their source as well as a 64-bit cookie result from the concatenation of the observation_domain_id an the observation_point_id in network byte order\[char46] The way the sample is emitted and made available for local collectors is datapath-specific\[char46] Currently only Linux kernel datapath supports local sampling which is implemented by sending the packet to the \fBpsample\fR netlink multicast group\[char46]
+.PP
+.PP
+Note: both \fBlocal_group_id\fR and \fBipfix\fR can be configured simultaneously\[char46]
 .SS "Summary:
 .TQ 3.00in
 \fBid\fR
@@ -5037,6 +5069,9 @@ integer, in range 0 to 4,294,967,295
 .TQ 3.00in
 \fBipfix\fR
 optional \fBIPFIX\fR
+.TQ 3.00in
+\fBlocal_group_id\fR
+optional integer, in range 0 to 4,294,967,295
 .TQ .25in
 \fICommon Columns:\fR
 .RS .25in
@@ -5051,6 +5086,8 @@ The ID of this collector set, unique among the bridge\(cqs collector sets, to be
 The bridge into which OpenFlow \fBsample\fR actions can be added to send packet samples to this set of IPFIX collectors\[char46]
 .IP "\fBipfix\fR: optional \fBIPFIX\fR"
 Configuration of the set of IPFIX collectors to send one flow record per sampled packet to\[char46]
+.IP "\fBlocal_group_id\fR: optional integer, in range 0 to 4,294,967,295"
+Configuration of the sample group id to be used in local sampling\[char46]
 .ST "Common Columns:"
 .PP
 The overall purpose of these columns is described under \fBCommon

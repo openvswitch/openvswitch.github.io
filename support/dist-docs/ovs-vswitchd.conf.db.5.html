@@ -171,6 +171,8 @@
                                      optional string
          <b>other_config</b> <b>:</b> <b>userspace-tso-enable</b>
                                      optional string, either <b>true</b> or <b>false</b>
+         <b>other_config</b> <b>:</b> <b>explicit-sampled-drops</b>
+                                     optional string, either <b>true</b> or <b>false</b>
        <u>Status:</u>
          <b>next_cfg</b>                    integer
          <b>cur_cfg</b>                     integer
@@ -785,6 +787,25 @@
               port.
 
               The feature is considered experimental.
+
+       <b>other_config</b> <b>:</b> <b>explicit-sampled-drops</b>: optional string, either <b>true</b> or
+       <b>false</b>
+              When a flow is installed in the datapath with  an  empty  action
+              list, it indicates an implicit "drop" action. Most datapaths re‐
+              port  this for event for statistics and monitoring (in datapath-
+              specific ways).
+
+              However, if any of the per-bridge or per-flow sampling function‐
+              alities are enabled (e.g: sFlow, IPFIX, local sampling), the ac‐
+              tion list might not be empty, but contain an action to implement
+              such functionality. This makes  the  datapaths  not  report  the
+              packet drop.
+
+              This  knob  makes Open vSwitch detect when the last datapath ac‐
+              tion comes from these sampling features and add an explicit drop
+              action at the end to keep drop statistics accurate.
+
+              The default value is <b>false</b>.
 
      <u>Status:</u>
 
@@ -2016,7 +2037,7 @@
               not affect other balancing modes.
 
        <b>other_config</b> <b>:</b> <b>bond-primary</b>: optional string
-              If  a  slave  interface with this name exists in the bond and is
+              If  a  member interface with this name exists in the bond and is
               up, it will  be  made  active.  Relevant  only  when  <b>other_con‐</b>
               <b>fig:bond_mode</b>  is  <b>active-backup</b> or if <b>balance-tcp</b> falls back to
               <b>active-backup</b>  (e.g.,  LACP  negotiation  fails  and  <b>other_con‐</b>
@@ -3025,21 +3046,27 @@
 
        <b>options</b> <b>:</b> <b>csum</b>: optional string, either <b>true</b> or <b>false</b>
               Optional.  Compute  encapsulation  header  (either  GRE  or UDP)
-              checksums on outgoing packets. Default is disabled, set to  <b>true</b>
-              to  enable.  Checksums present on incoming packets will be vali‐
-              dated regardless of this setting.
+              checksums on outgoing packets. When unset (the  default  value),
+              checksum  computing for outgoing packets is enabled for UDP IPv6
+              tunnels, and disabled for GRE and IPv4 UDP tunnels. When set  to
+              <b>false</b>,  no checksums will be computed for outgoing tunnel encap‐
+              sulation headers. When <b>true</b>, checksums will be computed for  all
+              outgoing  tunnel encapsulation headers. Checksums present on in‐
+              coming packets will be validated regardless of this setting. In‐
+              coming packets without a checksum will also be accepted  regard‐
+              less of this setting.
 
-              When using the upstream  Linux  kernel  module,  computation  of
+              When  using  the  upstream  Linux  kernel module, computation of
               checksums for <b>geneve</b> and <b>vxlan</b> requires Linux kernel version 4.0
-              or  higher. <b>gre</b> and <b>ip6gre</b> support checksums for all versions of
-              Open vSwitch that support GRE. The out  of  tree  kernel  module
-              distributed  as  part of OVS can compute all tunnel checksums on
+              or higher. <b>gre</b> and <b>ip6gre</b> support checksums for all versions  of
+              Open  vSwitch  that  support  GRE. The out of tree kernel module
+              distributed as part of OVS can compute all tunnel  checksums  on
               any kernel version that it is compatible with.
 
      <u>Tunnel</u> <u>Options:</u> <u>IPsec:</u>
 
-       Setting any of these options enables IPsec support for a given  tunnel.
-       <b>gre</b>,  <b>geneve</b>,  <b>vxlan</b>  and <b>stt</b> interfaces support these options. See the
+       Setting  any of these options enables IPsec support for a given tunnel.
+       <b>gre</b>, <b>geneve</b>, <b>vxlan</b> and <b>stt</b> interfaces support these  options.  See  the
        <b>IPsec</b> section in the <b>Open_vSwitch</b> table for a description of each mode.
 
        <b>options</b> <b>:</b> <b>psk</b>: optional string
@@ -3047,13 +3074,13 @@
               value must match on both tunnel ends.
 
        <b>options</b> <b>:</b> <b>remote_cert</b>: optional string
-              In self-signed certificate mode only, name of a  PEM  file  con‐
+              In  self-signed  certificate  mode only, name of a PEM file con‐
               taining a certificate of the remote switch. The certificate must
-              be  x.509 version 3 and with the string in common name (CN) also
+              be x.509 version 3 and with the string in common name (CN)  also
               set in the subject alternative name (SAN).
 
        <b>options</b> <b>:</b> <b>remote_name</b>: optional string
-              In CA-signed certificate mode only, common name (CN) of the  re‐
+              In  CA-signed certificate mode only, common name (CN) of the re‐
               mote certificate.
 
      <u>Tunnel</u> <u>Options:</u> <u>erspan</u> <u>only:</u>
@@ -3061,73 +3088,73 @@
        Only <b>erspan</b> interfaces support these options.
 
        <b>options</b> <b>:</b> <b>erspan_idx</b>: optional string
-              20  bit  index/port  number associated with the ERSPAN traffic’s
-              source port and direction (ingress/egress). This field is  plat‐
+              20 bit index/port number associated with  the  ERSPAN  traffic’s
+              source  port and direction (ingress/egress). This field is plat‐
               form dependent.
 
        <b>options</b> <b>:</b> <b>erspan_ver</b>: optional string
-              ERSPAN  version:  1  for  version 1 (type II) or 2 for version 2
+              ERSPAN version: 1 for version 1 (type II) or  2  for  version  2
               (type III).
 
        <b>options</b> <b>:</b> <b>erspan_dir</b>: optional string
-              Specifies the ERSPAN v2  mirrored  traffic’s  direction.  1  for
+              Specifies  the  ERSPAN  v2  mirrored  traffic’s direction. 1 for
               egress traffic, and 0 for ingress traffic.
 
        <b>options</b> <b>:</b> <b>erspan_hwid</b>: optional string
-              ERSPAN  hardware ID is a 6-bit unique identifier of an ERSPAN v2
+              ERSPAN hardware ID is a 6-bit unique identifier of an ERSPAN  v2
               engine within a system.
 
      <u>Tunnel</u> <u>Options:</u> <u>Bareudp</u> <u>only:</u>
 
        <b>options</b> <b>:</b> <b>payload_type</b>: optional string
               Specifies the ethertype of the l3 protocol the bareudp device is
-              tunnelling. For the tunnels which supports  multiple  ethertypes
-              of  a  l3  protocol (IP, MPLS) this field specifies the protocol
+              tunnelling.  For  the tunnels which supports multiple ethertypes
+              of a l3 protocol (IP, MPLS) this field  specifies  the  protocol
               name as a string.
 
      <u>Tunnel</u> <u>Options:</u> <u>srv6</u> <u>only:</u>
 
        <b>options</b> <b>:</b> <b>srv6_segs</b>: optional string
-              Specifies the segment list in Segment Routing Header  (SRH).  It
-              consists  of  a  comma-separated list of segments represented in
-              IPv6 format,  e.g.  "fc00:100::1,fc00:200::1,fc00:300::1".  Note
+              Specifies  the  segment list in Segment Routing Header (SRH). It
+              consists of a comma-separated list of  segments  represented  in
+              IPv6  format,  e.g.  "fc00:100::1,fc00:200::1,fc00:300::1". Note
               that the first segment must be the same as <b>options:remote_ip</b>.
 
        <b>options</b> <b>:</b> <b>srv6_flowlabel</b>: optional string, one of <b>compute</b>, <b>copy</b>, or
        <b>zero</b>
-              Optional.  This  option  controls  how  flowlabel  in outer IPv6
-              header is configured. It gives the benefit of  IPv6  flow  label
-              based  load balancing, which is supported by some popular vendor
+              Optional. This option  controls  how  flowlabel  in  outer  IPv6
+              header  is  configured.  It gives the benefit of IPv6 flow label
+              based load balancing, which is supported by some popular  vendor
               appliances. Like net.ipv6.seg6_flowlabel sysconfig, it is one of
               the three values below:
 
               •      By default, or if this option is <b>copy</b>, copy the flowlabel
-                     of inner IPv6 header  to  the  flowlabel  of  outer  IPv6
+                     of  inner  IPv6  header  to  the  flowlabel of outer IPv6
                      header. If inner header is not IPv6, it is set to 0.
 
               •      If this option is <b>zero</b>, simply set flowlabel to 0.
 
-              •      If  this  option is <b>compute</b>, set flowlabel to a hash over
+              •      If this option is <b>compute</b>, set flowlabel to a  hash  over
                      the L3/L4 fields of the inner packet.
 
      <u>Patch</u> <u>Options:</u>
 
        These options apply only to <u>patch</u> <u>ports</u>, that is, interfaces whose <b>type</b>
-       column is <b>patch</b>. Patch ports are mainly a way to connect otherwise  in‐
+       column  is <b>patch</b>. Patch ports are mainly a way to connect otherwise in‐
        dependent bridges to one another, similar to how one might plug an Eth‐
-       ernet  cable  (a ``patch cable’’) into two physical switches to connect
-       those switches. The effect of plugging a patch port into  two  switches
-       is  conceptually  similar  to  that of plugging the two ends of a Linux
-       <b>veth</b> device into those switches, but the implementation of patch  ports
+       ernet cable (a ``patch cable’’) into two physical switches  to  connect
+       those  switches.  The effect of plugging a patch port into two switches
+       is conceptually similar to that of plugging the two  ends  of  a  Linux
+       <b>veth</b>  device into those switches, but the implementation of patch ports
        makes them much more efficient.
 
-       Patch  ports  may connect two different bridges (the usual case) or the
+       Patch ports may connect two different bridges (the usual case)  or  the
        same bridge. In the latter case, take special care to avoid loops, e.g.
        by programming appropriate flows with OpenFlow. Patch ports do not work
-       if its ends are attached to bridges on  different  datapaths,  e.g.  to
+       if  its  ends  are  attached to bridges on different datapaths, e.g. to
        connect bridges in <b>system</b> and <b>netdev</b> datapaths.
 
-       The  following  command  creates and connects patch ports <b>p0</b> and <b>p1</b> and
+       The following command creates and connects patch ports <b>p0</b>  and  <b>p1</b>  and
        adds them to bridges <b>br0</b> and <b>br1</b>, respectively:
 
        <b>ovs-vsctl</b> <b>add-port</b> <b>br0</b> <b>p0</b> <b>--</b> <b>set</b> <b>Interface</b> <b>p0</b> <b>type=patch</b> <b>options:peer=p1</b> <b>\</b>
@@ -3135,9 +3162,9 @@
 
 
        <b>options</b> <b>:</b> <b>peer</b>: optional string
-              The <b>name</b> of the <b>Interface</b> for the other side of the  patch.  The
-              named  <b>Interface</b>’s own <b>peer</b> option must specify this <b>Interface</b>’s
-              name. That is, the two patch interfaces must have reversed  <b>name</b>
+              The  <b>name</b>  of the <b>Interface</b> for the other side of the patch. The
+              named <b>Interface</b>’s own <b>peer</b> option must specify this  <b>Interface</b>’s
+              name.  That is, the two patch interfaces must have reversed <b>name</b>
               and <b>peer</b> values.
 
      <u>PMD</u> <u>(Poll</u> <u>Mode</u> <u>Driver)</u> <u>Options:</u>
@@ -3145,17 +3172,17 @@
        Only PMD netdevs support these options.
 
        <b>options</b> <b>:</b> <b>n_rxq</b>: optional string, containing an integer, at least 1
-              Specifies  the maximum number of rx queues to be created for PMD
+              Specifies the maximum number of rx queues to be created for  PMD
               netdev. If not specified or specified to 0, one rx queue will be
               created by default. Not supported by DPDK vHost interfaces.
 
        <b>options</b> <b>:</b> <b>dpdk-devargs</b>: optional string
-              Specifies the PCI address associated with the port for  physical
-              devices,  or  the  virtual driver to be used for the port when a
+              Specifies  the PCI address associated with the port for physical
+              devices, or the virtual driver to be used for the  port  when  a
               virtual PMD is intended to be used. For the latter, the argument
-              string typically takes the form of <b>eth_</b><u>driver</u><b>_</b><u>namex</u>, where  <u>dri‐</u>
-              <u>ver</u><b>_</b><u>name</u>  is  a  valid  virtual  DPDK PMD driver name and <u>x</u> is a
-              unique identifier of your choice for the given port.  Only  sup‐
+              string  typically takes the form of <b>eth_</b><u>driver</u><b>_</b><u>namex</u>, where <u>dri‐</u>
+              <u>ver</u><b>_</b><u>name</u> is a valid virtual DPDK PMD driver  name  and  <u>x</u>  is  a
+              unique  identifier  of your choice for the given port. Only sup‐
               ported by the dpdk port type.
 
        <b>other_config</b> <b>:</b> <b>pmd-rxq-affinity</b>: optional string
@@ -3169,7 +3196,7 @@
 
               •      &lt;rxq-affinity-list&gt; ::= NULL | &lt;non-empty-list&gt;
 
-              •      &lt;non-empty-list&gt;  ::= &lt;affinity-pair&gt; | &lt;affinity-pair&gt; ,
+              •      &lt;non-empty-list&gt; ::= &lt;affinity-pair&gt; | &lt;affinity-pair&gt;  ,
                      &lt;non-empty-list&gt;
 
               •      &lt;affinity-pair&gt; ::= &lt;queue-id&gt; : &lt;core-id&gt;
@@ -3178,43 +3205,43 @@
        <b>tive-with-zerocopy</b>, or <b>native</b>
               Specifies the operational mode of the XDP program.
 
-              In <b>native-with-zerocopy</b> mode the XDP program is loaded into  the
-              device  driver  with  zero-copy RX and TX enabled. This mode re‐
-              quires device driver support and has the  best  performance  be‐
+              In  <b>native-with-zerocopy</b> mode the XDP program is loaded into the
+              device driver with zero-copy RX and TX enabled.  This  mode  re‐
+              quires  device  driver  support and has the best performance be‐
               cause there should be no copying of packets.
 
-              <b>native</b>  is  the  same as <b>native-with-zerocopy</b>, but without zero-
-              copy capability. This requires at least one copy between  kernel
-              and  the  userspace. This mode also requires support from device
+              <b>native</b> is the same as <b>native-with-zerocopy</b>,  but  without  zero-
+              copy  capability. This requires at least one copy between kernel
+              and the userspace. This mode also requires support  from  device
               driver.
 
-              In <b>generic</b> case the XDP program in kernel works after skb  allo‐
-              cation  on  early stages of packet processing inside the network
-              stack. This mode doesn’t require driver support,  but  has  much
+              In  <b>generic</b> case the XDP program in kernel works after skb allo‐
+              cation on early stages of packet processing inside  the  network
+              stack.  This  mode  doesn’t require driver support, but has much
               lower performance.
 
-              <b>best-effort</b>  tries  to detect and choose the best (fastest) from
+              <b>best-effort</b> tries to detect and choose the best  (fastest)  from
               the available modes for current interface.
 
-              Note that this option is specific to netdev-afxdp.  Defaults  to
+              Note  that  this option is specific to netdev-afxdp. Defaults to
               <b>best-effort</b> mode.
 
        <b>options</b> <b>:</b> <b>use-need-wakeup</b>: optional string, either <b>true</b> or <b>false</b>
               Specifies whether to use need_wakeup feature in afxdp netdev. If
-              enabled,  OVS  explicitly  wakes  up the kernel RX, using poll()
-              syscall and wakes up TX, using sendto()  syscall.  For  physical
-              devices,  this  feature improves the performance by avoiding un‐
-              necessary sendto syscalls. Defaults  to  true  if  supported  by
+              enabled, OVS explicitly wakes up the  kernel  RX,  using  poll()
+              syscall  and  wakes  up TX, using sendto() syscall. For physical
+              devices, this feature improves the performance by  avoiding  un‐
+              necessary  sendto  syscalls.  Defaults  to  true if supported by
               libbpf.
 
        <b>options</b> <b>:</b> <b>vhost-server-path</b>: optional string
-              The  value  specifies  the  path to the socket associated with a
-              vHost User client mode device that has been or will  be  created
+              The value specifies the path to the  socket  associated  with  a
+              vHost  User  client mode device that has been or will be created
               by QEMU. Only supported by dpdkvhostuserclient interfaces.
 
        <b>options</b> <b>:</b> <b>tx-retries-max</b>: optional string, containing an integer, in
        range 0 to 32
-              The  value specifies the maximum amount of vhost tx retries that
+              The value specifies the maximum amount of vhost tx retries  that
               can be made while trying to send a batch of packets to an inter‐
               face. Only supported by dpdkvhostuserclient interfaces.
 
@@ -3222,28 +3249,28 @@
 
        <b>options</b> <b>:</b> <b>n_rxq_desc</b>: optional string, containing an integer, in range
        1 to 4,096
-              Specifies the rx queue size (number  rx  descriptors)  for  dpdk
-              ports.  The  value must be a power of 2, less than 4096 and sup‐
-              ported by the hardware of the device being  configured.  If  not
-              specified  or  an incorrect value is specified, 2048 rx descrip‐
+              Specifies  the  rx  queue  size (number rx descriptors) for dpdk
+              ports. The value must be a power of 2, less than 4096  and  sup‐
+              ported  by  the  hardware of the device being configured. If not
+              specified or an incorrect value is specified, 2048  rx  descrip‐
               tors will be used by default.
 
        <b>options</b> <b>:</b> <b>n_txq_desc</b>: optional string, containing an integer, in range
        1 to 4,096
-              Specifies the tx queue size (number  tx  descriptors)  for  dpdk
-              ports.  The  value must be a power of 2, less than 4096 and sup‐
-              ported by the hardware of the device being  configured.  If  not
-              specified  or  an incorrect value is specified, 2048 tx descrip‐
+              Specifies  the  tx  queue  size (number tx descriptors) for dpdk
+              ports. The value must be a power of 2, less than 4096  and  sup‐
+              ported  by  the  hardware of the device being configured. If not
+              specified or an incorrect value is specified, 2048  tx  descrip‐
               tors will be used by default.
 
        <b>options</b> <b>:</b> <b>dpdk-vf-mac</b>: optional string
               Ethernet address to set for this VF interface. If unset then the
               default MAC address is used:
 
-              •      For most drivers, the default  MAC  address  assigned  by
+              •      For  most  drivers,  the  default MAC address assigned by
                      their hardware.
 
-              •      For  bifurcated  drivers,  the  MAC currently used by the
+              •      For bifurcated drivers, the MAC  currently  used  by  the
                      kernel netdevice.
 
               This option may only be used with dpdk VF representors.
@@ -3253,25 +3280,25 @@
 
               This option takes one of the following values:
 
-              <b>rss</b>    Distribution of ingress packets in all Rx queues  accord‐
+              <b>rss</b>    Distribution  of ingress packets in all Rx queues accord‐
                      ing to the RSS algorithm. This is the default behaviour.
 
               <b>rss+lacp</b>
-                     Distribution  of ingress packets according to the RSS al‐
-                     gorithm on all but the last Rx queue. An extra  Rx  queue
+                     Distribution of ingress packets according to the RSS  al‐
+                     gorithm  on  all but the last Rx queue. An extra Rx queue
                      is allocated for LACP packets.
 
               If the user has already configured multiple <b>options:n_rxq</b> on the
               port, an additional one will be allocated for the specified pro‐
               tocols. Even if the hardware cannot satisfy the requested number
-              of  requested Rx queues, the last Rx queue will be used. If only
-              one Rx queue is available or if the hardware  does  not  support
-              the  rte_flow matchers/actions required to redirect the selected
-              protocols, custom <b>rx-steering</b> will  fall  back  to  default  <b>rss</b>
+              of requested Rx queues, the last Rx queue will be used. If  only
+              one  Rx  queue  is available or if the hardware does not support
+              the rte_flow matchers/actions required to redirect the  selected
+              protocols,  custom  <b>rx-steering</b>  will  fall  back to default <b>rss</b>
               mode.
 
-              This  feature is mutually exclusive with <b>other_config:hw-offload</b>
-              as it may conflict with the offloaded flows.  If  both  are  en‐
+              This feature is mutually exclusive with  <b>other_config:hw-offload</b>
+              as  it  may  conflict  with the offloaded flows. If both are en‐
               abled, <b>rx-steering</b> will fall back to default <b>rss</b> mode.
 
               This option is only applicable to interfaces with type <b>dpdk</b>.
@@ -3279,9 +3306,9 @@
        <b>other_config</b> <b>:</b> <b>tx-steering</b>: optional string, either <b>hash</b> or <b>thread</b>
               Specifies the Tx steering mode for the interface.
 
-              <b>thread</b>  enables static (1:1) thread-to-txq mapping when the num‐
-              ber of Tx queues is greater than number of PMD threads, and  dy‐
-              namic  (N:1)  mapping  if  equal or lower. In this mode a single
+              <b>thread</b> enables static (1:1) thread-to-txq mapping when the  num‐
+              ber  of Tx queues is greater than number of PMD threads, and dy‐
+              namic (N:1) mapping if equal or lower. In  this  mode  a  single
               thread can not use more than 1 transmit queue of a given port.
 
               <b>hash</b> enables hash-based Tx steering, which distributes the pack‐
@@ -3295,8 +3322,8 @@
        received from the interface.
 
        <b>other_config</b> <b>:</b> <b>emc-enable</b>: optional string, either <b>true</b> or <b>false</b>
-              Specifies if Exact Match Cache (EMC) should be used  while  pro‐
-              cessing   packets   received   from  this  interface.  If  true,
+              Specifies  if  Exact Match Cache (EMC) should be used while pro‐
+              cessing  packets  received  from  this   interface.   If   true,
               <b>other_config:emc-insert-inv-prob</b> will have effect on this inter‐
               face.
 
@@ -3304,12 +3331,12 @@
 
      <u>MTU:</u>
 
-       The MTU (maximum transmission unit) is the largest amount of data  that
+       The  MTU (maximum transmission unit) is the largest amount of data that
        can fit into a single Ethernet frame. The standard Ethernet MTU is 1500
-       bytes.  Some physical media and many kinds of virtual interfaces can be
+       bytes. Some physical media and many kinds of virtual interfaces can  be
        configured with higher MTUs.
 
-       A client may change an interface MTU by filling  in  <b>mtu_request</b>.  Open
+       A  client  may  change an interface MTU by filling in <b>mtu_request</b>. Open
        vSwitch then reports in <b>mtu</b> the currently configured value.
 
        <b>mtu</b>: optional integer
@@ -3318,80 +3345,80 @@
               This column will be empty for an interface that does not have an
               MTU as, for example, some kinds of tunnels do not.
 
-              Open  vSwitch  sets this column’s value, so other clients should
+              Open vSwitch sets this column’s value, so other  clients  should
               treat it as read-only.
 
        <b>mtu_request</b>: optional integer, at least 1
-              Requested MTU (Maximum Transmission Unit) for the  interface.  A
+              Requested  MTU  (Maximum Transmission Unit) for the interface. A
               client can fill this column to change the MTU of an interface.
 
-              RFC  791  requires every internet module to be able to forward a
+              RFC 791 requires every internet module to be able to  forward  a
               datagram of 68 octets without further fragmentation. The maximum
               size of an IP packet is 65535 bytes.
 
-              If this is not set and if the interface has <b>internal</b> type,  Open
-              vSwitch  will  change  the MTU to match the minimum of the other
+              If  this is not set and if the interface has <b>internal</b> type, Open
+              vSwitch will change the MTU to match the minimum  of  the  other
               interfaces in the bridge.
 
      <u>Interface</u> <u>Status:</u>
 
-       Status information about interfaces attached to bridges, updated  every
+       Status  information about interfaces attached to bridges, updated every
        5 seconds. Not all interfaces have all of these properties; virtual in‐
-       terfaces  don’t  have a link speed, for example. Non-applicable columns
+       terfaces don’t have a link speed, for example.  Non-applicable  columns
        will have empty values.
 
        <b>admin_state</b>: optional string, either <b>down</b> or <b>up</b>
               The administrative state of the physical network link.
 
        <b>link_state</b>: optional string, either <b>down</b> or <b>up</b>
-              The observed state of the physical network link. This  is  ordi‐
-              narily  the  link’s carrier status. If the interface’s <b>Port</b> is a
+              The  observed  state of the physical network link. This is ordi‐
+              narily the link’s carrier status. If the interface’s <b>Port</b>  is  a
               bond configured for miimon monitoring, it is instead the network
               link’s miimon status.
 
        <b>link_resets</b>: optional integer
-              The number of times Open vSwitch has observed the <b>link_state</b>  of
+              The  number of times Open vSwitch has observed the <b>link_state</b> of
               this <b>Interface</b> change.
 
        <b>link_speed</b>: optional integer
-              The  negotiated speed of the physical network link. Valid values
+              The negotiated speed of the physical network link. Valid  values
               are positive integers greater than 0.
 
        <b>duplex</b>: optional string, either <b>full</b> or <b>half</b>
               The duplex mode of the physical network link.
 
        <b>lacp_current</b>: optional boolean
-              Boolean value indicating LACP  status  for  this  interface.  If
+              Boolean  value  indicating  LACP  status  for this interface. If
               true, this interface has current LACP information about its LACP
-              partner.  This  information may be used to monitor the health of
-              interfaces in a LACP enabled port. This column will be empty  if
+              partner. This information may be used to monitor the  health  of
+              interfaces  in a LACP enabled port. This column will be empty if
               LACP is not enabled.
 
        <b>status</b>: map of string-string pairs
               Key-value pairs that report port status. Supported status values
-              are  <b>type</b>-dependent;  some  interfaces may not have a valid <b>sta‐</b>
+              are <b>type</b>-dependent; some interfaces may not have  a  valid  <b>sta‐</b>
               <b>tus:driver_name</b>, for example.
 
        <b>status</b> <b>:</b> <b>driver_name</b>: optional string
               The name of the device driver controlling the network adapter.
 
        <b>status</b> <b>:</b> <b>driver_version</b>: optional string
-              The version string of the device driver controlling the  network
+              The  version string of the device driver controlling the network
               adapter.
 
        <b>status</b> <b>:</b> <b>firmware_version</b>: optional string
-              The  version string of the network adapter’s firmware, if avail‐
+              The version string of the network adapter’s firmware, if  avail‐
               able.
 
        <b>status</b> <b>:</b> <b>source_ip</b>: optional string
-              The source IP address used for an  IPv4/IPv6  tunnel  end-point,
+              The  source  IP  address used for an IPv4/IPv6 tunnel end-point,
               such as <b>gre</b>.
 
        <b>status</b> <b>:</b> <b>tunnel_egress_iface</b>: optional string
-              Egress  interface  for tunnels. Currently only relevant for tun‐
+              Egress interface for tunnels. Currently only relevant  for  tun‐
               nels on Linux systems, this column will show the name of the in‐
-              terface which is responsible for routing  traffic  destined  for
-              the  configured <b>options:remote_ip</b>. This could be an internal in‐
+              terface  which  is  responsible for routing traffic destined for
+              the configured <b>options:remote_ip</b>. This could be an internal  in‐
               terface such as a bridge port.
 
        <b>status</b> <b>:</b> <b>tunnel_egress_iface_carrier</b>: optional string, either <b>down</b> or
@@ -3427,7 +3454,7 @@
               Maximum number of hash MAC addresses for MTA and UTA.
 
        <b>status</b> <b>:</b> <b>max_vfs</b>: optional string
-              Maximum number of hash MAC addresses for MTA  and  UTA.  Maximum
+              Maximum  number  of  hash MAC addresses for MTA and UTA. Maximum
               number of VFs.
 
        <b>status</b> <b>:</b> <b>max_vmdq_pools</b>: optional string
@@ -3453,23 +3480,23 @@
               vice.
 
        <b>status</b> <b>:</b> <b>dpdk-vf-mac</b>: optional string
-              Ethernet  address  set  for this VF interface. Only reported for
+              Ethernet address set for this VF interface.  Only  reported  for
               dpdk VF representors.
 
        <b>status</b> <b>:</b> <b>rx-steering</b>: optional string
               Hardware Rx queue steering policy in use.
 
        <b>status</b> <b>:</b> <b>rx_steering_queue</b>: optional string
-              ID of rx steering queue. Only reported if  <b>rx-steering</b>  is  sup‐
+              ID  of  rx  steering queue. Only reported if <b>rx-steering</b> is sup‐
               ported by hardware.
 
        <b>status</b> <b>:</b> <b>rss_queues</b>: optional string
-              IDs  of rss queues. Only reported if <b>rx-steering</b> is supported by
+              IDs of rss queues. Only reported if <b>rx-steering</b> is supported  by
               hardware.
 
      <u>dpdkvhostuser:</u>
 
-       dpdkvhostuser and dpdkvhostuserclient netdev specific interface  status
+       dpdkvhostuser  and dpdkvhostuserclient netdev specific interface status
        information.
 
        <b>status</b> <b>:</b> <b>mode</b>: optional string
@@ -3492,7 +3519,7 @@
               Status of connection to the device.
 
        <b>status</b> <b>:</b> <b>vring_n_size</b>: optional string
-              Each  virtqueue  will  have  it’s  size reported, where n is the
+              Each virtqueue will have it’s size  reported,  where  n  is  the
               virtqueue number from 0..(num_of_vrings-1).
 
        <b>status</b> <b>:</b> <b>userspace-tso</b>: optional string
@@ -3503,21 +3530,21 @@
        AF_XDP specific interface status options.
 
        <b>status</b> <b>:</b> <b>xdp-mode</b>: optional string
-              XDP mode currently in use. See <b>options:xdp-mode</b> for  description
+              XDP  mode currently in use. See <b>options:xdp-mode</b> for description
               of possible values.
 
      <u>Statistics:</u>
 
        Key-value pairs that report interface statistics. The current implemen‐
-       tation  updates  these counters periodically. The update period is con‐
-       trolled by <b>other_config:stats-update-interval</b> in the  <b>Open_vSwitch</b>  ta‐
-       ble.  Future  implementations may update them when an interface is cre‐
+       tation updates these counters periodically. The update period  is  con‐
+       trolled  by  <b>other_config:stats-update-interval</b> in the <b>Open_vSwitch</b> ta‐
+       ble. Future implementations may update them when an interface  is  cre‐
        ated, when they are queried (e.g. using an OVSDB <b>select</b> operation), and
        just before an interface is deleted due to virtual interface hot-unplug
-       or VM shutdown, and perhaps at other times, but not on any regular  pe‐
+       or  VM shutdown, and perhaps at other times, but not on any regular pe‐
        riodic basis.
 
-       These  are  the  same  statistics  reported  by  OpenFlow in its <b>struct</b>
+       These are the same  statistics  reported  by  OpenFlow  in  its  <b>struct</b>
        <b>ofp_port_stats</b> structure. If an interface does not support a given sta‐
        tistic, then that pair is omitted.
 
@@ -3562,138 +3589,138 @@
               Number of collisions.
 
        <b>statistics</b> <b>:</b> <b>tx_errors</b>: optional integer
-              Total number of transmit errors, greater than or  equal  to  the
+              Total  number  of  transmit errors, greater than or equal to the
               sum of the above.
 
      <u>Ingress</u> <u>Policing:</u>
 
-       These  settings  control  ingress policing for packets received on this
+       These settings control ingress policing for packets  received  on  this
        interface. On a physical interface, this limits the rate at which traf‐
        fic is allowed into the system from the outside; on a virtual interface
        (one connected to a virtual machine), this limits the rate at which the
        VM is able to transmit.
 
        Policing is a simple form of quality-of-service that simply drops pack‐
-       ets received in excess of the configured rate. Due to  its  simplicity,
-       policing  is  usually  less accurate and less effective than egress QoS
+       ets  received  in excess of the configured rate. Due to its simplicity,
+       policing is usually less accurate and less effective  than  egress  QoS
        (which is configured using the <b>QoS</b> and <b>Queue</b> tables).
 
-       Policing settings can be set with byte rate or packet  rate,  and  they
-       can  be  configured  together, in which case they take effect together,
+       Policing  settings  can  be set with byte rate or packet rate, and they
+       can be configured together, in which case they  take  effect  together,
        that means the smaller speed limit of them is in effect.
 
-       Currently, byte rate policing is implemented  on  Linux  and  OVS  with
-       DPDK,  while  packet  rate  policing is only implemented on Linux. Both
-       Linux and OVS DPDK implementations use a simple  ``token  bucket’’  ap‐
+       Currently,  byte  rate  policing  is  implemented on Linux and OVS with
+       DPDK, while packet rate policing is only  implemented  on  Linux.  Both
+       Linux  and  OVS  DPDK implementations use a simple ``token bucket’’ ap‐
        proach.
 
        Byte rate policing:
 
-              •      The  size  of  the  bucket  corresponds to <b>ingress_polic‐</b>
+              •      The size of  the  bucket  corresponds  to  <b>ingress_polic‐</b>
                      <b>ing_burst</b>. Initially the bucket is full.
 
               •      Whenever a packet is received, its size (converted to to‐
-                     kens) is compared to the number of  tokens  currently  in
-                     the  bucket.  If the required number of tokens are avail‐
-                     able, they are removed and the packet is forwarded.  Oth‐
+                     kens)  is  compared  to the number of tokens currently in
+                     the bucket. If the required number of tokens  are  avail‐
+                     able,  they are removed and the packet is forwarded. Oth‐
                      erwise, the packet is dropped.
 
-              •      Whenever  it is not full, the bucket is refilled with to‐
+              •      Whenever it is not full, the bucket is refilled with  to‐
                      kens at the rate specified by <b>ingress_policing_rate</b>.
 
        Packet rate policing:
 
-              •      The size of  the  bucket  corresponds  to  <b>ingress_polic‐</b>
+              •      The  size  of  the  bucket  corresponds to <b>ingress_polic‐</b>
                      <b>ing_kpkts_burst</b>. Initially the bucket is full.
 
-              •      Whenever  a packet is received, it will consume one token
+              •      Whenever a packet is received, it will consume one  token
                      from the current bucket. If the token is available in the
-                     bucket, it’s removed and the packet is forwarded.  Other‐
+                     bucket,  it’s removed and the packet is forwarded. Other‐
                      wise, the packet is dropped.
 
-              •      Whenever  it is not full, the bucket is refilled with to‐
-                     kens  at  the  rate  specified  by   <b>ingress_policing_kp‐</b>
+              •      Whenever it is not full, the bucket is refilled with  to‐
+                     kens   at  the  rate  specified  by  <b>ingress_policing_kp‐</b>
                      <b>kts_rate</b>.
 
-       Policing  interacts  badly  with some network protocols, and especially
+       Policing interacts badly with some network  protocols,  and  especially
        with fragmented IP packets. Suppose that there is enough network activ‐
-       ity to keep the bucket nearly empty  all  the  time.  Then  this  token
-       bucket  algorithm will forward a single packet every so often, with the
-       period depending on packet size and on the configured rate. All of  the
-       fragments  of an IP packets are normally transmitted back-to-back, as a
+       ity  to  keep  the  bucket  nearly  empty all the time. Then this token
+       bucket algorithm will forward a single packet every so often, with  the
+       period  depending on packet size and on the configured rate. All of the
+       fragments of an IP packets are normally transmitted back-to-back, as  a
        group. In such a situation, therefore, only one of these fragments will
-       be forwarded and the rest will be dropped. IP does not provide any  way
-       for  the intended recipient to ask for only the remaining fragments. In
-       such a case there are two likely possibilities  for  what  will  happen
-       next:  either all of the fragments will eventually be retransmitted (as
-       TCP will do), in which case the same problem will recur, or the  sender
-       will  not realize that its packet has been dropped and data will simply
+       be  forwarded and the rest will be dropped. IP does not provide any way
+       for the intended recipient to ask for only the remaining fragments.  In
+       such  a  case  there  are two likely possibilities for what will happen
+       next: either all of the fragments will eventually be retransmitted  (as
+       TCP  will do), in which case the same problem will recur, or the sender
+       will not realize that its packet has been dropped and data will  simply
        be lost (as some UDP-based protocols will do). Either way, it is possi‐
        ble that no forward progress will ever occur.
 
        <b>ingress_policing_rate</b>: integer, at least 0
-              Maximum rate for data received on this interface, in kbps.  Data
-              received  faster  than  this  rate is dropped. Set to <b>0</b> (the de‐
+              Maximum  rate for data received on this interface, in kbps. Data
+              received faster than this rate is dropped. Set  to  <b>0</b>  (the  de‐
               fault) to disable policing.
 
        <b>ingress_policing_kpkts_rate</b>: integer, at least 0
-              Maximum rate for data received on this  interface,  in  kpps  (1
-              kpps  is  1000  pps).  Data  received  faster  than this rate is
+              Maximum  rate  for  data  received on this interface, in kpps (1
+              kpps is 1000 pps).  Data  received  faster  than  this  rate  is
               dropped. Set to <b>0</b> (the default) to disable policing.
 
        <b>ingress_policing_burst</b>: integer, at least 0
-              Maximum burst size for data received on this interface,  in  kb.
-              The  default burst size if set to <b>0</b> is 8000 kbit. This value has
+              Maximum  burst  size for data received on this interface, in kb.
+              The default burst size if set to <b>0</b> is 8000 kbit. This value  has
               no effect if <b>ingress_policing_rate</b> is <b>0</b>.
 
-              Specifying a larger burst size lets the algorithm be  more  for‐
+              Specifying  a  larger burst size lets the algorithm be more for‐
               giving, which is important for protocols like TCP that react se‐
               verely to dropped packets. The burst size should be at least the
-              size  of the interface’s MTU. Specifying a value that is numeri‐
-              cally at least as large as 80%  of  <b>ingress_policing_rate</b>  helps
+              size of the interface’s MTU. Specifying a value that is  numeri‐
+              cally  at  least  as large as 80% of <b>ingress_policing_rate</b> helps
               TCP come closer to achieving the full rate.
 
        <b>ingress_policing_kpkts_burst</b>: integer, at least 0
               Maximum burst size for data received on this interface, in kpkts
               (1 kpkts is 1000 packets). The default burst size if set to <b>0</b> is
-              16  kpkts.  This  value  has  no  effect if <b>ingress_policing_kp‐</b>
+              16 kpkts. This  value  has  no  effect  if  <b>ingress_policing_kp‐</b>
               <b>kts_rate</b> is <b>0</b>.
 
-              Specifying a larger burst size lets the algorithm be  more  for‐
+              Specifying  a  larger burst size lets the algorithm be more for‐
               giving, which is important for protocols like TCP that react se‐
-              verely  to  dropped  packets. Specifying a value that is numeri‐
-              cally at least as large as  80%  of  <b>ingress_policing_kpkts_rate</b>
+              verely to dropped packets. Specifying a value  that  is  numeri‐
+              cally  at  least  as large as 80% of <b>ingress_policing_kpkts_rate</b>
               helps TCP come closer to achieving the full rate.
 
      <u>Bidirectional</u> <u>Forwarding</u> <u>Detection</u> <u>(BFD):</u>
 
-       BFD,  defined in RFC 5880 and RFC 5881, allows point-to-point detection
+       BFD, defined in RFC 5880 and RFC 5881, allows point-to-point  detection
        of connectivity failures by occasional transmission of BFD control mes‐
        sages. Open vSwitch implements BFD to serve as a more popular and stan‐
        dards compliant alternative to CFM.
 
-       BFD operates by regularly transmitting BFD control messages at  a  rate
+       BFD  operates  by regularly transmitting BFD control messages at a rate
        negotiated independently in each direction. Each endpoint specifies the
-       rate  at  which it expects to receive control messages, and the rate at
-       which it is willing to transmit them. By default, Open vSwitch  uses  a
-       detection  multiplier of three, meaning that an endpoint signals a con‐
-       nectivity fault if three consecutive BFD control messages fail  to  ar‐
-       rive.  In  the  case of a unidirectional connectivity issue, the system
-       not receiving BFD control messages signals the problem to its  peer  in
+       rate at which it expects to receive control messages, and the  rate  at
+       which  it  is willing to transmit them. By default, Open vSwitch uses a
+       detection multiplier of three, meaning that an endpoint signals a  con‐
+       nectivity  fault  if three consecutive BFD control messages fail to ar‐
+       rive. In the case of a unidirectional connectivity  issue,  the  system
+       not  receiving  BFD control messages signals the problem to its peer in
        the messages it transmits.
 
-       The  Open  vSwitch implementation of BFD aims to comply faithfully with
+       The Open vSwitch implementation of BFD aims to comply  faithfully  with
        RFC 5880 requirements. Open vSwitch does not implement the optional Au‐
        thentication or ``Echo Mode’’ features.
 
-       OVS 2.13 and earlier intercepted and processed  all  BFD  packets.  OVS
-       2.14  and  later  only  intercept and process BFD packets destined to a
-       configured BFD instance, and other BFD packets are  made  available  to
+       OVS  2.13  and  earlier  intercepted and processed all BFD packets. OVS
+       2.14 and later only intercept and process BFD  packets  destined  to  a
+       configured  BFD  instance,  and other BFD packets are made available to
        the OVS flow table for forwarding.
 
      <u>BFD</u> <u>Configuration:</u>
 
-       A  controller  sets  up key-value pairs in the <b>bfd</b> column to enable and
+       A controller sets up key-value pairs in the <b>bfd</b> column  to  enable  and
        configure BFD.
 
        <b>bfd</b> <b>:</b> <b>enable</b>: optional string, either <b>true</b> or <b>false</b>
@@ -3701,65 +3728,65 @@
               not be enabled by default.
 
        <b>bfd</b> <b>:</b> <b>min_rx</b>: optional string, containing an integer, at least 1
-              The shortest interval, in milliseconds, at which this  BFD  ses‐
+              The  shortest  interval, in milliseconds, at which this BFD ses‐
               sion offers to receive BFD control messages. The remote endpoint
               may choose to send messages at a slower rate. Defaults to <b>1000</b>.
 
        <b>bfd</b> <b>:</b> <b>min_tx</b>: optional string, containing an integer, at least 1
-              The  shortest  interval, in milliseconds, at which this BFD ses‐
-              sion is willing to transmit BFD control messages. Messages  will
-              actually  be transmitted at a slower rate if the remote endpoint
-              is not willing to receive as quickly as specified.  Defaults  to
+              The shortest interval, in milliseconds, at which this  BFD  ses‐
+              sion  is willing to transmit BFD control messages. Messages will
+              actually be transmitted at a slower rate if the remote  endpoint
+              is  not  willing to receive as quickly as specified. Defaults to
               <b>100</b>.
 
        <b>bfd</b> <b>:</b> <b>decay_min_rx</b>: optional string, containing an integer
-              An  alternate  receive  interval,  in milliseconds, that must be
+              An alternate receive interval, in  milliseconds,  that  must  be
               greater than or equal to <b>bfd:min_rx</b>. The implementation switches
               from <b>bfd:min_rx</b> to <b>bfd:decay_min_rx</b> when there is no obvious in‐
-              coming data traffic at the interface,  to  reduce  the  CPU  and
+              coming  data  traffic  at  the  interface, to reduce the CPU and
               bandwidth cost of monitoring an idle interface. This feature may
               be disabled by setting a value of 0. This feature is reset when‐
               ever <b>bfd:decay_min_rx</b> or <b>bfd:min_rx</b> changes.
 
        <b>bfd</b> <b>:</b> <b>forwarding_if_rx</b>: optional string, either <b>true</b> or <b>false</b>
               When <b>true</b>, traffic received on the <b>Interface</b> is used to indicate
-              the  capability  of  packet  I/O.  BFD control packets are still
-              transmitted and received. At least one BFD control  packet  must
-              be  received  every  100 * <b>bfd:min_rx</b> amount of time. Otherwise,
+              the capability of packet I/O.  BFD  control  packets  are  still
+              transmitted  and  received. At least one BFD control packet must
+              be received every 100 * <b>bfd:min_rx</b> amount  of  time.  Otherwise,
               even if traffic are received, the <b>bfd:forwarding</b> will be <b>false</b>.
 
        <b>bfd</b> <b>:</b> <b>cpath_down</b>: optional string, either <b>true</b> or <b>false</b>
-              Set to true to notify the remote endpoint  that  traffic  should
-              not  be  forwarded  to  this system for some reason other than a
-              connectivty failure on the interface being monitored. The  typi‐
-              cal  underlying  reason  is ``concatenated path down,’’ that is,
-              that connectivity beyond the local system is down.  Defaults  to
+              Set  to  true  to notify the remote endpoint that traffic should
+              not be forwarded to this system for some  reason  other  than  a
+              connectivty  failure on the interface being monitored. The typi‐
+              cal underlying reason is ``concatenated path  down,’’  that  is,
+              that  connectivity  beyond the local system is down. Defaults to
               false.
 
        <b>bfd</b> <b>:</b> <b>check_tnl_key</b>: optional string, either <b>true</b> or <b>false</b>
               Set to true to make BFD accept only control messages with a tun‐
-              nel  key  of zero. By default, BFD accepts control messages with
+              nel key of zero. By default, BFD accepts control  messages  with
               any tunnel key.
 
        <b>bfd</b> <b>:</b> <b>bfd_local_src_mac</b>: optional string
-              Set to an Ethernet address in the form <u>xx</u>:<u>xx</u>:<u>xx</u>:<u>xx</u>:<u>xx</u>:<u>xx</u> to  set
-              the  MAC used as source for transmitted BFD packets. The default
+              Set  to an Ethernet address in the form <u>xx</u>:<u>xx</u>:<u>xx</u>:<u>xx</u>:<u>xx</u>:<u>xx</u> to set
+              the MAC used as source for transmitted BFD packets. The  default
               is the mac address of the BFD enabled interface.
 
        <b>bfd</b> <b>:</b> <b>bfd_local_dst_mac</b>: optional string
-              Set to an Ethernet address in the form <u>xx</u>:<u>xx</u>:<u>xx</u>:<u>xx</u>:<u>xx</u>:<u>xx</u> to  set
+              Set  to an Ethernet address in the form <u>xx</u>:<u>xx</u>:<u>xx</u>:<u>xx</u>:<u>xx</u>:<u>xx</u> to set
               the MAC used as destination for transmitted BFD packets. The de‐
               fault is <b>00:23:20:00:00:01</b>.
 
        <b>bfd</b> <b>:</b> <b>bfd_remote_dst_mac</b>: optional string
-              Set  to an Ethernet address in the form <u>xx</u>:<u>xx</u>:<u>xx</u>:<u>xx</u>:<u>xx</u>:<u>xx</u> to set
-              the MAC used for checking the destination of received BFD  pack‐
-              ets.  Packets with different destination MAC will not be consid‐
-              ered as BFD packets. If not specified the  destination  MAC  ad‐
+              Set to an Ethernet address in the form <u>xx</u>:<u>xx</u>:<u>xx</u>:<u>xx</u>:<u>xx</u>:<u>xx</u> to  set
+              the  MAC used for checking the destination of received BFD pack‐
+              ets. Packets with different destination MAC will not be  consid‐
+              ered  as  BFD  packets. If not specified the destination MAC ad‐
               dress of received BFD packets are not checked.
 
        <b>bfd</b> <b>:</b> <b>bfd_src_ip</b>: optional string
-              Set  to an IPv4 address to set the IP address used as source for
+              Set to an IPv4 address to set the IP address used as source  for
               transmitted BFD packets. The default is <b>169.254.1.1</b>.
 
        <b>bfd</b> <b>:</b> <b>bfd_dst_ip</b>: optional string
@@ -3767,36 +3794,36 @@
               for transmitted BFD packets. The default is <b>169.254.1.0</b>.
 
        <b>bfd</b> <b>:</b> <b>oam</b>: optional string
-              Some tunnel protocols (such as Geneve)  include  a  bit  in  the
+              Some  tunnel  protocols  (such  as  Geneve) include a bit in the
               header to indicate that the encapsulated packet is an OAM frame.
-              By  setting  this  to true, BFD packets will be marked as OAM if
+              By setting this to true, BFD packets will be marked  as  OAM  if
               encapsulated in one of these tunnels.
 
        <b>bfd</b> <b>:</b> <b>mult</b>: optional string, containing an integer, in range 1 to 255
-              The BFD detection multiplier, which defaults to 3.  An  endpoint
-              signals  a connectivity fault if the given number of consecutive
+              The  BFD  detection multiplier, which defaults to 3. An endpoint
+              signals a connectivity fault if the given number of  consecutive
               BFD control messages fail to arrive.
 
      <u>BFD</u> <u>Status:</u>
 
-       The switch sets key-value pairs in the <b>bfd_status</b> column to report  the
-       status  of BFD on this interface. When BFD is not enabled, with <b>bfd:en‐</b>
+       The  switch sets key-value pairs in the <b>bfd_status</b> column to report the
+       status of BFD on this interface. When BFD is not enabled, with  <b>bfd:en‐</b>
        <b>able</b>, the switch clears all key-value pairs from <b>bfd_status</b>.
 
        <b>bfd_status</b> <b>:</b> <b>state</b>: optional string, one of <b>admin_down</b>, <b>down</b>, <b>init</b>, or
        <b>up</b>
-              Reports the state of the BFD session. The BFD session  is  fully
+              Reports  the  state of the BFD session. The BFD session is fully
               healthy and negotiated if <b>UP</b>.
 
        <b>bfd_status</b> <b>:</b> <b>forwarding</b>: optional string, either <b>true</b> or <b>false</b>
-              Reports  whether  the BFD session believes this <b>Interface</b> may be
-              used to forward traffic. Typically this means the local  session
+              Reports whether the BFD session believes this <b>Interface</b>  may  be
+              used  to forward traffic. Typically this means the local session
               is signaling <b>UP</b>, and the remote system isn’t signaling a problem
               such as concatenated path down.
 
        <b>bfd_status</b> <b>:</b> <b>diagnostic</b>: optional string
-              A  diagnostic  code specifying the local system’s reason for the
-              last change in session state. The error messages are defined  in
+              A diagnostic code specifying the local system’s reason  for  the
+              last  change in session state. The error messages are defined in
               section 4.1 of [RFC 5880].
 
        <b>bfd_status</b> <b>:</b> <b>remote_state</b>: optional string, one of <b>admin_down</b>, <b>down</b>,
@@ -3804,44 +3831,44 @@
               Reports the state of the remote endpoint’s BFD session.
 
        <b>bfd_status</b> <b>:</b> <b>remote_diagnostic</b>: optional string
-              A  diagnostic code specifying the remote system’s reason for the
-              last change in session state. The error messages are defined  in
+              A diagnostic code specifying the remote system’s reason for  the
+              last  change in session state. The error messages are defined in
               section 4.1 of [RFC 5880].
 
        <b>bfd_status</b> <b>:</b> <b>flap_count</b>: optional string, containing an integer, at
        least 0
-              Counts  the number of <b>bfd_status:forwarding</b> flaps since start. A
-              flap is considered as  a  change  of  the  <b>bfd_status:forwarding</b>
+              Counts the number of <b>bfd_status:forwarding</b> flaps since start.  A
+              flap  is  considered  as  a  change of the <b>bfd_status:forwarding</b>
               value.
 
      <u>Connectivity</u> <u>Fault</u> <u>Management:</u>
 
-       802.1ag  Connectivity  Fault Management (CFM) allows a group of Mainte‐
+       802.1ag Connectivity Fault Management (CFM) allows a group  of  Mainte‐
        nance Points (MPs) called a Maintenance Association (MA) to detect con‐
-       nectivity problems with each other. MPs within a MA  should  have  com‐
+       nectivity  problems  with  each other. MPs within a MA should have com‐
        plete and exclusive interconnectivity. This is verified by occasionally
-       broadcasting  Continuity Check Messages (CCMs) at a configurable trans‐
+       broadcasting Continuity Check Messages (CCMs) at a configurable  trans‐
        mission interval.
 
-       According to the 802.1ag specification, each Maintenance  Point  should
-       be  configured  out-of-band with a list of Remote Maintenance Points it
-       should have connectivity to. Open vSwitch differs from  the  specifica‐
-       tion  in  this area. It simply assumes the link is faulted if no Remote
-       Maintenance Points are reachable, and considers it not  faulted  other‐
+       According  to  the 802.1ag specification, each Maintenance Point should
+       be configured out-of-band with a list of Remote Maintenance  Points  it
+       should  have  connectivity to. Open vSwitch differs from the specifica‐
+       tion in this area. It simply assumes the link is faulted if  no  Remote
+       Maintenance  Points  are reachable, and considers it not faulted other‐
        wise.
 
        When operating over tunnels which have no <b>in_key</b>, or an <b>in_key</b> of <b>flow</b>.
        CFM will only accept CCMs with a tunnel key of zero.
 
        <b>cfm_mpid</b>: optional integer
-              A  Maintenance Point ID (MPID) uniquely identifies each endpoint
-              within a Maintenance Association. The MPID is used  to  identify
+              A Maintenance Point ID (MPID) uniquely identifies each  endpoint
+              within  a  Maintenance Association. The MPID is used to identify
               this endpoint to other Maintenance Points in the MA. Each end of
-              a  link  being  monitored  should have a different MPID. Must be
+              a link being monitored should have a  different  MPID.  Must  be
               configured to enable CFM on this <b>Interface</b>.
 
               According to the 802.1ag specification, MPIDs can only range be‐
-              tween  [1,  8191].  However,  extended  mode   (see   <b>other_con‐</b>
+              tween   [1,   8191].  However,  extended  mode  (see  <b>other_con‐</b>
               <b>fig:cfm_extended</b>) supports eight byte MPIDs.
 
        <b>cfm_flap_count</b>: optional integer
@@ -3849,45 +3876,45 @@
               sidered to be a change of the <b>cfm_fault</b> value.
 
        <b>cfm_fault</b>: optional boolean
-              Indicates  a connectivity fault triggered by an inability to re‐
+              Indicates a connectivity fault triggered by an inability to  re‐
               ceive heartbeats from any remote endpoint. When a fault is trig‐
-              gered on <b>Interface</b>s participating in bonds, they  will  be  dis‐
+              gered  on  <b>Interface</b>s  participating in bonds, they will be dis‐
               abled.
 
-              Faults  can  be  triggered for several reasons. Most importantly
+              Faults can be triggered for several  reasons.  Most  importantly
               they are triggered when no CCMs are received for a period of 3.5
-              times the transmission interval. Faults are also triggered  when
+              times  the transmission interval. Faults are also triggered when
               any CCMs indicate that a Remote Maintenance Point is not receiv‐
               ing CCMs but able to send them. Finally, a fault is triggered if
-              a  CCM is received which indicates unexpected configuration. No‐
-              tably, this case arises when a CCM is received which  advertises
+              a CCM is received which indicates unexpected configuration.  No‐
+              tably,  this case arises when a CCM is received which advertises
               the local MPID.
 
        <b>cfm_fault_status</b> <b>:</b> <b>recv</b>: none
-              Indicates  a  CFM  fault was triggered due to a lack of CCMs re‐
+              Indicates a CFM fault was triggered due to a lack  of  CCMs  re‐
               ceived on the <b>Interface</b>.
 
        <b>cfm_fault_status</b> <b>:</b> <b>rdi</b>: none
-              Indicates a CFM fault was triggered due to the  reception  of  a
+              Indicates  a  CFM  fault was triggered due to the reception of a
               CCM with the RDI bit flagged. Endpoints set the RDI bit in their
               CCMs when they are not receiving CCMs themselves. This typically
               indicates a unidirectional connectivity failure.
 
        <b>cfm_fault_status</b> <b>:</b> <b>maid</b>: none
-              Indicates  a  CFM  fault was triggered due to the reception of a
+              Indicates a CFM fault was triggered due to the  reception  of  a
               CCM with a MAID other than the one Open vSwitch uses. CFM broad‐
-              casts are tagged with an identification number  in  addition  to
-              the  MPID  called the MAID. Open vSwitch only supports receiving
+              casts  are  tagged  with an identification number in addition to
+              the MPID called the MAID. Open vSwitch only  supports  receiving
               CCM broadcasts tagged with the MAID it uses internally.
 
        <b>cfm_fault_status</b> <b>:</b> <b>loopback</b>: none
-              Indicates a CFM fault was triggered due to the  reception  of  a
-              CCM  advertising the same MPID configured in the <b>cfm_mpid</b> column
+              Indicates  a  CFM  fault was triggered due to the reception of a
+              CCM advertising the same MPID configured in the <b>cfm_mpid</b>  column
               of this <b>Interface</b>. This may indicate a loop in the network.
 
        <b>cfm_fault_status</b> <b>:</b> <b>overflow</b>: none
-              Indicates a CFM fault was triggered because the CFM  module  re‐
-              ceived  CCMs  from  more remote endpoints than it can keep track
+              Indicates  a  CFM fault was triggered because the CFM module re‐
+              ceived CCMs from more remote endpoints than it  can  keep  track
               of.
 
        <b>cfm_fault_status</b> <b>:</b> <b>override</b>: none
@@ -3895,47 +3922,47 @@
               using an <b>ovs-appctl</b> command.
 
        <b>cfm_fault_status</b> <b>:</b> <b>interval</b>: none
-              Indicates a CFM fault was triggered due to the  reception  of  a
+              Indicates  a  CFM  fault was triggered due to the reception of a
               CCM frame having an invalid interval.
 
        <b>cfm_remote_opstate</b>: optional string, either <b>down</b> or <b>up</b>
-              When  in  extended  mode, indicates the operational state of the
-              remote endpoint as either <b>up</b> or <b>down</b>.  See  <b>other_config:cfm_op‐</b>
+              When in extended mode, indicates the operational  state  of  the
+              remote  endpoint  as either <b>up</b> or <b>down</b>. See <b>other_config:cfm_op‐</b>
               <b>state</b>.
 
        <b>cfm_health</b>: optional integer, in range 0 to 100
-              Indicates  the  health  of  the interface as a percentage of CCM
-              frames received over 21 <b>other_config:cfm_interval</b>s.  The  health
-              of  an  interface  is undefined if it is communicating with more
-              than one <b>cfm_remote_mpids</b>. It reduces if healthy heartbeats  are
-              not  received  at  the  expected rate, and gradually improves as
-              healthy heartbeats are received at the desired  rate.  Every  21
-              <b>other_config:cfm_interval</b>s,  the  health of the interface is re‐
+              Indicates the health of the interface as  a  percentage  of  CCM
+              frames  received  over 21 <b>other_config:cfm_interval</b>s. The health
+              of an interface is undefined if it is  communicating  with  more
+              than  one <b>cfm_remote_mpids</b>. It reduces if healthy heartbeats are
+              not received at the expected rate,  and  gradually  improves  as
+              healthy  heartbeats  are  received at the desired rate. Every 21
+              <b>other_config:cfm_interval</b>s, the health of the interface  is  re‐
               freshed.
 
               As mentioned above, the faults can be triggered for several rea‐
-              sons. The link health will deteriorate even  if  heartbeats  are
-              received  but  they  are  reported to be unhealthy. An unhealthy
-              heartbeat in this context is a heartbeat for which  either  some
-              fault  is set or is out of sequence. The interface health can be
+              sons.  The  link  health will deteriorate even if heartbeats are
+              received but they are reported to  be  unhealthy.  An  unhealthy
+              heartbeat  in  this context is a heartbeat for which either some
+              fault is set or is out of sequence. The interface health can  be
               100 only on receiving healthy heartbeats at the desired rate.
 
        <b>cfm_remote_mpids</b>: set of integers
-              When CFM is properly configured, Open vSwitch will  occasionally
+              When  CFM is properly configured, Open vSwitch will occasionally
               receive CCM broadcasts. These broadcasts contain the MPID of the
               sending Maintenance Point. The list of MPIDs from which this <b>In‐</b>
-              <b>terface</b>  is receiving broadcasts from is regularly collected and
+              <b>terface</b> is receiving broadcasts from is regularly collected  and
               written to this column.
 
        <b>other_config</b> <b>:</b> <b>cfm_interval</b>: optional string, containing an integer
-              The interval, in  milliseconds,  between  transmissions  of  CFM
+              The  interval,  in  milliseconds,  between  transmissions of CFM
               heartbeats. Three missed heartbeat receptions indicate a connec‐
               tivity fault.
 
-              In  standard  operation  only  intervals  of  3, 10, 100, 1,000,
-              10,000, 60,000, or 600,000 ms are supported. Other  values  will
-              be  rounded down to the nearest value on the list. Extended mode
-              (see <b>other_config:cfm_extended</b>)  supports  any  interval  up  to
+              In standard operation only  intervals  of  3,  10,  100,  1,000,
+              10,000,  60,000,  or 600,000 ms are supported. Other values will
+              be rounded down to the nearest value on the list. Extended  mode
+              (see  <b>other_config:cfm_extended</b>)  supports  any  interval  up to
               65,535 ms. In either mode, the default is 1000 ms.
 
               We do not recommend using intervals less than 100 ms.
@@ -3944,70 +3971,70 @@
               When <b>true</b>, the CFM module operates in extended mode. This causes
               it to use a nonstandard destination address to avoid conflicting
               with compliant implementations which may be running concurrently
-              on  the  network. Furthermore, extended mode increases the accu‐
-              racy of the <b>cfm_interval</b>  configuration  parameter  by  breaking
-              wire  compatibility  with 802.1ag compliant implementations. And
+              on the network. Furthermore, extended mode increases  the  accu‐
+              racy  of  the  <b>cfm_interval</b>  configuration parameter by breaking
+              wire compatibility with 802.1ag compliant  implementations.  And
               extended mode allows eight byte MPIDs. Defaults to <b>false</b>.
 
        <b>other_config</b> <b>:</b> <b>cfm_demand</b>: optional string, either <b>true</b> or <b>false</b>
               When <b>true</b>, and <b>other_config:cfm_extended</b> is true, the CFM module
-              operates in demand mode. When in demand mode,  traffic  received
-              on  the  <b>Interface</b>  is used to indicate liveness. CCMs are still
-              transmitted and received. At least  one  CCM  must  be  received
+              operates  in  demand mode. When in demand mode, traffic received
+              on the <b>Interface</b> is used to indicate liveness.  CCMs  are  still
+              transmitted  and  received.  At  least  one CCM must be received
               every 100 * <b>other_config:cfm_interval</b> amount of time. Otherwise,
               even if traffic are received, the CFM module will raise the con‐
               nectivity fault.
 
               Demand mode has a couple of caveats:
 
-              •      To  ensure that ovs-vswitchd has enough time to pull sta‐
-                     tistics from the datapath, the fault  detection  interval
+              •      To ensure that ovs-vswitchd has enough time to pull  sta‐
+                     tistics  from  the datapath, the fault detection interval
                      is set to 3.5 * MAX(<b>other_config:cfm_interval</b>, 500) ms.
 
-              •      To  avoid  ambiguity,  demand  mode  disables itself when
+              •      To avoid ambiguity,  demand  mode  disables  itself  when
                      there are multiple remote maintenance points.
 
-              •      If the <b>Interface</b> is heavily  congested,  CCMs  containing
-                     the  <b>other_config:cfm_opstate</b> status may be dropped caus‐
+              •      If  the  <b>Interface</b>  is heavily congested, CCMs containing
+                     the <b>other_config:cfm_opstate</b> status may be dropped  caus‐
                      ing changes in the operational state to be delayed. Simi‐
-                     larly, if CCMs containing the RDI bit are  not  received,
+                     larly,  if  CCMs containing the RDI bit are not received,
                      unidirectional link failures may not be detected.
 
        <b>other_config</b> <b>:</b> <b>cfm_opstate</b>: optional string, either <b>down</b> or <b>up</b>
-              When  <b>down</b>, the CFM module marks all CCMs it generates as opera‐
-              tionally down without triggering a  fault.  This  allows  remote
-              maintenance  points  to choose not to forward traffic to the <b>In‐</b>
-              <b>terface</b> on which this CFM module is running. Currently, in  Open
+              When <b>down</b>, the CFM module marks all CCMs it generates as  opera‐
+              tionally  down  without  triggering  a fault. This allows remote
+              maintenance points to choose not to forward traffic to  the  <b>In‐</b>
+              <b>terface</b>  on which this CFM module is running. Currently, in Open
               vSwitch, the opdown bit of CCMs affects <b>Interface</b>s participating
-              in  bonds,  and  the bundle OpenFlow action. This setting is ig‐
+              in bonds, and the bundle OpenFlow action. This  setting  is  ig‐
               nored when CFM is not in extended mode. Defaults to <b>up</b>.
 
        <b>other_config</b> <b>:</b> <b>cfm_ccm_vlan</b>: optional string, containing an integer, in
        range 1 to 4,095
-              When set, the CFM module will apply a VLAN tag to  all  CCMs  it
-              generates  with  the  given  value.  May be the string <b>random</b> in
-              which case each CCM will be tagged  with  a  different  randomly
+              When  set,  the  CFM module will apply a VLAN tag to all CCMs it
+              generates with the given value. May  be  the  string  <b>random</b>  in
+              which  case  each  CCM  will be tagged with a different randomly
               generated VLAN.
 
        <b>other_config</b> <b>:</b> <b>cfm_ccm_pcp</b>: optional string, containing an integer, in
        range 1 to 7
-              When  set,  the  CFM module will apply a VLAN tag to all CCMs it
-              generates with the given PCP value, the VLAN ID of  the  tag  is
-              governed   by   the   value   of  <b>other_config:cfm_ccm_vlan</b>.  If
+              When set, the CFM module will apply a VLAN tag to  all  CCMs  it
+              generates  with  the  given PCP value, the VLAN ID of the tag is
+              governed  by  the   value   of   <b>other_config:cfm_ccm_vlan</b>.   If
               <b>other_config:cfm_ccm_vlan</b> is unset, a VLAN ID of zero is used.
 
      <u>Bonding</u> <u>Configuration:</u>
 
        <b>other_config</b> <b>:</b> <b>lacp-port-id</b>: optional string, containing an integer, in
        range 1 to 65,535
-              The LACP port ID of this <b>Interface</b>. Port IDs are  used  in  LACP
-              negotiations  to  identify  individual  ports participating in a
+              The  LACP  port  ID of this <b>Interface</b>. Port IDs are used in LACP
+              negotiations to identify individual  ports  participating  in  a
               bond.
 
        <b>other_config</b> <b>:</b> <b>lacp-port-priority</b>: optional string, containing an inte‐
        ger, in range 1 to 65,535
-              The LACP port priority of this <b>Interface</b>. In  LACP  negotiations
-              <b>Interface</b>s  with  numerically lower priorities are preferred for
+              The  LACP  port priority of this <b>Interface</b>. In LACP negotiations
+              <b>Interface</b>s with numerically lower priorities are  preferred  for
               aggregation.
 
        <b>other_config</b> <b>:</b> <b>lacp-aggregation-key</b>: optional string, containing an in‐
@@ -4018,38 +4045,38 @@
 
      <u>Virtual</u> <u>Machine</u> <u>Identifiers:</u>
 
-       These key-value pairs specifically apply to an  interface  that  repre‐
-       sents  a  virtual  Ethernet  interface  connected to a virtual machine.
-       These key-value pairs should not be present for other types  of  inter‐
+       These  key-value  pairs  specifically apply to an interface that repre‐
+       sents a virtual Ethernet interface  connected  to  a  virtual  machine.
+       These  key-value  pairs should not be present for other types of inter‐
        faces. Keys whose names end in <b>-uuid</b> have values that uniquely identify
        the entity in question.
 
        <b>external_ids</b> <b>:</b> <b>attached-mac</b>: optional string
-              The  MAC  address  programmed  into the ``virtual hardware’’ for
+              The MAC address programmed into  the  ``virtual  hardware’’  for
               this interface, in the form <u>xx</u>:<u>xx</u>:<u>xx</u>:<u>xx</u>:<u>xx</u>:<u>xx</u>.
 
        <b>external_ids</b> <b>:</b> <b>iface-id</b>: optional string
               A system-unique identifier for the interface.
 
        <b>external_ids</b> <b>:</b> <b>iface-status</b>: optional string, either <b>active</b> or <b>inactive</b>
-              Hypervisors may sometimes have more than one  interface  associ‐
-              ated  with  a  given <b>external_ids:iface-id</b>, only one of which is
-              actually in use at a given time. For example,  in  some  circum‐
-              stances  hypervisor may have both a ``tap’’ and a ``vif’’ inter‐
-              face for a single <b>external_ids:iface-id</b>, but only  uses  one  of
+              Hypervisors  may  sometimes have more than one interface associ‐
+              ated with a given <b>external_ids:iface-id</b>, only one  of  which  is
+              actually  in  use  at a given time. For example, in some circum‐
+              stances hypervisor may have both a ``tap’’ and a ``vif’’  inter‐
+              face  for  a  single <b>external_ids:iface-id</b>, but only uses one of
               them at a time. A hypervisor that behaves this way must mark the
               currently in use interface <b>active</b> and the others <b>inactive</b>. A hy‐
-              pervisor  that never has more than one interface for a given <b>ex‐</b>
-              <b>ternal_ids:iface-id</b> may mark that interface <b>active</b> or  omit  <b>ex‐</b>
+              pervisor that never has more than one interface for a given  <b>ex‐</b>
+              <b>ternal_ids:iface-id</b>  may  mark that interface <b>active</b> or omit <b>ex‐</b>
               <b>ternal_ids:iface-status</b> entirely.
 
-              During  VM  migration, a given <b>external_ids:iface-id</b> might tran‐
-              siently be marked <b>active</b> on two different hypervisors. That  is,
-              <b>active</b>  means  that this <b>external_ids:iface-id</b> is the active in‐
+              During VM migration, a given <b>external_ids:iface-id</b>  might  tran‐
+              siently  be marked <b>active</b> on two different hypervisors. That is,
+              <b>active</b> means that this <b>external_ids:iface-id</b> is the  active  in‐
               stance within a single hypervisor, not in a broader scope. There
-              is one exception: some hypervisors support ``migration’’ from  a
-              given  hypervisor to itself (most often for test purposes). Dur‐
-              ing such a ``migration,’’  two  instances  of  a  single  <b>exter‐</b>
+              is  one exception: some hypervisors support ``migration’’ from a
+              given hypervisor to itself (most often for test purposes).  Dur‐
+              ing  such  a  ``migration,’’  two  instances  of a single <b>exter‐</b>
               <b>nal_ids:iface-id</b> might both be briefly marked <b>active</b> on a single
               hypervisor.
 
@@ -4061,41 +4088,41 @@
        Auto Attach configuration for a particular interface.
 
        <b>lldp</b> <b>:</b> <b>enable</b>: optional string, either <b>true</b> or <b>false</b>
-              True  to  enable  LLDP on this <b>Interface</b>. If not specified, LLDP
+              True to enable LLDP on this <b>Interface</b>. If  not  specified,  LLDP
               will be disabled by default.
 
      <u>Flow</u> <u>control</u> <u>Configuration:</u>
 
        Ethernet flow control defined in IEEE 802.1Qbb provides link level flow
-       control using MAC pause frames. Implemented only  for  interfaces  with
+       control  using  MAC  pause frames. Implemented only for interfaces with
        type <b>dpdk</b>.
 
        <b>options</b> <b>:</b> <b>rx-flow-ctrl</b>: optional string, either <b>true</b> or <b>false</b>
-              Set  to <b>true</b> to enable Rx flow control on physical ports. By de‐
+              Set to <b>true</b> to enable Rx flow control on physical ports. By  de‐
               fault, Rx flow control is disabled.
 
        <b>options</b> <b>:</b> <b>tx-flow-ctrl</b>: optional string, either <b>true</b> or <b>false</b>
-              Set to <b>true</b> to enable Tx flow control on physical ports. By  de‐
+              Set  to <b>true</b> to enable Tx flow control on physical ports. By de‐
               fault, Tx flow control is disabled.
 
        <b>options</b> <b>:</b> <b>flow-ctrl-autoneg</b>: optional string, either <b>true</b> or <b>false</b>
-              Set  to <b>true</b> to enable flow control auto negotiation on physical
+              Set to <b>true</b> to enable flow control auto negotiation on  physical
               ports. By default, auto-neg is disabled.
 
      <u>Link</u> <u>State</u> <u>Change</u> <u>detection</u> <u>mode:</u>
 
        <b>options</b> <b>:</b> <b>dpdk-lsc-interrupt</b>: optional string, either <b>true</b> or <b>false</b>
-              Set this value to <b>true</b> to  configure  interrupt  mode  for  Link
-              State  Change  (LSC) detection instead of poll mode for the DPDK
+              Set  this  value  to <b>false</b> to configure poll mode for Link State
+              Change (LSC) detection instead of interrupt mode  for  the  DPDK
               interface.
 
-              If this value is not set, poll mode is configured.
+              If this value is not set, interrupt mode is configured.
 
               This parameter has an effect only on netdev dpdk interfaces.
 
      <u>Common</u> <u>Columns:</u>
 
-       The overall purpose of these columns is described under <b>Common</b>  <b>Columns</b>
+       The  overall purpose of these columns is described under <b>Common</b> <b>Columns</b>
        at the beginning of this document.
 
        <b>other_config</b>: map of string-string pairs
@@ -4117,65 +4144,65 @@
 
    <b>Details:</b>
        <b>name</b>: optional string
-              The  table’s  name. Set this column to change the name that con‐
-              trollers will receive when they request table  statistics,  e.g.
+              The table’s name. Set this column to change the name  that  con‐
+              trollers  will  receive when they request table statistics, e.g.
               <b>ovs-ofctl</b> <b>dump-tables</b>. The name does not affect switch behavior.
 
      <u>Eviction</u> <u>Policy:</u>
 
-       Open  vSwitch  supports  limiting  the  number of flows that may be in‐
-       stalled in a flow table, via the <b>flow_limit</b> column. When adding a  flow
-       would  exceed this limit, by default Open vSwitch reports an error, but
-       there are  two  ways  to  configure  Open  vSwitch  to  instead  delete
+       Open vSwitch supports limiting the number of  flows  that  may  be  in‐
+       stalled  in a flow table, via the <b>flow_limit</b> column. When adding a flow
+       would exceed this limit, by default Open vSwitch reports an error,  but
+       there  are  two  ways  to  configure  Open  vSwitch  to  instead delete
        (``evict’’) a flow to make room for the new one:
 
               •      Set the <b>overflow_policy</b> column to <b>evict</b>.
 
-              •      Send  an  OpenFlow  1.4+  ``table mod request’’ to enable
+              •      Send an OpenFlow 1.4+ ``table  mod  request’’  to  enable
                      eviction for the flow table (e.g. <b>ovs-ofctl</b> <b>-O</b> <b>OpenFlow14</b>
-                     <b>mod-table</b> <b>br0</b> <b>0</b> <b>evict</b> to enable eviction on flow table  0
+                     <b>mod-table</b>  <b>br0</b> <b>0</b> <b>evict</b> to enable eviction on flow table 0
                      of bridge <b>br0</b>).
 
-       When  a flow must be evicted due to overflow, the flow to evict is cho‐
+       When a flow must be evicted due to overflow, the flow to evict is  cho‐
        sen through an approximation of the following algorithm. This algorithm
        is used regardless of how eviction was enabled:
 
-              1.  Divide the flows in the table into groups based on the  val‐
-                  ues  of the fields or subfields specified in the <b>groups</b> col‐
+              1.  Divide  the flows in the table into groups based on the val‐
+                  ues of the fields or subfields specified in the <b>groups</b>  col‐
                   umn, so that all of the flows in a given group have the same
-                  values for those fields. If a flow does not specify a  given
-                  field,  that  field’s  value  is  treated as 0. If <b>groups</b> is
-                  empty, then all of the flows in the flow table  are  treated
+                  values  for those fields. If a flow does not specify a given
+                  field, that field’s value is treated  as  0.  If  <b>groups</b>  is
+                  empty,  then  all of the flows in the flow table are treated
                   as a single group.
 
-              2.  Consider  the flows in the largest group, that is, the group
-                  that contains the greatest number of flows. If two  or  more
-                  groups  all  have the same largest number of flows, consider
+              2.  Consider the flows in the largest group, that is, the  group
+                  that  contains  the greatest number of flows. If two or more
+                  groups all have the same largest number of  flows,  consider
                   the flows in all of those groups.
 
-              3.  If the flows under consideration have  different  importance
-                  values,  eliminate from consideration any flows except those
-                  with the lowest importance. (``Importance,’’ a 16-bit  inte‐
-                  ger  value attached to each flow, was introduced in OpenFlow
-                  1.4. Flows inserted with older versions of  OpenFlow  always
+              3.  If  the  flows under consideration have different importance
+                  values, eliminate from consideration any flows except  those
+                  with  the lowest importance. (``Importance,’’ a 16-bit inte‐
+                  ger value attached to each flow, was introduced in  OpenFlow
+                  1.4.  Flows  inserted with older versions of OpenFlow always
                   have an importance of 0.)
 
-              4.  Among  the  flows  under consideration, choose the flow that
+              4.  Among the flows under consideration, choose  the  flow  that
                   expires soonest for eviction.
 
-       The eviction process only considers flows that have an idle timeout  or
-       a  hard timeout. That is, eviction never deletes permanent flows. (Per‐
+       The  eviction process only considers flows that have an idle timeout or
+       a hard timeout. That is, eviction never deletes permanent flows.  (Per‐
        manent flows do count against <b>flow_limit</b>.)
 
        <b>flow_limit</b>: optional integer, at least 0
-              If set, limits the number of flows that may be added to the  ta‐
-              ble.  Open  vSwitch may limit the number of flows in a table for
-              other reasons, e.g. due to hardware limitations or for  resource
+              If  set, limits the number of flows that may be added to the ta‐
+              ble. Open vSwitch may limit the number of flows in a  table  for
+              other  reasons, e.g. due to hardware limitations or for resource
               availability or performance reasons.
 
        <b>overflow_policy</b>: optional string, either <b>evict</b> or <b>refuse</b>
               Controls the switch’s behavior when an OpenFlow flow table modi‐
-              fication  request  would  add flows in excess of <b>flow_limit</b>. The
+              fication request would add flows in excess  of  <b>flow_limit</b>.  The
               supported values are:
 
               <b>refuse</b> Refuse to add the flow or flows. This is also the default
@@ -4185,14 +4212,14 @@
                      above.
 
        <b>groups</b>: set of strings
-              When <b>overflow_policy</b> is <b>evict</b>, this controls how flows are  cho‐
-              sen  for  eviction  when  the  flow table would otherwise exceed
-              <b>flow_limit</b> flows. Its value is a  set  of  NXM  fields  or  sub-
-              fields,  each  of  which  takes  one  of  the  forms  <u>field</u><b>[]</b> or
+              When  <b>overflow_policy</b> is <b>evict</b>, this controls how flows are cho‐
+              sen for eviction when the  flow  table  would  otherwise  exceed
+              <b>flow_limit</b>  flows.  Its  value  is  a  set of NXM fields or sub-
+              fields, each  of  which  takes  one  of  the  forms  <u>field</u><b>[]</b>  or
               <u>field</u><b>[</b><u>start</u><b>..</b><u>end</u><b>]</b>, e.g. <b>NXM_OF_IN_PORT[]</b>. Please see <b>meta-flow.h</b>
               for a complete list of NXM field names.
 
-              Open vSwitch ignores any invalid  or  unknown  field  specifica‐
+              Open  vSwitch  ignores  any  invalid or unknown field specifica‐
               tions.
 
               When eviction is not enabled, via <b>overflow_policy</b> or an OpenFlow
@@ -4201,41 +4228,41 @@
      <u>Classifier</u> <u>Optimization:</u>
 
        <b>prefixes</b>: set of up to 3 strings
-              This  string  set  specifies which fields should be used for ad‐
-              dress prefix tracking. Prefix tracking allows the classifier  to
-              skip  rules  with  longer  than necessary prefixes, resulting in
+              This string set specifies which fields should be  used  for  ad‐
+              dress  prefix tracking. Prefix tracking allows the classifier to
+              skip rules with longer than  necessary  prefixes,  resulting  in
               better wildcarding for datapath flows.
 
-              Prefix tracking may be beneficial when  a  flow  table  contains
-              matches  on IP address fields with different prefix lengths. For
-              example, when a flow table contains IP address matches  on  both
-              full  addresses  and  proper  prefixes, the full address matches
-              will typically cause the datapath flow to un-wildcard the  whole
+              Prefix  tracking  may  be  beneficial when a flow table contains
+              matches on IP address fields with different prefix lengths.  For
+              example,  when  a flow table contains IP address matches on both
+              full addresses and proper prefixes,  the  full  address  matches
+              will  typically cause the datapath flow to un-wildcard the whole
               address field (depending on flow entry priorities). In this case
-              each  packet  with  a different address gets handed to the user‐
-              space for flow processing and generates its own  datapath  flow.
-              With  prefix  tracking enabled for the address field in question
-              packets with addresses matching shorter prefixes would  generate
+              each packet with a different address gets handed  to  the  user‐
+              space  for  flow processing and generates its own datapath flow.
+              With prefix tracking enabled for the address field  in  question
+              packets  with addresses matching shorter prefixes would generate
               datapath flows where the irrelevant address bits are wildcarded,
               allowing the same datapath flow to handle all the packets within
-              the  prefix in question. In this case many userspace upcalls can
+              the prefix in question. In this case many userspace upcalls  can
               be avoided and the overall performance can be better.
 
               This is a performance optimization only, so packets will receive
               the same treatment with or without prefix tracking.
 
-              The   supported   fields   are:   <b>tun_id</b>,   <b>tun_src</b>,    <b>tun_dst</b>,
-              <b>tun_ipv6_src</b>,  <b>tun_ipv6_dst</b>,  <b>nw_src</b>,  <b>nw_dst</b> (or aliases <b>ip_src</b>
-              and <b>ip_dst</b>), <b>ipv6_src</b>, and <b>ipv6_dst</b>.  (Using  this  feature  for
-              <b>tun_id</b>  would  only  make  sense  if  the tunnel IDs have prefix
+              The    supported   fields   are:   <b>tun_id</b>,   <b>tun_src</b>,   <b>tun_dst</b>,
+              <b>tun_ipv6_src</b>, <b>tun_ipv6_dst</b>, <b>nw_src</b>, <b>nw_dst</b>  (or  aliases  <b>ip_src</b>
+              and  <b>ip_dst</b>),  <b>ipv6_src</b>,  and  <b>ipv6_dst</b>. (Using this feature for
+              <b>tun_id</b> would only make sense  if  the  tunnel  IDs  have  prefix
               structure similar to IP addresses.)
 
               By default, the <b>prefixes=ip_dst,ip_src</b> are used on each flow ta‐
               ble. This instructs the flow classifier to track the IP destina‐
-              tion and source addresses used by the  rules  in  this  specific
+              tion  and  source  addresses  used by the rules in this specific
               flow table.
 
-              The  keyword  <b>none</b>  is recognized as an explicit override of the
+              The keyword <b>none</b> is recognized as an explicit  override  of  the
               default values, causing no prefix fields to be tracked.
 
               To set the prefix fields, the flow table record needs to exist:
@@ -4249,22 +4276,22 @@
                      Enables prefix tracking for IP source and destination ad‐
                      dress fields.
 
-              There is a maximum number of fields that can be enabled for  any
+              There  is a maximum number of fields that can be enabled for any
               one flow table. Currently this limit is 3.
 
      <u>Common</u> <u>Columns:</u>
 
-       The  overall purpose of these columns is described under <b>Common</b> <b>Columns</b>
+       The overall purpose of these columns is described under <b>Common</b>  <b>Columns</b>
        at the beginning of this document.
 
        <b>external_ids</b>: map of string-string pairs
 <b>QoS</b> <b>TABLE</b>
-       Quality of Service (QoS) configuration for each  Port  that  references
+       Quality  of  Service  (QoS) configuration for each Port that references
        it.
 
    <b>Summary:</b>
        <b>type</b>                          string
-       <b>queues</b>                        map  of integer-<b>Queue</b> pairs, key in range
+       <b>queues</b>                        map of integer-<b>Queue</b> pairs, key in  range
                                      0 to 4,294,967,295
        <u>Configuration</u> <u>for</u> <u>linux-htb</u> <u>and</u> <u>linux-hfsc:</u>
          <b>other_config</b> <b>:</b> <b>max-rate</b>     optional string, containing an integer
@@ -4287,152 +4314,152 @@
 
    <b>Details:</b>
        <b>type</b>: string
-              The type of QoS to implement. The currently  defined  types  are
+              The  type  of  QoS to implement. The currently defined types are
               listed below:
 
               <b>linux-htb</b>
-                     Linux  ``hierarchy  token  bucket’’  classifier.  See tc-
-                     htb(8) (also  at  <b>http://linux.die.net/man/8/tc-htb</b>)  and
-                     the  HTB  manual (<b>http://luxik.cdi.cz/~devik/qos/htb/man‐</b>
-                     <b>ual/userg.htm</b>) for information  on  how  this  classifier
+                     Linux ``hierarchy  token  bucket’’  classifier.  See  tc-
+                     htb(8)  (also  at  <b>http://linux.die.net/man/8/tc-htb</b>) and
+                     the HTB  manual  (<b>http://luxik.cdi.cz/~devik/qos/htb/man‐</b>
+                     <b>ual/userg.htm</b>)  for  information  on  how this classifier
                      works and how to configure it.
 
               <b>linux-hfsc</b>
-                     Linux  "Hierarchical  Fair Service Curve" classifier. See
-                     <b>http://linux-ip.net/articles/hfsc.en/</b> for information  on
+                     Linux "Hierarchical Fair Service Curve"  classifier.  See
+                     <b>http://linux-ip.net/articles/hfsc.en/</b>  for information on
                      how this classifier works.
 
               <b>linux-sfq</b>
-                     Linux  ``Stochastic  Fairness  Queueing’’ classifier. See
+                     Linux ``Stochastic Fairness  Queueing’’  classifier.  See
                      <b>tc-sfq</b>(8) (also at <b>http://linux.die.net/man/8/tc-sfq</b>) for
                      information on how this classifier works.
 
               <b>linux-codel</b>
-                     Linux ``Controlled Delay’’  classifier.  See  <b>tc-codel</b>(8)
+                     Linux  ``Controlled  Delay’’  classifier. See <b>tc-codel</b>(8)
                      (also                                                  at
                      <b>http://man7.org/linux/man-pages/man8/tc-codel.8.html</b>) for
                      information on how this classifier works.
 
               <b>linux-fq_codel</b>
-                     Linux ``Fair Queuing with Controlled Delay’’  classifier.
+                     Linux  ``Fair Queuing with Controlled Delay’’ classifier.
                      See           <b>tc-fq_codel</b>(8)           (also           at
                      <b>http://man7.org/linux/man-pages/man8/tc-fq_codel.8.html</b>)
                      for information on how this classifier works.
 
               <b>linux-netem</b>
-                     Linux ``Network Emulator’’  classifier.  See  <b>tc-netem</b>(8)
+                     Linux  ``Network  Emulator’’  classifier. See <b>tc-netem</b>(8)
                      (also                                                  at
                      <b>http://man7.org/linux/man-pages/man8/tc-netem.8.html</b>) for
                      information on how this classifier works.
 
               <b>linux-noop</b>
-                     Linux ``No operation.’’ By default, Open vSwitch  manages
-                     quality  of  service on all of its configured ports. This
-                     can be helpful, but sometimes  administrators  prefer  to
+                     Linux  ``No operation.’’ By default, Open vSwitch manages
+                     quality of service on all of its configured  ports.  This
+                     can  be  helpful,  but sometimes administrators prefer to
                      use other software to manage QoS. This <b>type</b> prevents Open
                      vSwitch from changing the QoS configuration for a port.
 
               <b>egress-policer</b>
-                     A  DPDK egress policer algorithm using the DPDK rte_meter
+                     A DPDK egress policer algorithm using the DPDK  rte_meter
                      library. The rte_meter library provides an implementation
-                     which allows the metering and policing  of  traffic.  The
-                     implementation  in OVS essentially creates a single token
-                     bucket used to police traffic. It should  be  noted  that
-                     when  the  rte_meter  is  configured as part of QoS there
-                     will be a performance overhead as  the  rte_meter  itself
+                     which  allows  the  metering and policing of traffic. The
+                     implementation in OVS essentially creates a single  token
+                     bucket  used  to  police traffic. It should be noted that
+                     when the rte_meter is configured as  part  of  QoS  there
+                     will  be  a  performance overhead as the rte_meter itself
                      will consume CPU cycles in order to police traffic. These
                      CPU cycles ordinarily are used for packet proccessing. As
-                     such  the drop in performance will be noticed in terms of
+                     such the drop in performance will be noticed in terms  of
                      overall aggregate traffic throughput.
 
               <b>trtcm-policer</b>
-                     A DPDK egress policer algorithm  using  RFC  4115’s  Two-
-                     Rate,  Three-Color  marker. It’s a two-level hierarchical
-                     policer which first does a  color-blind  marking  of  the
-                     traffic  at  the  queue  level, followed by a color-aware
-                     marking at the port level. At the end traffic  marked  as
+                     A  DPDK  egress  policer  algorithm using RFC 4115’s Two-
+                     Rate, Three-Color marker. It’s a  two-level  hierarchical
+                     policer  which  first  does  a color-blind marking of the
+                     traffic at the queue level,  followed  by  a  color-aware
+                     marking  at  the port level. At the end traffic marked as
                      Green or Yellow is forwarded, Red is dropped. For details
-                     on  how traffic is marked, see RFC 4115. If the ``default
-                     queue’’, 0, is not configured it’s automatically  created
+                     on how traffic is marked, see RFC 4115. If the  ``default
+                     queue’’,  0, is not configured it’s automatically created
                      with the same <b>other_config</b> values as the physical port.
 
        <b>queues</b>: map of integer-<b>Queue</b> pairs, key in range 0 to 4,294,967,295
-              A  map  from queue numbers to <b>Queue</b> records. The supported range
-              of queue numbers depend on <b>type</b>. The queue numbers are the  same
-              as  the  <b>queue_id</b>  used in OpenFlow in <b>struct</b> <b>ofp_action_enqueue</b>
+              A map from queue numbers to <b>Queue</b> records. The  supported  range
+              of  queue numbers depend on <b>type</b>. The queue numbers are the same
+              as the <b>queue_id</b> used in OpenFlow  in  <b>struct</b>  <b>ofp_action_enqueue</b>
               and other structures.
 
-              Queue 0 is the ``default queue.’’ It is used by OpenFlow  output
-              actions  when no specific queue has been set. When no configura‐
-              tion for queue 0 is present, it is automatically  configured  as
-              if  a  <b>Queue</b> record with empty <b>dscp</b> and <b>other_config</b> columns had
-              been specified. (Before version 1.6, Open  vSwitch  would  leave
-              queue  0  unconfigured  in  this  case. With some queuing disci‐
-              plines, this  dropped  all  packets  destined  for  the  default
+              Queue  0 is the ``default queue.’’ It is used by OpenFlow output
+              actions when no specific queue has been set. When no  configura‐
+              tion  for  queue 0 is present, it is automatically configured as
+              if a <b>Queue</b> record with empty <b>dscp</b> and <b>other_config</b>  columns  had
+              been  specified.  (Before  version 1.6, Open vSwitch would leave
+              queue 0 unconfigured in this  case.  With  some  queuing  disci‐
+              plines,  this  dropped  all  packets  destined  for  the default
               queue.)
 
      <u>Configuration</u> <u>for</u> <u>linux-htb</u> <u>and</u> <u>linux-hfsc:</u>
 
-       The  <b>linux-htb</b>  and  <b>linux-hfsc</b> classes support the following key-value
+       The <b>linux-htb</b> and <b>linux-hfsc</b> classes support  the  following  key-value
        pair:
 
        <b>other_config</b> <b>:</b> <b>max-rate</b>: optional string, containing an integer
-              Maximum rate shared by all queued traffic, in  bit/s.  Optional.
-              If  not  specified,  for physical interfaces, the default is the
-              link rate. For other interfaces or if the link  rate  cannot  be
+              Maximum  rate  shared by all queued traffic, in bit/s. Optional.
+              If not specified, for physical interfaces, the  default  is  the
+              link  rate.  For  other interfaces or if the link rate cannot be
               determined, the default is currently 10 Gbps.
 
      <u>Configuration</u> <u>for</u> <u>egress-policer</u> <u>QoS:</u>
 
-       <b>QoS</b>  <b>type</b>  <b>egress-policer</b>  provides  egress policing for userspace port
+       <b>QoS</b> <b>type</b> <b>egress-policer</b> provides egress  policing  for  userspace  port
        types with DPDK. It has the following key-value pairs defined.
 
        <b>other_config</b> <b>:</b> <b>cir</b>: optional string, containing an integer
-              The Committed Information Rate (CIR) is measured in bytes of  IP
-              packets per second, i.e. it includes the IP header, but not link
-              specific  (e.g. Ethernet) headers. This represents the bytes per
-              second rate at which the token bucket will be updated.  The  cir
-              value is calculated by (pps x packet data size). For example as‐
-              suming  a  user  wishes  to limit a stream consisting of 64 byte
-              packets to 1 million packets per second the CIR would be set  to
-              to  to 46000000. This value can be broken into ’1,000,000 x 46’.
-              Where 1,000,000 is the policing rate for the number  of  packets
-              per  second  and 46 represents the size of the packet data for a
-              64 bytes IP packet without 14 bytes Ethernet  and  4  bytes  FCS
-              header.
-
-       <b>other_config</b> <b>:</b> <b>cbs</b>: optional string, containing an integer
-              The  Committed  Burst Size (CBS) is measured in bytes and repre‐
-              sents a token bucket. At a minimum this value should be  be  set
-              to  the  expected  largest size packet in the traffic stream. In
-              practice larger values may be used to increase the size  of  the
-              token  bucket.  If a packet can be transmitted then the cbs will
-              be decremented by the number of bytes/tokens of the  packet.  If
-              there are not enough tokens in the cbs bucket the packet will be
-              dropped.
-
-       <b>other_config</b> <b>:</b> <b>eir</b>: optional string, containing an integer
-              The  Excess  Information  Rate  (EIR) is measured in bytes of IP
+              The  Committed Information Rate (CIR) is measured in bytes of IP
               packets per second, i.e. it includes the IP header, but not link
               specific (e.g. Ethernet) headers. This represents the bytes  per
-              second  rate  at which the token bucket will be updated. The eir
+              second  rate  at which the token bucket will be updated. The cir
               value is calculated by (pps x packet data size). For example as‐
               suming a user wishes to limit a stream  consisting  of  64  byte
-              packets  to 1 million packets per second the EIR would be set to
+              packets  to 1 million packets per second the CIR would be set to
               to to 46000000. This value can be broken into ’1,000,000 x  46’.
               Where  1,000,000  is the policing rate for the number of packets
               per second and 46 represents the size of the packet data  for  a
               64  bytes  IP  packet  without 14 bytes Ethernet and 4 bytes FCS
               header.
 
+       <b>other_config</b> <b>:</b> <b>cbs</b>: optional string, containing an integer
+              The Committed Burst Size (CBS) is measured in bytes  and  repre‐
+              sents  a  token bucket. At a minimum this value should be be set
+              to the expected largest size packet in the  traffic  stream.  In
+              practice  larger  values may be used to increase the size of the
+              token bucket. If a packet can be transmitted then the  cbs  will
+              be  decremented  by the number of bytes/tokens of the packet. If
+              there are not enough tokens in the cbs bucket the packet will be
+              dropped.
+
+       <b>other_config</b> <b>:</b> <b>eir</b>: optional string, containing an integer
+              The Excess Information Rate (EIR) is measured  in  bytes  of  IP
+              packets per second, i.e. it includes the IP header, but not link
+              specific  (e.g. Ethernet) headers. This represents the bytes per
+              second rate at which the token bucket will be updated.  The  eir
+              value is calculated by (pps x packet data size). For example as‐
+              suming  a  user  wishes  to limit a stream consisting of 64 byte
+              packets to 1 million packets per second the EIR would be set  to
+              to  to 46000000. This value can be broken into ’1,000,000 x 46’.
+              Where 1,000,000 is the policing rate for the number  of  packets
+              per  second  and 46 represents the size of the packet data for a
+              64 bytes IP packet without 14 bytes Ethernet  and  4  bytes  FCS
+              header.
+
        <b>other_config</b> <b>:</b> <b>ebs</b>: optional string, containing an integer
-              The Excess Burst Size (EBS) is measured in bytes and  represents
-              a  token bucket. At a minimum this value should be be set to the
-              expected largest size packet in the traffic stream. In  practice
-              larger  values  may  be  used  to increase the size of the token
-              bucket. If a packet can be transmitted  then  the  ebs  will  be
-              decremented  by  the  number  of  bytes/tokens of the packet. If
-              there are not enough tokens in the cbs bucket the  packet  might
+              The  Excess Burst Size (EBS) is measured in bytes and represents
+              a token bucket. At a minimum this value should be be set to  the
+              expected  largest size packet in the traffic stream. In practice
+              larger values may be used to increase  the  size  of  the  token
+              bucket.  If  a  packet  can  be transmitted then the ebs will be
+              decremented by the number of  bytes/tokens  of  the  packet.  If
+              there  are  not enough tokens in the cbs bucket the packet might
               be dropped.
 
      <u>Configuration</u> <u>for</u> <u>linux-sfq:</u>
@@ -4440,16 +4467,16 @@
        The <b>linux-sfq</b> QoS supports the following key-value pairs:
 
        <b>other_config</b> <b>:</b> <b>perturb</b>: optional string, containing an integer
-              Number  of  seconds between consecutive perturbations in hashing
-              algorithm. Different flows can end up in the  same  hash  bucket
-              causing  unfairness.  Perturbation’s  goal is to remove possible
-              unfairness. The default and recommended value is 10. Too  low  a
-              value  is discouraged because each perturbation can cause packet
+              Number of seconds between consecutive perturbations  in  hashing
+              algorithm.  Different  flows  can end up in the same hash bucket
+              causing unfairness. Perturbation’s goal is  to  remove  possible
+              unfairness.  The  default and recommended value is 10. Too low a
+              value is discouraged because each perturbation can cause  packet
               reordering.
 
        <b>other_config</b> <b>:</b> <b>quantum</b>: optional string, containing an integer
-              Number of bytes <b>linux-sfq</b> QoS can dequeue in one turn in  round-
-              robin  from one flow. The default and recommended value is equal
+              Number  of bytes <b>linux-sfq</b> QoS can dequeue in one turn in round-
+              robin from one flow. The default and recommended value is  equal
               to interface’s MTU.
 
      <u>Configuration</u> <u>for</u> <u>linux-netem:</u>
@@ -4457,24 +4484,24 @@
        The <b>linux-netem</b> QoS supports the following key-value pairs:
 
        <b>other_config</b> <b>:</b> <b>latency</b>: optional string, containing an integer
-              Adds the chosen delay to the packets outgoing to chosen  network
+              Adds  the chosen delay to the packets outgoing to chosen network
               interface. The latency value expressed in us.
 
        <b>other_config</b> <b>:</b> <b>limit</b>: optional string, containing an integer
-              Maximum  number  of packets the qdisc may hold queued at a time.
+              Maximum number of packets the qdisc may hold queued at  a  time.
               The default value is 1000.
 
        <b>other_config</b> <b>:</b> <b>loss</b>: optional string, containing an integer
-              Adds an independent loss probability  to  the  packets  outgoing
+              Adds  an  independent  loss  probability to the packets outgoing
               from the chosen network interface.
 
        <b>other_config</b> <b>:</b> <b>jitter</b>: optional string, containing an integer
-              Adds  the  provided jitter to the latency outgoing to the chosen
+              Adds the provided jitter to the latency outgoing to  the  chosen
               network interface. The jitter value expressed in us.
 
      <u>Common</u> <u>Columns:</u>
 
-       The overall purpose of these columns is described under <b>Common</b>  <b>Columns</b>
+       The  overall purpose of these columns is described under <b>Common</b> <b>Columns</b>
        at the beginning of this document.
 
        <b>other_config</b>: map of string-string pairs
@@ -4482,24 +4509,24 @@
        <b>external_ids</b>: map of string-string pairs
 <b>Queue</b> <b>TABLE</b>
        A configuration for a port output queue, used in configuring Quality of
-       Service  (QoS)  features. May be referenced by <b>queues</b> column in <b>QoS</b> ta‐
+       Service (QoS) features. May be referenced by <b>queues</b> column in  <b>QoS</b>  ta‐
        ble.
 
    <b>Summary:</b>
        <b>dscp</b>                          optional integer, in range 0 to 63
        <u>Configuration</u> <u>for</u> <u>linux-htb</u> <u>QoS:</u>
-         <b>other_config</b> <b>:</b> <b>min-rate</b>     optional string, containing  an  integer,
+         <b>other_config</b> <b>:</b> <b>min-rate</b>     optional  string,  containing an integer,
                                      at least 1
-         <b>other_config</b> <b>:</b> <b>max-rate</b>     optional  string,  containing an integer,
+         <b>other_config</b> <b>:</b> <b>max-rate</b>     optional string, containing  an  integer,
                                      at least 1
-         <b>other_config</b> <b>:</b> <b>burst</b>        optional string, containing  an  integer,
+         <b>other_config</b> <b>:</b> <b>burst</b>        optional  string,  containing an integer,
                                      at least 1
-         <b>other_config</b> <b>:</b> <b>priority</b>     optional  string,  containing an integer,
+         <b>other_config</b> <b>:</b> <b>priority</b>     optional string, containing  an  integer,
                                      in range 0 to 4,294,967,295
        <u>Configuration</u> <u>for</u> <u>linux-hfsc</u> <u>QoS:</u>
-         <b>other_config</b> <b>:</b> <b>min-rate</b>     optional string, containing  an  integer,
+         <b>other_config</b> <b>:</b> <b>min-rate</b>     optional  string,  containing an integer,
                                      at least 1
-         <b>other_config</b> <b>:</b> <b>max-rate</b>     optional  string,  containing an integer,
+         <b>other_config</b> <b>:</b> <b>max-rate</b>     optional string, containing  an  integer,
                                      at least 1
        <u>Common</u> <u>Columns:</u>
          <b>other_config</b>                map of string-string pairs
@@ -4507,15 +4534,15 @@
 
    <b>Details:</b>
        <b>dscp</b>: optional integer, in range 0 to 63
-              If set, Open vSwitch will mark all traffic egressing this  <b>Queue</b>
+              If  set, Open vSwitch will mark all traffic egressing this <b>Queue</b>
               with the given DSCP bits. Traffic egressing the default <b>Queue</b> is
-              only  marked  if  it was explicitly selected as the <b>Queue</b> at the
-              time the packet was output. If unset, the DSCP bits  of  traffic
+              only marked if it was explicitly selected as the  <b>Queue</b>  at  the
+              time  the  packet was output. If unset, the DSCP bits of traffic
               egressing this <b>Queue</b> will remain unchanged.
 
      <u>Configuration</u> <u>for</u> <u>linux-htb</u> <u>QoS:</u>
 
-       <b>QoS</b>  <b>type</b>  <b>linux-htb</b> may use <b>queue_id</b>s less than 61440. It has the fol‐
+       <b>QoS</b> <b>type</b> <b>linux-htb</b> may use <b>queue_id</b>s less than 61440. It has  the  fol‐
        lowing key-value pairs defined.
 
        <b>other_config</b> <b>:</b> <b>min-rate</b>: optional string, containing an integer, at
@@ -4525,27 +4552,27 @@
        <b>other_config</b> <b>:</b> <b>max-rate</b>: optional string, containing an integer, at
        least 1
               Maximum allowed bandwidth, in bit/s. Optional. If specified, the
-              queue’s rate will not be allowed to exceed the specified  value,
-              even  if excess bandwidth is available. If unspecified, defaults
+              queue’s  rate will not be allowed to exceed the specified value,
+              even if excess bandwidth is available. If unspecified,  defaults
               to no limit.
 
        <b>other_config</b> <b>:</b> <b>burst</b>: optional string, containing an integer, at least
        1
-              Burst size, in bits. This is the maximum amount  of  ``credits’’
-              that  a queue can accumulate while it is idle. Optional. Details
+              Burst  size,  in bits. This is the maximum amount of ``credits’’
+              that a queue can accumulate while it is idle. Optional.  Details
               of the <b>linux-htb</b> implementation require a minimum burst size, so
               a too-small <b>burst</b> will be silently ignored.
 
        <b>other_config</b> <b>:</b> <b>priority</b>: optional string, containing an integer, in
        range 0 to 4,294,967,295
-              A queue with a smaller <b>priority</b>  will  receive  all  the  excess
+              A  queue  with  a  smaller  <b>priority</b> will receive all the excess
               bandwidth that it can use before a queue with a larger value re‐
               ceives any. Specific priority values are unimportant; only rela‐
               tive ordering matters. Defaults to 0 if unspecified.
 
      <u>Configuration</u> <u>for</u> <u>linux-hfsc</u> <u>QoS:</u>
 
-       <b>QoS</b>  <b>type</b> <b>linux-hfsc</b> may use <b>queue_id</b>s less than 61440. It has the fol‐
+       <b>QoS</b> <b>type</b> <b>linux-hfsc</b> may use <b>queue_id</b>s less than 61440. It has the  fol‐
        lowing key-value pairs defined.
 
        <b>other_config</b> <b>:</b> <b>min-rate</b>: optional string, containing an integer, at
@@ -4555,13 +4582,13 @@
        <b>other_config</b> <b>:</b> <b>max-rate</b>: optional string, containing an integer, at
        least 1
               Maximum allowed bandwidth, in bit/s. Optional. If specified, the
-              queue’s rate will not be allowed to exceed the specified  value,
-              even  if excess bandwidth is available. If unspecified, defaults
+              queue’s  rate will not be allowed to exceed the specified value,
+              even if excess bandwidth is available. If unspecified,  defaults
               to no limit.
 
      <u>Common</u> <u>Columns:</u>
 
-       The overall purpose of these columns is described under <b>Common</b>  <b>Columns</b>
+       The  overall purpose of these columns is described under <b>Common</b> <b>Columns</b>
        at the beginning of this document.
 
        <b>other_config</b>: map of string-string pairs
@@ -4570,30 +4597,30 @@
 <b>Mirror</b> <b>TABLE</b>
        A port mirror within a <b>Bridge</b>.
 
-       A  port  mirror  configures a bridge to send selected frames to special
+       A port mirror configures a bridge to send selected  frames  to  special
        ``mirrored’’ ports, in addition to their normal destinations. Mirroring
-       traffic may also be referred to as SPAN or RSPAN, depending on how  the
+       traffic  may also be referred to as SPAN or RSPAN, depending on how the
        mirrored traffic is sent.
 
-       When  a  packet  enters an Open vSwitch bridge, it becomes eligible for
-       mirroring based on its ingress port and VLAN.  As  the  packet  travels
-       through  the  flow tables, each time it is output to a port, it becomes
-       eligible for mirroring based on the  egress  port  and  VLAN.  In  Open
-       vSwitch  2.5  and later, mirroring occurs just after a packet first be‐
-       comes eligible, using the packet as it exists at that  point;  in  Open
-       vSwitch  2.4 and earlier, mirroring occurs only after a packet has tra‐
+       When a packet enters an Open vSwitch bridge, it  becomes  eligible  for
+       mirroring  based  on  its  ingress port and VLAN. As the packet travels
+       through the flow tables, each time it is output to a port,  it  becomes
+       eligible  for  mirroring  based  on  the  egress port and VLAN. In Open
+       vSwitch 2.5 and later, mirroring occurs just after a packet  first  be‐
+       comes  eligible,  using  the packet as it exists at that point; in Open
+       vSwitch 2.4 and earlier, mirroring occurs only after a packet has  tra‐
        versed all the flow tables, using the original packet as it entered the
-       bridge. This makes a difference only when the flow table  modifies  the
-       packet:  in  Open  vSwitch  2.4, the modifications are never visible to
-       mirrors, whereas in Open vSwitch 2.5 and later modifications  made  be‐
+       bridge.  This  makes a difference only when the flow table modifies the
+       packet: in Open vSwitch 2.4, the modifications  are  never  visible  to
+       mirrors,  whereas  in Open vSwitch 2.5 and later modifications made be‐
        fore the first output that makes it eligible for mirroring to a partic‐
        ular destination are visible.
 
        A packet that enters an Open vSwitch bridge is mirrored to a particular
        destination only once, even if it is eligible for multiple reasons. For
-       example,  a  packet  would be mirrored to a particular <b>output_port</b> only
-       once, even if it  is  selected  for  mirroring  to  that  port  by  <b>se‐</b>
-       <b>lect_dst_port</b>  and  <b>select_src_port</b>  in  the  same  or different <b>Mirror</b>
+       example, a packet would be mirrored to a  particular  <b>output_port</b>  only
+       once,  even  if  it  is  selected  for  mirroring  to  that port by <b>se‐</b>
+       <b>lect_dst_port</b> and <b>select_src_port</b>  in  the  same  or  different  <b>Mirror</b>
        records.
 
    <b>Summary:</b>
@@ -4602,8 +4629,9 @@
          <b>select_all</b>                  boolean
          <b>select_dst_port</b>             set of weak reference to <b>Port</b>s
          <b>select_src_port</b>             set of weak reference to <b>Port</b>s
-         <b>select_vlan</b>                 set of up to 4,096 integers, in  range  0
+         <b>select_vlan</b>                 set  of  up to 4,096 integers, in range 0
                                      to 4,095
+         <b>filter</b>                      optional string
        <u>Mirroring</u> <u>Destination</u> <u>Configuration:</u>
          <b>output_port</b>                 optional weak reference to <b>Port</b>
          <b>output_vlan</b>                 optional integer, in range 1 to 4,095
@@ -4620,12 +4648,12 @@
 
      <u>Selecting</u> <u>Packets</u> <u>for</u> <u>Mirroring:</u>
 
-       To  be  selected  for mirroring, a given packet must enter or leave the
-       bridge through a selected port and it must also be in one  of  the  se‐
+       To be selected for mirroring, a given packet must enter  or  leave  the
+       bridge  through  a  selected port and it must also be in one of the se‐
        lected VLANs.
 
        <b>select_all</b>: boolean
-              If  true,  every packet arriving or departing on any port is se‐
+              If true, every packet arriving or departing on any port  is  se‐
               lected for mirroring.
 
        <b>select_dst_port</b>: set of weak reference to <b>Port</b>s
@@ -4635,8 +4663,18 @@
               Ports on which arriving packets are selected for mirroring.
 
        <b>select_vlan</b>: set of up to 4,096 integers, in range 0 to 4,095
-              VLANs on which packets are selected for mirroring. An empty  set
+              VLANs  on which packets are selected for mirroring. An empty set
               selects packets on all VLANs.
+
+       <b>filter</b>: optional string
+              When set, only packets that match <b>filter</b> are selected  for  mir‐
+              roring.  Packets  that  do not match are ignored by thie mirror.
+              The <b>filter</b> syntax is described in  <b>ovs-fields</b>(7).  However,  the
+              <b>in_port</b>  field  is not supported; <b>select_src_port</b> should be used
+              to limit the mirror to a source port.
+
+              This filter is applied after  <b>select_all</b>,  <b>select_dst_port</b>,  <b>se‐</b>
+              <b>lect_src_port</b>, and <b>select_vlan</b>.
 
      <u>Mirroring</u> <u>Destination</u> <u>Configuration:</u>
 
@@ -5504,6 +5542,7 @@
          <b>capabilities</b> <b>:</b> <b>ct_zero_snat</b>
                                      optional string, either <b>true</b> or <b>false</b>
          <b>capabilities</b> <b>:</b> <b>ct_flush</b>     optional string, either <b>true</b> or <b>false</b>
+         <b>capabilities</b> <b>:</b> <b>psample</b>      optional string, either <b>true</b> or <b>false</b>
        <b>ct_zone_default_limit</b>         optional   integer,   in   range   0   to
                                      4,294,967,295
        <u>Common</u> <u>Columns:</u>
@@ -5591,177 +5630,177 @@
               packet in datapath. It is supported only  for  balance-tcp  bond
               mode in netdev datapath. The new action gives higher performance
               by  using  bond  buckets instead of post recirculation flows for
-              selection of slave port from bond. By default this new action is
-              disabled, however it can be enabled by setting  <b>other-config:lb-</b>
-              <b>output-action</b> in <b>Port</b> table.
+              selection of member port from bond. By default this  new  action
+              is  disabled,  however  it  can be enabled by setting <b>other-con‐</b>
+              <b>fig:lb-output-action</b> in <b>Port</b> table.
 
      <u>Connection-Tracking</u> <u>Capabilities:</u>
 
-       These  capabilities are granular because Open vSwitch and its datapaths
-       added support for connection tracking over several releases, with  fea‐
+       These capabilities are granular because Open vSwitch and its  datapaths
+       added  support for connection tracking over several releases, with fea‐
        tures added individually over that time.
 
        <b>capabilities</b> <b>:</b> <b>ct_state</b>: optional string, either <b>true</b> or <b>false</b>
-              If  true,  datapath  supports OVS_KEY_ATTR_CT_STATE, which indi‐
-              cates support for the bits in the OpenFlow <b>ct_state</b>  field  (see
-              <b>ovs-fields</b>(7))  other  than <b>snat</b> and <b>dnat</b>, which have a separate
+              If true, datapath supports  OVS_KEY_ATTR_CT_STATE,  which  indi‐
+              cates  support  for the bits in the OpenFlow <b>ct_state</b> field (see
+              <b>ovs-fields</b>(7)) other than <b>snat</b> and <b>dnat</b>, which have  a  separate
               capability.
 
-              If this is false, the  datapath  does  not  support  connection-
-              tracking  at all and the remaining connection-tracking capabili‐
+              If  this  is  false,  the  datapath does not support connection-
+              tracking at all and the remaining connection-tracking  capabili‐
               ties should all be false. In this case, Open vSwitch will reject
               flows that match on the <b>ct_state</b> field or use the <b>ct</b> action.
 
        <b>capabilities</b> <b>:</b> <b>ct_state_nat</b>: optional string, either <b>true</b> or <b>false</b>
-              If true, it means that the datapath supports the <b>snat</b>  and  <b>dnat</b>
-              flags  in  the  OpenFlow <b>ct_state</b> field. The <b>ct_state</b> capability
+              If  true,  it means that the datapath supports the <b>snat</b> and <b>dnat</b>
+              flags in the OpenFlow <b>ct_state</b> field.  The  <b>ct_state</b>  capability
               must be true for this to make sense.
 
-              If false, Open vSwitch will reject flows that match on the  <b>snat</b>
+              If  false, Open vSwitch will reject flows that match on the <b>snat</b>
               or <b>dnat</b> bits in <b>ct_state</b> or use <b>nat</b> in the <b>ct</b> action.
 
        <b>capabilities</b> <b>:</b> <b>ct_zone</b>: optional string, either <b>true</b> or <b>false</b>
-              If  true, datapath supports OVS_KEY_ATTR_CT_ZONE. If false, Open
-              vSwitch rejects flows that match on the <b>ct_zone</b>  field  or  that
+              If true, datapath supports OVS_KEY_ATTR_CT_ZONE. If false,  Open
+              vSwitch  rejects  flows  that match on the <b>ct_zone</b> field or that
               specify a nonzero zone or a zone field on the <b>ct</b> action.
 
        <b>capabilities</b> <b>:</b> <b>ct_mark</b>: optional string, either <b>true</b> or <b>false</b>
-              If  true, datapath supports OVS_KEY_ATTR_CT_MARK. If false, Open
-              vSwitch rejects flows that match on the <b>ct_mark</b>  field  or  that
+              If true, datapath supports OVS_KEY_ATTR_CT_MARK. If false,  Open
+              vSwitch  rejects  flows  that match on the <b>ct_mark</b> field or that
               set <b>ct_mark</b> in the <b>ct</b> action.
 
        <b>capabilities</b> <b>:</b> <b>ct_label</b>: optional string, either <b>true</b> or <b>false</b>
               If true, datapath supports OVS_KEY_ATTR_CT_LABEL. If false, Open
-              vSwitch  rejects  flows that match on the <b>ct_label</b> field or that
+              vSwitch rejects flows that match on the <b>ct_label</b> field  or  that
               set <b>ct_label</b> in the <b>ct</b> action.
 
        <b>capabilities</b> <b>:</b> <b>ct_orig_tuple</b>: optional string, either <b>true</b> or <b>false</b>
-              If true, the datapath supports matching  the  5-tuple  from  the
+              If  true,  the  datapath  supports matching the 5-tuple from the
               connection’s original direction for IPv4 traffic. If false, Open
               vSwitch rejects flows that match on <b>ct_nw_src</b> or <b>ct_nw_dst</b>, that
-              use  the <b>ct</b> feature of the <b>resubmit</b> action, or the <b>force</b> keyword
-              in the <b>ct</b> action. (The latter isn’t tied to connection  tracking
-              support  of  original tuples in any technical way. They are con‐
-              flated because all current datapaths implemented  the  two  fea‐
+              use the <b>ct</b> feature of the <b>resubmit</b> action, or the <b>force</b>  keyword
+              in  the <b>ct</b> action. (The latter isn’t tied to connection tracking
+              support of original tuples in any technical way. They  are  con‐
+              flated  because  all  current datapaths implemented the two fea‐
               tures at the same time.)
 
-              If  this  and  <b>capabilities:ct_orig_tuple6</b>  are both false, Open
-              vSwitch rejects flows that match on <b>ct_nw_proto</b>,  <b>ct_tp_src</b>,  or
+              If this and <b>capabilities:ct_orig_tuple6</b>  are  both  false,  Open
+              vSwitch  rejects  flows that match on <b>ct_nw_proto</b>, <b>ct_tp_src</b>, or
               <b>ct_tp_dst</b>.
 
        <b>capabilities</b> <b>:</b> <b>ct_orig_tuple6</b>: optional string, either <b>true</b> or <b>false</b>
-              If  true,  the  datapath  supports matching the 5-tuple from the
+              If true, the datapath supports matching  the  5-tuple  from  the
               connection’s original direction for IPv6 traffic. If false, Open
               vSwitch rejects flows that match on <b>ct_ipv6_src</b> or <b>ct_ipv6_dst</b>.
 
        <b>capabilities</b> <b>:</b> <b>masked_set_action</b>: optional string, either <b>true</b> or <b>false</b>
               True if the datapath supports masked data in OVS_ACTION_ATTR_SET
-              actions.  Masked  data  can  improve  performance  by   allowing
+              actions.   Masked  data  can  improve  performance  by  allowing
               megaflows to match on fewer fields.
 
        <b>capabilities</b> <b>:</b> <b>tnl_push_pop</b>: optional string, either <b>true</b> or <b>false</b>
-              True  if the datapath supports tnl_push and pop actions. This is
+              True if the datapath supports tnl_push and pop actions. This  is
               a prerequisite for a datapath to support native tunneling.
 
        <b>capabilities</b> <b>:</b> <b>ufid</b>: optional string, either <b>true</b> or <b>false</b>
-              True if the datapath supports OVS_FLOW_ATTR_UFID.  UFID  support
-              improves  revalidation performance by transferring less data be‐
+              True  if  the datapath supports OVS_FLOW_ATTR_UFID. UFID support
+              improves revalidation performance by transferring less data  be‐
               tween the slow path and the datapath.
 
        <b>capabilities</b> <b>:</b> <b>trunc</b>: optional string, either <b>true</b> or <b>false</b>
-              True if the datapath supports OVS_ACTION_ATTR_TRUNC  action.  If
-              false,  the  <b>output</b> action with packet truncation requires every
+              True  if  the datapath supports OVS_ACTION_ATTR_TRUNC action. If
+              false, the <b>output</b> action with packet truncation  requires  every
               packet to be sent to the Open vSwitch slow path, which is likely
               to make it too slow for mirroring traffic in bulk.
 
        <b>capabilities</b> <b>:</b> <b>nd_ext</b>: optional string, either <b>true</b> or <b>false</b>
-              True if  the  datapath  supports  OVS_KEY_ATTR_ND_EXTENSIONS  to
-              match  on  ICMPv6  "ND  reserved"  and  "ND  option type" header
-              fields. If false, the datapath reports error if the  feature  is
+              True  if  the  datapath  supports  OVS_KEY_ATTR_ND_EXTENSIONS to
+              match on ICMPv6  "ND  reserved"  and  "ND  option  type"  header
+              fields.  If  false, the datapath reports error if the feature is
               used.
 
      <u>Clone</u> <u>Actions:</u>
 
-       When  Open  vSwitch  translates actions from OpenFlow into the datapath
-       representation, some of the datapath actions may modify the  packet  or
-       have  other  side  effects  that later datapath actions can’t undo. The
-       OpenFlow  <b>ct</b>,  <b>meter</b>,  <b>output</b>  with  truncation,  <b>encap</b>,   <b>decap</b>,   and
+       When Open vSwitch translates actions from OpenFlow  into  the  datapath
+       representation,  some  of the datapath actions may modify the packet or
+       have other side effects that later datapath  actions  can’t  undo.  The
+       OpenFlow   <b>ct</b>,   <b>meter</b>,  <b>output</b>  with  truncation,  <b>encap</b>,  <b>decap</b>,  and
        <b>dec_nsh_ttl</b> actions fall into this category. Often, this is not a prob‐
        lem because nothing later on needs the original packet.
 
        Such actions can, however, occur in circumstances where the translation
-       does  require  the original packet. For example, an OpenFlow <b>output</b> ac‐
+       does require the original packet. For example, an OpenFlow  <b>output</b>  ac‐
        tion might direct a packet to a patch port, which might in turn lead to
        a <b>ct</b> action that NATs the packet (which cannot be undone), and then af‐
-       terward when control flow pops back across the patch  port  some  other
+       terward  when  control  flow pops back across the patch port some other
        action might need to act on the original packet.
 
-       Open  vSwitch  has  two different ways to implement this ``save and re‐
-       store’’ via datapath actions. These  capabilities  indicate  which  one
-       Open  vSwitch will choose. When neither is available, Open vSwitch sim‐
+       Open vSwitch has two different ways to implement this  ``save  and  re‐
+       store’’  via  datapath  actions.  These capabilities indicate which one
+       Open vSwitch will choose. When neither is available, Open vSwitch  sim‐
        ply fails in situations that require this feature.
 
        <b>capabilities</b> <b>:</b> <b>clone</b>: optional string, either <b>true</b> or <b>false</b>
               True if the datapath supports OVS_ACTION_ATTR_CLONE action. This
-              is the preferred option for saving and restoring packets,  since
+              is  the preferred option for saving and restoring packets, since
               it is intended for the purpose, but old datapaths do not support
               it. Open vSwitch will use it whenever it is available.
 
-              (The  OpenFlow  <b>clone</b>  action  does  not  always yield a OVS_AC‐
-              TION_ATTR_CLONE action. It only does so when the  datapath  sup‐
+              (The OpenFlow <b>clone</b> action  does  not  always  yield  a  OVS_AC‐
+              TION_ATTR_CLONE  action.  It only does so when the datapath sup‐
               ports it and the <b>clone</b> brackets actions that otherwise cannot be
               undone.)
 
        <b>capabilities</b> <b>:</b> <b>sample_nesting</b>: optional string, containing an integer,
        at least 0
-              Maximum  level  of nesting allowed by OVS_ACTION_ATTR_SAMPLE ac‐
-              tion. Open vSwitch misuses this action for saving and  restoring
+              Maximum level of nesting allowed by  OVS_ACTION_ATTR_SAMPLE  ac‐
+              tion.  Open vSwitch misuses this action for saving and restoring
               packets when the datapath supports more than 3 levels of nesting
               and OVS_ACTION_ATTR_CLONE is not available.
 
        <b>capabilities</b> <b>:</b> <b>ct_eventmask</b>: optional string, either <b>true</b> or <b>false</b>
-              True  if the datapath’s OVS_ACTION_ATTR_CT action implements the
+              True if the datapath’s OVS_ACTION_ATTR_CT action implements  the
               OVS_CT_ATTR_EVENTMASK attribute. When this is true, Open vSwitch
-              uses the event mask feature to limit the  kinds  of  events  re‐
-              ported  to conntrack update listeners. When Open vSwitch doesn’t
+              uses  the  event  mask  feature to limit the kinds of events re‐
+              ported to conntrack update listeners. When Open vSwitch  doesn’t
               limit the event mask, listeners receive reports of numerous usu‐
-              ally unimportant events, such  as  TCP  state  machine  changes,
+              ally  unimportant  events,  such  as  TCP state machine changes,
               which can waste CPU time.
 
        <b>capabilities</b> <b>:</b> <b>ct_clear</b>: optional string, either <b>true</b> or <b>false</b>
-              True  if  the datapath supports OVS_ACTION_ATTR_CT_CLEAR action.
-              If false, the OpenFlow <b>ct_clear</b> action  has  no  effect  on  the
+              True if the datapath supports  OVS_ACTION_ATTR_CT_CLEAR  action.
+              If  false,  the  OpenFlow  <b>ct_clear</b>  action has no effect on the
               datapath.
 
        <b>capabilities</b> <b>:</b> <b>max_hash_alg</b>: optional string, containing an integer, at
        least 0
               Highest supported dp_hash algorithm. This allows Open vSwitch to
-              avoid  requesting  a packet hash that the datapath does not sup‐
+              avoid requesting a packet hash that the datapath does  not  sup‐
               port.
 
        <b>capabilities</b> <b>:</b> <b>check_pkt_len</b>: optional string, either <b>true</b> or <b>false</b>
-              True if the datapath supports OVS_ACTION_ATTR_CHECK_PKT_LEN.  If
-              false,  Open  vSwitch  implements the <b>check_pkt_larger</b> action by
-              sending every packet through the Open vSwitch slow  path,  which
+              True  if the datapath supports OVS_ACTION_ATTR_CHECK_PKT_LEN. If
+              false, Open vSwitch implements the  <b>check_pkt_larger</b>  action  by
+              sending  every  packet through the Open vSwitch slow path, which
               is likely to make it too slow for handling traffic in bulk.
 
        <b>capabilities</b> <b>:</b> <b>ct_timeout</b>: optional string, either <b>true</b> or <b>false</b>
               True if the datapath supports OVS_CT_ATTR_TIMEOUT in the OVS_AC‐
-              TION_ATTR_CT  action.  If  false,  Open vswitch cannot implement
-              timeout policies based on connection tracking zones, as  config‐
+              TION_ATTR_CT action. If false,  Open  vswitch  cannot  implement
+              timeout  policies based on connection tracking zones, as config‐
               ured through the <b>CT_Timeout_Policy</b> table.
 
        <b>capabilities</b> <b>:</b> <b>explicit_drop_action</b>: optional string, either <b>true</b> or
        <b>false</b>
-              True  if  the  datapath supports OVS_ACTION_ATTR_DROP. If false,
+              True if the datapath supports  OVS_ACTION_ATTR_DROP.  If  false,
               explicit drop action will not be sent to the datapath.
 
        <b>capabilities</b> <b>:</b> <b>ct_zero_snat</b>: optional string, either <b>true</b> or <b>false</b>
-              True if the datapath supports all-zero SNAT. This is  a  special
-              case  if  the  <b>src</b>  IP  address  is configured as all 0’s, i.e.,
-              <b>nat(src=0.0.0.0)</b>. In this case, when a source port collision  is
-              detected  during  the commit, the source port will be translated
-              to an ephemeral port. If there is no collision, no SNAT is  per‐
+              True  if  the datapath supports all-zero SNAT. This is a special
+              case if the <b>src</b> IP address  is  configured  as  all  0’s,  i.e.,
+              <b>nat(src=0.0.0.0)</b>.  In this case, when a source port collision is
+              detected during the commit, the source port will  be  translated
+              to  an ephemeral port. If there is no collision, no SNAT is per‐
               formed.
 
        <b>capabilities</b> <b>:</b> <b>ct_flush</b>: optional string, either <b>true</b> or <b>false</b>
@@ -5769,15 +5808,20 @@
               called <b>NXT_CT_FLUSH</b>. The <b>NXT_CT_FLUSH</b> extensions allows to flush
               CT entries based on specified parameters.
 
+       <b>capabilities</b> <b>:</b> <b>psample</b>: optional string, either <b>true</b> or <b>false</b>
+              True if the datapath supports OVS_ACTION_ATTR_PSAMPLE. If false,
+              local sampling will not be supported with the Linux kernel data‐
+              path.
+
        <b>ct_zone_default_limit</b>: optional integer, in range 0 to 4,294,967,295
-              Default  connection  tracking  zone limit that is applied to all
-              zones that didn’t specify the <b>limit</b> explicitly. If the limit  is
-              unspecified  the default limit configuration for the datapath is
+              Default connection tracking zone limit that is  applied  to  all
+              zones  that didn’t specify the <b>limit</b> explicitly. If the limit is
+              unspecified the default limit configuration for the datapath  is
               left intact. The value 0 means unlimited.
 
      <u>Common</u> <u>Columns:</u>
 
-       The overall purpose of these columns is described under <b>Common</b>  <b>Columns</b>
+       The  overall purpose of these columns is described under <b>Common</b> <b>Columns</b>
        at the beginning of this document.
 
        <b>external_ids</b>: map of string-string pairs
@@ -5793,18 +5837,18 @@
 
    <b>Details:</b>
        <b>timeout_policy</b>: optional <b>CT_Timeout_Policy</b>
-              Connection tracking timeout policy for this zone. If  a  timeout
-              policy  is  not  specified, it defaults to the timeout policy in
+              Connection  tracking  timeout policy for this zone. If a timeout
+              policy is not specified, it defaults to the  timeout  policy  in
               the system.
 
        <b>limit</b>: optional integer, in range 0 to 4,294,967,295
               Connection tracking limit for this zone. If the limit is unspec‐
-              ified the <b>ct_zone_default_limit</b> will be used. The value 0  means
+              ified  the <b>ct_zone_default_limit</b> will be used. The value 0 means
               unlimited.
 
      <u>Common</u> <u>Columns:</u>
 
-       The  overall purpose of these columns is described under <b>Common</b> <b>Columns</b>
+       The overall purpose of these columns is described under <b>Common</b>  <b>Columns</b>
        at the beginning of this document.
 
        <b>external_ids</b>: map of string-string pairs
@@ -5813,13 +5857,13 @@
 
    <b>Summary:</b>
        <u>Timeouts:</u>
-         <b>timeouts</b>                    map of string-integer pairs, key  one  of
-                                     <b>icmp_first</b>,     <b>icmp_reply</b>,    <b>tcp_close</b>,
+         <b>timeouts</b>                    map  of  string-integer pairs, key one of
+                                     <b>icmp_first</b>,    <b>icmp_reply</b>,     <b>tcp_close</b>,
                                      <b>tcp_close_wait</b>,          <b>tcp_established</b>,
-                                     <b>tcp_fin_wait</b>,  <b>tcp_last_ack</b>, <b>tcp_retrans‐</b>
+                                     <b>tcp_fin_wait</b>, <b>tcp_last_ack</b>,  <b>tcp_retrans‐</b>
                                      <b>mit</b>,     <b>tcp_syn_recv</b>,     <b>tcp_syn_sent2</b>,
                                      <b>tcp_syn_sent</b>,  <b>tcp_time_wait</b>,  <b>tcp_unack</b>,
-                                     <b>udp_first</b>, <b>udp_multiple</b>,  or  <b>udp_single</b>,
+                                     <b>udp_first</b>,  <b>udp_multiple</b>,  or <b>udp_single</b>,
                                      value in range 0 to 4,294,967,295
          <u>TCP</u> <u>Timeouts:</u>
             <b>timeouts</b> <b>:</b> <b>tcp_syn_sent</b>  optional   integer,   in   range   0   to
@@ -5870,15 +5914,15 @@
        <b>tcp_last_ack</b>, <b>tcp_retransmit</b>, <b>tcp_syn_recv</b>, <b>tcp_syn_sent2</b>,
        <b>tcp_syn_sent</b>, <b>tcp_time_wait</b>, <b>tcp_unack</b>, <b>udp_first</b>, <b>udp_multiple</b>, or
        <b>udp_single</b>, value in range 0 to 4,294,967,295
-              The  <b>timeouts</b>  column contains key-value pairs used to configure
+              The <b>timeouts</b> column contains key-value pairs used  to  configure
               connection tracking timeouts in a datapath. Key-value pairs that
-              are not supported by a datapath are ignored. The  timeout  value
+              are  not  supported by a datapath are ignored. The timeout value
               is in seconds.
 
      <u>TCP</u> <u>Timeouts:</u>
 
        <b>timeouts</b> <b>:</b> <b>tcp_syn_sent</b>: optional integer, in range 0 to 4,294,967,295
-              The  timeout  for  the connection after the first TCP SYN packet
+              The timeout for the connection after the first  TCP  SYN  packet
               has been seen by conntrack.
 
        <b>timeouts</b> <b>:</b> <b>tcp_syn_recv</b>: optional integer, in range 0 to 4,294,967,295
@@ -5887,7 +5931,7 @@
 
        <b>timeouts</b> <b>:</b> <b>tcp_established</b>: optional integer, in range 0 to
        4,294,967,295
-              The timeout of the connection  after  the  connection  has  been
+              The  timeout  of  the  connection  after the connection has been
               fully established.
 
        <b>timeouts</b> <b>:</b> <b>tcp_fin_wait</b>: optional integer, in range 0 to 4,294,967,295
@@ -5901,12 +5945,12 @@
               supported by the Linux kernel datapath.
 
        <b>timeouts</b> <b>:</b> <b>tcp_last_ack</b>: optional integer, in range 0 to 4,294,967,295
-              The  timeout  of  the connection after TCP FIN packets have been
-              seen by conntrack from both directions.  This  timeout  is  only
+              The timeout of the connection after TCP FIN  packets  have  been
+              seen  by  conntrack  from  both directions. This timeout is only
               supported by the Linux kernel datapath.
 
        <b>timeouts</b> <b>:</b> <b>tcp_time_wait</b>: optional integer, in range 0 to 4,294,967,295
-              The  timeout  of the connection after conntrack has seen the TCP
+              The timeout of the connection after conntrack has seen  the  TCP
               ACK packet for the second TCP FIN packet.
 
        <b>timeouts</b> <b>:</b> <b>tcp_close</b>: optional integer, in range 0 to 4,294,967,295
@@ -5914,14 +5958,14 @@
               been seen by conntrack.
 
        <b>timeouts</b> <b>:</b> <b>tcp_syn_sent2</b>: optional integer, in range 0 to 4,294,967,295
-              The timeout of the connection when only a  TCP  SYN  packet  has
+              The  timeout  of  the  connection when only a TCP SYN packet has
               been seen by conntrack from both directions (simultaneous open).
               This timeout is only supported by the Linux kernel datapath.
 
        <b>timeouts</b> <b>:</b> <b>tcp_retransmit</b>: optional integer, in range 0 to
        4,294,967,295
               The timeout of the connection when it exceeds the maximum number
-              of  retransmissions. This timeout is only supported by the Linux
+              of retransmissions. This timeout is only supported by the  Linux
               kernel datapath.
 
        <b>timeouts</b> <b>:</b> <b>tcp_unack</b>: optional integer, in range 0 to 4,294,967,295
@@ -5932,13 +5976,13 @@
      <u>UDP</u> <u>Timeouts:</u>
 
        <b>timeouts</b> <b>:</b> <b>udp_first</b>: optional integer, in range 0 to 4,294,967,295
-              The timeout of the connection after the  first  UDP  packet  has
-              been  seen  by  conntrack. This timeout is only supported by the
+              The  timeout  of  the  connection after the first UDP packet has
+              been seen by conntrack. This timeout is only  supported  by  the
               userspace datapath.
 
        <b>timeouts</b> <b>:</b> <b>udp_single</b>: optional integer, in range 0 to 4,294,967,295
-              The timeout of the  connection  when  conntrack  only  seen  UDP
-              packet  from the source host, but the destination host has never
+              The  timeout  of  the  connection  when  conntrack only seen UDP
+              packet from the source host, but the destination host has  never
               sent one back.
 
        <b>timeouts</b> <b>:</b> <b>udp_multiple</b>: optional integer, in range 0 to 4,294,967,295
@@ -5948,17 +5992,17 @@
      <u>ICMP</u> <u>Timeouts:</u>
 
        <b>timeouts</b> <b>:</b> <b>icmp_first</b>: optional integer, in range 0 to 4,294,967,295
-              The timeout of the connection after the first  ICMP  packet  has
+              The  timeout  of  the connection after the first ICMP packet has
               been seen by conntrack.
 
        <b>timeouts</b> <b>:</b> <b>icmp_reply</b>: optional integer, in range 0 to 4,294,967,295
-              The  timeout  of the connection when ICMP packets have been seen
-              in both direction. This timeout is only supported by  the  user‐
+              The timeout of the connection when ICMP packets have  been  seen
+              in  both  direction. This timeout is only supported by the user‐
               space datapath.
 
      <u>Common</u> <u>Columns:</u>
 
-       The  overall purpose of these columns is described under <b>Common</b> <b>Columns</b>
+       The overall purpose of these columns is described under <b>Common</b>  <b>Columns</b>
        at the beginning of this document.
 
        <b>external_ids</b>: map of string-string pairs
@@ -5975,33 +6019,33 @@
 
    <b>Details:</b>
        <b>private_key</b>: string
-              Name of a PEM file  containing  the  private  key  used  as  the
+              Name  of  a  PEM  file  containing  the  private key used as the
               switch’s identity for SSL connections to the controller.
 
        <b>certificate</b>: string
-              Name  of a PEM file containing a certificate, signed by the cer‐
+              Name of a PEM file containing a certificate, signed by the  cer‐
               tificate authority (CA) used by the controller and manager, that
-              certifies the switch’s private key,  identifying  a  trustworthy
+              certifies  the  switch’s  private key, identifying a trustworthy
               switch.
 
        <b>ca_cert</b>: string
-              Name  of a PEM file containing the CA certificate used to verify
+              Name of a PEM file containing the CA certificate used to  verify
               that the switch is connected to a trustworthy controller.
 
        <b>bootstrap_ca_cert</b>: boolean
-              If set to <b>true</b>, then Open vSwitch will attempt to obtain the  CA
-              certificate  from the controller on its first SSL connection and
-              save it to the named PEM file. If it is successful, it will  im‐
-              mediately  drop  the  connection and reconnect, and from then on
-              all SSL connections  must  be  authenticated  by  a  certificate
-              signed  by the CA certificate thus obtained. <b>This</b> <b>option</b> <b>exposes</b>
-              <b>the</b> <b>SSL</b> <b>connection</b> <b>to</b> <b>a</b> <b>man-in-the-middle</b> <b>attack</b>  <b>obtaining</b>  <b>the</b>
-              <b>initial</b>  <b>CA</b>  <b>certificate.</b>  It may still be useful for bootstrap‐
+              If  set to <b>true</b>, then Open vSwitch will attempt to obtain the CA
+              certificate from the controller on its first SSL connection  and
+              save  it to the named PEM file. If it is successful, it will im‐
+              mediately drop the connection and reconnect, and  from  then  on
+              all  SSL  connections  must  be  authenticated  by a certificate
+              signed by the CA certificate thus obtained. <b>This</b> <b>option</b>  <b>exposes</b>
+              <b>the</b>  <b>SSL</b>  <b>connection</b> <b>to</b> <b>a</b> <b>man-in-the-middle</b> <b>attack</b> <b>obtaining</b> <b>the</b>
+              <b>initial</b> <b>CA</b> <b>certificate.</b> It may still be  useful  for  bootstrap‐
               ping.
 
      <u>Common</u> <u>Columns:</u>
 
-       The overall purpose of these columns is described under <b>Common</b>  <b>Columns</b>
+       The  overall purpose of these columns is described under <b>Common</b> <b>Columns</b>
        at the beginning of this document.
 
        <b>external_ids</b>: map of string-string pairs
@@ -6020,14 +6064,14 @@
 
    <b>Details:</b>
        <b>agent</b>: optional string
-              Determines  the  agent address, that is, the IP address reported
-              to collectors as the source of the sFlow data. It may be  an  IP
+              Determines the agent address, that is, the IP  address  reported
+              to  collectors  as the source of the sFlow data. It may be an IP
               address or the name of a network device. In the latter case, the
               network device’s IP address is used,
 
-              If  not  specified,  the  agent device is figured from the first
-              target address and the routing table. If the routing table  does
-              not  contain  a  route to the target, the IP address defaults to
+              If not specified, the agent device is  figured  from  the  first
+              target  address and the routing table. If the routing table does
+              not contain a route to the target, the IP  address  defaults  to
               the <b>local_ip</b> in the collector’s <b>Controller</b>.
 
               If an agent IP address cannot be determined, sFlow is disabled.
@@ -6037,12 +6081,12 @@
               not specified, the default is 128 bytes.
 
        <b>polling</b>: optional integer
-              Polling rate in seconds to send port statistics to  the  collec‐
+              Polling  rate  in seconds to send port statistics to the collec‐
               tor. If not specified, defaults to 30 seconds.
 
        <b>sampling</b>: optional integer
-              Rate  at which packets should be sampled and sent to the collec‐
-              tor. If not specified, defaults to 400, which means one  out  of
+              Rate at which packets should be sampled and sent to the  collec‐
+              tor.  If  not specified, defaults to 400, which means one out of
               400 packets, on average, will be sent to the collector.
 
        <b>targets</b>: set of 1 or more strings
@@ -6050,36 +6094,36 @@
 
      <u>Common</u> <u>Columns:</u>
 
-       The  overall purpose of these columns is described under <b>Common</b> <b>Columns</b>
+       The overall purpose of these columns is described under <b>Common</b>  <b>Columns</b>
        at the beginning of this document.
 
        <b>external_ids</b>: map of string-string pairs
 <b>IPFIX</b> <b>TABLE</b>
        Configuration for sending packets to IPFIX collectors.
 
-       IPFIX is a protocol that exports a number of details about  flows.  The
-       IPFIX  implementation in Open vSwitch samples packets at a configurable
-       rate, extracts flow information from those packets,  optionally  caches
-       and  aggregates  the  flow  information, and sends the result to one or
+       IPFIX  is  a protocol that exports a number of details about flows. The
+       IPFIX implementation in Open vSwitch samples packets at a  configurable
+       rate,  extracts  flow information from those packets, optionally caches
+       and aggregates the flow information, and sends the  result  to  one  or
        more collectors.
 
        IPFIX in Open vSwitch can be configured two different ways:
 
-              •      With <b>per-bridge</b> <b>sampling</b>,  Open  vSwitch  performs  IPFIX
+              •      With  <b>per-bridge</b>  <b>sampling</b>,  Open  vSwitch performs IPFIX
                      sampling automatically on all packets that pass through a
                      bridge. To configure per-bridge sampling, create an <b>IPFIX</b>
                      record and point a <b>Bridge</b> table’s <b>ipfix</b> column to it. The
-                     <b>Flow_Sample_Collector_Set</b>  table  is  not  used  for per-
+                     <b>Flow_Sample_Collector_Set</b> table  is  not  used  for  per-
                      bridge sampling.
 
-              •      With <b>flow-based</b> <b>sampling</b>, <b>sample</b> actions in the  OpenFlow
+              •      With  <b>flow-based</b> <b>sampling</b>, <b>sample</b> actions in the OpenFlow
                      flow table drive IPFIX sampling. See <b>ovs-actions</b>(7) for a
                      description of the <b>sample</b> action.
 
                      Flow-based sampling also requires database configuration:
                      create a <b>IPFIX</b> record that describes the IPFIX configura‐
-                     tion  and  a <b>Flow_Sample_Collector_Set</b> record that points
-                     to the <b>Bridge</b> whose flow table holds the  <b>sample</b>  actions
+                     tion and a <b>Flow_Sample_Collector_Set</b> record  that  points
+                     to  the  <b>Bridge</b> whose flow table holds the <b>sample</b> actions
                      and to <b>IPFIX</b> record. The <b>ipfix</b> in the <b>Bridge</b> table is not
                      used for flow-based sampling.
 
@@ -6112,17 +6156,17 @@
               IPFIX target collectors in the form <u>ip</u><b>:</b><u>port</u>.
 
        <b>cache_active_timeout</b>: optional integer, in range 0 to 4,200
-              The  maximum period in seconds for which an IPFIX flow record is
-              cached and aggregated before being sent. If not  specified,  de‐
+              The maximum period in seconds for which an IPFIX flow record  is
+              cached  and  aggregated before being sent. If not specified, de‐
               faults to 0. If 0, caching is disabled.
 
        <b>cache_max_flows</b>: optional integer, in range 0 to 4,294,967,295
               The maximum number of IPFIX flow records that can be cached at a
-              time.  If  not  specified,  defaults to 0. If 0, caching is dis‐
+              time. If not specified, defaults to 0. If  0,  caching  is  dis‐
               abled.
 
        <b>stats_interval</b>: optional integer, in range 1 to 3,600
-              Interval (in seconds) for sending IPFIX exporting  process  sta‐
+              Interval  (in  seconds) for sending IPFIX exporting process sta‐
               tistics according to IETF RFC 5101 Section 4.3.
 
               Default value is 600
@@ -6136,10 +6180,10 @@
        <b>other_config</b> <b>:</b> <b>enable-tunnel-sampling</b>: optional string, either <b>true</b> or
        <b>false</b>
               Set to <b>true</b> to enable sampling and reporting tunnel header 7-tu‐
-              ples  in  IPFIX  flow records. Tunnel sampling is enabled by de‐
+              ples in IPFIX flow records. Tunnel sampling is  enabled  by  de‐
               fault.
 
-              The following enterprise  entities  report  the  sampled  tunnel
+              The  following  enterprise  entities  report  the sampled tunnel
               info:
 
               tunnelType:
@@ -6149,8 +6193,8 @@
 
                      data type semantics: identifier.
 
-                     description:  Identifier  of  the layer 2 network overlay
-                     network encapsulation type: 0x01 VxLAN,  0x02  GRE,  0x03
+                     description: Identifier of the layer  2  network  overlay
+                     network  encapsulation  type:  0x01 VxLAN, 0x02 GRE, 0x03
                      LISP, 0x07 GENEVE.
 
               tunnelKey:
@@ -6160,10 +6204,10 @@
 
                      data type semantics: identifier.
 
-                     description:  Key  which is used for identifying an indi‐
-                     vidual traffic flow within a VxLAN (24-bit  VNI),  GENEVE
-                     (24-bit  VNI), GRE (32-bit key), or LISP (24-bit instance
-                     ID) tunnel. The key is encoded in this  octetarray  as  a
+                     description: Key which is used for identifying  an  indi‐
+                     vidual  traffic  flow within a VxLAN (24-bit VNI), GENEVE
+                     (24-bit VNI), GRE (32-bit key), or LISP (24-bit  instance
+                     ID)  tunnel.  The  key is encoded in this octetarray as a
                      3-, 4-, or 8-byte integer ID in network byte order.
 
               tunnelSourceIPv4Address:
@@ -6173,7 +6217,7 @@
 
                      data type semantics: identifier.
 
-                     description:  The  IPv4  source  address in the tunnel IP
+                     description: The IPv4 source address  in  the  tunnel  IP
                      packet header.
 
               tunnelDestinationIPv4Address:
@@ -6183,7 +6227,7 @@
 
                      data type semantics: identifier.
 
-                     description: The IPv4 destination address in  the  tunnel
+                     description:  The  IPv4 destination address in the tunnel
                      IP packet header.
 
               tunnelProtocolIdentifier:
@@ -6194,7 +6238,7 @@
                      data type semantics: identifier.
 
                      description: The value of the protocol number in the tun‐
-                     nel  IP packet header. The protocol number identifies the
+                     nel IP packet header. The protocol number identifies  the
                      tunnel IP packet payload type.
 
               tunnelSourceTransportPort:
@@ -6204,8 +6248,8 @@
 
                      data type semantics: identifier.
 
-                     description: The source port  identifier  in  the  tunnel
-                     transport  header.  For the transport protocols UDP, TCP,
+                     description:  The  source  port  identifier in the tunnel
+                     transport header. For the transport protocols  UDP,  TCP,
                      and SCTP, this is the source port number given in the re‐
                      spective header.
 
@@ -6216,25 +6260,25 @@
 
                      data type semantics: identifier.
 
-                     description: The destination port identifier in the  tun‐
-                     nel  transport  header.  For the transport protocols UDP,
-                     TCP, and SCTP, this is the destination port number  given
+                     description:  The destination port identifier in the tun‐
+                     nel transport header. For the  transport  protocols  UDP,
+                     TCP,  and SCTP, this is the destination port number given
                      in the respective header.
 
-              Before  Open vSwitch 2.5.90, <b>other_config:enable-tunnel-sampling</b>
-              was only supported with per-bridge sampling, and ignored  other‐
+              Before Open vSwitch 2.5.90,  <b>other_config:enable-tunnel-sampling</b>
+              was  only supported with per-bridge sampling, and ignored other‐
               wise. Open vSwitch 2.5.90 and later support <b>other_config:enable-</b>
               <b>tunnel-sampling</b> for per-bridge and per-flow sampling.
 
        <b>other_config</b> <b>:</b> <b>virtual_obs_id</b>: optional string
-              A  string  that accompanies each IPFIX flow record. Its intended
-              use is for the ``virtual observation ID,’’ an  identifier  of  a
-              virtual  observation  point  that is locally unique in a virtual
+              A string that accompanies each IPFIX flow record.  Its  intended
+              use  is  for  the ``virtual observation ID,’’ an identifier of a
+              virtual observation point that is locally unique  in  a  virtual
               network. It describes a location in the virtual network where IP
               packets can be observed. The maximum length is 254 bytes. If not
               specified, the field is omitted from the IPFIX flow record.
 
-              The following enterprise entity reports  the  specified  virtual
+              The  following  enterprise  entity reports the specified virtual
               observation ID:
 
               virtualObsID:
@@ -6244,74 +6288,96 @@
 
                      data type semantics: identifier.
 
-                     description:  A virtual observation domain ID that is lo‐
+                     description: A virtual observation domain ID that is  lo‐
                      cally unique in a virtual network.
 
               This feature was introduced in Open vSwitch 2.5.90.
 
      <u>Per-Bridge</u> <u>Sampling:</u>
 
-       These values affect only per-bridge sampling. See above for a  descrip‐
+       These  values affect only per-bridge sampling. See above for a descrip‐
        tion of the differences between per-bridge and flow-based sampling.
 
        <b>sampling</b>: optional integer, in range 1 to 4,294,967,295
-              The  rate  at  which  packets should be sampled and sent to each
+              The rate at which packets should be sampled  and  sent  to  each
               target collector. If not specified, defaults to 400, which means
-              one out of 400 packets, on average, will be sent to each  target
+              one  out of 400 packets, on average, will be sent to each target
               collector.
 
        <b>obs_domain_id</b>: optional integer, in range 0 to 4,294,967,295
-              The  IPFIX  Observation  Domain ID sent in each IPFIX packet. If
+              The IPFIX Observation Domain ID sent in each  IPFIX  packet.  If
               not specified, defaults to 0.
 
        <b>obs_point_id</b>: optional integer, in range 0 to 4,294,967,295
-              The IPFIX Observation Point ID sent in each IPFIX  flow  record.
+              The  IPFIX  Observation Point ID sent in each IPFIX flow record.
               If not specified, defaults to 0.
 
        <b>other_config</b> <b>:</b> <b>enable-input-sampling</b>: optional string, either <b>true</b> or
        <b>false</b>
-              By  default,  Open  vSwitch  samples and reports flows at bridge
-              port input in IPFIX flow records. Set this column  to  <b>false</b>  to
+              By default, Open vSwitch samples and  reports  flows  at  bridge
+              port  input  in  IPFIX flow records. Set this column to <b>false</b> to
               disable input sampling.
 
        <b>other_config</b> <b>:</b> <b>enable-output-sampling</b>: optional string, either <b>true</b> or
        <b>false</b>
-              By  default,  Open  vSwitch  samples and reports flows at bridge
-              port output in IPFIX flow records. Set this column to  <b>false</b>  to
+              By default, Open vSwitch samples and  reports  flows  at  bridge
+              port  output  in IPFIX flow records. Set this column to <b>false</b> to
               disable output sampling.
 
      <u>Common</u> <u>Columns:</u>
 
-       The  overall purpose of these columns is described under <b>Common</b> <b>Columns</b>
+       The overall purpose of these columns is described under <b>Common</b>  <b>Columns</b>
        at the beginning of this document.
 
        <b>external_ids</b>: map of string-string pairs
 <b>Flow_Sample_Collector_Set</b> <b>TABLE</b>
-       A set of IPFIX collectors of packet samples generated by OpenFlow  <b>sam‐</b>
-       <b>ple</b> actions. This table is used only for IPFIX flow-based sampling, not
-       for  per-bridge  sampling (see the <b>IPFIX</b> table for a description of the
-       two forms).
+       A set of IPFIX or local sampling collectors of packet samples generated
+       by OpenFlow <b>sample</b> actions.
+
+       If  the  column <b>ipfix</b> contains a reference to a valid IPFIX entry, sam‐
+       ples will be emitted via IPFIX. This mechanism is known  as  flow-based
+       IPFIX  sampling, as opposed to bridge-based sampling (see the <b>IPFIX</b> ta‐
+       ble for a description of the two forms).
+
+       If the column <b>local_group_id</b> contains an integer and the running  data‐
+       path supports local sample emission, packets will be sent to some local
+       sample  collector.  Samples  will contain the group number specified by
+       <b>local_group_id</b> which helps identify their source as well  as  a  64-bit
+       cookie  result  from  the concatenation of the observation_domain_id an
+       the observation_point_id in network byte order. The way the  sample  is
+       emitted  and  made available for local collectors is datapath-specific.
+       Currently only Linux kernel datapath supports local sampling  which  is
+       implemented  by  sending  the  packet  to the <b>psample</b> netlink multicast
+       group.
+
+       Note: both <b>local_group_id</b> and <b>ipfix</b> can be configured simultaneously.
 
    <b>Summary:</b>
        <b>id</b>                            integer, in range 0 to 4,294,967,295
        <b>bridge</b>                        <b>Bridge</b>
        <b>ipfix</b>                         optional <b>IPFIX</b>
+       <b>local_group_id</b>                optional   integer,   in   range   0   to
+                                     4,294,967,295
        <u>Common</u> <u>Columns:</u>
          <b>external_ids</b>                map of string-string pairs
 
    <b>Details:</b>
        <b>id</b>: integer, in range 0 to 4,294,967,295
-              The ID of this collector set, unique among the bridge’s  collec‐
-              tor  sets, to be used as the <b>collector_set_id</b> in OpenFlow <b>sample</b>
+              The  ID of this collector set, unique among the bridge’s collec‐
+              tor sets, to be used as the <b>collector_set_id</b> in OpenFlow  <b>sample</b>
               actions.
 
        <b>bridge</b>: <b>Bridge</b>
-              The bridge into which OpenFlow <b>sample</b> actions can  be  added  to
+              The  bridge  into  which OpenFlow <b>sample</b> actions can be added to
               send packet samples to this set of IPFIX collectors.
 
        <b>ipfix</b>: optional <b>IPFIX</b>
-              Configuration  of  the  set of IPFIX collectors to send one flow
+              Configuration of the set of IPFIX collectors to  send  one  flow
               record per sampled packet to.
+
+       <b>local_group_id</b>: optional integer, in range 0 to 4,294,967,295
+              Configuration  of  the  sample group id to be used in local sam‐
+              pling.
 
      <u>Common</u> <u>Columns:</u>
 
@@ -6375,5 +6441,5 @@
               A  mapping from SPB network Individual Service Identifier (ISID)
               to VLAN id.
 
-Open vSwitch 3.3.1              DB Schema 8.5.0        <u>ovs-vswitchd.conf.db</u>(5)
+Open vSwitch 3.4.0              DB Schema 8.7.0        <u>ovs-vswitchd.conf.db</u>(5)
 </pre></body></html>
