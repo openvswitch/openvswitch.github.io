@@ -1,6 +1,6 @@
 '\" p
 .\" -*- nroff -*-
-.TH "ovs-vswitchd.conf.db" 5 " DB Schema 8.7.0" "Open vSwitch 3.4.1" "Open vSwitch Manual"
+.TH "ovs-vswitchd.conf.db" 5 " DB Schema 8.8.0" "Open vSwitch 3.5.0" "Open vSwitch Manual"
 .fp 5 L CR              \\" Make fixed-width font available as \\fL.
 .de TQ
 .  br
@@ -485,7 +485,7 @@ Map of datapath types to datapaths\[char46] The \fBdatapath_type\fR column of th
 .IP "\fBbridges\fR: set of \fBBridge\fRs"
 Set of bridges managed by the daemon\[char46]
 .IP "\fBssl\fR: optional \fBSSL\fR"
-SSL used globally by the daemon\[char46]
+SSL/TLS used globally by the daemon\[char46]
 .IP "\fBexternal_ids : system-id\fR: optional string"
 A unique identifier for the Open vSwitch\(cqs physical host\[char46] The form of the identifier depends on the type of the host\[char46]
 .IP "\fBexternal_ids : hostname\fR: optional string"
@@ -2116,6 +2116,9 @@ optional string, either \fBtrue\fR or \fBfalse\fR
 \fBoptions : vhost-server-path\fR
 optional string
 .TQ 2.75in
+\fBoptions : vhost-max-queue-pairs\fR
+optional string, containing an integer, in range 1 to 128
+.TQ 2.75in
 \fBoptions : tx-retries-max\fR
 optional string, containing an integer, in range 0 to 32
 .TQ 2.75in
@@ -2643,12 +2646,20 @@ An Ethernet tunnel over the UDP-based VXLAN protocol described in RFC 7348\[char
 Open vSwitch uses IANA-assigned UDP destination port 4789\[char46] The source port used for VXLAN traffic varies on a per-flow basis and is in the ephemeral port range\[char46]
 .TP
 \fBlisp\fR
+This port type is deprecated\[char46]
+.IP
 A layer 3 tunnel over the experimental, UDP-based Locator/ID Separation Protocol (RFC 6830)\[char46]
 .IP
 Only IPv4 and IPv6 packets are supported by the protocol, and they are sent and received without an Ethernet header\[char46] Traffic to/from LISP ports is expected to be configured explicitly, and the ports are not intended to participate in learning based switching\[char46] As such, they are always excluded from packet flooding\[char46]
 .TP
 \fBstt\fR
-The Stateless TCP Tunnel (STT) is particularly useful when tunnel endpoints are in end-systems, as it utilizes the capabilities of standard network interface cards to improve performance\[char46] STT utilizes a TCP-like header inside the IP header\[char46] It is stateless, i\[char46]e\[char46], there is no TCP connection state of any kind associated with the tunnel\[char46] The TCP-like header is used to leverage the capabilities of existing network interface cards, but should not be interpreted as implying any sort of connection state between endpoints\[char46] Since the STT protocol does not engage in the usual TCP 3-way handshake, so it will have difficulty traversing stateful firewalls\[char46] The protocol is documented at https://tools\[char46]ietf\[char46]org/html/draft-davie-stt All traffic uses a default destination port of 7471\[char46]
+This port type is deprecated\[char46]
+.IP
+The Stateless TCP Tunnel (STT) is particularly useful when tunnel endpoints are in end-systems, as it utilizes the capabilities of standard network interface cards to improve performance\[char46] STT utilizes a TCP-like header inside the IP header\[char46] It is stateless, i\[char46]e\[char46], there is no TCP connection state of any kind associated with the tunnel\[char46] The TCP-like header is used to leverage the capabilities of existing network interface cards, but should not be interpreted as implying any sort of connection state between endpoints\[char46]
+.IP
+Since the STT protocol does not engage in the usual TCP 3-way handshake, so it will have difficulty traversing stateful firewalls\[char46]
+.IP
+The protocol is documented at \fBhttps://tools\[char46]ietf\[char46]org/html/draft\-davie\-stt\fR\[char46] All traffic uses a default destination port of 7471\[char46]
 .TP
 \fBpatch\fR
 A pair of virtual devices that act as a patch cable\[char46]
@@ -2732,6 +2743,8 @@ Optional\[char46] The pkt_mark to be set on the encapsulating packet\[char46] Th
 .ST "Tunnel Options: lisp only:"
 .PP
 .IP "\fBoptions : packet_type\fR: optional string, either \fBlegacy_l3\fR or \fBptap\fR"
+LISP tunnel type is deprecated\[char46]
+.IP
 A LISP tunnel sends and receives only IPv4 and IPv6 packets\[char46] This option controls what how the tunnel represents the packets that it sends and receives:
 .RS
 .IP \(bu
@@ -2894,6 +2907,10 @@ Note that this option is specific to netdev-afxdp\[char46] Defaults to \fBbest\-
 Specifies whether to use need_wakeup feature in afxdp netdev\[char46] If enabled, OVS explicitly wakes up the kernel RX, using poll() syscall and wakes up TX, using sendto() syscall\[char46] For physical devices, this feature improves the performance by avoiding unnecessary sendto syscalls\[char46] Defaults to true if supported by libbpf\[char46]
 .IP "\fBoptions : vhost-server-path\fR: optional string"
 The value specifies the path to the socket associated with a vHost User client mode device that has been or will be created by QEMU\[char46] Only supported by dpdkvhostuserclient interfaces\[char46]
+.IP "\fBoptions : vhost-max-queue-pairs\fR: optional string, containing an integer, in range 1 to 128"
+The value specifies the maximum number of queue pairs supported by a vHost device\[char46] This is ignored for vhost-user backends, only VDUSE is supported\[char46] Only supported by dpdkvhostuserclient interfaces\[char46]
+.IP
+Default value is 1\[char46]
 .IP "\fBoptions : tx-retries-max\fR: optional string, containing an integer, in range 0 to 32"
 The value specifies the maximum amount of vhost tx retries that can be made while trying to send a batch of packets to an interface\[char46] Only supported by dpdkvhostuserclient interfaces\[char46]
 .IP
@@ -3377,7 +3394,7 @@ set of strings
 .RS .25in
 .TQ 2.75in
 \fBprefixes\fR
-set of up to 3 strings
+set of up to 4 strings
 .RE
 .TQ .25in
 \fICommon Columns:\fR
@@ -3438,7 +3455,7 @@ Open vSwitch ignores any invalid or unknown field specifications\[char46]
 When eviction is not enabled, via \fBoverflow_policy\fR or an OpenFlow 1\[char46]4+ ``table mod,\(cq\(cq this column has no effect\[char46]
 .ST "Classifier Optimization:"
 .PP
-.IP "\fBprefixes\fR: set of up to 3 strings"
+.IP "\fBprefixes\fR: set of up to 4 strings"
 This string set specifies which fields should be used for address prefix tracking\[char46] Prefix tracking allows the classifier to skip rules with longer than necessary prefixes, resulting in better wildcarding for datapath flows\[char46]
 .IP
 Prefix tracking may be beneficial when a flow table contains matches on IP address fields with different prefix lengths\[char46] For example, when a flow table contains IP address matches on both full addresses and proper prefixes, the full address matches will typically cause the datapath flow to un-wildcard the whole address field (depending on flow entry priorities)\[char46] In this case each packet with a different address gets handed to the userspace for flow processing and generates its own datapath flow\[char46] With prefix tracking enabled for the address field in question packets with addresses matching shorter prefixes would generate datapath flows where the irrelevant address bits are wildcarded, allowing the same datapath flow to handle all the packets within the prefix in question\[char46] In this case many userspace upcalls can be avoided and the overall performance can be better\[char46]
@@ -3447,7 +3464,7 @@ This is a performance optimization only, so packets will receive the same treatm
 .IP
 The supported fields are: \fBtun_id\fR, \fBtun_src\fR, \fBtun_dst\fR, \fBtun_ipv6_src\fR, \fBtun_ipv6_dst\fR, \fBnw_src\fR, \fBnw_dst\fR (or aliases \fBip_src\fR and \fBip_dst\fR), \fBipv6_src\fR, and \fBipv6_dst\fR\[char46] (Using this feature for \fBtun_id\fR would only make sense if the tunnel IDs have prefix structure similar to IP addresses\[char46])
 .IP
-By default, the \fBprefixes=ip_dst,ip_src\fR are used on each flow table\[char46] This instructs the flow classifier to track the IP destination and source addresses used by the rules in this specific flow table\[char46]
+By default, the \fBprefixes=ip_dst,ip_src,ipv6_dst,ipv6_src\fR are used on each flow table\[char46] This instructs the flow classifier to track the IPv4 and IPv6 destination and source addresses used by the rules in this specific flow table\[char46]
 .IP
 The keyword \fBnone\fR is recognized as an explicit override of the default values, causing no prefix fields to be tracked\[char46]
 .IP
@@ -3458,10 +3475,10 @@ To set the prefix fields, the flow table record needs to exist:
 Creates a flow table record for the OpenFlow table number 0\[char46]
 .TP
 \fBovs\-vsctl set Flow_Table table0 prefixes=ip_dst,ip_src\fR
-Enables prefix tracking for IP source and destination address fields\[char46]
+Enables prefix tracking for IPv4 source and destination address fields\[char46]
 .RE
 .IP
-There is a maximum number of fields that can be enabled for any one flow table\[char46] Currently this limit is 3\[char46]
+There is a maximum number of fields that can be enabled for any one flow table\[char46] Currently this limit is 4\[char46]
 .ST "Common Columns:"
 .PP
 The overall purpose of these columns is described under \fBCommon
@@ -3973,11 +3990,11 @@ The following active connection methods are currently supported:
 .RS
 .TP
 \fBssl:\fIhost\fB\fR[\fB:\fIport\fB\fR]
-The specified SSL \fIport\fR on the host at the given \fIhost\fR, which can either be a DNS name (if built with unbound library) or an IP address\[char46] The \fBssl\fR column in the \fBOpen_vSwitch\fR table must point to a valid SSL configuration when this form is used\[char46]
+The specified SSL/TLS \fIport\fR on the host at the given \fIhost\fR, which can either be a DNS name (if built with unbound library) or an IP address\[char46] The \fBssl\fR column in the \fBOpen_vSwitch\fR table must point to a valid SSL/TLS configuration when this form is used\[char46]
 .IP
 If \fIport\fR is not specified, it defaults to 6653\[char46]
 .IP
-SSL support is an optional feature that is not always built as part of Open vSwitch\[char46]
+SSL/TLS support is an optional feature that is not always built as part of Open vSwitch\[char46]
 .TP
 \fBtcp:\fIhost\fB\fR[\fB:\fIport\fB\fR]
 The specified TCP \fIport\fR on the host at the given \fIhost\fR, which can either be a DNS name (if built with unbound library) or an IP address (IPv4 or IPv6)\[char46] If \fIhost\fR is an IPv6 address, wrap it in square brackets, e\[char46]g\[char46] \fBtcp:[::1]:6653\fR\[char46]
@@ -3989,13 +4006,13 @@ The following passive connection methods are currently supported:
 .RS
 .TP
 \fBpssl:\fR[\fIport\fR][\fB:\fIhost\fB\fR]
-Listens for SSL connections on the specified TCP \fIport\fR\[char46] If \fIhost\fR, which can either be a DNS name (if built with unbound library) or an IP address, is specified, then connections are restricted to the resolved or specified local IP address (either IPv4 or IPv6)\[char46] If \fIhost\fR is an IPv6 address, wrap it in square brackets, e\[char46]g\[char46] \fBpssl:6653:[::1]\fR\[char46]
+Listens for SSL/TLS connections on the specified TCP \fIport\fR\[char46] If \fIhost\fR, which can either be a DNS name (if built with unbound library) or an IP address, is specified, then connections are restricted to the resolved or specified local IP address (either IPv4 or IPv6)\[char46] If \fIhost\fR is an IPv6 address, wrap it in square brackets, e\[char46]g\[char46] \fBpssl:6653:[::1]\fR\[char46]
 .IP
-If \fIport\fR is not specified, it defaults to 6653\[char46] If \fIhost\fR is not specified then it listens only on IPv4 (but not IPv6) addresses\[char46] The \fBssl\fR column in the \fBOpen_vSwitch\fR table must point to a valid SSL configuration when this form is used\[char46]
+If \fIport\fR is not specified, it defaults to 6653\[char46] If \fIhost\fR is not specified then it listens only on IPv4 (but not IPv6) addresses\[char46] The \fBssl\fR column in the \fBOpen_vSwitch\fR table must point to a valid SSL/TLS configuration when this form is used\[char46]
 .IP
 If \fIport\fR is not specified, it currently to 6653\[char46]
 .IP
-SSL support is an optional feature that is not always built as part of Open vSwitch\[char46]
+SSL/TLS support is an optional feature that is not always built as part of Open vSwitch\[char46]
 .TP
 \fBptcp:\fR[\fIport\fR][\fB:\fIhost\fB\fR]
 Listens for connections on the specified TCP \fIport\fR\[char46] If \fIhost\fR, which can either be a DNS name (if built with unbound library) or an IP address, is specified, then connections are restricted to the resolved or specified local IP address (either IPv4 or IPv6)\[char46] If \fIhost\fR is an IPv6 address, wrap it in square brackets, e\[char46]g\[char46] \fBptcp:6653:[::1]\fR\[char46] If \fIhost\fR is not specified then it listens only on IPv4 addresses\[char46]
@@ -4229,11 +4246,11 @@ The following connection methods are currently supported:
 .RS
 .TP
 \fBssl:\fIhost\fB\fR[\fB:\fIport\fB\fR]
-The specified SSL \fIport\fR on the host at the given \fIhost\fR, which can either be a DNS name (if built with unbound library) or an IP address\[char46] The \fBssl\fR column in the \fBOpen_vSwitch\fR table must point to a valid SSL configuration when this form is used\[char46]
+The specified SSL/TLS \fIport\fR on the host at the given \fIhost\fR, which can either be a DNS name (if built with unbound library) or an IP address\[char46] The \fBssl\fR column in the \fBOpen_vSwitch\fR table must point to a valid SSL/TLS configuration when this form is used\[char46]
 .IP
 If \fIport\fR is not specified, it defaults to 6640\[char46]
 .IP
-SSL support is an optional feature that is not always built as part of Open vSwitch\[char46]
+SSL/TLS support is an optional feature that is not always built as part of Open vSwitch\[char46]
 .TP
 \fBtcp:\fIhost\fB\fR[\fB:\fIport\fB\fR]
 The specified TCP \fIport\fR on the host at the given \fIhost\fR, which can either be a DNS name (if built with unbound library) or an IP address (IPv4 or IPv6)\[char46] If \fIhost\fR is an IPv6 address, wrap it in square brackets, e\[char46]g\[char46] \fBtcp:[::1]:6640\fR\[char46]
@@ -4241,11 +4258,11 @@ The specified TCP \fIport\fR on the host at the given \fIhost\fR, which can eith
 If \fIport\fR is not specified, it defaults to 6640\[char46]
 .TP
 \fBpssl:\fR[\fIport\fR][\fB:\fIhost\fB\fR]
-Listens for SSL connections on the specified TCP \fIport\fR\[char46] Specify 0 for \fIport\fR to have the kernel automatically choose an available port\[char46] If \fIhost\fR, which can either be a DNS name (if built with unbound library) or an IP address, is specified, then connections are restricted to the resolved or specified local IP address (either IPv4 or IPv6 address)\[char46] If \fIhost\fR is an IPv6 address, wrap in square brackets, e\[char46]g\[char46] \fBpssl:6640:[::1]\fR\[char46] If \fIhost\fR is not specified then it listens only on IPv4 (but not IPv6) addresses\[char46] The \fBssl\fR column in the \fBOpen_vSwitch\fR table must point to a valid SSL configuration when this form is used\[char46]
+Listens for SSL/TLS connections on the specified TCP \fIport\fR\[char46] Specify 0 for \fIport\fR to have the kernel automatically choose an available port\[char46] If \fIhost\fR, which can either be a DNS name (if built with unbound library) or an IP address, is specified, then connections are restricted to the resolved or specified local IP address (either IPv4 or IPv6 address)\[char46] If \fIhost\fR is an IPv6 address, wrap in square brackets, e\[char46]g\[char46] \fBpssl:6640:[::1]\fR\[char46] If \fIhost\fR is not specified then it listens only on IPv4 (but not IPv6) addresses\[char46] The \fBssl\fR column in the \fBOpen_vSwitch\fR table must point to a valid SSL/TLS configuration when this form is used\[char46]
 .IP
 If \fIport\fR is not specified, it defaults to 6640\[char46]
 .IP
-SSL support is an optional feature that is not always built as part of Open vSwitch\[char46]
+SSL/TLS support is an optional feature that is not always built as part of Open vSwitch\[char46]
 .TP
 \fBptcp:\fR[\fIport\fR][\fB:\fIhost\fB\fR]
 Listens for connections on the specified TCP \fIport\fR\[char46] Specify 0 for \fIport\fR to have the kernel automatically choose an available port\[char46] If \fIhost\fR, which can either be a DNS name (if built with unbound library) or an IP address, is specified, then connections are restricted to the resolved or specified local IP address (either IPv4 or IPv6 address)\[char46] If \fIhost\fR is an IPv6 address, wrap it in square brackets, e\[char46]g\[char46] \fBptcp:6640:[::1]\fR\[char46] If \fIhost\fR is not specified then it listens only on IPv4 addresses\[char46]
@@ -4767,7 +4784,7 @@ Columns\fR at the beginning of this document\[char46]
 .bp
 .SH "SSL TABLE"
 .PP
-SSL configuration for an Open_vSwitch\[char46]
+SSL/TLS configuration for an Open_vSwitch\[char46]
 .SS "Summary:
 .TQ 3.00in
 \fBprivate_key\fR
@@ -4790,14 +4807,14 @@ map of string-string pairs
 .RE
 .SS "Details:
 .IP "\fBprivate_key\fR: string"
-Name of a PEM file containing the private key used as the switch\(cqs identity for SSL connections to the controller\[char46]
+Name of a PEM file containing the private key used as the switch\(cqs identity for SSL/TLS connections to the controller\[char46]
 .IP "\fBcertificate\fR: string"
 Name of a PEM file containing a certificate, signed by the certificate authority (CA) used by the controller and manager, that certifies the switch\(cqs private key, identifying a trustworthy switch\[char46]
 .IP "\fBca_cert\fR: string"
 Name of a PEM file containing the CA certificate used to verify that the switch is connected to a trustworthy controller\[char46]
 .IP "\fBbootstrap_ca_cert\fR: boolean"
-If set to \fBtrue\fR, then Open vSwitch will attempt to obtain the CA certificate from the controller on its first SSL connection and save it to the named PEM file\[char46] If it is successful, it will immediately drop the connection and reconnect, and from then on all SSL connections must be authenticated by a certificate signed by the CA certificate thus obtained\[char46] \fBThis option exposes the
-SSL connection to a man\-in\-the\-middle attack obtaining the initial
+If set to \fBtrue\fR, then Open vSwitch will attempt to obtain the CA certificate from the controller on its first SSL/TLS connection and save it to the named PEM file\[char46] If it is successful, it will immediately drop the connection and reconnect, and from then on all SSL/TLS connections must be authenticated by a certificate signed by the CA certificate thus obtained\[char46] \fBThis option exposes the
+SSL/TLS connection to a man\-in\-the\-middle attack obtaining the initial
 CA certificate\[char46]\fR It may still be useful for bootstrapping\[char46]
 .ST "Common Columns:"
 .PP

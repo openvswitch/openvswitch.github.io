@@ -222,7 +222,7 @@ Open_vSwitch TABLE
               Set of bridges managed by the daemon.
 
        ssl: optional SSL
-              SSL used globally by the daemon.
+              SSL/TLS used globally by the daemon.
 
        external_ids : system-id: optional string
               A  unique  identifier  for the Open vSwitch’s physical host. The
@@ -2442,11 +2442,14 @@ Interface TABLE
          options : use-need-wakeup   optional string, either true or false
          options : vhost-server-path
                                      optional string
-         options : tx-retries-max    optional  string,  containing an integer,
+         options : vhost-max-queue-pairs
+                                     optional  string,  containing an integer,
+                                     in range 1 to 128
+         options : tx-retries-max    optional string, containing  an  integer,
                                      in range 0 to 32
-         options : n_rxq_desc        optional string, containing  an  integer,
+         options : n_rxq_desc        optional  string,  containing an integer,
                                      in range 1 to 4,096
-         options : n_txq_desc        optional  string,  containing an integer,
+         options : n_txq_desc        optional string, containing  an  integer,
                                      in range 1 to 4,096
          options : dpdk-vf-mac       optional string
          options : rx-steering       optional string, either rss+lacp or rss
@@ -2533,9 +2536,9 @@ Interface TABLE
        Bidirectional Forwarding Detection (BFD):
          BFD Configuration:
             bfd : enable             optional string, either true or false
-            bfd : min_rx             optional string, containing  an  integer,
+            bfd : min_rx             optional  string,  containing an integer,
                                      at least 1
-            bfd : min_tx             optional  string,  containing an integer,
+            bfd : min_tx             optional string, containing  an  integer,
                                      at least 1
             bfd : decay_min_rx       optional string, containing an integer
             bfd : forwarding_if_rx   optional string, either true or false
@@ -2547,7 +2550,7 @@ Interface TABLE
             bfd : bfd_src_ip         optional string
             bfd : bfd_dst_ip         optional string
             bfd : oam                optional string
-            bfd : mult               optional string, containing  an  integer,
+            bfd : mult               optional  string,  containing an integer,
                                      in range 1 to 255
          BFD Status:
             bfd_status : state       optional string, one of admin_down, down,
@@ -2559,7 +2562,7 @@ Interface TABLE
                                      init, or up
             bfd_status : remote_diagnostic
                                      optional string
-            bfd_status : flap_count  optional  string,  containing an integer,
+            bfd_status : flap_count  optional string, containing  an  integer,
                                      at least 0
        Connectivity Fault Management:
          cfm_mpid                    optional integer
@@ -2586,26 +2589,26 @@ Interface TABLE
          other_config : cfm_demand   optional string, either true or false
          other_config : cfm_opstate  optional string, either down or up
          other_config : cfm_ccm_vlan
-                                     optional string, containing  an  integer,
+                                     optional  string,  containing an integer,
                                      in range 1 to 4,095
-         other_config : cfm_ccm_pcp  optional  string,  containing an integer,
+         other_config : cfm_ccm_pcp  optional string, containing  an  integer,
                                      in range 1 to 7
        Bonding Configuration:
          other_config : lacp-port-id
-                                     optional string, containing  an  integer,
-                                     in range 1 to 65,535
-         other_config : lacp-port-priority
                                      optional  string,  containing an integer,
                                      in range 1 to 65,535
-         other_config : lacp-aggregation-key
+         other_config : lacp-port-priority
                                      optional string, containing  an  integer,
+                                     in range 1 to 65,535
+         other_config : lacp-aggregation-key
+                                     optional  string,  containing an integer,
                                      in range 1 to 65,535
        Virtual Machine Identifiers:
          external_ids : attached-mac
                                      optional string
          external_ids : iface-id     optional string
          external_ids : iface-status
-                                     optional  string,  either active or inac‐
+                                     optional string, either active  or  inac‐
                                      tive
          external_ids : vm-id        optional string
        Auto Attach Configuration:
@@ -2626,278 +2629,286 @@ Interface TABLE
      Core Features:
 
        name: immutable string (must be unique within table)
-              Interface name. Should be  alphanumeric.  For  non-bonded  port,
-              this  should  be the same as the port name. It must otherwise be
-              unique among the names of ports, interfaces, and  bridges  on  a
+              Interface  name.  Should  be  alphanumeric. For non-bonded port,
+              this should be the same as the port name. It must  otherwise  be
+              unique  among  the  names of ports, interfaces, and bridges on a
               host.
 
-              The  maximum length of an interface name depends on the underly‐
+              The maximum length of an interface name depends on the  underly‐
               ing datapath:
 
               •      The names of interfaces implemented as Linux and BSD net‐
-                     work devices, including interfaces  with  type  internal,
-                     tap,  or system plus the different types of tunnel ports,
-                     are limited to 15 bytes. Windows limits  these  names  to
+                     work  devices,  including  interfaces with type internal,
+                     tap, or system plus the different types of tunnel  ports,
+                     are  limited  to  15 bytes. Windows limits these names to
                      255 bytes.
 
-              •      The  names  of patch ports are not used in the underlying
-                     datapath, so operating system restrictions do not  apply.
+              •      The names of patch ports are not used in  the  underlying
+                     datapath,  so operating system restrictions do not apply.
                      Thus, they may have arbitrary length.
 
               Regardless of other restrictions, OpenFlow only supports 15-byte
-              names,  which means that ovs-ofctl and OpenFlow controllers will
+              names, which means that ovs-ofctl and OpenFlow controllers  will
               show names truncated to 15 bytes.
 
        ifindex: optional integer, in range 0 to 4,294,967,295
-              A positive interface index as defined for SNMP  MIB-II  in  RFCs
-              1213  and  2863,  if  the  interface  has  one, otherwise 0. The
-              ifindex is useful for seamless integration with  protocols  such
+              A  positive  interface  index as defined for SNMP MIB-II in RFCs
+              1213 and 2863, if  the  interface  has  one,  otherwise  0.  The
+              ifindex  is  useful for seamless integration with protocols such
               as SNMP and sFlow.
 
        mac_in_use: optional string
               The MAC address in use by this interface.
 
        mac: optional string
-              Ethernet  address  to  set for this interface. If unset then the
+              Ethernet address to set for this interface. If  unset  then  the
               default MAC address is used:
 
-              •      For the local interface, the default is  the  lowest-num‐
-                     bered  MAC  address  among the other bridge ports, either
-                     the value of the mac in its Port record, if set,  or  its
+              •      For  the  local interface, the default is the lowest-num‐
+                     bered MAC address among the other  bridge  ports,  either
+                     the  value  of the mac in its Port record, if set, or its
                      actual MAC (for bonded ports, the MAC of its member whose
-                     name  is first in alphabetical order). Internal ports and
+                     name is first in alphabetical order). Internal ports  and
                      bridge ports that are used as port mirroring destinations
                      (see the Mirror table) are ignored.
 
-              •      For other internal interfaces, the default  MAC  is  ran‐
+              •      For  other  internal  interfaces, the default MAC is ran‐
                      domly generated.
 
-              •      External  interfaces typically have a MAC address associ‐
+              •      External interfaces typically have a MAC address  associ‐
                      ated with their hardware.
 
-              Some interfaces may not have  a  software-controllable  MAC  ad‐
-              dress.  This  option only affects internal ports. For other type
-              ports, you can change the MAC address outside Open vSwitch,  us‐
+              Some  interfaces  may  not  have a software-controllable MAC ad‐
+              dress. This option only affects internal ports. For  other  type
+              ports,  you can change the MAC address outside Open vSwitch, us‐
               ing ip command.
 
        error: optional string
-              If  the  configuration of the port failed, as indicated by -1 in
+              If the configuration of the port failed, as indicated by  -1  in
               ofport, Open vSwitch sets this column to an error description in
               human readable form. Otherwise, Open vSwitch clears this column.
 
      OpenFlow Port Number:
 
-       When a client adds a new interface, Open vSwitch  chooses  an  OpenFlow
+       When  a  client  adds a new interface, Open vSwitch chooses an OpenFlow
        port number for the new port. If the client that adds the port fills in
-       ofport_request,  then  Open vSwitch tries to use its value as the Open‐
+       ofport_request, then Open vSwitch tries to use its value as  the  Open‐
        Flow port number. Otherwise, or if the requested port number is already
        in use or cannot be used for another reason, Open vSwitch automatically
-       assigns a free port number. Regardless of how the port number  was  ob‐
-       tained,  Open  vSwitch  then reports in ofport the port number actually
+       assigns  a  free port number. Regardless of how the port number was ob‐
+       tained, Open vSwitch then reports in ofport the  port  number  actually
        assigned.
 
-       Open vSwitch limits the port numbers that it automatically  assigns  to
-       the  range 1 through 32,767, inclusive. Controllers therefore have free
+       Open  vSwitch  limits the port numbers that it automatically assigns to
+       the range 1 through 32,767, inclusive. Controllers therefore have  free
        use of ports 32,768 and up.
 
        ofport: optional integer
-              OpenFlow port number for this interface. Open vSwitch sets  this
+              OpenFlow  port number for this interface. Open vSwitch sets this
               column’s value, so other clients should treat it as read-only.
 
-              The  OpenFlow  ``local’’  port (OFPP_LOCAL) is 65,534. The other
-              valid port numbers are in the  range  1  to  65,279,  inclusive.
+              The OpenFlow ``local’’ port (OFPP_LOCAL) is  65,534.  The  other
+              valid  port  numbers  are  in  the range 1 to 65,279, inclusive.
               Value -1 indicates an error adding the interface.
 
        ofport_request: optional integer, in range 1 to 65,279
               Requested OpenFlow port number for this interface.
 
-              A  client  should  ideally  set  this column’s value in the same
-              database transaction that it uses to create the interface.  Open
-              vSwitch  version  2.1 and later will honor a later request for a
-              specific port  number,  althuogh  it  might  confuse  some  con‐
+              A client should ideally set this  column’s  value  in  the  same
+              database  transaction that it uses to create the interface. Open
+              vSwitch version 2.1 and later will honor a later request  for  a
+              specific  port  number,  althuogh  it  might  confuse  some con‐
               trollers: OpenFlow does not have a way to announce a port number
-              change,  so  Open  vSwitch represents it over OpenFlow as a port
+              change, so Open vSwitch represents it over OpenFlow  as  a  port
               deletion followed immediately by a port addition.
 
-              If ofport_request is set or changed to some other  port’s  auto‐
-              matically  assigned port number, Open vSwitch chooses a new port
+              If  ofport_request  is set or changed to some other port’s auto‐
+              matically assigned port number, Open vSwitch chooses a new  port
               number for the latter port.
 
      System-Specific Details:
 
        type: string
               The interface type. The types supported by a particular instance
-              of Open vSwitch are listed in  the  iface_types  column  in  the
+              of  Open  vSwitch  are  listed  in the iface_types column in the
               Open_vSwitch table. The following types are defined:
 
               system An ordinary network device, e.g. eth0 on Linux. Sometimes
-                     referred  to  as  ``external  interfaces’’ since they are
+                     referred to as ``external  interfaces’’  since  they  are
                      generally connected to hardware external to that on which
-                     the Open vSwitch is running. The empty string is  a  syn‐
+                     the  Open  vSwitch is running. The empty string is a syn‐
                      onym for system.
 
               internal
-                     A  simulated network device that sends and receives traf‐
-                     fic. An internal interface whose name is the same as  its
-                     bridge’s  name is called the ``local interface.’’ It does
-                     not make sense to bond  an  internal  interface,  so  the
-                     terms  ``port’’  and  ``interface’’ are often used impre‐
+                     A simulated network device that sends and receives  traf‐
+                     fic.  An internal interface whose name is the same as its
+                     bridge’s name is called the ``local interface.’’ It  does
+                     not  make  sense  to  bond  an internal interface, so the
+                     terms ``port’’ and ``interface’’ are  often  used  impre‐
                      cisely for internal interfaces.
 
               tap    A TUN/TAP device managed by Open vSwitch.
 
                      Open vSwitch checks the interface state before send pack‐
-                     ets to the device. When  it  is  down,  the  packets  are
-                     dropped  and  the tx_dropped statistic is updated accord‐
-                     ingly. Older versions of Open vSwitch did not  check  the
-                     interface  state  and then the tx_packets was incremented
+                     ets  to  the  device.  When  it  is down, the packets are
+                     dropped and the tx_dropped statistic is  updated  accord‐
+                     ingly.  Older  versions of Open vSwitch did not check the
+                     interface state and then the tx_packets  was  incremented
                      along with tx_dropped.
 
-              geneve An            Ethernet            over             Geneve
+              geneve An             Ethernet            over            Geneve
                      (http://tools.ietf.org/html/draft-ietf-nvo3-geneve)
-                     IPv4/IPv6  tunnel.  A description of how to match and set
+                     IPv4/IPv6 tunnel. A description of how to match  and  set
                      Geneve options can be found in the ovs-ofctl manual page.
 
-              gre    Generic Routing Encapsulation  (GRE)  over  IPv4  tunnel,
+              gre    Generic  Routing  Encapsulation  (GRE)  over IPv4 tunnel,
                      configurable to encapsulate layer 2 or layer 3 traffic.
 
               ip6gre Generic Routing Encapsulation (GRE) over IPv6 tunnel, en‐
                      capsulate layer 2 traffic.
 
-              vxlan  An  Ethernet tunnel over the UDP-based VXLAN protocol de‐
+              vxlan  An Ethernet tunnel over the UDP-based VXLAN protocol  de‐
                      scribed in RFC 7348.
 
-                     Open vSwitch  uses  IANA-assigned  UDP  destination  port
-                     4789.  The source port used for VXLAN traffic varies on a
+                     Open  vSwitch  uses  IANA-assigned  UDP  destination port
+                     4789. The source port used for VXLAN traffic varies on  a
                      per-flow basis and is in the ephemeral port range.
 
-              lisp   A layer 3 tunnel over the experimental,  UDP-based  Loca‐
+              lisp   This port type is deprecated.
+
+                     A  layer  3 tunnel over the experimental, UDP-based Loca‐
                      tor/ID Separation Protocol (RFC 6830).
 
                      Only IPv4 and IPv6 packets are supported by the protocol,
-                     and  they  are  sent  and  received  without  an Ethernet
+                     and they  are  sent  and  received  without  an  Ethernet
                      header. Traffic to/from LISP ports is expected to be con‐
-                     figured explicitly, and the ports  are  not  intended  to
-                     participate  in  learning  based switching. As such, they
+                     figured  explicitly,  and  the  ports are not intended to
+                     participate in learning based switching.  As  such,  they
                      are always excluded from packet flooding.
 
-              stt    The Stateless TCP Tunnel  (STT)  is  particularly  useful
-                     when  tunnel endpoints are in end-systems, as it utilizes
-                     the capabilities of standard network interface  cards  to
-                     improve  performance.  STT utilizes a TCP-like header in‐
-                     side the IP header. It is stateless, i.e.,  there  is  no
+              stt    This port type is deprecated.
+
+                     The  Stateless  TCP  Tunnel  (STT) is particularly useful
+                     when tunnel endpoints are in end-systems, as it  utilizes
+                     the  capabilities  of standard network interface cards to
+                     improve performance. STT utilizes a TCP-like  header  in‐
+                     side  the  IP  header. It is stateless, i.e., there is no
                      TCP connection state of any kind associated with the tun‐
                      nel. The TCP-like header is used to leverage the capabil‐
                      ities of existing network interface cards, but should not
-                     be  interpreted  as implying any sort of connection state
-                     between endpoints. Since the STT protocol does not engage
-                     in the usual TCP 3-way handshake, so it will have  diffi‐
-                     culty traversing stateful firewalls. The protocol is doc‐
-                     umented   at  https://tools.ietf.org/html/draft-davie-stt
-                     All traffic uses a default destination port of 7471.
+                     be interpreted as implying any sort of  connection  state
+                     between endpoints.
+
+                     Since  the  STT protocol does not engage in the usual TCP
+                     3-way handshake, so it will  have  difficulty  traversing
+                     stateful firewalls.
+
+                     The        protocol        is        documented        at
+                     https://tools.ietf.org/html/draft-davie-stt. All  traffic
+                     uses a default destination port of 7471.
 
               patch  A pair of virtual devices that act as a patch cable.
 
               gtpu   GPRS Tunneling Protocol (GTP) is a group of IP-based com‐
-                     munications protocols used to carry general packet  radio
-                     service  (GPRS)  within GSM, UMTS and LTE networks. GTP-U
-                     is used for carrying user data within the GPRS core  net‐
-                     work  and  between  the radio access network and the core
-                     network. The user data transported can be packets in  any
+                     munications  protocols used to carry general packet radio
+                     service (GPRS) within GSM, UMTS and LTE  networks.  GTP-U
+                     is  used for carrying user data within the GPRS core net‐
+                     work and between the radio access network  and  the  core
+                     network.  The user data transported can be packets in any
                      of IPv4, IPv6, or PPP formats.
 
                      The protocol is documented at http://www.3gpp.org/DynaRe‐
                      port/29281.htm
 
-                     Open  vSwitch  uses UDP destination port 2152. The source
-                     port used for GTP traffic varies on a per-flow basis  and
+                     Open vSwitch uses UDP destination port 2152.  The  source
+                     port  used for GTP traffic varies on a per-flow basis and
                      is in the ephemeral port range.
 
               Bareudp
-                     The  Bareudp  tunnel  provides a generic L3 encapsulation
-                     support for tunnelling different L3 protocols like  MPLS,
+                     The Bareudp tunnel provides a  generic  L3  encapsulation
+                     support  for tunnelling different L3 protocols like MPLS,
                      IP, NSH etc. inside a UDP tunnel.
 
-              srv6   Segment  Routing IPv6 (SRv6) tunnel encapsulates L3 traf‐
-                     fic as "IPv6 in IPv6" or  "IPv4  in  IPv6"  with  Segment
-                     Routing  Header  (SRH)  defined  in RFC 8754. The segment
+              srv6   Segment Routing IPv6 (SRv6) tunnel encapsulates L3  traf‐
+                     fic  as  "IPv6  in  IPv6"  or "IPv4 in IPv6" with Segment
+                     Routing Header (SRH) defined in  RFC  8754.  The  segment
                      list in SRH can be set using a SRv6 specific option.
 
      Tunnel Options:
 
-       These options apply to interfaces with type of  geneve,  bareudp,  gre,
+       These  options  apply  to interfaces with type of geneve, bareudp, gre,
        ip6gre, vxlan, lisp, stt and srv6.
 
        Each tunnel must be uniquely identified by the combination of type, op‐
        tions:remote_ip, options:local_ip, and options:in_key. If two ports are
        defined that are the same except one has an optional identifier and the
-       other  does not, the more specific one is matched first. options:in_key
+       other does not, the more specific one is matched first.  options:in_key
        is considered more specific than options:local_ip if a port defines one
-       and another port defines the other. options:in_key  is  not  applicable
-       for  bareudp and srv6 tunnels. Hence it is not considered while identi‐
+       and  another  port  defines the other. options:in_key is not applicable
+       for bareudp and srv6 tunnels. Hence it is not considered while  identi‐
        fying bareudp or srv6 tunnels.
 
        options : remote_ip: optional string
               Required. The remote tunnel endpoint, one of:
 
-              •      An  IPv4  or  IPv6  address  (not  a  DNS   name),   e.g.
+              •      An   IPv4   or  IPv6  address  (not  a  DNS  name),  e.g.
                      192.168.0.123. Only unicast endpoints are supported.
 
               •      The word flow. The tunnel accepts packets from any remote
-                     tunnel  endpoint. To process only packets from a specific
+                     tunnel endpoint. To process only packets from a  specific
                      remote tunnel endpoint, the flow entries may match on the
-                     tun_src or tun_ipv6_srcfield. When sending packets  to  a
-                     remote_ip=flow  tunnel,  the flow actions must explicitly
-                     set the tun_dst or tun_ipv6_dst field to the  IP  address
-                     of  the  desired  remote  tunnel  endpoint,  e.g.  with a
+                     tun_src  or  tun_ipv6_srcfield. When sending packets to a
+                     remote_ip=flow tunnel, the flow actions  must  explicitly
+                     set  the  tun_dst or tun_ipv6_dst field to the IP address
+                     of the  desired  remote  tunnel  endpoint,  e.g.  with  a
                      set_field action.
 
               The remote tunnel endpoint for any packet received from a tunnel
-              is available in the tun_src field for matching in the  flow  ta‐
+              is  available  in the tun_src field for matching in the flow ta‐
               ble.
 
        options : local_ip: optional string
-              Optional.  The  tunnel destination IP that received packets must
-              match. Default is to match all addresses. If specified,  may  be
+              Optional. The tunnel destination IP that received  packets  must
+              match.  Default  is to match all addresses. If specified, may be
               one of:
 
               •      An IPv4/IPv6 address (not a DNS name), e.g. 192.168.12.3.
 
-              •      The  word flow. The tunnel accepts packets sent to any of
-                     the local IP addresses of  the  system  running  OVS.  To
-                     process  only  packets sent to a specific IP address, the
-                     flow entries may match on  the  tun_dst  or  tun_ipv6_dst
-                     field.  When  sending  packets to a local_ip=flow tunnel,
-                     the flow  actions  may  explicitly  set  the  tun_src  or
+              •      The word flow. The tunnel accepts packets sent to any  of
+                     the  local  IP  addresses  of  the system running OVS. To
+                     process only packets sent to a specific IP  address,  the
+                     flow  entries  may  match  on the tun_dst or tun_ipv6_dst
+                     field. When sending packets to  a  local_ip=flow  tunnel,
+                     the  flow  actions  may  explicitly  set  the  tun_src or
                      tun_ipv6_src field to the desired IP address, e.g. with a
-                     set_field  action.  However,  while  routing the tunneled
-                     packet out, the local system may override  the  specified
+                     set_field action. However,  while  routing  the  tunneled
+                     packet  out,  the local system may override the specified
                      address with the local IP address configured for the out‐
                      going system interface.
 
-                     This  option  is  valid  only for tunnels also configured
+                     This option is valid only  for  tunnels  also  configured
                      with the remote_ip=flow option.
 
               The tunnel destination IP address for any packet received from a
-              tunnel is available in the tun_dst  or  tun_ipv6_dst  field  for
+              tunnel  is  available  in  the tun_dst or tun_ipv6_dst field for
               matching in the flow table.
 
        options : in_key: optional string
-              Optional,  not applicable for bareudp and srv6. The key that re‐
+              Optional, not applicable for bareudp and srv6. The key that  re‐
               ceived packets must contain, one of:
 
-              •      0. The tunnel receives packets with no key or with a  key
-                     of  0. This is equivalent to specifying no options:in_key
+              •      0.  The tunnel receives packets with no key or with a key
+                     of 0. This is equivalent to specifying no  options:in_key
                      at all.
 
-              •      A positive 24-bit (for Geneve, VXLAN, and  LISP),  32-bit
+              •      A  positive  24-bit (for Geneve, VXLAN, and LISP), 32-bit
                      (for GRE) or 64-bit (for STT) number. The tunnel receives
                      only packets with the specified key.
 
-              •      The  word  flow. The tunnel accepts packets with any key.
-                     The key will be placed in the tun_id field  for  matching
+              •      The word flow. The tunnel accepts packets with  any  key.
+                     The  key  will be placed in the tun_id field for matching
                      in the flow table. The ovs-fields(7) manual page contains
-                     additional  information about matching fields in OpenFlow
+                     additional information about matching fields in  OpenFlow
                      flows.
 
        options : out_key: optional string
@@ -2907,18 +2918,18 @@ Interface TABLE
               •      0. Packets sent through the tunnel will have no key. This
                      is equivalent to specifying no options:out_key at all.
 
-              •      A positive 24-bit (for Geneve, VXLAN  and  LISP),  32-bit
-                     (for  GRE)  or  64-bit  (for  STT)  number.  Packets sent
+              •      A  positive  24-bit  (for Geneve, VXLAN and LISP), 32-bit
+                     (for GRE)  or  64-bit  (for  STT)  number.  Packets  sent
                      through the tunnel will have the specified key.
 
-              •      The word flow. Packets sent through the tunnel will  have
-                     the  key  set using the set_tunnel Nicira OpenFlow vendor
-                     extension (0 is used in the absence of  an  action).  The
+              •      The  word flow. Packets sent through the tunnel will have
+                     the key set using the set_tunnel Nicira  OpenFlow  vendor
+                     extension  (0  is  used in the absence of an action). The
                      ovs-fields(7) manual page contains additional information
                      about the Nicira OpenFlow vendor extensions.
 
        options : dst_port: optional string
-              Optional.  The  tunnel transport layer destination port, for UDP
+              Optional. The tunnel transport layer destination port,  for  UDP
               and TCP based tunnel protocols (Geneve, VXLAN, LISP, and STT).
 
        options : key: optional string
@@ -2926,39 +2937,41 @@ Interface TABLE
 
        options : tos: optional string
               Optional. The value of the ToS bits to be set on the encapsulat‐
-              ing packet. ToS is interpreted as DSCP and ECN  bits,  ECN  part
+              ing  packet.  ToS  is interpreted as DSCP and ECN bits, ECN part
               must be zero. It may also be the word inherit, in which case the
-              ToS  will  be copied from the inner packet if it is IPv4 or IPv6
-              (otherwise it will be 0). The ECN fields are  always  inherited.
+              ToS will be copied from the inner packet if it is IPv4  or  IPv6
+              (otherwise  it  will be 0). The ECN fields are always inherited.
               Default is 0.
 
        options : ttl: optional string
-              Optional.  The TTL to be set on the encapsulating packet. It may
-              also be the word inherit, in which case the TTL will  be  copied
-              from  the  inner packet if it is IPv4 or IPv6 (otherwise it will
-              be the system default, typically 64). Default is the system  de‐
+              Optional. The TTL to be set on the encapsulating packet. It  may
+              also  be  the word inherit, in which case the TTL will be copied
+              from the inner packet if it is IPv4 or IPv6 (otherwise  it  will
+              be  the system default, typically 64). Default is the system de‐
               fault TTL.
 
        options : df_default: optional string, either true or false
               Optional. If enabled, the Don’t Fragment bit will be set on tun‐
-              nel  outer  headers  to allow path MTU discovery. Default is en‐
+              nel outer headers to allow path MTU discovery.  Default  is  en‐
               abled; set to false to disable.
 
        options : egress_pkt_mark: optional string
-              Optional. The pkt_mark to be set on  the  encapsulating  packet.
-              This  option  sets  packet  mark for the tunnel endpoint for all
+              Optional.  The  pkt_mark  to be set on the encapsulating packet.
+              This option sets packet mark for the  tunnel  endpoint  for  all
               tunnel packets including tunnel monitoring.
 
      Tunnel Options: lisp only:
 
        options : packet_type: optional string, either legacy_l3 or ptap
-              A LISP tunnel sends and receives only  IPv4  and  IPv6  packets.
-              This  option controls what how the tunnel represents the packets
+              LISP tunnel type is deprecated.
+
+              A  LISP  tunnel  sends  and receives only IPv4 and IPv6 packets.
+              This option controls what how the tunnel represents the  packets
               that it sends and receives:
 
-              •      By default, or if this option is  legacy_l3,  the  tunnel
-                     represents  packets  as Ethernet frames for compatibility
-                     with legacy OpenFlow controllers that expect this  behav‐
+              •      By  default,  or  if this option is legacy_l3, the tunnel
+                     represents packets as Ethernet frames  for  compatibility
+                     with  legacy OpenFlow controllers that expect this behav‐
                      ior.
 
               •      If this option is ptap, the tunnel represents packets us‐
@@ -2967,13 +2980,13 @@ Interface TABLE
      Tunnel Options: vxlan only:
 
        options : exts: optional string
-              Optional.  Comma  separated list of optional VXLAN extensions to
+              Optional. Comma separated list of optional VXLAN  extensions  to
               enable. The following extensions are supported:
 
-              •      gbp: VXLAN-GBP allows to transport the group policy  con‐
+              •      gbp:  VXLAN-GBP allows to transport the group policy con‐
                      text of a packet across the VXLAN tunnel to other network
-                     peers.    See   the   description   of   tun_gbp_id   and
-                     tun_gbp_flags in ovs-fields(7)  for  additional  informa‐
+                     peers.   See   the   description   of   tun_gbp_id    and
+                     tun_gbp_flags  in  ovs-fields(7)  for additional informa‐
                      tion.
                      (https://tools.ietf.org/html/draft-smith-vxlan-group-pol‐
                      icy)
@@ -2981,29 +2994,29 @@ Interface TABLE
               •      gpe: Support for Generic Protocol Encapsulation in accor‐
                      dance             with             IETF             draft
                      https://tools.ietf.org/html/draft-ietf-nvo3-vxlan-gpe.
-                     Without this option, a VXLAN packet  always  encapsulates
-                     an  Ethernet frame. With this option, an VXLAN packet may
+                     Without  this  option, a VXLAN packet always encapsulates
+                     an Ethernet frame. With this option, an VXLAN packet  may
                      also encapsulate an IPv4, IPv6, NSH, or MPLS packet.
 
        options : packet_type: optional string, one of legacy_l2, legacy_l3, or
        ptap
-              This option controls what types of packets the tunnel sends  and
+              This  option controls what types of packets the tunnel sends and
               receives and how it represents them:
 
-              •      By  default,  or  if this option is legacy_l2, the tunnel
+              •      By default, or if this option is  legacy_l2,  the  tunnel
                      sends and receives only Ethernet frames.
 
-              •      If this option is legacy_l3, the  tunnel  sends  and  re‐
+              •      If  this  option  is  legacy_l3, the tunnel sends and re‐
                      ceives only non-Ethernet (L3) packet, but the packets are
-                     represented  as  Ethernet  frames  for compatibility with
-                     legacy OpenFlow controllers that  expect  this  behavior.
+                     represented as Ethernet  frames  for  compatibility  with
+                     legacy  OpenFlow  controllers  that expect this behavior.
                      This requires enabling gpe in options:exts.
 
-              •      If  this  option is ptap, Open vSwitch represents packets
-                     in the tunnel using the packet_type mechanism  introduced
-                     in  OpenFlow  1.5.  This  mechanism  supports any kind of
-                     packet, but actually sending and  receiving  non-Ethernet
-                     packets   requires   additionally  enabling  gpe  in  op‐
+              •      If this option is ptap, Open vSwitch  represents  packets
+                     in  the tunnel using the packet_type mechanism introduced
+                     in OpenFlow 1.5. This  mechanism  supports  any  kind  of
+                     packet,  but  actually sending and receiving non-Ethernet
+                     packets  requires  additionally  enabling  gpe   in   op‐
                      tions:exts.
 
      Tunnel Options: gre only:
@@ -3012,60 +3025,60 @@ Interface TABLE
 
        options : packet_type: optional string, one of legacy_l2, legacy_l3, or
        ptap
-              This option controls what types of packets the tunnel sends  and
+              This  option controls what types of packets the tunnel sends and
               receives and how it represents them:
 
-              •      By  default,  or  if this option is legacy_l2, the tunnel
+              •      By default, or if this option is  legacy_l2,  the  tunnel
                      sends and receives only Ethernet frames.
 
-              •      If this option is legacy_l3, the  tunnel  sends  and  re‐
+              •      If  this  option  is  legacy_l3, the tunnel sends and re‐
                      ceives only non-Ethernet (L3) packet, but the packets are
-                     represented  as  Ethernet  frames  for compatibility with
+                     represented as Ethernet  frames  for  compatibility  with
                      legacy OpenFlow controllers that expect this behavior.
 
               •      The legacy_l3 option is only available via the user space
-                     datapath. The OVS kernel datapath does  not  support  de‐
-                     vices  of  type ARPHRD_IPGRE which is the requirement for
+                     datapath.  The  OVS  kernel datapath does not support de‐
+                     vices of type ARPHRD_IPGRE which is the  requirement  for
                      legacy_l3 type packets.
 
               •      If this option is ptap, the tunnel sends and receives any
-                     kind of packet. Open vSwitch represents  packets  in  the
-                     tunnel  using  the  packet_type  mechanism  introduced in
+                     kind  of  packet.  Open vSwitch represents packets in the
+                     tunnel using  the  packet_type  mechanism  introduced  in
                      OpenFlow 1.5.
 
        options : seq: optional string, either true or false
-              Optional. A 4-byte sequence number field for  GRE  tunnel  only.
-              Default  is  disabled, set to true to enable. Sequence number is
+              Optional.  A  4-byte  sequence number field for GRE tunnel only.
+              Default is disabled, set to true to enable. Sequence  number  is
               incremented by one on each outgoing packet.
 
      Tunnel Options: gre, ip6gre, geneve, bareudp and vxlan:
 
-       gre, ip6gre, geneve, bareudp and vxlan  interfaces  support  these  op‐
+       gre,  ip6gre,  geneve,  bareudp  and vxlan interfaces support these op‐
        tions.
 
        options : csum: optional string, either true or false
-              Optional.  Compute  encapsulation  header  (either  GRE  or UDP)
-              checksums on outgoing packets. When unset (the  default  value),
-              checksum  computing for outgoing packets is enabled for UDP IPv6
-              tunnels, and disabled for GRE and IPv4 UDP tunnels. When set  to
-              false,  no checksums will be computed for outgoing tunnel encap‐
-              sulation headers. When true, checksums will be computed for  all
-              outgoing  tunnel encapsulation headers. Checksums present on in‐
+              Optional. Compute  encapsulation  header  (either  GRE  or  UDP)
+              checksums  on  outgoing packets. When unset (the default value),
+              checksum computing for outgoing packets is enabled for UDP  IPv6
+              tunnels,  and disabled for GRE and IPv4 UDP tunnels. When set to
+              false, no checksums will be computed for outgoing tunnel  encap‐
+              sulation  headers. When true, checksums will be computed for all
+              outgoing tunnel encapsulation headers. Checksums present on  in‐
               coming packets will be validated regardless of this setting. In‐
-              coming packets without a checksum will also be accepted  regard‐
+              coming  packets without a checksum will also be accepted regard‐
               less of this setting.
 
-              When  using  the  upstream  Linux  kernel module, computation of
+              When using the upstream  Linux  kernel  module,  computation  of
               checksums for geneve and vxlan requires Linux kernel version 4.0
-              or higher. gre and ip6gre support checksums for all versions  of
-              Open  vSwitch  that  support  GRE. The out of tree kernel module
-              distributed as part of OVS can compute all tunnel  checksums  on
+              or  higher. gre and ip6gre support checksums for all versions of
+              Open vSwitch that support GRE. The out  of  tree  kernel  module
+              distributed  as  part of OVS can compute all tunnel checksums on
               any kernel version that it is compatible with.
 
      Tunnel Options: IPsec:
 
-       Setting  any of these options enables IPsec support for a given tunnel.
-       gre, geneve, vxlan and stt interfaces support these  options.  See  the
+       Setting any of these options enables IPsec support for a given  tunnel.
+       gre,  geneve,  vxlan  and stt interfaces support these options. See the
        IPsec section in the Open_vSwitch table for a description of each mode.
 
        options : psk: optional string
@@ -3073,13 +3086,13 @@ Interface TABLE
               value must match on both tunnel ends.
 
        options : remote_cert: optional string
-              In  self-signed  certificate  mode only, name of a PEM file con‐
+              In self-signed certificate mode only, name of a  PEM  file  con‐
               taining a certificate of the remote switch. The certificate must
-              be x.509 version 3 and with the string in common name (CN)  also
+              be  x.509 version 3 and with the string in common name (CN) also
               set in the subject alternative name (SAN).
 
        options : remote_name: optional string
-              In  CA-signed certificate mode only, common name (CN) of the re‐
+              In CA-signed certificate mode only, common name (CN) of the  re‐
               mote certificate.
 
      Tunnel Options: erspan only:
@@ -3087,73 +3100,73 @@ Interface TABLE
        Only erspan interfaces support these options.
 
        options : erspan_idx: optional string
-              20 bit index/port number associated with  the  ERSPAN  traffic’s
-              source  port and direction (ingress/egress). This field is plat‐
+              20  bit  index/port  number associated with the ERSPAN traffic’s
+              source port and direction (ingress/egress). This field is  plat‐
               form dependent.
 
        options : erspan_ver: optional string
-              ERSPAN version: 1 for version 1 (type II) or  2  for  version  2
+              ERSPAN  version:  1  for  version 1 (type II) or 2 for version 2
               (type III).
 
        options : erspan_dir: optional string
-              Specifies  the  ERSPAN  v2  mirrored  traffic’s direction. 1 for
+              Specifies the ERSPAN v2  mirrored  traffic’s  direction.  1  for
               egress traffic, and 0 for ingress traffic.
 
        options : erspan_hwid: optional string
-              ERSPAN hardware ID is a 6-bit unique identifier of an ERSPAN  v2
+              ERSPAN  hardware ID is a 6-bit unique identifier of an ERSPAN v2
               engine within a system.
 
      Tunnel Options: Bareudp only:
 
        options : payload_type: optional string
               Specifies the ethertype of the l3 protocol the bareudp device is
-              tunnelling.  For  the tunnels which supports multiple ethertypes
-              of a l3 protocol (IP, MPLS) this field  specifies  the  protocol
+              tunnelling. For the tunnels which supports  multiple  ethertypes
+              of  a  l3  protocol (IP, MPLS) this field specifies the protocol
               name as a string.
 
      Tunnel Options: srv6 only:
 
        options : srv6_segs: optional string
-              Specifies  the  segment list in Segment Routing Header (SRH). It
-              consists of a comma-separated list of  segments  represented  in
-              IPv6  format,  e.g.  "fc00:100::1,fc00:200::1,fc00:300::1". Note
+              Specifies the segment list in Segment Routing Header  (SRH).  It
+              consists  of  a  comma-separated list of segments represented in
+              IPv6 format,  e.g.  "fc00:100::1,fc00:200::1,fc00:300::1".  Note
               that the first segment must be the same as options:remote_ip.
 
        options : srv6_flowlabel: optional string, one of compute, copy, or
        zero
-              Optional. This option  controls  how  flowlabel  in  outer  IPv6
-              header  is  configured.  It gives the benefit of IPv6 flow label
-              based load balancing, which is supported by some popular  vendor
+              Optional.  This  option  controls  how  flowlabel  in outer IPv6
+              header is configured. It gives the benefit of  IPv6  flow  label
+              based  load balancing, which is supported by some popular vendor
               appliances. Like net.ipv6.seg6_flowlabel sysconfig, it is one of
               the three values below:
 
               •      By default, or if this option is copy, copy the flowlabel
-                     of  inner  IPv6  header  to  the  flowlabel of outer IPv6
+                     of inner IPv6 header  to  the  flowlabel  of  outer  IPv6
                      header. If inner header is not IPv6, it is set to 0.
 
               •      If this option is zero, simply set flowlabel to 0.
 
-              •      If this option is compute, set flowlabel to a  hash  over
+              •      If  this  option is compute, set flowlabel to a hash over
                      the L3/L4 fields of the inner packet.
 
      Patch Options:
 
        These options apply only to patch ports, that is, interfaces whose type
-       column  is patch. Patch ports are mainly a way to connect otherwise in‐
+       column is patch. Patch ports are mainly a way to connect otherwise  in‐
        dependent bridges to one another, similar to how one might plug an Eth‐
-       ernet cable (a ``patch cable’’) into two physical switches  to  connect
-       those  switches.  The effect of plugging a patch port into two switches
-       is conceptually similar to that of plugging the two  ends  of  a  Linux
-       veth  device into those switches, but the implementation of patch ports
+       ernet  cable  (a ``patch cable’’) into two physical switches to connect
+       those switches. The effect of plugging a patch port into  two  switches
+       is  conceptually  similar  to  that of plugging the two ends of a Linux
+       veth device into those switches, but the implementation of patch  ports
        makes them much more efficient.
 
-       Patch ports may connect two different bridges (the usual case)  or  the
+       Patch  ports  may connect two different bridges (the usual case) or the
        same bridge. In the latter case, take special care to avoid loops, e.g.
        by programming appropriate flows with OpenFlow. Patch ports do not work
-       if  its  ends  are  attached to bridges on different datapaths, e.g. to
+       if its ends are attached to bridges on  different  datapaths,  e.g.  to
        connect bridges in system and netdev datapaths.
 
-       The following command creates and connects patch ports p0  and  p1  and
+       The  following  command  creates and connects patch ports p0 and p1 and
        adds them to bridges br0 and br1, respectively:
 
        ovs-vsctl add-port br0 p0 -- set Interface p0 type=patch options:peer=p1 \
@@ -3161,9 +3174,9 @@ Interface TABLE
 
 
        options : peer: optional string
-              The  name  of the Interface for the other side of the patch. The
-              named Interface’s own peer option must specify this  Interface’s
-              name.  That is, the two patch interfaces must have reversed name
+              The name of the Interface for the other side of the  patch.  The
+              named  Interface’s own peer option must specify this Interface’s
+              name. That is, the two patch interfaces must have reversed  name
               and peer values.
 
      PMD (Poll Mode Driver) Options:
@@ -3171,17 +3184,17 @@ Interface TABLE
        Only PMD netdevs support these options.
 
        options : n_rxq: optional string, containing an integer, at least 1
-              Specifies the maximum number of rx queues to be created for  PMD
+              Specifies  the maximum number of rx queues to be created for PMD
               netdev. If not specified or specified to 0, one rx queue will be
               created by default. Not supported by DPDK vHost interfaces.
 
        options : dpdk-devargs: optional string
-              Specifies  the PCI address associated with the port for physical
-              devices, or the virtual driver to be used for the  port  when  a
+              Specifies the PCI address associated with the port for  physical
+              devices,  or  the  virtual driver to be used for the port when a
               virtual PMD is intended to be used. For the latter, the argument
-              string  typically takes the form of eth_driver_namex, where dri‐
-              ver_name is a valid virtual DPDK PMD driver  name  and  x  is  a
-              unique  identifier  of your choice for the given port. Only sup‐
+              string typically takes the form of eth_driver_namex, where  dri‐
+              ver_name  is  a  valid  virtual  DPDK PMD driver name and x is a
+              unique identifier of your choice for the given port.  Only  sup‐
               ported by the dpdk port type.
 
        other_config : pmd-rxq-affinity: optional string
@@ -3195,7 +3208,7 @@ Interface TABLE
 
               •      <rxq-affinity-list> ::= NULL | <non-empty-list>
 
-              •      <non-empty-list> ::= <affinity-pair> | <affinity-pair>  ,
+              •      <non-empty-list>  ::= <affinity-pair> | <affinity-pair> ,
                      <non-empty-list>
 
               •      <affinity-pair> ::= <queue-id> : <core-id>
@@ -3204,39 +3217,48 @@ Interface TABLE
        tive-with-zerocopy, or native
               Specifies the operational mode of the XDP program.
 
-              In  native-with-zerocopy mode the XDP program is loaded into the
-              device driver with zero-copy RX and TX enabled.  This  mode  re‐
-              quires  device  driver  support and has the best performance be‐
+              In native-with-zerocopy mode the XDP program is loaded into  the
+              device  driver  with  zero-copy RX and TX enabled. This mode re‐
+              quires device driver support and has the  best  performance  be‐
               cause there should be no copying of packets.
 
-              native is the same as native-with-zerocopy,  but  without  zero-
-              copy  capability. This requires at least one copy between kernel
-              and the userspace. This mode also requires support  from  device
+              native  is  the  same as native-with-zerocopy, but without zero-
+              copy capability. This requires at least one copy between  kernel
+              and  the  userspace. This mode also requires support from device
               driver.
 
-              In  generic case the XDP program in kernel works after skb allo‐
-              cation on early stages of packet processing inside  the  network
-              stack.  This  mode  doesn’t require driver support, but has much
+              In generic case the XDP program in kernel works after skb  allo‐
+              cation  on  early stages of packet processing inside the network
+              stack. This mode doesn’t require driver support,  but  has  much
               lower performance.
 
-              best-effort tries to detect and choose the best  (fastest)  from
+              best-effort  tries  to detect and choose the best (fastest) from
               the available modes for current interface.
 
-              Note  that  this option is specific to netdev-afxdp. Defaults to
+              Note that this option is specific to netdev-afxdp.  Defaults  to
               best-effort mode.
 
        options : use-need-wakeup: optional string, either true or false
               Specifies whether to use need_wakeup feature in afxdp netdev. If
-              enabled, OVS explicitly wakes up the  kernel  RX,  using  poll()
-              syscall  and  wakes  up TX, using sendto() syscall. For physical
-              devices, this feature improves the performance by  avoiding  un‐
-              necessary  sendto  syscalls.  Defaults  to  true if supported by
+              enabled,  OVS  explicitly  wakes  up the kernel RX, using poll()
+              syscall and wakes up TX, using sendto()  syscall.  For  physical
+              devices,  this  feature improves the performance by avoiding un‐
+              necessary sendto syscalls. Defaults  to  true  if  supported  by
               libbpf.
 
        options : vhost-server-path: optional string
-              The value specifies the path to the  socket  associated  with  a
-              vHost  User  client mode device that has been or will be created
+              The  value  specifies  the  path to the socket associated with a
+              vHost User client mode device that has been or will  be  created
               by QEMU. Only supported by dpdkvhostuserclient interfaces.
+
+       options : vhost-max-queue-pairs: optional string, containing an inte‐
+       ger, in range 1 to 128
+              The  value specifies the maximum number of queue pairs supported
+              by a vHost device. This is ignored for vhost-user backends, only
+              VDUSE is supported. Only supported by dpdkvhostuserclient inter‐
+              faces.
+
+              Default value is 1.
 
        options : tx-retries-max: optional string, containing an integer, in
        range 0 to 32
@@ -4137,7 +4159,7 @@ Flow_Table TABLE
          overflow_policy             optional string, either evict or refuse
          groups                      set of strings
        Classifier Optimization:
-         prefixes                    set of up to 3 strings
+         prefixes                    set of up to 4 strings
        Common Columns:
          external_ids                map of string-string pairs
 
@@ -4226,7 +4248,7 @@ Flow_Table TABLE
 
      Classifier Optimization:
 
-       prefixes: set of up to 3 strings
+       prefixes: set of up to 4 strings
               This string set specifies which fields should be  used  for  ad‐
               dress  prefix tracking. Prefix tracking allows the classifier to
               skip rules with longer than  necessary  prefixes,  resulting  in
@@ -4256,12 +4278,12 @@ Flow_Table TABLE
               tun_id would only make sense  if  the  tunnel  IDs  have  prefix
               structure similar to IP addresses.)
 
-              By default, the prefixes=ip_dst,ip_src are used on each flow ta‐
-              ble. This instructs the flow classifier to track the IP destina‐
-              tion  and  source  addresses  used by the rules in this specific
-              flow table.
+              By  default,  the  prefixes=ip_dst,ip_src,ipv6_dst,ipv6_src  are
+              used on each flow table. This instructs the flow  classifier  to
+              track the IPv4 and IPv6 destination and source addresses used by
+              the rules in this specific flow table.
 
-              The keyword none is recognized as an explicit  override  of  the
+              The  keyword  none  is recognized as an explicit override of the
               default values, causing no prefix fields to be tracked.
 
               To set the prefix fields, the flow table record needs to exist:
@@ -4272,11 +4294,11 @@ Flow_Table TABLE
                      0.
 
               ovs-vsctl set Flow_Table table0 prefixes=ip_dst,ip_src
-                     Enables prefix tracking for IP source and destination ad‐
-                     dress fields.
+                     Enables prefix tracking for IPv4 source  and  destination
+                     address fields.
 
               There  is a maximum number of fields that can be enabled for any
-              one flow table. Currently this limit is 3.
+              one flow table. Currently this limit is 4.
 
      Common Columns:
 
@@ -4862,47 +4884,47 @@ Controller TABLE
               The following active connection methods are currently supported:
 
               ssl:host[:port]
-                     The specified SSL port on the host  at  the  given  host,
+                     The specified SSL/TLS port on the host at the given host,
                      which can either be a DNS name (if built with unbound li‐
-                     brary)   or   an  IP  address.  The  ssl  column  in  the
-                     Open_vSwitch table must point to a valid  SSL  configura‐
-                     tion when this form is used.
+                     brary)  or  an  IP  address.  The  ssl  column   in   the
+                     Open_vSwitch table must point to a valid SSL/TLS configu‐
+                     ration when this form is used.
 
                      If port is not specified, it defaults to 6653.
 
-                     SSL  support  is  an  optional feature that is not always
+                     SSL/TLS support is an optional feature that is not always
                      built as part of Open vSwitch.
 
               tcp:host[:port]
-                     The specified TCP port on the host  at  the  given  host,
+                     The  specified  TCP  port  on the host at the given host,
                      which can either be a DNS name (if built with unbound li‐
-                     brary)  or  an  IP  address (IPv4 or IPv6). If host is an
-                     IPv6  address,  wrap  it   in   square   brackets,   e.g.
+                     brary) or an IP address (IPv4 or IPv6).  If  host  is  an
+                     IPv6   address,   wrap   it   in  square  brackets,  e.g.
                      tcp:[::1]:6653.
 
                      If port is not specified, it defaults to 6653.
 
-              The  following  passive  connection  methods  are currently sup‐
+              The following passive  connection  methods  are  currently  sup‐
               ported:
 
               pssl:[port][:host]
-                     Listens for SSL connections on the specified TCP port. If
-                     host, which can either be a DNS name (if built  with  un‐
-                     bound  library) or an IP address, is specified, then con‐
-                     nections are restricted to the resolved or specified  lo‐
-                     cal  IP address (either IPv4 or IPv6). If host is an IPv6
-                     address,   wrap   it    in    square    brackets,    e.g.
+                     Listens  for  SSL/TLS  connections  on  the specified TCP
+                     port. If host, which can either be a DNS name  (if  built
+                     with  unbound  library)  or  an IP address, is specified,
+                     then connections are restricted to the resolved or speci‐
+                     fied local IP address (either IPv4 or IPv6). If  host  is
+                     an  IPv6  address,  wrap  it  in  square  brackets,  e.g.
                      pssl:6653:[::1].
 
                      If port is not specified, it defaults to 6653. If host is
                      not specified then it listens only on IPv4 (but not IPv6)
-                     addresses.  The ssl column in the Open_vSwitch table must
-                     point to a valid SSL  configuration  when  this  form  is
+                     addresses. The ssl column in the Open_vSwitch table  must
+                     point  to a valid SSL/TLS configuration when this form is
                      used.
 
                      If port is not specified, it currently to 6653.
 
-                     SSL  support  is  an  optional feature that is not always
+                     SSL/TLS support is an optional feature that is not always
                      built as part of Open vSwitch.
 
               ptcp:[port][:host]
@@ -5220,29 +5242,29 @@ Manager TABLE
               The following connection methods are currently supported:
 
               ssl:host[:port]
-                     The specified SSL port on the host  at  the  given  host,
+                     The specified SSL/TLS port on the host at the given host,
                      which can either be a DNS name (if built with unbound li‐
-                     brary)   or   an  IP  address.  The  ssl  column  in  the
-                     Open_vSwitch table must point to a valid  SSL  configura‐
-                     tion when this form is used.
+                     brary)  or  an  IP  address.  The  ssl  column   in   the
+                     Open_vSwitch table must point to a valid SSL/TLS configu‐
+                     ration when this form is used.
 
                      If port is not specified, it defaults to 6640.
 
-                     SSL  support  is  an  optional feature that is not always
+                     SSL/TLS support is an optional feature that is not always
                      built as part of Open vSwitch.
 
               tcp:host[:port]
-                     The specified TCP port on the host  at  the  given  host,
+                     The  specified  TCP  port  on the host at the given host,
                      which can either be a DNS name (if built with unbound li‐
-                     brary)  or  an  IP  address (IPv4 or IPv6). If host is an
-                     IPv6  address,  wrap  it   in   square   brackets,   e.g.
+                     brary) or an IP address (IPv4 or IPv6).  If  host  is  an
+                     IPv6   address,   wrap   it   in  square  brackets,  e.g.
                      tcp:[::1]:6640.
 
                      If port is not specified, it defaults to 6640.
 
               pssl:[port][:host]
-                     Listens  for  SSL  connections on the specified TCP port.
-                     Specify 0 for  port  to  have  the  kernel  automatically
+                     Listens for SSL/TLS  connections  on  the  specified  TCP
+                     port. Specify 0 for port to have the kernel automatically
                      choose  an available port. If host, which can either be a
                      DNS name (if built with unbound library)  or  an  IP  ad‐
                      dress,  is  specified, then connections are restricted to
@@ -5251,23 +5273,23 @@ Manager TABLE
                      square brackets, e.g. pssl:6640:[::1].  If  host  is  not
                      specified then it listens only on IPv4 (but not IPv6) ad‐
                      dresses.  The  ssl  column in the Open_vSwitch table must
-                     point to a valid SSL  configuration  when  this  form  is
+                     point to a valid SSL/TLS configuration when this form  is
                      used.
 
                      If port is not specified, it defaults to 6640.
 
-                     SSL  support  is  an  optional feature that is not always
+                     SSL/TLS support is an optional feature that is not always
                      built as part of Open vSwitch.
 
               ptcp:[port][:host]
-                     Listens for connections on the specified TCP port.  Spec‐
+                     Listens  for connections on the specified TCP port. Spec‐
                      ify 0 for port to have the kernel automatically choose an
-                     available  port.  If host, which can either be a DNS name
-                     (if built with unbound library)  or  an  IP  address,  is
-                     specified,  then  connections  are  restricted to the re‐
+                     available port. If host, which can either be a  DNS  name
+                     (if  built  with  unbound  library)  or an IP address, is
+                     specified, then connections are  restricted  to  the  re‐
                      solved or specified local IP address (either IPv4 or IPv6
-                     address). If host is an IPv6 address, wrap it  in  square
-                     brackets,  e.g. ptcp:6640:[::1]. If host is not specified
+                     address).  If  host is an IPv6 address, wrap it in square
+                     brackets, e.g. ptcp:6640:[::1]. If host is not  specified
                      then it listens only on IPv4 addresses.
 
                      If port is not specified, it defaults to 6640.
@@ -5276,26 +5298,26 @@ Manager TABLE
               unique. Duplicate target values yield unspecified results.
 
        connection_mode: optional string, either in-band or out-of-band
-              If it is specified, this setting must be one  of  the  following
-              strings  that  describes  how  Open  vSwitch contacts this OVSDB
+              If  it  is  specified, this setting must be one of the following
+              strings that describes how  Open  vSwitch  contacts  this  OVSDB
               client over the network:
 
               in-band
-                     In this mode, this connection’s traffic  travels  over  a
-                     bridge  managed  by Open vSwitch. With this setting, Open
-                     vSwitch allows traffic to and from the client  regardless
-                     of  the  contents of the OpenFlow flow table. (Otherwise,
-                     Open vSwitch would  never  be  able  to  connect  to  the
-                     client,  because  it  did  not have a flow to enable it.)
+                     In  this  mode,  this connection’s traffic travels over a
+                     bridge managed by Open vSwitch. With this  setting,  Open
+                     vSwitch  allows traffic to and from the client regardless
+                     of the contents of the OpenFlow flow  table.  (Otherwise,
+                     Open  vSwitch  would  never  be  able  to  connect to the
+                     client, because it did not have a  flow  to  enable  it.)
                      This is the most common connection mode because it is not
                      necessary to maintain two independent networks.
 
               out-of-band
                      In this mode, the client’s traffic uses a control network
                      separate from that managed by Open vSwitch, that is, Open
-                     vSwitch does not use any of its own  network  devices  to
-                     communicate  with the client. The control network must be
-                     configured separately, before or  after  ovs-vswitchd  is
+                     vSwitch  does  not  use any of its own network devices to
+                     communicate with the client. The control network must  be
+                     configured  separately,  before  or after ovs-vswitchd is
                      started.
 
               If not specified, the default is implementation-specific.
@@ -5303,17 +5325,17 @@ Manager TABLE
      Client Failure Detection and Handling:
 
        max_backoff: optional integer, at least 1,000
-              Maximum  number  of  milliseconds to wait between connection at‐
+              Maximum number of milliseconds to wait  between  connection  at‐
               tempts. Default is implementation-specific.
 
        inactivity_probe: optional integer
               Maximum number of milliseconds of idle time on connection to the
-              client before sending  an  inactivity  probe  message.  If  Open
-              vSwitch  does  not communicate with the client for the specified
-              number of seconds, it will send a probe. If a  response  is  not
-              received  for  the  same additional amount of time, Open vSwitch
-              assumes the connection has been broken and  attempts  to  recon‐
-              nect.  Default is implementation-specific. A value of 0 disables
+              client  before  sending  an  inactivity  probe  message. If Open
+              vSwitch does not communicate with the client for  the  specified
+              number  of  seconds,  it will send a probe. If a response is not
+              received for the same additional amount of  time,  Open  vSwitch
+              assumes  the  connection  has been broken and attempts to recon‐
+              nect. Default is implementation-specific. A value of 0  disables
               inactivity probes.
 
      Status:
@@ -5322,12 +5344,12 @@ Manager TABLE
        in the status columns may be updated depends on the target type.
 
        When target specifies a connection method that listens for inbound con‐
-       nections (e.g. ptcp: or punix:), both  n_connections  and  is_connected
+       nections  (e.g.  ptcp:  or punix:), both n_connections and is_connected
        may also be updated while the remaining key-value pairs are omitted.
 
-       On  the  other  hand, when target specifies an outbound connection, all
-       key-value pairs may be updated, except  the  above-mentioned  two  key-
-       value  pairs associated with inbound connection targets. They are omit‐
+       On the other hand, when target specifies an  outbound  connection,  all
+       key-value  pairs  may  be  updated, except the above-mentioned two key-
+       value pairs associated with inbound connection targets. They are  omit‐
        ted.
 
        is_connected: boolean
@@ -5335,7 +5357,7 @@ Manager TABLE
 
        status : last_error: optional string
               A human-readable description of the last error on the connection
-              to the manager; i.e. strerror(errno). This key will  exist  only
+              to  the  manager; i.e. strerror(errno). This key will exist only
               if an error has occurred.
 
        status : state: optional string, one of ACTIVE, BACKOFF, CONNECTING,
@@ -5354,75 +5376,75 @@ Manager TABLE
 
               IDLE   Connection is idle. Waiting for response to keep-alive.
 
-              These  values  may  change in the future. They are provided only
+              These values may change in the future. They  are  provided  only
               for human consumption.
 
        status : sec_since_connect: optional string, containing an integer, at
        least 0
-              The amount of time since this  manager  last  successfully  con‐
-              nected  to  the database (in seconds). Value is empty if manager
+              The  amount  of  time  since this manager last successfully con‐
+              nected to the database (in seconds). Value is empty  if  manager
               has never successfully connected.
 
        status : sec_since_disconnect: optional string, containing an integer,
        at least 0
               The amount of time since this manager last disconnected from the
-              database (in seconds). Value is empty if manager has never  dis‐
+              database  (in seconds). Value is empty if manager has never dis‐
               connected.
 
        status : locks_held: optional string
-              Space-separated  list  of the names of OVSDB locks that the con‐
-              nection holds. Omitted if  the  connection  does  not  hold  any
+              Space-separated list of the names of OVSDB locks that  the  con‐
+              nection  holds.  Omitted  if  the  connection  does not hold any
               locks.
 
        status : locks_waiting: optional string
-              Space-separated  list  of the names of OVSDB locks that the con‐
-              nection is currently waiting to acquire. Omitted if the  connec‐
+              Space-separated list of the names of OVSDB locks that  the  con‐
+              nection  is currently waiting to acquire. Omitted if the connec‐
               tion is not waiting for any locks.
 
        status : locks_lost: optional string
-              Space-separated  list  of the names of OVSDB locks that the con‐
-              nection has had stolen by another OVSDB client.  Omitted  if  no
+              Space-separated list of the names of OVSDB locks that  the  con‐
+              nection  has  had  stolen by another OVSDB client. Omitted if no
               locks have been stolen from this connection.
 
        status : n_connections: optional string, containing an integer, at
        least 2
-              When  target  specifies a connection method that listens for in‐
-              bound connections (e.g. ptcp: or pssl:) and more than  one  con‐
-              nection  is  actually  active, the value is the number of active
+              When target specifies a connection method that listens  for  in‐
+              bound  connections  (e.g. ptcp: or pssl:) and more than one con‐
+              nection is actually active, the value is the  number  of  active
               connections. Otherwise, this key-value pair is omitted.
 
        status : bound_port: optional string, containing an integer
               When target is ptcp: or pssl:, this is the TCP port on which the
-              OVSDB server is listening. (This  is  particularly  useful  when
-              target  specifies a port of 0, allowing the kernel to choose any
+              OVSDB  server  is  listening.  (This is particularly useful when
+              target specifies a port of 0, allowing the kernel to choose  any
               available port.)
 
      Connection Parameters:
 
-       Additional configuration for a connection between the manager  and  the
+       Additional  configuration  for a connection between the manager and the
        Open vSwitch Database.
 
        other_config : dscp: optional string, containing an integer
-              The  Differentiated Service Code Point (DSCP) is specified using
+              The Differentiated Service Code Point (DSCP) is specified  using
               6 bits in the Type of Service (TOS) field in the IP header. DSCP
               provides a mechanism to classify the network traffic and provide
-              Quality of Service (QoS) on IP networks. The DSCP  value  speci‐
-              fied  here  is used when establishing the connection between the
-              manager and the Open vSwitch. If no value is  specified,  a  de‐
-              fault  value  of  48 is chosen. Valid DSCP values must be in the
+              Quality  of  Service (QoS) on IP networks. The DSCP value speci‐
+              fied here is used when establishing the connection  between  the
+              manager  and  the  Open vSwitch. If no value is specified, a de‐
+              fault value of 48 is chosen. Valid DSCP values must  be  in  the
               range 0 to 63.
 
      Common Columns:
 
-       The overall purpose of these columns is described under Common  Columns
+       The  overall purpose of these columns is described under Common Columns
        at the beginning of this document.
 
        external_ids: map of string-string pairs
 
        other_config: map of string-string pairs
 NetFlow TABLE
-       A  NetFlow  target.  NetFlow is a protocol that exports a number of de‐
-       tails about terminating IP flows, such as the principals  involved  and
+       A NetFlow target. NetFlow is a protocol that exports a  number  of  de‐
+       tails  about  terminating IP flows, such as the principals involved and
        duration.
 
    Summary:
@@ -5436,7 +5458,7 @@ NetFlow TABLE
 
    Details:
        targets: set of 1 or more strings
-              NetFlow  targets  in  the form ip:port. The ip must be specified
+              NetFlow targets in the form ip:port. The ip  must  be  specified
               numerically, not as a DNS name.
 
        engine_id: optional integer, in range 0 to 255
@@ -5448,49 +5470,49 @@ NetFlow TABLE
               dex if not specified.
 
        active_timeout: integer, at least -1
-              The interval at which NetFlow records are sent  for  flows  that
-              are  still active, in seconds. A value of 0 requests the default
-              timeout (currently 600 seconds); a value of -1  disables  active
+              The  interval  at  which NetFlow records are sent for flows that
+              are still active, in seconds. A value of 0 requests the  default
+              timeout  (currently  600 seconds); a value of -1 disables active
               timeouts.
 
-              The  NetFlow passive timeout, for flows that become inactive, is
-              not configurable. It will vary depending  on  the  Open  vSwitch
+              The NetFlow passive timeout, for flows that become inactive,  is
+              not  configurable.  It  will  vary depending on the Open vSwitch
               version, the forms and contents of the OpenFlow flow tables, CPU
-              and  memory usage, and network activity. A typical passive time‐
+              and memory usage, and network activity. A typical passive  time‐
               out is about a second.
 
        add_id_to_interface: boolean
-              If this column’s value is false, the ingress and  egress  inter‐
-              face  fields  of  NetFlow flow records are derived from OpenFlow
-              port numbers. When it is true, the 7 most  significant  bits  of
+              If  this  column’s value is false, the ingress and egress inter‐
+              face fields of NetFlow flow records are  derived  from  OpenFlow
+              port  numbers.  When  it is true, the 7 most significant bits of
               these fields will be replaced by the least significant 7 bits of
               the engine id. This is useful because many NetFlow collectors do
-              not  expect  multiple  switches  to be sending messages from the
-              same host, so they do not store  the  engine  information  which
+              not expect multiple switches to be  sending  messages  from  the
+              same  host,  so  they  do not store the engine information which
               could be used to disambiguate the traffic.
 
-              When  this  option  is  enabled, a maximum of 508 ports are sup‐
+              When this option is enabled, a maximum of  508  ports  are  sup‐
               ported.
 
      Common Columns:
 
-       The overall purpose of these columns is described under Common  Columns
+       The  overall purpose of these columns is described under Common Columns
        at the beginning of this document.
 
        external_ids: map of string-string pairs
 Datapath TABLE
        Configuration for a datapath within Open_vSwitch.
 
-       A  datapath  is  responsible  for providing the packet handling in Open
-       vSwitch. There are two primary datapath implementations  used  by  Open
-       vSwitch:  kernel  and  userspace.  Kernel  datapath implementations are
-       available for Linux and Hyper-V, and selected as system  in  the  data‐
+       A datapath is responsible for providing the  packet  handling  in  Open
+       vSwitch.  There  are  two primary datapath implementations used by Open
+       vSwitch: kernel and  userspace.  Kernel  datapath  implementations  are
+       available  for  Linux  and Hyper-V, and selected as system in the data‐
        path_type column of the Bridge table. The userspace datapath is used by
-       DPDK  and AF-XDP, and is selected as netdev in the datapath_type column
+       DPDK and AF-XDP, and is selected as netdev in the datapath_type  column
        of the Bridge table.
 
-       A datapath of a particular type is shared by all the bridges  that  use
-       that  datapath.  Thus,  configurations applied to this table affect all
+       A  datapath  of a particular type is shared by all the bridges that use
+       that datapath. Thus, configurations applied to this  table  affect  all
        bridges that use this datapath.
 
    Summary:
@@ -5499,7 +5521,7 @@ Datapath TABLE
                                      range 0 to 65,535
        Capabilities:
          capabilities : max_vlan_headers
-                                     optional  string,  containing an integer,
+                                     optional string, containing  an  integer,
                                      at least 0
          capabilities : recirc       optional string, either true or false
          capabilities : lb_output_action
@@ -5525,13 +5547,13 @@ Datapath TABLE
          Clone Actions:
             capabilities : clone     optional string, either true or false
             capabilities : sample_nesting
-                                     optional string, containing  an  integer,
+                                     optional  string,  containing an integer,
                                      at least 0
          capabilities : ct_eventmask
                                      optional string, either true or false
          capabilities : ct_clear     optional string, either true or false
          capabilities : max_hash_alg
-                                     optional  string,  containing an integer,
+                                     optional string, containing  an  integer,
                                      at least 0
          capabilities : check_pkt_len
                                      optional string, either true or false
@@ -5549,257 +5571,257 @@ Datapath TABLE
 
    Details:
        datapath_version: string
-              Reports  the version number of the Open vSwitch datapath in use.
-              This allows management software to detect and report  discrepan‐
-              cies  between Open vSwitch userspace and datapath versions. (The
-              ovs_version column in the Open_vSwitch reports the Open  vSwitch
+              Reports the version number of the Open vSwitch datapath in  use.
+              This  allows management software to detect and report discrepan‐
+              cies between Open vSwitch userspace and datapath versions.  (The
+              ovs_version  column in the Open_vSwitch reports the Open vSwitch
               userspace version.) The version reported depends on the datapath
               in use:
 
-              •      When  the  kernel  module  included  in  the Open vSwitch
+              •      When the kernel  module  included  in  the  Open  vSwitch
                      source tree is used, this column reports the Open vSwitch
                      version from which the module was taken.
 
               •      When the kernel module that is part of the upstream Linux
                      kernel is used, this column reports <unknown>.
 
-              •      When the datapath is built into the ovs-vswitchd  binary,
+              •      When  the datapath is built into the ovs-vswitchd binary,
                      this column reports <built-in>. A built-in datapath is by
-                     definition  the  same  version  as  the  rest of the Open
+                     definition the same version  as  the  rest  of  the  Open
                      vSwitch userspace.
 
-              •      Other datapaths (such as  the  Hyper-V  kernel  datapath)
+              •      Other  datapaths  (such  as  the Hyper-V kernel datapath)
                      currently report <unknown>.
 
-              A  version  discrepancy between ovs-vswitchd and the datapath in
-              use is not normally cause for alarm.  The  Open  vSwitch  kernel
+              A version discrepancy between ovs-vswitchd and the  datapath  in
+              use  is  not  normally  cause for alarm. The Open vSwitch kernel
               datapaths for Linux and Hyper-V, in particular, are designed for
               maximum inter-version compatibility: any userspace version works
               with with any kernel version. Some reasons do exist to insist on
-              particular  user/kernel  pairings.  First, newer kernel versions
+              particular user/kernel pairings. First,  newer  kernel  versions
               add new features, that can only be used by new-enough userspace,
               e.g. VXLAN tunneling requires certain minimal userspace and ker‐
-              nel versions. Second, as an extension to the first reason,  some
+              nel  versions. Second, as an extension to the first reason, some
               newer kernel versions add new features for enhancing performance
               that only new-enough userspace versions can take advantage of.
 
        ct_zones: map of integer-CT_Zone pairs, key in range 0 to 65,535
               Configuration for connection tracking zones. Each pair maps from
-              a  zone  id  to a configuration for that zone. Zone 0 applies to
+              a zone id to a configuration for that zone. Zone  0  applies  to
               the default zone (ie, the one used if a zone is not specified in
               connection tracking-related OpenFlow matches and actions).
 
      Capabilities:
 
-       The capabilities column reports a datapath’s features. For  the  netdev
-       datapath,  the  capabilities  are  fixed  for  a  given version of Open
-       vSwitch because this datapath is built into  the  ovs-vswitchd  binary.
+       The  capabilities  column reports a datapath’s features. For the netdev
+       datapath, the capabilities are  fixed  for  a  given  version  of  Open
+       vSwitch  because  this  datapath is built into the ovs-vswitchd binary.
        The Linux kernel and Windows and other datapaths, which are external to
-       OVS  userspace, can vary in version and capabilities independently from
+       OVS userspace, can vary in version and capabilities independently  from
        ovs-vswitchd.
 
-       Some of these features indicate whether higher-level Open vSwitch  fea‐
-       tures  are  available.  For  example, OpenFlow features for connection-
-       tracking are available only when capabilities:ct_state is true. A  con‐
-       troller  that wishes to determine whether a feature is supported could,
+       Some  of these features indicate whether higher-level Open vSwitch fea‐
+       tures are available. For example,  OpenFlow  features  for  connection-
+       tracking  are available only when capabilities:ct_state is true. A con‐
+       troller that wishes to determine whether a feature is supported  could,
        therefore, consult the relevant capabilities in this table. However, as
        a general rule, it is better for a controller to try to use the higher-
        level feature and use the result as an indication of support, since the
-       low-level capabilities are more likely to  shift  over  time  than  the
+       low-level  capabilities  are  more  likely  to shift over time than the
        high-level features that rely on them.
 
        capabilities : max_vlan_headers: optional string, containing an inte‐
        ger, at least 0
-              Number  of  802.1q  VLAN  headers  supported by the datapath, as
-              probed by the ovs-vswitchd slow path. If the  datapath  supports
-              more  VLAN  headers  than  the  slow path, this reports the slow
+              Number of 802.1q VLAN headers  supported  by  the  datapath,  as
+              probed  by  the ovs-vswitchd slow path. If the datapath supports
+              more VLAN headers than the slow  path,  this  reports  the  slow
               path’s  limit.  The  value  of  other-config:vlan-limit  in  the
               Open_vSwitch table does not influence the number reported here.
 
        capabilities : recirc: optional string, either true or false
-              If  this  is  true,  then  the  datapath supports recirculation,
+              If this is  true,  then  the  datapath  supports  recirculation,
               specifically   OVS_KEY_ATTR_RECIRC_ID.   Recirculation   enables
-              higher  performance  for  MPLS  and active-active load balancing
+              higher performance for MPLS  and  active-active  load  balancing
               bonding modes.
 
        capabilities : lb_output_action: optional string, either true or false
-              If this is true, then the datapath supports  optimized  balance-
+              If  this  is true, then the datapath supports optimized balance-
               tcp bond mode. This capability replaces existing hash and recirc
-              actions  with  new  action lb_output and avoids recirculation of
-              packet in datapath. It is supported only  for  balance-tcp  bond
+              actions with new action lb_output and  avoids  recirculation  of
+              packet  in  datapath.  It is supported only for balance-tcp bond
               mode in netdev datapath. The new action gives higher performance
-              by  using  bond  buckets instead of post recirculation flows for
-              selection of member port from bond. By default this  new  action
-              is  disabled,  however  it  can be enabled by setting other-con‐
+              by using bond buckets instead of post  recirculation  flows  for
+              selection  of  member port from bond. By default this new action
+              is disabled, however it can be  enabled  by  setting  other-con‐
               fig:lb-output-action in Port table.
 
      Connection-Tracking Capabilities:
 
-       These capabilities are granular because Open vSwitch and its  datapaths
-       added  support for connection tracking over several releases, with fea‐
+       These  capabilities are granular because Open vSwitch and its datapaths
+       added support for connection tracking over several releases, with  fea‐
        tures added individually over that time.
 
        capabilities : ct_state: optional string, either true or false
-              If true, datapath supports  OVS_KEY_ATTR_CT_STATE,  which  indi‐
-              cates  support  for the bits in the OpenFlow ct_state field (see
-              ovs-fields(7)) other than snat and dnat, which have  a  separate
+              If  true,  datapath  supports OVS_KEY_ATTR_CT_STATE, which indi‐
+              cates support for the bits in the OpenFlow ct_state  field  (see
+              ovs-fields(7))  other  than snat and dnat, which have a separate
               capability.
 
-              If  this  is  false,  the  datapath does not support connection-
-              tracking at all and the remaining connection-tracking  capabili‐
+              If this is false, the  datapath  does  not  support  connection-
+              tracking  at all and the remaining connection-tracking capabili‐
               ties should all be false. In this case, Open vSwitch will reject
               flows that match on the ct_state field or use the ct action.
 
        capabilities : ct_state_nat: optional string, either true or false
-              If  true,  it means that the datapath supports the snat and dnat
-              flags in the OpenFlow ct_state field.  The  ct_state  capability
+              If true, it means that the datapath supports the snat  and  dnat
+              flags  in  the  OpenFlow ct_state field. The ct_state capability
               must be true for this to make sense.
 
-              If  false, Open vSwitch will reject flows that match on the snat
+              If false, Open vSwitch will reject flows that match on the  snat
               or dnat bits in ct_state or use nat in the ct action.
 
        capabilities : ct_zone: optional string, either true or false
-              If true, datapath supports OVS_KEY_ATTR_CT_ZONE. If false,  Open
-              vSwitch  rejects  flows  that match on the ct_zone field or that
+              If  true, datapath supports OVS_KEY_ATTR_CT_ZONE. If false, Open
+              vSwitch rejects flows that match on the ct_zone  field  or  that
               specify a nonzero zone or a zone field on the ct action.
 
        capabilities : ct_mark: optional string, either true or false
-              If true, datapath supports OVS_KEY_ATTR_CT_MARK. If false,  Open
-              vSwitch  rejects  flows  that match on the ct_mark field or that
+              If  true, datapath supports OVS_KEY_ATTR_CT_MARK. If false, Open
+              vSwitch rejects flows that match on the ct_mark  field  or  that
               set ct_mark in the ct action.
 
        capabilities : ct_label: optional string, either true or false
               If true, datapath supports OVS_KEY_ATTR_CT_LABEL. If false, Open
-              vSwitch rejects flows that match on the ct_label field  or  that
+              vSwitch  rejects  flows that match on the ct_label field or that
               set ct_label in the ct action.
 
        capabilities : ct_orig_tuple: optional string, either true or false
-              If  true,  the  datapath  supports matching the 5-tuple from the
+              If true, the datapath supports matching  the  5-tuple  from  the
               connection’s original direction for IPv4 traffic. If false, Open
               vSwitch rejects flows that match on ct_nw_src or ct_nw_dst, that
-              use the ct feature of the resubmit action, or the force  keyword
-              in  the ct action. (The latter isn’t tied to connection tracking
-              support of original tuples in any technical way. They  are  con‐
-              flated  because  all  current datapaths implemented the two fea‐
+              use  the ct feature of the resubmit action, or the force keyword
+              in the ct action. (The latter isn’t tied to connection  tracking
+              support  of  original tuples in any technical way. They are con‐
+              flated because all current datapaths implemented  the  two  fea‐
               tures at the same time.)
 
-              If this and capabilities:ct_orig_tuple6  are  both  false,  Open
-              vSwitch  rejects  flows that match on ct_nw_proto, ct_tp_src, or
+              If  this  and  capabilities:ct_orig_tuple6  are both false, Open
+              vSwitch rejects flows that match on ct_nw_proto,  ct_tp_src,  or
               ct_tp_dst.
 
        capabilities : ct_orig_tuple6: optional string, either true or false
-              If true, the datapath supports matching  the  5-tuple  from  the
+              If  true,  the  datapath  supports matching the 5-tuple from the
               connection’s original direction for IPv6 traffic. If false, Open
               vSwitch rejects flows that match on ct_ipv6_src or ct_ipv6_dst.
 
        capabilities : masked_set_action: optional string, either true or false
               True if the datapath supports masked data in OVS_ACTION_ATTR_SET
-              actions.   Masked  data  can  improve  performance  by  allowing
+              actions.  Masked  data  can  improve  performance  by   allowing
               megaflows to match on fewer fields.
 
        capabilities : tnl_push_pop: optional string, either true or false
-              True if the datapath supports tnl_push and pop actions. This  is
+              True  if the datapath supports tnl_push and pop actions. This is
               a prerequisite for a datapath to support native tunneling.
 
        capabilities : ufid: optional string, either true or false
-              True  if  the datapath supports OVS_FLOW_ATTR_UFID. UFID support
-              improves revalidation performance by transferring less data  be‐
+              True if the datapath supports OVS_FLOW_ATTR_UFID.  UFID  support
+              improves  revalidation performance by transferring less data be‐
               tween the slow path and the datapath.
 
        capabilities : trunc: optional string, either true or false
-              True  if  the datapath supports OVS_ACTION_ATTR_TRUNC action. If
-              false, the output action with packet truncation  requires  every
+              True if the datapath supports OVS_ACTION_ATTR_TRUNC  action.  If
+              false,  the  output action with packet truncation requires every
               packet to be sent to the Open vSwitch slow path, which is likely
               to make it too slow for mirroring traffic in bulk.
 
        capabilities : nd_ext: optional string, either true or false
-              True  if  the  datapath  supports  OVS_KEY_ATTR_ND_EXTENSIONS to
-              match on ICMPv6  "ND  reserved"  and  "ND  option  type"  header
-              fields.  If  false, the datapath reports error if the feature is
+              True if  the  datapath  supports  OVS_KEY_ATTR_ND_EXTENSIONS  to
+              match  on  ICMPv6  "ND  reserved"  and  "ND  option type" header
+              fields. If false, the datapath reports error if the  feature  is
               used.
 
      Clone Actions:
 
-       When Open vSwitch translates actions from OpenFlow  into  the  datapath
-       representation,  some  of the datapath actions may modify the packet or
-       have other side effects that later datapath  actions  can’t  undo.  The
-       OpenFlow   ct,   meter,  output  with  truncation,  encap,  decap,  and
+       When  Open  vSwitch  translates actions from OpenFlow into the datapath
+       representation, some of the datapath actions may modify the  packet  or
+       have  other  side  effects  that later datapath actions can’t undo. The
+       OpenFlow  ct,  meter,  output  with  truncation,  encap,   decap,   and
        dec_nsh_ttl actions fall into this category. Often, this is not a prob‐
        lem because nothing later on needs the original packet.
 
        Such actions can, however, occur in circumstances where the translation
-       does require the original packet. For example, an OpenFlow  output  ac‐
+       does  require  the original packet. For example, an OpenFlow output ac‐
        tion might direct a packet to a patch port, which might in turn lead to
        a ct action that NATs the packet (which cannot be undone), and then af‐
-       terward  when  control  flow pops back across the patch port some other
+       terward when control flow pops back across the patch  port  some  other
        action might need to act on the original packet.
 
-       Open vSwitch has two different ways to implement this  ``save  and  re‐
-       store’’  via  datapath  actions.  These capabilities indicate which one
-       Open vSwitch will choose. When neither is available, Open vSwitch  sim‐
+       Open  vSwitch  has  two different ways to implement this ``save and re‐
+       store’’ via datapath actions. These  capabilities  indicate  which  one
+       Open  vSwitch will choose. When neither is available, Open vSwitch sim‐
        ply fails in situations that require this feature.
 
        capabilities : clone: optional string, either true or false
               True if the datapath supports OVS_ACTION_ATTR_CLONE action. This
-              is  the preferred option for saving and restoring packets, since
+              is the preferred option for saving and restoring packets,  since
               it is intended for the purpose, but old datapaths do not support
               it. Open vSwitch will use it whenever it is available.
 
-              (The OpenFlow clone action  does  not  always  yield  a  OVS_AC‐
-              TION_ATTR_CLONE  action.  It only does so when the datapath sup‐
+              (The  OpenFlow  clone  action  does  not  always yield a OVS_AC‐
+              TION_ATTR_CLONE action. It only does so when the  datapath  sup‐
               ports it and the clone brackets actions that otherwise cannot be
               undone.)
 
        capabilities : sample_nesting: optional string, containing an integer,
        at least 0
-              Maximum level of nesting allowed by  OVS_ACTION_ATTR_SAMPLE  ac‐
-              tion.  Open vSwitch misuses this action for saving and restoring
+              Maximum  level  of nesting allowed by OVS_ACTION_ATTR_SAMPLE ac‐
+              tion. Open vSwitch misuses this action for saving and  restoring
               packets when the datapath supports more than 3 levels of nesting
               and OVS_ACTION_ATTR_CLONE is not available.
 
        capabilities : ct_eventmask: optional string, either true or false
-              True if the datapath’s OVS_ACTION_ATTR_CT action implements  the
+              True  if the datapath’s OVS_ACTION_ATTR_CT action implements the
               OVS_CT_ATTR_EVENTMASK attribute. When this is true, Open vSwitch
-              uses  the  event  mask  feature to limit the kinds of events re‐
-              ported to conntrack update listeners. When Open vSwitch  doesn’t
+              uses the event mask feature to limit the  kinds  of  events  re‐
+              ported  to conntrack update listeners. When Open vSwitch doesn’t
               limit the event mask, listeners receive reports of numerous usu‐
-              ally  unimportant  events,  such  as  TCP state machine changes,
+              ally unimportant events, such  as  TCP  state  machine  changes,
               which can waste CPU time.
 
        capabilities : ct_clear: optional string, either true or false
-              True if the datapath supports  OVS_ACTION_ATTR_CT_CLEAR  action.
-              If  false,  the  OpenFlow  ct_clear  action has no effect on the
+              True  if  the datapath supports OVS_ACTION_ATTR_CT_CLEAR action.
+              If false, the OpenFlow ct_clear action  has  no  effect  on  the
               datapath.
 
        capabilities : max_hash_alg: optional string, containing an integer, at
        least 0
               Highest supported dp_hash algorithm. This allows Open vSwitch to
-              avoid requesting a packet hash that the datapath does  not  sup‐
+              avoid  requesting  a packet hash that the datapath does not sup‐
               port.
 
        capabilities : check_pkt_len: optional string, either true or false
-              True  if the datapath supports OVS_ACTION_ATTR_CHECK_PKT_LEN. If
-              false, Open vSwitch implements the  check_pkt_larger  action  by
-              sending  every  packet through the Open vSwitch slow path, which
+              True if the datapath supports OVS_ACTION_ATTR_CHECK_PKT_LEN.  If
+              false,  Open  vSwitch  implements the check_pkt_larger action by
+              sending every packet through the Open vSwitch slow  path,  which
               is likely to make it too slow for handling traffic in bulk.
 
        capabilities : ct_timeout: optional string, either true or false
               True if the datapath supports OVS_CT_ATTR_TIMEOUT in the OVS_AC‐
-              TION_ATTR_CT action. If false,  Open  vswitch  cannot  implement
-              timeout  policies based on connection tracking zones, as config‐
+              TION_ATTR_CT  action.  If  false,  Open vswitch cannot implement
+              timeout policies based on connection tracking zones, as  config‐
               ured through the CT_Timeout_Policy table.
 
        capabilities : explicit_drop_action: optional string, either true or
        false
-              True if the datapath supports  OVS_ACTION_ATTR_DROP.  If  false,
+              True  if  the  datapath supports OVS_ACTION_ATTR_DROP. If false,
               explicit drop action will not be sent to the datapath.
 
        capabilities : ct_zero_snat: optional string, either true or false
-              True  if  the datapath supports all-zero SNAT. This is a special
-              case if the src IP address  is  configured  as  all  0’s,  i.e.,
-              nat(src=0.0.0.0).  In this case, when a source port collision is
-              detected during the commit, the source port will  be  translated
-              to  an ephemeral port. If there is no collision, no SNAT is per‐
+              True if the datapath supports all-zero SNAT. This is  a  special
+              case  if  the  src  IP  address  is configured as all 0’s, i.e.,
+              nat(src=0.0.0.0). In this case, when a source port collision  is
+              detected  during  the commit, the source port will be translated
+              to an ephemeral port. If there is no collision, no SNAT is  per‐
               formed.
 
        capabilities : ct_flush: optional string, either true or false
@@ -5813,14 +5835,14 @@ Datapath TABLE
               path.
 
        ct_zone_default_limit: optional integer, in range 0 to 4,294,967,295
-              Default connection tracking zone limit that is  applied  to  all
-              zones  that didn’t specify the limit explicitly. If the limit is
-              unspecified the default limit configuration for the datapath  is
+              Default  connection  tracking  zone limit that is applied to all
+              zones that didn’t specify the limit explicitly. If the limit  is
+              unspecified  the default limit configuration for the datapath is
               left intact. The value 0 means unlimited.
 
      Common Columns:
 
-       The  overall purpose of these columns is described under Common Columns
+       The overall purpose of these columns is described under Common  Columns
        at the beginning of this document.
 
        external_ids: map of string-string pairs
@@ -5836,18 +5858,18 @@ CT_Zone TABLE
 
    Details:
        timeout_policy: optional CT_Timeout_Policy
-              Connection  tracking  timeout policy for this zone. If a timeout
-              policy is not specified, it defaults to the  timeout  policy  in
+              Connection tracking timeout policy for this zone. If  a  timeout
+              policy  is  not  specified, it defaults to the timeout policy in
               the system.
 
        limit: optional integer, in range 0 to 4,294,967,295
               Connection tracking limit for this zone. If the limit is unspec‐
-              ified  the ct_zone_default_limit will be used. The value 0 means
+              ified the ct_zone_default_limit will be used. The value 0  means
               unlimited.
 
      Common Columns:
 
-       The overall purpose of these columns is described under Common  Columns
+       The  overall purpose of these columns is described under Common Columns
        at the beginning of this document.
 
        external_ids: map of string-string pairs
@@ -5856,13 +5878,13 @@ CT_Timeout_Policy TABLE
 
    Summary:
        Timeouts:
-         timeouts                    map  of  string-integer pairs, key one of
-                                     icmp_first,    icmp_reply,     tcp_close,
+         timeouts                    map of string-integer pairs, key  one  of
+                                     icmp_first,     icmp_reply,    tcp_close,
                                      tcp_close_wait,          tcp_established,
-                                     tcp_fin_wait, tcp_last_ack,  tcp_retrans‐
+                                     tcp_fin_wait,  tcp_last_ack, tcp_retrans‐
                                      mit,     tcp_syn_recv,     tcp_syn_sent2,
                                      tcp_syn_sent,  tcp_time_wait,  tcp_unack,
-                                     udp_first,  udp_multiple,  or udp_single,
+                                     udp_first, udp_multiple,  or  udp_single,
                                      value in range 0 to 4,294,967,295
          TCP Timeouts:
             timeouts : tcp_syn_sent  optional   integer,   in   range   0   to
@@ -5913,15 +5935,15 @@ CT_Timeout_Policy TABLE
        tcp_last_ack, tcp_retransmit, tcp_syn_recv, tcp_syn_sent2,
        tcp_syn_sent, tcp_time_wait, tcp_unack, udp_first, udp_multiple, or
        udp_single, value in range 0 to 4,294,967,295
-              The timeouts column contains key-value pairs used  to  configure
+              The  timeouts  column contains key-value pairs used to configure
               connection tracking timeouts in a datapath. Key-value pairs that
-              are  not  supported by a datapath are ignored. The timeout value
+              are not supported by a datapath are ignored. The  timeout  value
               is in seconds.
 
      TCP Timeouts:
 
        timeouts : tcp_syn_sent: optional integer, in range 0 to 4,294,967,295
-              The timeout for the connection after the first  TCP  SYN  packet
+              The  timeout  for  the connection after the first TCP SYN packet
               has been seen by conntrack.
 
        timeouts : tcp_syn_recv: optional integer, in range 0 to 4,294,967,295
@@ -5930,7 +5952,7 @@ CT_Timeout_Policy TABLE
 
        timeouts : tcp_established: optional integer, in range 0 to
        4,294,967,295
-              The  timeout  of  the  connection  after the connection has been
+              The timeout of the connection  after  the  connection  has  been
               fully established.
 
        timeouts : tcp_fin_wait: optional integer, in range 0 to 4,294,967,295
@@ -5944,12 +5966,12 @@ CT_Timeout_Policy TABLE
               supported by the Linux kernel datapath.
 
        timeouts : tcp_last_ack: optional integer, in range 0 to 4,294,967,295
-              The timeout of the connection after TCP FIN  packets  have  been
-              seen  by  conntrack  from  both directions. This timeout is only
+              The  timeout  of  the connection after TCP FIN packets have been
+              seen by conntrack from both directions.  This  timeout  is  only
               supported by the Linux kernel datapath.
 
        timeouts : tcp_time_wait: optional integer, in range 0 to 4,294,967,295
-              The timeout of the connection after conntrack has seen  the  TCP
+              The  timeout  of the connection after conntrack has seen the TCP
               ACK packet for the second TCP FIN packet.
 
        timeouts : tcp_close: optional integer, in range 0 to 4,294,967,295
@@ -5957,14 +5979,14 @@ CT_Timeout_Policy TABLE
               been seen by conntrack.
 
        timeouts : tcp_syn_sent2: optional integer, in range 0 to 4,294,967,295
-              The  timeout  of  the  connection when only a TCP SYN packet has
+              The timeout of the connection when only a  TCP  SYN  packet  has
               been seen by conntrack from both directions (simultaneous open).
               This timeout is only supported by the Linux kernel datapath.
 
        timeouts : tcp_retransmit: optional integer, in range 0 to
        4,294,967,295
               The timeout of the connection when it exceeds the maximum number
-              of retransmissions. This timeout is only supported by the  Linux
+              of  retransmissions. This timeout is only supported by the Linux
               kernel datapath.
 
        timeouts : tcp_unack: optional integer, in range 0 to 4,294,967,295
@@ -5975,13 +5997,13 @@ CT_Timeout_Policy TABLE
      UDP Timeouts:
 
        timeouts : udp_first: optional integer, in range 0 to 4,294,967,295
-              The  timeout  of  the  connection after the first UDP packet has
-              been seen by conntrack. This timeout is only  supported  by  the
+              The timeout of the connection after the  first  UDP  packet  has
+              been  seen  by  conntrack. This timeout is only supported by the
               userspace datapath.
 
        timeouts : udp_single: optional integer, in range 0 to 4,294,967,295
-              The  timeout  of  the  connection  when  conntrack only seen UDP
-              packet from the source host, but the destination host has  never
+              The timeout of the  connection  when  conntrack  only  seen  UDP
+              packet  from the source host, but the destination host has never
               sent one back.
 
        timeouts : udp_multiple: optional integer, in range 0 to 4,294,967,295
@@ -5991,22 +6013,22 @@ CT_Timeout_Policy TABLE
      ICMP Timeouts:
 
        timeouts : icmp_first: optional integer, in range 0 to 4,294,967,295
-              The  timeout  of  the connection after the first ICMP packet has
+              The timeout of the connection after the first  ICMP  packet  has
               been seen by conntrack.
 
        timeouts : icmp_reply: optional integer, in range 0 to 4,294,967,295
-              The timeout of the connection when ICMP packets have  been  seen
-              in  both  direction. This timeout is only supported by the user‐
+              The  timeout  of the connection when ICMP packets have been seen
+              in both direction. This timeout is only supported by  the  user‐
               space datapath.
 
      Common Columns:
 
-       The overall purpose of these columns is described under Common  Columns
+       The  overall purpose of these columns is described under Common Columns
        at the beginning of this document.
 
        external_ids: map of string-string pairs
 SSL TABLE
-       SSL configuration for an Open_vSwitch.
+       SSL/TLS configuration for an Open_vSwitch.
 
    Summary:
        private_key                   string
@@ -6018,33 +6040,33 @@ SSL TABLE
 
    Details:
        private_key: string
-              Name  of  a  PEM  file  containing  the  private key used as the
-              switch’s identity for SSL connections to the controller.
+              Name of a PEM file  containing  the  private  key  used  as  the
+              switch’s identity for SSL/TLS connections to the controller.
 
        certificate: string
-              Name of a PEM file containing a certificate, signed by the  cer‐
+              Name  of a PEM file containing a certificate, signed by the cer‐
               tificate authority (CA) used by the controller and manager, that
-              certifies  the  switch’s  private key, identifying a trustworthy
+              certifies the switch’s private key,  identifying  a  trustworthy
               switch.
 
        ca_cert: string
-              Name of a PEM file containing the CA certificate used to  verify
+              Name  of a PEM file containing the CA certificate used to verify
               that the switch is connected to a trustworthy controller.
 
        bootstrap_ca_cert: boolean
-              If  set to true, then Open vSwitch will attempt to obtain the CA
-              certificate from the controller on its first SSL connection  and
-              save  it to the named PEM file. If it is successful, it will im‐
-              mediately drop the connection and reconnect, and  from  then  on
-              all  SSL  connections  must  be  authenticated  by a certificate
-              signed by the CA certificate thus obtained. This option  exposes
-              the  SSL  connection to a man-in-the-middle attack obtaining the
-              initial CA certificate. It may still be  useful  for  bootstrap‐
-              ping.
+              If set to true, then Open vSwitch will attempt to obtain the  CA
+              certificate  from the controller on its first SSL/TLS connection
+              and save it to the named PEM file. If it is successful, it  will
+              immediately  drop the connection and reconnect, and from then on
+              all SSL/TLS connections must be authenticated by  a  certificate
+              signed  by the CA certificate thus obtained. This option exposes
+              the SSL/TLS connection to a man-in-the-middle  attack  obtaining
+              the  initial  CA  certificate.  It may still be useful for boot‐
+              strapping.
 
      Common Columns:
 
-       The  overall purpose of these columns is described under Common Columns
+       The overall purpose of these columns is described under Common  Columns
        at the beginning of this document.
 
        external_ids: map of string-string pairs
@@ -6063,14 +6085,14 @@ sFlow TABLE
 
    Details:
        agent: optional string
-              Determines the agent address, that is, the IP  address  reported
-              to  collectors  as the source of the sFlow data. It may be an IP
+              Determines  the  agent address, that is, the IP address reported
+              to collectors as the source of the sFlow data. It may be  an  IP
               address or the name of a network device. In the latter case, the
               network device’s IP address is used,
 
-              If not specified, the agent device is  figured  from  the  first
-              target  address and the routing table. If the routing table does
-              not contain a route to the target, the IP  address  defaults  to
+              If  not  specified,  the  agent device is figured from the first
+              target address and the routing table. If the routing table  does
+              not  contain  a  route to the target, the IP address defaults to
               the local_ip in the collector’s Controller.
 
               If an agent IP address cannot be determined, sFlow is disabled.
@@ -6080,12 +6102,12 @@ sFlow TABLE
               not specified, the default is 128 bytes.
 
        polling: optional integer
-              Polling  rate  in seconds to send port statistics to the collec‐
+              Polling rate in seconds to send port statistics to  the  collec‐
               tor. If not specified, defaults to 30 seconds.
 
        sampling: optional integer
-              Rate at which packets should be sampled and sent to the  collec‐
-              tor.  If  not specified, defaults to 400, which means one out of
+              Rate  at which packets should be sampled and sent to the collec‐
+              tor. If not specified, defaults to 400, which means one  out  of
               400 packets, on average, will be sent to the collector.
 
        targets: set of 1 or more strings
@@ -6093,36 +6115,36 @@ sFlow TABLE
 
      Common Columns:
 
-       The overall purpose of these columns is described under Common  Columns
+       The  overall purpose of these columns is described under Common Columns
        at the beginning of this document.
 
        external_ids: map of string-string pairs
 IPFIX TABLE
        Configuration for sending packets to IPFIX collectors.
 
-       IPFIX  is  a protocol that exports a number of details about flows. The
-       IPFIX implementation in Open vSwitch samples packets at a  configurable
-       rate,  extracts  flow information from those packets, optionally caches
-       and aggregates the flow information, and sends the  result  to  one  or
+       IPFIX is a protocol that exports a number of details about  flows.  The
+       IPFIX  implementation in Open vSwitch samples packets at a configurable
+       rate, extracts flow information from those packets,  optionally  caches
+       and  aggregates  the  flow  information, and sends the result to one or
        more collectors.
 
        IPFIX in Open vSwitch can be configured two different ways:
 
-              •      With  per-bridge  sampling,  Open  vSwitch performs IPFIX
+              •      With per-bridge sampling,  Open  vSwitch  performs  IPFIX
                      sampling automatically on all packets that pass through a
                      bridge. To configure per-bridge sampling, create an IPFIX
                      record and point a Bridge table’s ipfix column to it. The
-                     Flow_Sample_Collector_Set table  is  not  used  for  per-
+                     Flow_Sample_Collector_Set  table  is  not  used  for per-
                      bridge sampling.
 
-              •      With  flow-based sampling, sample actions in the OpenFlow
+              •      With flow-based sampling, sample actions in the  OpenFlow
                      flow table drive IPFIX sampling. See ovs-actions(7) for a
                      description of the sample action.
 
                      Flow-based sampling also requires database configuration:
                      create a IPFIX record that describes the IPFIX configura‐
-                     tion and a Flow_Sample_Collector_Set record  that  points
-                     to  the  Bridge whose flow table holds the sample actions
+                     tion  and  a Flow_Sample_Collector_Set record that points
+                     to the Bridge whose flow table holds the  sample  actions
                      and to IPFIX record. The ipfix in the Bridge table is not
                      used for flow-based sampling.
 
@@ -6155,17 +6177,17 @@ IPFIX TABLE
               IPFIX target collectors in the form ip:port.
 
        cache_active_timeout: optional integer, in range 0 to 4,200
-              The maximum period in seconds for which an IPFIX flow record  is
-              cached  and  aggregated before being sent. If not specified, de‐
+              The  maximum period in seconds for which an IPFIX flow record is
+              cached and aggregated before being sent. If not  specified,  de‐
               faults to 0. If 0, caching is disabled.
 
        cache_max_flows: optional integer, in range 0 to 4,294,967,295
               The maximum number of IPFIX flow records that can be cached at a
-              time. If not specified, defaults to 0. If  0,  caching  is  dis‐
+              time.  If  not  specified,  defaults to 0. If 0, caching is dis‐
               abled.
 
        stats_interval: optional integer, in range 1 to 3,600
-              Interval  (in  seconds) for sending IPFIX exporting process sta‐
+              Interval (in seconds) for sending IPFIX exporting  process  sta‐
               tistics according to IETF RFC 5101 Section 4.3.
 
               Default value is 600
@@ -6179,10 +6201,10 @@ IPFIX TABLE
        other_config : enable-tunnel-sampling: optional string, either true or
        false
               Set to true to enable sampling and reporting tunnel header 7-tu‐
-              ples in IPFIX flow records. Tunnel sampling is  enabled  by  de‐
+              ples  in  IPFIX  flow records. Tunnel sampling is enabled by de‐
               fault.
 
-              The  following  enterprise  entities  report  the sampled tunnel
+              The following enterprise  entities  report  the  sampled  tunnel
               info:
 
               tunnelType:
@@ -6192,8 +6214,8 @@ IPFIX TABLE
 
                      data type semantics: identifier.
 
-                     description: Identifier of the layer  2  network  overlay
-                     network  encapsulation  type:  0x01 VxLAN, 0x02 GRE, 0x03
+                     description:  Identifier  of  the layer 2 network overlay
+                     network encapsulation type: 0x01 VxLAN,  0x02  GRE,  0x03
                      LISP, 0x07 GENEVE.
 
               tunnelKey:
@@ -6203,10 +6225,10 @@ IPFIX TABLE
 
                      data type semantics: identifier.
 
-                     description: Key which is used for identifying  an  indi‐
-                     vidual  traffic  flow within a VxLAN (24-bit VNI), GENEVE
-                     (24-bit VNI), GRE (32-bit key), or LISP (24-bit  instance
-                     ID)  tunnel.  The  key is encoded in this octetarray as a
+                     description:  Key  which is used for identifying an indi‐
+                     vidual traffic flow within a VxLAN (24-bit  VNI),  GENEVE
+                     (24-bit  VNI), GRE (32-bit key), or LISP (24-bit instance
+                     ID) tunnel. The key is encoded in this  octetarray  as  a
                      3-, 4-, or 8-byte integer ID in network byte order.
 
               tunnelSourceIPv4Address:
@@ -6216,7 +6238,7 @@ IPFIX TABLE
 
                      data type semantics: identifier.
 
-                     description: The IPv4 source address  in  the  tunnel  IP
+                     description:  The  IPv4  source  address in the tunnel IP
                      packet header.
 
               tunnelDestinationIPv4Address:
@@ -6226,7 +6248,7 @@ IPFIX TABLE
 
                      data type semantics: identifier.
 
-                     description:  The  IPv4 destination address in the tunnel
+                     description: The IPv4 destination address in  the  tunnel
                      IP packet header.
 
               tunnelProtocolIdentifier:
@@ -6237,7 +6259,7 @@ IPFIX TABLE
                      data type semantics: identifier.
 
                      description: The value of the protocol number in the tun‐
-                     nel IP packet header. The protocol number identifies  the
+                     nel  IP packet header. The protocol number identifies the
                      tunnel IP packet payload type.
 
               tunnelSourceTransportPort:
@@ -6247,8 +6269,8 @@ IPFIX TABLE
 
                      data type semantics: identifier.
 
-                     description:  The  source  port  identifier in the tunnel
-                     transport header. For the transport protocols  UDP,  TCP,
+                     description: The source port  identifier  in  the  tunnel
+                     transport  header.  For the transport protocols UDP, TCP,
                      and SCTP, this is the source port number given in the re‐
                      spective header.
 
@@ -6259,25 +6281,25 @@ IPFIX TABLE
 
                      data type semantics: identifier.
 
-                     description:  The destination port identifier in the tun‐
-                     nel transport header. For the  transport  protocols  UDP,
-                     TCP,  and SCTP, this is the destination port number given
+                     description: The destination port identifier in the  tun‐
+                     nel  transport  header.  For the transport protocols UDP,
+                     TCP, and SCTP, this is the destination port number  given
                      in the respective header.
 
-              Before Open vSwitch 2.5.90,  other_config:enable-tunnel-sampling
-              was  only supported with per-bridge sampling, and ignored other‐
+              Before  Open vSwitch 2.5.90, other_config:enable-tunnel-sampling
+              was only supported with per-bridge sampling, and ignored  other‐
               wise. Open vSwitch 2.5.90 and later support other_config:enable-
               tunnel-sampling for per-bridge and per-flow sampling.
 
        other_config : virtual_obs_id: optional string
-              A string that accompanies each IPFIX flow record.  Its  intended
-              use  is  for  the ``virtual observation ID,’’ an identifier of a
-              virtual observation point that is locally unique  in  a  virtual
+              A  string  that accompanies each IPFIX flow record. Its intended
+              use is for the ``virtual observation ID,’’ an  identifier  of  a
+              virtual  observation  point  that is locally unique in a virtual
               network. It describes a location in the virtual network where IP
               packets can be observed. The maximum length is 254 bytes. If not
               specified, the field is omitted from the IPFIX flow record.
 
-              The  following  enterprise  entity reports the specified virtual
+              The following enterprise entity reports  the  specified  virtual
               observation ID:
 
               virtualObsID:
@@ -6287,45 +6309,45 @@ IPFIX TABLE
 
                      data type semantics: identifier.
 
-                     description: A virtual observation domain ID that is  lo‐
+                     description:  A virtual observation domain ID that is lo‐
                      cally unique in a virtual network.
 
               This feature was introduced in Open vSwitch 2.5.90.
 
      Per-Bridge Sampling:
 
-       These  values affect only per-bridge sampling. See above for a descrip‐
+       These values affect only per-bridge sampling. See above for a  descrip‐
        tion of the differences between per-bridge and flow-based sampling.
 
        sampling: optional integer, in range 1 to 4,294,967,295
-              The rate at which packets should be sampled  and  sent  to  each
+              The  rate  at  which  packets should be sampled and sent to each
               target collector. If not specified, defaults to 400, which means
-              one  out of 400 packets, on average, will be sent to each target
+              one out of 400 packets, on average, will be sent to each  target
               collector.
 
        obs_domain_id: optional integer, in range 0 to 4,294,967,295
-              The IPFIX Observation Domain ID sent in each  IPFIX  packet.  If
+              The  IPFIX  Observation  Domain ID sent in each IPFIX packet. If
               not specified, defaults to 0.
 
        obs_point_id: optional integer, in range 0 to 4,294,967,295
-              The  IPFIX  Observation Point ID sent in each IPFIX flow record.
+              The IPFIX Observation Point ID sent in each IPFIX  flow  record.
               If not specified, defaults to 0.
 
        other_config : enable-input-sampling: optional string, either true or
        false
-              By default, Open vSwitch samples and  reports  flows  at  bridge
-              port  input  in  IPFIX flow records. Set this column to false to
+              By  default,  Open  vSwitch  samples and reports flows at bridge
+              port input in IPFIX flow records. Set this column  to  false  to
               disable input sampling.
 
        other_config : enable-output-sampling: optional string, either true or
        false
-              By default, Open vSwitch samples and  reports  flows  at  bridge
-              port  output  in IPFIX flow records. Set this column to false to
+              By  default,  Open  vSwitch  samples and reports flows at bridge
+              port output in IPFIX flow records. Set this column to  false  to
               disable output sampling.
 
      Common Columns:
 
-       The overall purpose of these columns is described under Common  Columns
+       The  overall purpose of these columns is described under Common Columns
        at the beginning of this document.
 
        external_ids: map of string-string pairs
@@ -6333,20 +6355,20 @@ Flow_Sample_Collector_Set TABLE
        A set of IPFIX or local sampling collectors of packet samples generated
        by OpenFlow sample actions.
 
-       If  the  column ipfix contains a reference to a valid IPFIX entry, sam‐
-       ples will be emitted via IPFIX. This mechanism is known  as  flow-based
-       IPFIX  sampling, as opposed to bridge-based sampling (see the IPFIX ta‐
+       If the column ipfix contains a reference to a valid IPFIX  entry,  sam‐
+       ples  will  be emitted via IPFIX. This mechanism is known as flow-based
+       IPFIX sampling, as opposed to bridge-based sampling (see the IPFIX  ta‐
        ble for a description of the two forms).
 
-       If the column local_group_id contains an integer and the running  data‐
+       If  the column local_group_id contains an integer and the running data‐
        path supports local sample emission, packets will be sent to some local
-       sample  collector.  Samples  will contain the group number specified by
-       local_group_id which helps identify their source as well  as  a  64-bit
-       cookie  result  from  the concatenation of the observation_domain_id an
-       the observation_point_id in network byte order. The way the  sample  is
-       emitted  and  made available for local collectors is datapath-specific.
-       Currently only Linux kernel datapath supports local sampling  which  is
-       implemented  by  sending  the  packet  to the psample netlink multicast
+       sample collector. Samples will contain the group  number  specified  by
+       local_group_id  which  helps  identify their source as well as a 64-bit
+       cookie result from the concatenation of  the  observation_domain_id  an
+       the  observation_point_id  in network byte order. The way the sample is
+       emitted and made available for local collectors  is  datapath-specific.
+       Currently  only  Linux kernel datapath supports local sampling which is
+       implemented by sending the packet  to  the  psample  netlink  multicast
        group.
 
        Note: both local_group_id and ipfix can be configured simultaneously.
@@ -6362,82 +6384,82 @@ Flow_Sample_Collector_Set TABLE
 
    Details:
        id: integer, in range 0 to 4,294,967,295
-              The  ID of this collector set, unique among the bridge’s collec‐
-              tor sets, to be used as the collector_set_id in OpenFlow  sample
+              The ID of this collector set, unique among the bridge’s  collec‐
+              tor  sets, to be used as the collector_set_id in OpenFlow sample
               actions.
 
        bridge: Bridge
-              The  bridge  into  which OpenFlow sample actions can be added to
+              The bridge into which OpenFlow sample actions can  be  added  to
               send packet samples to this set of IPFIX collectors.
 
        ipfix: optional IPFIX
-              Configuration of the set of IPFIX collectors to  send  one  flow
+              Configuration  of  the  set of IPFIX collectors to send one flow
               record per sampled packet to.
 
        local_group_id: optional integer, in range 0 to 4,294,967,295
-              Configuration  of  the  sample group id to be used in local sam‐
+              Configuration of the sample group id to be used  in  local  sam‐
               pling.
 
      Common Columns:
 
-       The overall purpose of these columns is described under Common  Columns
+       The  overall purpose of these columns is described under Common Columns
        at the beginning of this document.
 
        external_ids: map of string-string pairs
 AutoAttach TABLE
-       Auto  Attach  configuration  within a bridge. The IETF Auto-Attach SPBM
-       draft standard describes a compact method of using  IEEE  802.1AB  Link
-       Layer  Discovery  Protocol (LLDP) together with a IEEE 802.1aq Shortest
-       Path Bridging (SPB) network to automatically attach network devices  to
-       individual  services in a SPB network. The intent here is to allow net‐
-       work applications and devices using OVS to be able to easily  take  ad‐
+       Auto Attach configuration within a bridge. The  IETF  Auto-Attach  SPBM
+       draft  standard  describes  a compact method of using IEEE 802.1AB Link
+       Layer Discovery Protocol (LLDP) together with a IEEE  802.1aq  Shortest
+       Path  Bridging (SPB) network to automatically attach network devices to
+       individual services in a SPB network. The intent here is to allow  net‐
+       work  applications  and devices using OVS to be able to easily take ad‐
        vantage of features offered by industry standard SPB networks.
 
-       Auto  Attach (AA) uses LLDP to communicate between a directly connected
-       Auto Attach Client (AAC) and Auto Attach Server (AAS). The LLDP  proto‐
-       col  is  extended  to  add two new Type-Length-Value tuples (TLVs). The
-       first new TLV supports the ongoing discovery of directly  connected  AA
-       correspondents.  Auto Attach operates by regularly transmitting AA dis‐
-       covery TLVs between the AA client and AA server.  By  exchanging  these
+       Auto Attach (AA) uses LLDP to communicate between a directly  connected
+       Auto  Attach Client (AAC) and Auto Attach Server (AAS). The LLDP proto‐
+       col is extended to add two new  Type-Length-Value  tuples  (TLVs).  The
+       first  new  TLV supports the ongoing discovery of directly connected AA
+       correspondents. Auto Attach operates by regularly transmitting AA  dis‐
+       covery  TLVs  between  the AA client and AA server. By exchanging these
        discovery messages, both the AAC and AAS learn the system name and sys‐
-       tem  description of their peer. In the OVS context, OVS operates as the
-       AA client and the AA server resides on a switch at the edge of the  SPB
+       tem description of their peer. In the OVS context, OVS operates as  the
+       AA  client and the AA server resides on a switch at the edge of the SPB
        network.
 
-       Once  AA  discovery has been completed the AAC then uses the second new
-       TLV to deliver identifier mappings from the AAC to the AAS.  A  primary
-       feature  of  Auto  Attach is to facilitate the mapping of VLANs defined
+       Once AA discovery has been completed the AAC then uses the  second  new
+       TLV  to  deliver identifier mappings from the AAC to the AAS. A primary
+       feature of Auto Attach is to facilitate the mapping  of  VLANs  defined
        outside the SPB network onto service ids (ISIDs) defined within the SPM
-       network. By doing so individual external VLANs can be mapped onto  spe‐
-       cific  SPB network services. These VLAN id to ISID mappings can be con‐
-       figured and managed locally using new options added  to  the  ovs-vsctl
+       network.  By doing so individual external VLANs can be mapped onto spe‐
+       cific SPB network services. These VLAN id to ISID mappings can be  con‐
+       figured  and  managed  locally using new options added to the ovs-vsctl
        command.
 
-       The  Auto  Attach OVS feature does not provide a full implementation of
-       the LLDP protocol. Support for the mandatory TLVs  as  defined  by  the
-       LLDP  standard  and support for the AA TLV extensions is provided. LLDP
-       protocol support in OVS can be enabled or disabled on a  port  by  port
+       The Auto Attach OVS feature does not provide a full  implementation  of
+       the  LLDP  protocol.  Support  for the mandatory TLVs as defined by the
+       LLDP standard and support for the AA TLV extensions is  provided.  LLDP
+       protocol  support  in  OVS can be enabled or disabled on a port by port
        basis. LLDP support is disabled by default.
 
    Summary:
        system_name                   string
        system_description            string
        mappings                      map  of  integer-integer  pairs,  key  in
-                                     range 0 to 16,777,215, value in  range  0
+                                     range  0  to 16,777,215, value in range 0
                                      to 4,095
 
    Details:
        system_name: string
-              The  system_name  string is exported in LLDP messages. It should
+              The system_name string is exported in LLDP messages.  It  should
               uniquely identify the bridge in the network.
 
        system_description: string
-              The system_description string is exported in LLDP  messages.  It
+              The  system_description  string is exported in LLDP messages. It
               should describe the type of software and hardware.
 
        mappings: map of integer-integer pairs, key in range 0 to 16,777,215,
        value in range 0 to 4,095
-              A  mapping from SPB network Individual Service Identifier (ISID)
+              A mapping from SPB network Individual Service Identifier  (ISID)
               to VLAN id.
 
-Open vSwitch 3.4.1              DB Schema 8.7.0        ovs-vswitchd.conf.db(5)
+Open vSwitch 3.5.0              DB Schema 8.8.0        ovs-vswitchd.conf.db(5)

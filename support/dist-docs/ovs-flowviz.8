@@ -1,0 +1,656 @@
+.\" Man page generated from reStructuredText.
+.
+.
+.nr rst2man-indent-level 0
+.
+.de1 rstReportMargin
+\\$1 \\n[an-margin]
+level \\n[rst2man-indent-level]
+level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+-
+\\n[rst2man-indent0]
+\\n[rst2man-indent1]
+\\n[rst2man-indent2]
+..
+.de1 INDENT
+.\" .rstReportMargin pre:
+. RS \\$1
+. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
+. nr rst2man-indent-level +1
+.\" .rstReportMargin post:
+..
+.de UNINDENT
+. RE
+.\" indent \\n[an-margin]
+.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.nr rst2man-indent-level -1
+.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
+..
+.TH "OVS-FLOWVIZ" "8" "Feb 17, 2025" "3.5" "Open vSwitch"
+.SH NAME
+ovs-flowviz \- utility for visualizing OpenFlow and datapath flows
+.SH SYNOPSIS
+.sp
+\fBovs\-flowviz\fP
+[\fB\-i\fP [\fIalias\fP,]\fIfile\fP | \fB\-\-input\fP [\fIalias\fP,]\fIfile\fP]
+[\fB\-c\fP \fIfile\fP | \fB\-\-config\fP \fIfile\fP]
+[\fB\-f\fP \fIfilter\fP | \fB\-\-filter\fP \fIfilter\fP]
+[\fB\-l\fP \fIfilter\fP | \fB\-\-highlight\fP \fIfilter\fP]
+[\fB\-\-style\fP \fIstyle\fP]
+\fIflow\-type\fP \fIformat\fP [\fIargs\fP…]
+.sp
+\fBovs\-flowviz \-\-help\fP
+.SH DESCRIPTION
+.sp
+\fBovs\-flowviz\fP helps visualize OpenFlow and datapath flow dumps in different
+formats in order to make them more easily understood.
+.sp
+\fBovs\-flowviz\fP reads flows from \fBstdin\fP or from a \fIfile\fP specified by the
+\fB\-\-input\fP option, filters them, highlights them, and finally outputs
+them in one of the predefined \fIformat\fPs.
+.SH OPTIONS
+.INDENT 0.0
+.TP
+.B \-h,  \-\-help
+Print a brief help message to the console.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-i  [<alias>,]<file>,  \-\-input  [<alias>,]<file>
+File to read flows from. If not provided, \fBovs\-flowviz\fP
+will read flows from stdin.
+.sp
+This option can be specified multiple times.
+The file path can prepended by an alias that will be shown in the output.
+For example: \fB\-\-input node1,/path/to/file1 \-\-input node2,/path/to/file2\fP
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-c  <file>,  \-\-config  <file>
+Style configuration file to use, overriding the default one.
+Styles defined in the style configuration file can be selected using
+the \fB\-\-style\fP option.
+.sp
+For more details on the style configuration file, see the
+\fI\%Style Configuration File\fP section below.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-f  <filter>,  \-\-filter  <filter>
+Flow filter expression. Only those flows matching the expression will be
+shown (although some formats implement filtering differently, see the
+\fI\%Datapath tree format\fP section below).
+.sp
+The filtering syntax is detailed in \fI\%Filtering Syntax\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-l  <filter>,  \-\-highlight  <filter>
+Highlight the flows that match the provided \fIfilter\fP expression.
+.sp
+The filtering syntax is detailed in \fI\%Filtering Syntax\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-style  <style>
+Style. The selected \fIstyle\fP must be defined in the style configuration file.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B flow\-type
+\fBopenflow\fP or \fBdatapath\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B format
+See the \fI\%Supported formats\fP section.
+.UNINDENT
+.SH SUPPORTED FORMATS
+.sp
+\fBovs\-flowviz\fP supports several visualization formats for both OpenFlow and
+datapath flows:
+.TS
+center;
+|l|l|l|.
+_
+T{
+Flow Type
+T}	T{
+Format
+T}	T{
+Description
+T}
+_
+T{
+Both
+T}	T{
+console
+T}	T{
+Prints the flows in a configurable, colorful style in the console.
+T}
+_
+T{
+Both
+T}	T{
+json
+T}	T{
+Prints the flows in JSON format.
+T}
+_
+T{
+Both
+T}	T{
+html
+T}	T{
+Prints the flows in an HTML list.
+T}
+_
+T{
+OpenFlow
+T}	T{
+cookie
+T}	T{
+Prints the flows in the console sorted by cookie.
+T}
+_
+T{
+OpenFlow
+T}	T{
+logic
+T}	T{
+Prints the logical structure of flows in the console.
+T}
+_
+T{
+Datapath
+T}	T{
+tree
+T}	T{
+Prints the flows as a tree structure arranged by \fBrecirc_id\fP and
+\fBin_port\fP\&.
+T}
+_
+T{
+Datapath
+T}	T{
+graph
+T}	T{
+Prints a graphviz graph of the flows arranged by \fBrecirc_id\fP and
+\fBin_port\fP\&.
+T}
+_
+.TE
+.SS Console format
+.sp
+The \fBconsole\fP format works for both OpenFlow and datapath flow types, and
+prints flows in the terminal using the style determined by the \fB\-\-style\fP
+option.
+.sp
+Arguments:
+.INDENT 0.0
+.TP
+.B \-h,  \-\-heat\-map
+Color of the packet and byte counters to reflect their relative size.
+The color gradient goes through the following colors:
+blue (coldest, lowest), cyan, green, yellow, red (hottest, highest)
+.sp
+Note filtering is applied before the range is calculated.
+.UNINDENT
+.SS JSON format
+.sp
+The \fBjson\fP format works for both OpenFlow and datapath flow types, and prints
+flows in JSON format. See the \fI\%JSON Syntax\fP section for more details.
+.SS HTML format
+.sp
+The \fBhtml\fP format works for both OpenFlow and datapath flows, and prints
+flows in an HTML table that offers some basic interactivity. OpenFlow flows
+are sorted in tables and datapath flows are arranged in flow trees
+(see \fI\%Datapath tree format\fP for more details).
+.sp
+Styles defined via Style Configuration File and selected via \fB\-\-style\fP option
+also apply to the \fBhtml\fP format.
+.SS OpenFlow cookie format
+.sp
+The OpenFlow \fBcookie\fP format is similar to the \fBconsole\fP format but
+instead of arranging the flows by table, it arranges the flows by cookie.
+.SS OpenFlow logic format
+.sp
+The OpenFlow \fBlogic\fP format helps visualize the logic structure of OpenFlow
+pipelines by arranging flows into \fIlogical blocks\fP\&.
+A logical block is a set of flows that have:
+.INDENT 0.0
+.IP \(bu 2
+Same \fBpriority\fP\&.
+.IP \(bu 2
+Match on the same fields (regardless of the match value and mask).
+.IP \(bu 2
+Execute the same actions (regardless of the actions’ arguments,
+except for resubmit and output).
+.IP \(bu 2
+Optionally, the \fBcookie\fP can be included as part of the logical flow.
+.UNINDENT
+.sp
+Arguments:
+.INDENT 0.0
+.TP
+.B \-s,  \-\-show\-flows
+Show all the flows under each logical block.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-d,  \-\-ovn\-detrace
+Use ovn\-detrace.py script to extract cookie information (implies ‘\-c’).
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-c,  \-\-cookie
+Consider the cookie in the logical block.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-ovn\-detrace\-path  <path>
+Use an alternative path to search for ovn_detrace.py.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-ovnnb\-db  <conn>
+OVN NB database connection method (implies ‘\-d’).
+Default: “unix:/var/run/ovn/ovnnb_db.sock”.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-ovnsb\-db  <conn>
+OVN SB database connection method (implies ‘\-d’).
+Default: “unix:/var/run/ovn/ovnsb_db.sock”.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-o  <filter>,  \-\-ovn\-filter  <filter>
+Specify the filter to be run on the ovn\-detrace information.
+Syntax: python regular expression
+(See \fI\%https://docs.python.org/3/library/re.html\fP).
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-h,  \-\-heat\-map
+Change the color of the packet and byte counters to reflect their relative
+size. The color gradient goes through the following colors:
+blue (coldest, lowest), cyan, green, yellow, red (hottest, highest)
+.sp
+Note filtering is applied before the range is calculated.
+.UNINDENT
+.SS Datapath tree format
+.sp
+The datapath \fBtree\fP format arranges datapath flows in a hierarchical tree.
+The tree is comprised of blocks with the same \fBrecirc_id\fP and \fBin_port\fP\&.
+Within those blocks, flows with the same action are combined. And matches
+which are the same are omitted to reduce the visual noise.
+.sp
+When a flow’s actions includes the \fBrecirc()\fP action with a specific
+\fBrecirc_id\fP, flows matching on that \fBrecirc_id\fP and the same \fBin_port\fP
+are listed below. This is done recursively for all actions.
+.sp
+The result is a hierarchical representation that shows how actions are related
+to each other via recirculation. Note that flows with a specific non\-zero
+\fBrecirc_id\fP are listed below each group of flows that have a corresponding
+\fBrecirc()\fP action. Therefore, the output contains duplicated flows and can be
+verbose.
+.sp
+Filtering works in a slightly different way for datapath flow trees.
+Unlike other formats where a filter simply removes non\-matching flows,
+the output of a filtered datapath flow tree will show full sub\-trees
+that contain at least one flow that satisfies the filter.
+.sp
+The \fBhtml\fP format prints this same tree as an interactive HTML table and
+the \fBgraph\fP format shows the same tree as a graphviz graph.
+.SS Datapath graph format
+.sp
+The datapath \fBgraph\fP generates a graphviz visual representation of the
+same tree\-like flow hierarchy that the \fBtree\fP format prints.
+.sp
+Arguments:
+.INDENT 0.0
+.TP
+.B \-h,  \-\-html
+Print the graphviz format as an svg image alongside an interactive HTML
+table of flows.
+.UNINDENT
+.SH JSON SYNTAX
+.sp
+Printing a single\-file OpenFlow or datapath dump without PMD thread blocks in
+\fBjson\fP format results in a list of JSON objects, each representing a flow.
+.sp
+This list can be found inside one or more levels of JSON dictionaries
+if multiple files are processed (filename used as key) or if PMD thread blocks
+are found in datapath flows (name of the thread used as key).
+.sp
+Each flow object includes the following keys:
+.INDENT 0.0
+.TP
+\fBorig\fP
+Original flow string.
+.TP
+\fBinfo\fP
+Object with the flow information such as: cookie, duration, table,
+n_packets, n_bytes, etc.
+.TP
+\fBmatch\fP
+Object with the flow match.
+For each match, the object contains a key\-value where the key is the name
+of the match as defined in \fBovs\-fields(7)\fP and \fBovs\-ofctl(8)\fP, and the
+value represents the match value. The way each value is represented depends
+on its type. See \fI\%Value representation\fP\&.
+.TP
+\fBactions\fP
+List of action objects.
+Each action is represented by an JSON object that has one key and one value.
+The key corresponds to the action name. The value represents the arguments
+of the key. See \fI\%Action representation\fP\&.
+.TP
+\fBufid\fP
+The UFID (datapath flows only).
+.UNINDENT
+.SS Value representation
+.sp
+Values are represented differently depending on their type:
+.INDENT 0.0
+.IP \(bu 2
+Flags: The value of flags is \fBtrue\fP\&.
+.IP \(bu 2
+Decimal / Hexadecimal: Represented by their integer value.
+If they support masking, represented by a dictionary with two keys:
+\fBvalue\fP contains the field value and \fBmask\fP contains the mask.
+Both are integers.
+.IP \(bu 2
+Ethernet: Represented by a string: \fB{address}[/{mask}]\fP
+.IP \(bu 2
+IPv4 / IPv6: Represented by a string \fB{address}[/{mask}]\fP
+.IP \(bu 2
+Registers: Represented by a dictionary with three keys:
+\fBfield\(ga\fP contains the field value (string), \fBstart\fP, and \fBend\fP
+represent the first and last bit of the register value.
+.UNINDENT
+.sp
+For example, the register
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+NXM_NX_REG10[0..15]
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+is represented as
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+    \(dqfield\(dq: \(dqNXM_NX_REG10\(dq,
+    \(dqstart\(dq: 0,
+    \(dqend\(dq: 15
+},
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS Action representation
+.sp
+Actions are generally represented by an object that has a single key and
+value. The key is the action name as defined \fBovs\-actions(7)\fP\&.
+.sp
+The value of actions that have no arguments (such as \fBdrop\fP) is
+(boolean) \fBtrue\fP\&.
+.sp
+The value of actions that have a list of arguments (e.g:
+\fBresubmit([port],[table],[ct])\fP) is an object that has the name of the
+argument as key. The argument names for each action is defined in
+ovs\-actions. For example, the action
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+resubmit(,10)
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+is represented as
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+    \(dqresubmit\(dq: {
+        \(dqport\(dq: \(dq\(dq,
+        \(dqtable\(dq: 10
+    }
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+The value of actions that have a key\-word list as arguments
+(e.g: \fBct([argument])\fP) is an object whose keys correspond to the keys
+defined in \fBovs\-actions(7)\fP\&. The way values are represented depends
+on the type of the argument.
+For example, the action
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+ct(table=14,zone=NXM_NX_REG12[0..15],nat)
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+is represented as
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+    \(dqct\(dq: {
+        \(dqtable\(dq: 14,
+        \(dqzone\(dq: {
+            \(dqfield\(dq: \(dqNXM_NX_REG12\(dq,
+            \(dqstart\(dq: 0,
+            \(dqend\(dq: 15
+        },
+        \(dqnat\(dq: true
+    }
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SH STYLE CONFIGURATION FILE
+.sp
+The style configuration file is selected via the \fB\-\-config\fP option
+and has INI syntax. It can define any number of styles to be used by both
+\fBconsole\fP and \fBhtml\fP formats. Once defined in the configuration file,
+formats are selected using the \fB\-\-style\fP option.
+.sp
+INI sections are used to define styles, \fB[styles.mystyle]\fP defines a style
+called \fImystle\fP\&. Within a section styles can be defined as:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+[FORMAT].[PORTION].[SELECTOR].[ELEMENT] = [VALUE]
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+\fBFORMAT\fP
+Either \fBconsole\fP or \fBhtml\fP
+.TP
+\fBPORTION\fP
+Part of the key\-value the style applies to:
+\fBkey\fP to indicate the key part of a key\-value, \fBvalue\fP to indicate
+the value part of a key\-value, \fBflag\fP to indicate a single flag
+or \fBdelim\fP to indicate delimiters such as parentheses, brackets, etc.
+.TP
+\fBSELECTOR\fP
+Select the key\-value the style applies to:
+\fBhighlighted\fP to indicate highlighted key\-values, \fBtype.<type>\fP
+to indicate certain types such as \fBIPAddress\fP or \fBEthMask\fP or
+\fB<keyname>\fP to select a particular key name.
+.TP
+\fBELEMENT\fP
+Select the style element to modify:
+\fBcolor\fP or \fBunderline\fP (only for \fBconsole\fP format).
+.TP
+\fBVALUE\fP
+Ether a color hex, other color names defined in the rich python
+library (\fI\%https://rich.readthedocs.io/en/stable/appendix/colors.html\fP) or
+\fBtrue\fP if the element is \fBunderline\fP\&.
+.UNINDENT
+.sp
+A default configuration file is shipped with \fBovs\-flowviz\fP and its path is
+printed in the \fB\-\-help\fP output. A detailed description of the syntax
+alongside some examples are available there.
+.SH FILTERING SYNTAX
+.sp
+\fBovs\-flowviz\fP provides rich highlighting and filtering. The special command
+\fBovs\-flowviz filter\fP dumps the filtering syntax:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ ovs\-flowviz filter
+Filter Syntax
+*************
+
+   [! | not ] {key}[[.subkey]...] [OPERATOR] {value})] [LOGICAL OPERATOR] ...
+
+  Comparison operators:
+      =   equality
+      <   less than
+      >   more than
+      ~=  masking (valid for IP and Ethernet fields)
+
+  Logical operators:
+      !{expr}:  NOT
+      {expr} && {expr}: AND
+      {expr} || {expr}: OR
+
+  Matches and flow metadata:
+      To compare against a match or info field, use the field directly, e.g:
+          priority=100
+          n_bytes>10
+      Use simple keywords for flags:
+          tcp and ip_src=192.168.1.1
+
+  Actions:
+      Actions values might be dictionaries, use subkeys to access individual
+      values, e.g:
+          output.port=3
+      Use simple keywords for flags
+          drop
+
+  Examples of valid filters:
+      nw_addr~=192.168.1.1 && (tcp_dst=80 || tcp_dst=443)
+      arp=true && !arp_tsa=192.168.1.1
+      n_bytes>0 && drop=true
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Example expressions:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+n_bytes > 0 and drop
+nw_src~=192.168.1.1 or arp.tsa=192.168.1.1
+! tcp && output.port=2
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SH EXAMPLES
+.sp
+Print OpenFlow flows sorted by cookie adding OVN data to each one:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ ovs\-flowviz \-i flows.txt openflow cookie \-\-ovn\-detrace
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Print OpenFlow logical structure, showing the flows and heat\-map:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ ovs\-flowviz \-i flows.txt openflow logic \-\-show\-flows \-\-heat\-map
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Display OpenFlow flows in HTML format with “light” style and highlight drops:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ ovs\-flowviz \-i flows.txt \-\-style \(dqlight\(dq \-\-highlight \(dqn_packets > 0 and drop\(dq openflow html > flows.html
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Display the datapath flows in an interactive graphviz + HTML view:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ ovs\-flowviz \-i flows.txt datapath graph \-\-html > flows.html
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Display the datapath flow trees that lead to packets being sent to port 10:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ ovs\-flowviz \-i flows.txt \-\-filter \(dqoutput.port=10\(dq datapath tree
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SH AUTHOR
+The Open vSwitch Development Community
+.SH COPYRIGHT
+2016-2024, The Open vSwitch Development Community
+.\" Generated by docutils manpage writer.
+.

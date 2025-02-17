@@ -189,7 +189,7 @@
 .
 .\" EOF
 .\" ----------------------------------------------------------------------
-.TH ovsdb\-server 1 "3.4.1" "Open vSwitch" "Open vSwitch Manual"
+.TH ovsdb\-server 1 "3.5.0" "Open vSwitch" "Open vSwitch Manual"
 .\" This program's name:
 .ds PN ovsdb\-server
 .
@@ -232,10 +232,12 @@ ovsdb\-server \- Open vSwitch database server
 [\fB\-\-bootstrap\-ca\-cert=\fIcacert.pem\fR]
 .br
 [\fB\-\-peer\-ca\-cert=\fIpeer-cacert.pem\fR]
-.IP "SSL connection options:"
+.IP "SSL/TLS connection options:"
 [\fB\-\-ssl\-protocols=\fIprotocols\fR]
 .br
 [\fB\-\-ssl\-ciphers=\fIciphers\fR]
+.br
+[\fB\-\-ssl\-ciphersuites=\fIciphersuites\fR]
 .br
 .IP "Runtime management options:"
 \fB\-\-unixctl=\fIsocket\fR
@@ -684,74 +686,89 @@ one row in \fItable\fR.)
 .IP "\fB\-p\fR \fIprivkey.pem\fR"
 .IQ "\fB\-\-private\-key=\fIprivkey.pem\fR"
 Specifies a PEM file containing the private key used as \fB\*(PN\fR's
-identity for outgoing SSL connections.
+identity for outgoing SSL/TLS connections.
 .
 .IP "\fB\-c\fR \fIcert.pem\fR"
 .IQ "\fB\-\-certificate=\fIcert.pem\fR"
 Specifies a PEM file containing a certificate that certifies the
 private key specified on \fB\-p\fR or \fB\-\-private\-key\fR to be
 trustworthy.  The certificate must be signed by the certificate
-authority (CA) that the peer in SSL connections will use to verify it.
+authority (CA) that the peer in SSL/TLS connections will use to
+verify it.
 .
 .IP "\fB\-C\fR \fIcacert.pem\fR"
 .IQ "\fB\-\-ca\-cert=\fIcacert.pem\fR"
 Specifies a PEM file containing the CA certificate that \fB\*(PN\fR
-should use to verify certificates presented to it by SSL peers.  (This
-may be the same certificate that SSL peers use to verify the
+should use to verify certificates presented to it by SSL/TLS peers.
+(This may be the same certificate that SSL/TLS peers use to verify the
 certificate specified on \fB\-c\fR or \fB\-\-certificate\fR, or it may
 be a different one, depending on the PKI design in use.)
 .
 .IP "\fB\-C none\fR"
 .IQ "\fB\-\-ca\-cert=none\fR"
-Disables verification of certificates presented by SSL peers.  This
+Disables verification of certificates presented by SSL/TLS peers.  This
 introduces a security risk, because it means that certificates cannot
 be verified to be those of known trusted hosts.
 .IP "\fB\-\-bootstrap\-ca\-cert=\fIcacert.pem\fR"
 When \fIcacert.pem\fR exists, this option has the same effect as
 \fB\-C\fR or \fB\-\-ca\-cert\fR.  If it does not exist, then
 \fB\*(PN\fR will attempt to obtain the CA certificate from the
-SSL peer on its first SSL connection and save it to the named PEM
-file.  If it is successful, it will immediately drop the connection
-and reconnect, and from then on all SSL connections must be
+SSL/TLS peer on its first SSL/TLS connection and save it to the named
+PEM file.  If it is successful, it will immediately drop the connection
+and reconnect, and from then on all SSL/TLS connections must be
 authenticated by a certificate signed by the CA certificate thus
 obtained.
 .IP
-\fBThis option exposes the SSL connection to a man-in-the-middle
+\fBThis option exposes the SSL/TLS connection to a man-in-the-middle
 attack obtaining the initial CA certificate\fR, but it may be useful
 for bootstrapping.
 .IP
-This option is only useful if the SSL peer sends its CA certificate as
-part of the SSL certificate chain.  The SSL protocol does not require
-the server to send the CA certificate.
+This option is only useful if the SSL/TLS peer sends its CA certificate
+as part of the SSL/TLS certificate chain.  SSL/TLS protocols do not
+require the server to send the CA certificate.
 .IP
 This option is mutually exclusive with \fB\-C\fR and
 \fB\-\-ca\-cert\fR.
 .IP "\fB\-\-peer\-ca\-cert=\fIpeer-cacert.pem\fR"
 Specifies a PEM file that contains one or more additional certificates
-to send to SSL peers.  \fIpeer-cacert.pem\fR should be the CA
+to send to SSL/TLS peers.  \fIpeer-cacert.pem\fR should be the CA
 certificate used to sign \fB\*(PN\fR's own certificate, that is, the
 certificate specified on \fB\-c\fR or \fB\-\-certificate\fR.  If
 \fB\*(PN\fR's certificate is self-signed, then \fB\-\-certificate\fR
 and \fB\-\-peer\-ca\-cert\fR should specify the same file.
 .IP
-This option is not useful in normal operation, because the SSL peer
+This option is not useful in normal operation, because the SSL/TLS peer
 must already have the CA certificate for the peer to have any
 confidence in \fB\*(PN\fR's identity.  However, this offers a way for
-a new installation to bootstrap the CA certificate on its first SSL
+a new installation to bootstrap the CA certificate on its first SSL/TLS
 connection.
 .SS "SSL Connection Options"
 .IP "\fB\-\-ssl\-protocols=\fIprotocols\fR"
-Specifies, in a comma- or space-delimited list, the SSL protocols
-\fB\*(PN\fR will enable for SSL connections.  Supported
-\fIprotocols\fR include \fBTLSv1\fR, \fBTLSv1.1\fR, and \fBTLSv1.2\fR.
+Specifies a range or a comma- or space-delimited list of the SSL/TLS protocols
+\fB\*(PN\fR will enable for SSL/TLS connections.  Supported
+\fIprotocols\fR include \fBTLSv1\fR (deprecated), \fBTLSv1.1\fR (deprecated),
+\fBTLSv1.2\fR and \fBTLSv1.3\fR.  Ranges can be provided in a form of two
+protocol names separated with a dash, or as a single protocol name with a plus
+sign.  For example, use \fBTLSv1.1-TLSv1.3\fR to allow \fBTLSv1.1\fR,
+\fBTLSv1.2\fR and \fBTLSv1.3\fR.  Use \fBTLSv1.2+\fR to allow \fBTLSv1.2\fR and
+any later protocol.  The option accepts a list of protocols or exactly one
+range.  The range is a preferred way of specifying protocols and the option
+always behaves as if the range between the minimum and the maximum specified
+version is provided, i.e., if the option is set to \fBTLSv1.1,TLSv1.3\fR, the
+\fBTLSv1.2\fR will also be enabled as if it was a range.
 Regardless of order, the highest protocol supported by both sides will
 be chosen when making the connection.  The default when this option is
-omitted is \fBTLSv1,TLSv1.1,TLSv1.2\fR.
+omitted is \fBTLSv1.2\fR or later.
 .
 .IP "\fB\-\-ssl\-ciphers=\fIciphers\fR"
-Specifies, in OpenSSL cipher string format, the ciphers \fB\*(PN\fR will 
-support for SSL connections.  The default when this option is omitted is
-\fBHIGH:!aNULL:!MD5\fR.
+Specifies, in OpenSSL cipher string format, the ciphers \fB\*(PN\fR will
+support for SSL/TLS connections with TLSv1.2 and earlier.  The default when
+this option is omitted is \fBDEFAULT:@SECLEVEL=2\fR.
+.
+.IP "\fB\-\-ssl\-ciphersuites=\fIciphersuites\fR"
+Specifies, in OpenSSL ciphersuite string format, the ciphersuites
+\fB\*(PN\fR will support for SSL/TLS connections with TLSv1.3 and later.
+Default value from OpenSSL will be used when this option is omitted.
 .SS "Other Options"
 .IP "\fB\-\-unixctl=\fIsocket\fR"
 Sets the name of the control socket on which \fB\*(PN\fR listens for
