@@ -1,6 +1,6 @@
 '\" p
 .\" -*- nroff -*-
-.TH "ovs-vswitchd.conf.db" 5 " DB Schema 8.8.0" "Open vSwitch 3.7.1" "Open vSwitch Manual"
+.TH "ovs-vswitchd.conf.db" 5 " DB Schema 8.8.0" "Open vSwitch 4.0.0" "Open vSwitch Manual"
 .fp 5 L CR              \\" Make fixed-width font available as \\fL.
 .de TQ
 .  br
@@ -306,6 +306,9 @@ optional string
 .TQ 2.75in
 \fBother_config : dpdk-hugepage-dir\fR
 optional string
+.TQ 2.75in
+\fBother_config : dpdk-probe-at-init\fR
+optional string, either \fBtrue\fR or \fBfalse\fR
 .TQ 2.75in
 \fBother_config : dpdk-extra\fR
 optional string
@@ -623,6 +626,14 @@ If not specified, OVS will not configure limits by default\[char46] Changing thi
 Specifies the path to the hugetlbfs mount point\[char46]
 .IP
 If not specified, this will be guessed by the DPDK library (default is /dev/hugepages)\[char46] Changing this value requires restarting the daemon\[char46]
+.IP "\fBother_config : dpdk-probe-at-init\fR: optional string, either \fBtrue\fR or \fBfalse\fR"
+Specifies whether DPDK should probe all devices available at the time DPDK is initialized\[char46] When set to \fBfalse\fR (the default), OVS will instruct DPDK to skip probing devices at initialization, unless \fBother_config:dpdk-extra\fR already contains allowed or blocked devices\[char46] This is required when declaring DPDK ports using the \fBclass=eth,mac=XX:XX:XX:XX:XX:XX\fR syntax\[char46]
+.IP
+Enabling this option implies higher resource consumption, as OVS may not use all probed devices\[char46] It may also cause undesired side effects such as additional interrupt handling and link status checks for unused devices\[char46] For example, mlx5 devices maintain link status and liveness by taking kernel locks frequently, even when OVS only uses a subset of the available ports\[char46]
+.IP
+Note that this option has no effect when \fBother_config:dpdk-extra\fR contains allowed (\fB\-a\fR or \fB\-\-allow\fR) or blocked (\fB\-b\fR or \fB\-\-block\fR) devices, as DPDK will honor those specifications regardless of this setting\[char46]
+.IP
+Defaults to \fBfalse\fR\[char46]
 .IP "\fBother_config : dpdk-extra\fR: optional string"
 Specifies additional eal command line arguments for DPDK\[char46]
 .IP
@@ -820,8 +831,6 @@ The \fBstatistics\fR column contains key-value pairs that report statistics abou
 Statistics are disabled by default to avoid overhead in the common case when statistics gathering is not useful\[char46] Set this value to \fBtrue\fR to enable populating the \fBstatistics\fR column or to \fBfalse\fR to explicitly disable it\[char46]
 .IP "\fBstatistics : cpu\fR: optional string, containing an integer, at least 1"
 Number of CPU processors, threads, or cores currently online and available to the operating system on which Open vSwitch is running, as an integer\[char46] This may be less than the number installed, if some are not online or if they are not available to the operating system\[char46]
-.IP
-Open vSwitch userspace processes are not multithreaded, but the Linux kernel-based datapath is\[char46]
 .IP "\fBstatistics : load_average\fR: optional string"
 A comma-separated list of three floating-point numbers, representing the system load average over the last 1, 5, and 15 minutes, respectively\[char46]
 .IP "\fBstatistics : memory\fR: optional string"
@@ -2189,6 +2198,9 @@ optional string
 \fBstatus : firmware_version\fR
 optional string
 .TQ 2.75in
+\fBstatus : peer_ifindex\fR
+optional string
+.TQ 2.75in
 \fBstatus : source_ip\fR
 optional string
 .TQ 2.75in
@@ -2580,7 +2592,7 @@ Interface name\[char46] Should be alphanumeric\[char46] For non-bonded port, thi
 The maximum length of an interface name depends on the underlying datapath:
 .RS
 .IP \(bu
-The names of interfaces implemented as Linux and BSD network devices, including interfaces with type \fBinternal\fR, \fBtap\fR, or \fBsystem\fR plus the different types of tunnel ports, are limited to 15 bytes\[char46] Windows limits these names to 255 bytes\[char46]
+The names of interfaces implemented as Linux and BSD network devices, including interfaces with type \fBinternal\fR, \fBtap\fR, or \fBsystem\fR plus the different types of tunnel ports, are limited to 15 bytes\[char46] In general, different datapath implementations may have different limitations\[char46]
 .IP \(bu
 The names of patch ports are not used in the underlying datapath, so operating system restrictions do not apply\[char46] Thus, they may have arbitrary length\[char46]
 .RE
@@ -2765,8 +2777,6 @@ By default, or if this option is \fBlegacy_l2\fR, the tunnel sends and receives 
 .IP \(bu
 If this option is \fBlegacy_l3\fR, the tunnel sends and receives only non-Ethernet (L3) packet, but the packets are represented as Ethernet frames for compatibility with legacy OpenFlow controllers that expect this behavior\[char46]
 .IP \(bu
-The \fBlegacy_l3\fR option is only available via the user space datapath\[char46] The OVS kernel datapath does not support devices of type ARPHRD_IPGRE which is the requirement for \fBlegacy_l3\fR type packets\[char46]
-.IP \(bu
 If this option is \fBptap\fR, the tunnel sends and receives any kind of packet\[char46] Open vSwitch represents packets in the tunnel using the \fBpacket_type\fR mechanism introduced in OpenFlow 1\[char46]5\[char46]
 .RE
 .IP "\fBoptions : seq\fR: optional string, either \fBtrue\fR or \fBfalse\fR"
@@ -2779,7 +2789,7 @@ Optional\[char46] A 4-byte sequence number field for GRE tunnel only\[char46] De
 .IP "\fBoptions : csum\fR: optional string, either \fBtrue\fR or \fBfalse\fR"
 Optional\[char46] Compute encapsulation header (either GRE or UDP) checksums on outgoing packets\[char46] When unset (the default value), checksum computing for outgoing packets is enabled for UDP IPv6 tunnels, and disabled for GRE and IPv4 UDP tunnels\[char46] When set to \fBfalse\fR, no checksums will be computed for outgoing tunnel encapsulation headers\[char46] When \fBtrue\fR, checksums will be computed for all outgoing tunnel encapsulation headers\[char46] Checksums present on incoming packets will be validated regardless of this setting\[char46] Incoming packets without a checksum will also be accepted regardless of this setting\[char46]
 .IP
-When using the upstream Linux kernel module, computation of checksums for \fBgeneve\fR and \fBvxlan\fR requires Linux kernel version 4\[char46]0 or higher\[char46] \fBgre\fR and \fBip6gre\fR support checksums for all versions of Open vSwitch that support GRE\[char46] The out of tree kernel module distributed as part of OVS can compute all tunnel checksums on any kernel version that it is compatible with\[char46]
+When using the Linux kernel datapath, computation of checksums for \fBgeneve\fR and \fBvxlan\fR requires Linux kernel version 4\[char46]0 or higher\[char46] \fBgre\fR and \fBip6gre\fR support checksums for all versions of Open vSwitch that support GRE\[char46]
 .ST "Tunnel Options: IPsec:"
 .PP
 .PP
@@ -2987,6 +2997,10 @@ The name of the device driver controlling the network adapter\[char46]
 The version string of the device driver controlling the network adapter\[char46]
 .IP "\fBstatus : firmware_version\fR: optional string"
 The version string of the network adapter\(cqs firmware, if available\[char46]
+.IP "\fBstatus : peer_ifindex\fR: optional string"
+For veth devices on Linux, this column contains the interface index of the peer veth device\[char46] This allows applications to programmatically discover veth pairs without requiring additional system calls or parsing network interface information\[char46]
+.IP
+Only present for veth devices (when \fBstatus:driver_name\fR is \(dqveth\(dq)\[char46] Not available on non-Linux systems\[char46]
 .IP "\fBstatus : source_ip\fR: optional string"
 The source IP address used for an IPv4/IPv6 tunnel end-point, such as \fBgre\fR\[char46]
 .IP "\fBstatus : tunnel_egress_iface\fR: optional string"
@@ -4403,7 +4417,7 @@ Columns\fR at the beginning of this document\[char46]
 Configuration for a datapath within \fBOpen_vSwitch\fR\[char46]
 .PP
 .PP
-A datapath is responsible for providing the packet handling in Open vSwitch\[char46] There are two primary datapath implementations used by Open vSwitch: kernel and userspace\[char46] Kernel datapath implementations are available for Linux and Hyper-V, and selected as \fBsystem\fR in the \fBdatapath_type\fR column of the \fBBridge\fR table\[char46] The userspace datapath is used by DPDK and AF-XDP, and is selected as \fBnetdev\fR in the \fBdatapath_type\fR column of the \fBBridge\fR table\[char46]
+A datapath is responsible for providing the packet handling in Open vSwitch\[char46] There are two primary datapath implementations used by Open vSwitch: kernel and userspace\[char46] Kernel datapath implementation is available for Linux and selected as \fBsystem\fR in the \fBdatapath_type\fR column of the \fBBridge\fR table\[char46] The userspace datapath is used by DPDK and AF-XDP, and is selected as \fBnetdev\fR in the \fBdatapath_type\fR column of the \fBBridge\fR table\[char46]
 .PP
 .PP
 A datapath of a particular type is shared by all the bridges that use that datapath\[char46] Thus, configurations applied to this table affect all bridges that use this datapath\[char46]
@@ -4519,23 +4533,19 @@ map of string-string pairs
 Reports the version number of the Open vSwitch datapath in use\[char46] This allows management software to detect and report discrepancies between Open vSwitch userspace and datapath versions\[char46] (The \fBovs_version\fR column in the \fBOpen_vSwitch\fR reports the Open vSwitch userspace version\[char46]) The version reported depends on the datapath in use:
 .RS
 .IP \(bu
-When the kernel module included in the Open vSwitch source tree is used, this column reports the Open vSwitch version from which the module was taken\[char46]
-.IP \(bu
-When the kernel module that is part of the upstream Linux kernel is used, this column reports \fB<unknown>\fR\[char46]
-.IP \(bu
 When the datapath is built into the \fBovs\-vswitchd\fR binary, this column reports \fB<built\-in>\fR\[char46] A built-in datapath is by definition the same version as the rest of the Open vSwitch userspace\[char46]
 .IP \(bu
-Other datapaths (such as the Hyper-V kernel datapath) currently report \fB<unknown>\fR\[char46]
+Other datapaths currently report \fB<unknown>\fR\[char46]
 .RE
 .IP
-A version discrepancy between \fBovs\-vswitchd\fR and the datapath in use is not normally cause for alarm\[char46] The Open vSwitch kernel datapaths for Linux and Hyper-V, in particular, are designed for maximum inter-version compatibility: any userspace version works with with any kernel version\[char46] Some reasons do exist to insist on particular user/kernel pairings\[char46] First, newer kernel versions add new features, that can only be used by new-enough userspace, e\[char46]g\[char46] VXLAN tunneling requires certain minimal userspace and kernel versions\[char46] Second, as an extension to the first reason, some newer kernel versions add new features for enhancing performance that only new-enough userspace versions can take advantage of\[char46]
+A version discrepancy between \fBovs\-vswitchd\fR and the datapath in use is not normally cause for alarm\[char46] The Open vSwitch kernel datapaths for Linux, in particular, is designed for maximum inter-version compatibility: any userspace version works with any kernel version\[char46] Some reasons do exist to insist on particular user/kernel pairings\[char46] First, newer kernel versions add new features, that can only be used by new-enough userspace, e\[char46]g\[char46] VXLAN tunneling requires certain minimal userspace and kernel versions\[char46] Second, as an extension to the first reason, some newer kernel versions add new features for enhancing performance that only new-enough userspace versions can take advantage of\[char46]
 .IP "\fBct_zones\fR: map of integer-\fBCT_Zone\fR pairs, key in range 0 to 65,535"
 Configuration for connection tracking zones\[char46] Each pair maps from a zone id to a configuration for that zone\[char46] Zone \fB0\fR applies to the default zone (ie, the one used if a zone is not specified in connection tracking-related OpenFlow matches and actions)\[char46]
 .ST "Capabilities:"
 .PP
 .PP
 .PP
-The \fBcapabilities\fR column reports a datapath\(cqs features\[char46] For the \fBnetdev\fR datapath, the capabilities are fixed for a given version of Open vSwitch because this datapath is built into the \fBovs\-vswitchd\fR binary\[char46] The Linux kernel and Windows and other datapaths, which are external to OVS userspace, can vary in version and capabilities independently from \fBovs\-vswitchd\fR\[char46]
+The \fBcapabilities\fR column reports a datapath\(cqs features\[char46] For the \fBnetdev\fR datapath, the capabilities are fixed for a given version of Open vSwitch because this datapath is built into the \fBovs\-vswitchd\fR binary\[char46] The Linux kernel and other datapaths, which are external to OVS userspace, can vary in version and capabilities independently from \fBovs\-vswitchd\fR\[char46]
 .PP
 .PP
 Some of these features indicate whether higher-level Open vSwitch features are available\[char46] For example, OpenFlow features for connection-tracking are available only when \fBcapabilities:ct_state\fR is \fBtrue\fR\[char46] A controller that wishes to determine whether a feature is supported could, therefore, consult the relevant capabilities in this table\[char46] However, as a general rule, it is better for a controller to try to use the higher-level feature and use the result as an indication of support, since the low-level capabilities are more likely to shift over time than the high-level features that rely on them\[char46]

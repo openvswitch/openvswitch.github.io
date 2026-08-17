@@ -189,7 +189,7 @@
 .
 .\" EOF
 .\" ----------------------------------------------------------------------
-.TH ovs\-vswitchd 8 "3.7.1" "Open vSwitch" "Open vSwitch Manual"
+.TH ovs\-vswitchd 8 "4.0.0" "Open vSwitch" "Open vSwitch Manual"
 .\" This program's name:
 .ds PN ovs\-vswitchd
 .
@@ -366,22 +366,6 @@ before dropping root privileges. Daemons that interact with a datapath,
 such as \fBovs\-vswitchd\fR, will be granted three additional capabilities,
 namely CAP_NET_ADMIN, CAP_NET_BROADCAST and CAP_NET_RAW.  The capability
 change will apply even if the new user is root.
-.IP
-On Windows, this option is not currently supported. For security reasons,
-specifying this option will cause the daemon process not to start.
-.SS "Service Options"
-The following options are valid only on Windows platform.
-.TP
-\fB\-\-service\fR
-Causes \fB\*(PN\fR to run as a service in the background. The service
-should already have been created through external tools like \fBSC.exe\fR.
-.
-.TP
-\fB\-\-service\-monitor\fR
-Causes the \fB\*(PN\fR service to be automatically restarted by the Windows
-services manager if the service dies or exits for unexpected reasons.
-.IP
-When \fB\-\-service\fR is not specified, this option has no effect.
 .SS "Public Key Infrastructure Options"
 .IP "\fB\-p\fR \fIprivkey.pem\fR"
 .IQ "\fB\-\-private\-key=\fIprivkey.pem\fR"
@@ -470,10 +454,6 @@ change to only to the system log, to the console, or to a file,
 respectively.  (If \fB\-\-detach\fR is specified, \fB\*(PN\fR closes
 its standard file descriptors, so logging to the console will have no
 effect.)
-.IP
-On Windows platform, \fBsyslog\fR is accepted as a word and is only
-useful along with the \fB\-\-syslog\-target\fR option (the word has no
-effect otherwise).
 .
 .IP \(bu
 \fBoff\fR, \fBemer\fR, \fBerr\fR, \fBwarn\fR, \fBinfo\fR, or
@@ -566,12 +546,6 @@ not used at all, the default socket is
 \fB/usr/local/var/run/openvswitch/\*(PN.\fIpid\fB.ctl\fR, where \fIpid\fR is \fB\*(PN\fR's
 process ID.
 .IP
-On Windows a local named pipe is used to listen for runtime management
-commands.  A file is created in the absolute path as pointed by
-\fIsocket\fR or if \fB\-\-unixctl\fR is not used at all, a file is
-created as \fB\*(PN.ctl\fR in the configured \fIOVS_RUNDIR\fR
-directory.  The file exists just to mimic the behavior of a Unix domain socket.
-.IP
 Specifying \fBnone\fR for \fIsocket\fR disables the control socket
 feature.
 .IP "\fB\-h\fR"
@@ -651,10 +625,16 @@ Deletes \fImac\fR address from a \fIport\fR and \fIvlan\fR on a \fIbridge\fR.
 .IP "\fBfdb/flush\fR [\fIbridge\fR]"
 Flushes \fIbridge\fR MAC address learning table, or all learning tables
 if no \fIbridge\fR is given.
-.IP "\fBfdb/show\fR \fIbridge\fR"
+.IP "\fBfdb/show\fR [\fIbridge\fR...]"
 Lists each MAC address/VLAN pair learned by the specified \fIbridge\fR,
 along with the port on which it was learned and the age of the entry,
-in seconds.
+in seconds.  Multiple bridge names may be given to query several bridges
+in a single call, and if no bridge is given the tables of all bridges are
+shown.  When more than one bridge is shown, text output gains a leading
+"Bridge" column that groups each bridge's entries, printing the bridge
+name only on its first row; a bridge with no entries is listed as a
+name-only row.  JSON output is an object keyed by bridge name, whose
+values are arrays of that bridge's entries.
 .IP "\fBfdb/stats-clear\fR [\fIbridge\fR]"
 Clear \fIbridge\fR MAC address learning table statistics, or all
 statistics if no \fIbridge\fR is given.
@@ -1209,44 +1189,22 @@ argument can be omitted. By default the commands present data for all pmd
 threads in the datapath. By specifying the "-pmd Core" option one can filter
 the output for a single pmd in the datapath.
 .
-.IP "\fBdpif-netdev/pmd-stats-show\fR [\fB-pmd\fR \fIcore\fR] [\fIdp\fR]"
-Shows performance statistics for one or all pmd threads of the datapath
-\fIdp\fR. The special thread "main" sums up the statistics of every non pmd
-thread.
-
-The sum of "phwol hits", "simple match hits", "emc hits", "smc hits",
-"megaflow hits" and "miss" is the number of packet lookups performed by the
-datapath. Beware that a recirculated packet experiences one additional lookup
-per recirculation, so there may be more lookups than forwarded packets in the
-datapath.
-
-The MFEX Opt hits displays the number of packets that are processed by the
-optimized miniflow extract implementations.
-
-Cycles are counted using the TSC or similar facilities (when available on
-the platform). The duration of one cycle depends on the processing platform.
-
-"idle cycles" refers to cycles spent in PMD iterations not forwarding any
-any packets. "processing cycles" refers to cycles spent in PMD iterations
-forwarding at least one packet, including the cost for polling, processing and
-transmitting said packets.
-
-To reset these counters use \fBdpif-netdev/pmd-stats-clear\fR.
-.
 .IP "\fBdpif-netdev/pmd-stats-clear\fR [\fIdp\fR]"
 Resets to zero the per pmd thread performance numbers shown by the
-\fBdpif-netdev/pmd-stats-show\fR and \fBdpif-netdev/pmd-perf-show\fR commands.
-It will NOT reset datapath or bridge statistics, only the values shown by
-the above commands.
+\fBdpif-netdev/pmd-perf-show\fR command.  It will NOT reset datapath or bridge
+statistics, only the values shown by the above command.
 .
 .IP "\fBdpif-netdev/pmd-perf-show\fR [\fB-nh\fR] [\fB-it\fR \fIiter_len\fR] \
 [\fB-ms\fR \fIms_len\fR] [\fB-pmd\fR \fIcore\fR] [\fIdp\fR]"
 Shows detailed performance metrics for one or all pmds threads of the
-user space datapath.
+user space datapath.  The special thread "main" sums up the statistics of every
+non pmd thread.
 
-The collection of detailed statistics can be controlled by a new
-configuration parameter "other_config:pmd-perf-metrics". By default it
-is disabled. The run-time overhead, when enabled, is in the order of 1%.
+The collection of additional detailed statistics can be controlled by a
+configuration parameter \fBother-config:pmd-perf-metrics\fR.  By default it is
+disabled.  The run-time overhead, when enabled, is in the order of 1%.
+
+Collected statistics include:
 
 .RS
 .IP
@@ -1343,7 +1301,6 @@ pmd thread numa_id 0 core_id 1:
   Rx packets:             2399607  (2381 Kpps, 848 cycles/pkt)
   Datapath passes:        3599415  (1.50 passes/pkt)
   - PHWOL hits:                 0  (  0.0 %)
-  - MFEX Opt hits:        3570133  ( 99.2 %)
   - Simple Match hits:          0  (  0.0 %)
   - EMC hits:              336472  (  9.3 %)
   - SMC hits:                   0  (  0.0 %)
@@ -1356,8 +1313,26 @@ pmd thread numa_id 0 core_id 1:
 .RE
 .IP
 Here "Rx packets" actually reflects the number of packets forwarded by the
-datapath. "Datapath passes" matches the number of packet lookups as
-reported by the \fBdpif-netdev/pmd-stats-show\fR command.
+datapath.
+
+The sum of "PHWOL hits", "Simple Match hits", "EMC hits", "SMC hits",
+"Megaflow hits" and "Upcalls" is the number of packet lookups performed by the
+datapath and it is reported as "Datapath passes".  Beware that a recirculated
+packet experiences one additional lookup per recirculation, so there may be
+more lookups than forwarded packets in the datapath.
+
+The "MFEX Opt hits" displays the number of packets that are processed by the
+optimized miniflow extract implementations.
+
+Cycles are counted using the TSC or similar facilities (when available on
+the platform).  The duration of one cycle depends on the processing platform.
+Statistics based on cycles are not reported for the "main" thread, since the
+accurate accounting of CPU cycles is not possible in this case.
+
+"idle iterations" refers to PMD iterations that did not result in processing
+any packets.  "busy iterations" refers to PMD iterations that included
+processing of at least one packet.  The reported used TSC cycles include the
+cost for polling, processing and transmitting said packets.
 
 To reset the counters and start a new measurement use
 \fBdpif-netdev/pmd-stats-clear\fR.
@@ -1436,35 +1411,6 @@ recirculation (only in balance-tcp mode).
 When this is the case, the above command prints the load-balancing information
 of the bonds configured in datapath \fIdp\fR showing the interface associated
 with each bucket (hash).
-.
-.IP "\fBdpif-netdev/subtable-lookup-prio-get\fR"
-Lists the DPCLS implementations or lookup functions that are available as well
-as their priorities.
-.
-.IP "\fBdpif-netdev/subtable-lookup-prio-set\fR \fIlookup_function\fR \
-\fIprio\fR"
-Sets the priority of a lookup function by name, \fIlookup_function\fR, and
-priority, \fIprio\fR, which should be a positive integer value.  The highest
-priority lookup function is used for classification.
-
-The number of affected dpcls ports and subtables is returned.
-.
-.IP "\fBdpif-netdev/dpif-impl-get\fR
-Lists the DPIF implementations that are available.
-.
-.IP "\fBdpif-netdev/dpif-impl-set\fR \fIdpif_impl\fR"
-Sets the DPIF to be used to \fIdpif_impl\fR. By default "dpif_scalar" is used.
-.
-.IP "\fBdpif-netdev/miniflow-parser-get\fR
-Lists the miniflow extract implementations that are available.
-.
-.IP "\fBdpif-netdev/miniflow-parser-set\fR [\fB-pmd\fR \fIcore\fR] \
-\fIminiflow_impl\fR [\fIstudy_cnt\fR]"
-Sets the miniflow extract to \fIminiflow_impl\fR for a specified PMD or all
-PMDs in the case where no value is specified.  By default "scalar" is used.
-\fIstudy_cnt\fR defaults to 128 and indicates the number of packets that the
-"study" miniflow implementation must parse before choosing an optimal
-implementation.
 .SS "DPIF-NETLINK COMMANDS"
 These commands are used to expose internal information of the "dpif-netlink"
 kernel space datapath.
@@ -1485,16 +1431,6 @@ Prints the debug information about memory pool used by DPDK \fIinterface\fR.
 If called without arguments, information of all the available mempools will
 be printed. For additional mempool statistics enable
 \fBCONFIG_RTE_LIBRTE_MEMPOOL_DEBUG\fR while building DPDK.
-.SS "ODP-EXECUTE COMMANDS"
-These commands manage the "odp-execute" component.
-
-.IP "\fBodp-execute/action-impl-show\fR
-Lists the actions implementations that are available and highlights the
-currently enabled one.
-.
-.IP "\fBodp-execute/action-impl-set\fR \fIaction_impl\fR"
-Sets the action implementation to any available implementation. By default
-"scalar" is used.
 .SS "DATAPATH DEBUGGING COMMANDS"
 These commands query and modify datapaths.  They are are similar to
 \fBovs\-dpctl\fR(8) commands.  \fBdpif/show\fR has the additional
@@ -1779,10 +1715,6 @@ module.
 \fBsyslog\fR, \fBconsole\fR, or \fBfile\fR, to limit the log level
 change to only to the system log, to the console, or to a file,
 respectively.
-.IP
-On Windows platform, \fBsyslog\fR is accepted as a word and is only
-useful along with the \fB\-\-syslog\-target\fR option (the word has no
-effect otherwise).
 .
 .IP \(bu 
 \fBoff\fR, \fBemer\fR, \fBerr\fR, \fBwarn\fR, \fBinfo\fR, or
